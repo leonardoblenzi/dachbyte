@@ -1,0 +1,5 @@
+ALTER TABLE "OAuthToken"
+ADD COLUMN IF NOT EXISTS "adsAccessToken" TEXT,
+ADD COLUMN IF NOT EXISTS "adsAccessTokenExpiresAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "adsRefreshToken" TEXT,
+ADD COLUMN IF NOT EXISTS "adsRefreshTokenExpiresAt" TIMESTAMP(3);

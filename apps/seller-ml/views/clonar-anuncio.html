@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="utf-8" />
+  <title>Operacao - Clonar anuncio</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/clonar-anuncio.css?v=19" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="clone-page">
+  <main class="clone-wrap">
+    <header class="page-title">
+      <div class="page-title__eyebrow">Anuncios</div>
+      <h2>Clonar anuncio</h2>
+      <div class="page-subtitle muted">
+        Use a mini extensao pelo navegador para capturar o anuncio do Mercado Livre e criar um rascunho editavel.
+      </div>
+    </header>
+
+    <div id="feedback" class="clone-feedback" aria-live="polite"></div>
+
+    <section id="homeSection" class="section-card listing-clone-shell">
+      <div class="section-card__header">
+        <div>
+          <p class="section-eyebrow">Operacao</p>
+          <h3 class="section-title">Clonar anuncio</h3>
+          <p class="muted">Use a captura assistida para clonar anuncios do Mercado Livre pelo navegador.</p>
+        </div>
+      </div>
+
+      <div class="section-card__body">
+        <div class="listing-clone-subtabs" aria-label="Areas da clonagem">
+          <button type="button" class="btn btn-primary listing-clone-subtab" data-clone-subtab="editor">
+            Novo clone
+          </button>
+          <button type="button" class="btn btn-ghost listing-clone-subtab" data-clone-subtab="drafts">
+            Rascunhos
+          </button>
+        </div>
+
+        <div class="listing-clone-intro">
+          <div class="listing-clone-hero">
+            <div>
+              <span class="listing-clone-badge">Mercado Livre assistido</span>
+              <h2>Clone Mercado Livre pelo navegador, sem depender da API bloqueada.</h2>
+              <p>
+                O Mercado Livre bloqueia a leitura pelo servidor em muitos anuncios. Por isso, a mini extensao captura a pagina aberta no seu navegador e envia os dados reais para a Davantti montar o rascunho.
+              </p>
+            </div>
+            <div class="listing-clone-hero__steps">
+              <div class="listing-clone-step"><strong>1.</strong><span>Arraste o botao azul para a barra de favoritos.</span></div>
+              <div class="listing-clone-step"><strong>2.</strong><span>Abra o anuncio no Mercado Livre e clique no favorito.</span></div>
+              <div class="listing-clone-step"><strong>3.</strong><span>Revise o rascunho criado na Davantti.</span></div>
+            </div>
+          </div>
+
+          <div class="browser-capture-card">
+            <div>
+              <span class="listing-clone-badge">Mini extensao ML</span>
+              <h3>Instale uma vez e clone direto da pagina do Mercado Livre</h3>
+              <p>
+                Este botao nao roda dentro da Davantti. Ele deve ficar na barra de favoritos do navegador para ser clicado quando voce estiver dentro do anuncio do Mercado Livre.
+              </p>
+              <ol>
+                <li>Arraste <strong>Arraste para favoritos</strong> para a barra de favoritos.</li>
+                <li>Entre no anuncio do Mercado Livre que deseja clonar.</li>
+                <li>Clique no favorito <strong>Clonar na Davantti</strong>.</li>
+              </ol>
+            </div>
+            <div class="browser-capture-card__actions">
+              <a id="bookmarkletLink" class="bookmarklet-button" href="#" title="Arraste este botao para a barra de favoritos">Arraste para favoritos</a>
+              <button id="btnCopyBookmarklet" type="button" class="btn btn-ghost">Copiar codigo do favorito</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="reviewSection" class="listing-clone-editor hidden-step">
+      <div class="section-card listing-clone-shell">
+        <div class="section-card__header">
+          <div>
+            <h3 class="section-title">Clonar anuncio</h3>
+            <p class="muted">Revise os campos clonados antes da validacao e publicacao.</p>
+          </div>
+          <div class="section-actions">
+            <button id="btnCancelClone" type="button" class="btn btn-ghost">Cancelar clonagem</button>
+            <button id="btnSaveReview" type="button" class="btn btn-ghost">Salvar rascunho</button>
+            <button id="btnGoToPublish" type="button" class="btn btn-primary">Confirmar lancamento</button>
+          </div>
+        </div>
+
+        <div class="section-card__body">
+          <div class="listing-clone-subtabs" aria-label="Areas da clonagem">
+            <button type="button" class="btn btn-primary listing-clone-subtab" data-clone-subtab="editor">
+              Novo clone
+            </button>
+            <button type="button" class="btn btn-ghost listing-clone-subtab" data-clone-subtab="drafts">
+              Rascunhos
+            </button>
+          </div>
+
+          <div id="draftChecklist" class="listing-clone-checklist"></div>
+          <div id="draftNotesList" class="listing-clone-notes"></div>
+          <div id="reviewValidationSummary" class="listing-clone-checklist validation-summary hidden"></div>
+          <div id="validationBox" class="listing-clone-notes validation-box hidden"></div>
+
+          <div class="listing-clone-summary">
+            <div class="listing-clone-summary__media">
+              <img id="draftSummaryImage" alt="Imagem principal do rascunho" />
+              <div id="draftSummaryImageEmpty" class="listing-clone-summary__media--empty hidden">Sem imagem</div>
+            </div>
+            <div class="listing-clone-summary__meta">
+              <div>
+                <span id="draftStatus" class="status-pill">em_revisao</span>
+              </div>
+              <h3 id="draftSummaryTitle">-</h3>
+              <div id="draftSummaryMeta" class="listing-clone-pill-row"></div>
+              <a id="draftSummarySourceLink" target="_blank" rel="noopener noreferrer">Abrir anuncio original</a>
+            </div>
+          </div>
+
+          <div class="listing-clone-form-grid review-grid">
+            <label class="listing-clone-form-grid__full">
+              Titulo
+              <input id="draftTitle" type="text" />
+            </label>
+            <label>
+              Family name
+              <input id="draftFamilyName" type="text" placeholder="Ex.: MGLW..." />
+              <small class="field-help">Algumas categorias exigem este campo para publicar.</small>
+            </label>
+            <label>
+              Preco
+              <input id="draftPrice" type="number" step="0.01" min="0" />
+            </label>
+            <label>
+              Quantidade
+              <input id="draftQty" type="number" step="1" min="0" />
+            </label>
+            <label class="review-grid__span-2">
+              Categoria
+              <input id="draftCategoryName" type="text" readonly />
+              <small id="draftCategoryPath" class="field-help"></small>
+              <input id="draftCategory" type="hidden" />
+            </label>
+            <label>
+              Tipo de anuncio
+              <select id="draftListingType"></select>
+            </label>
+            <label>
+              Condicao
+              <select id="draftCondition"></select>
+            </label>
+            <label>
+              Modalidade de envio
+              <select id="draftShippingMode"></select>
+              <small id="draftShippingModeHint" class="field-help"></small>
+            </label>
+            <label>
+              Politica de frete
+              <select id="draftShippingFree"></select>
+              <small id="draftShippingFreeHint" class="field-help"></small>
+            </label>
+          </div>
+
+          <section id="variationModeWrap" class="listing-clone-section variation-mode hidden">
+            <div class="listing-clone-section__head">
+              <strong>Modo de clonagem</strong>
+              <span id="variationModeHelp" class="field-help"></span>
+            </div>
+            <div class="variation-mode__options">
+              <label class="variation-mode__option">
+                <input id="cloneModeUnitario" type="radio" name="cloneMode" value="unitario" />
+                <span>Unitario (1 SKU)</span>
+              </label>
+              <label class="variation-mode__option">
+                <input id="cloneModeVariacoes" type="radio" name="cloneMode" value="variacoes" />
+                <span>Com variacoes</span>
+              </label>
+            </div>
+          </section>
+
+          <label class="listing-clone-form-grid__full full-width">
+            Descricao (texto do anuncio)
+            <textarea id="draftDescription" rows="5"></textarea>
+          </label>
+
+          <section class="listing-clone-section attr-section">
+            <div class="listing-clone-section__head">
+              <h3>Caracteristicas principais</h3>
+              <span class="attr-section__hint">Campos mais relevantes para exibicao e busca.</span>
+            </div>
+            <div id="draftAttributesMain" class="attr-editor"></div>
+          </section>
+
+          <section class="listing-clone-section attr-section">
+            <div class="listing-clone-section__head">
+              <h3>Caracteristicas secundarias</h3>
+              <span class="attr-section__hint">Detalhes complementares do produto.</span>
+            </div>
+            <div id="draftAttributesSecondary" class="attr-editor"></div>
+          </section>
+
+          <section id="draftAttributesUnmatchedWrap" class="listing-clone-section attr-section attr-section--muted hidden">
+            <div class="listing-clone-section__head">
+              <h3>Caracteristicas detectadas na pagina (nao mapeadas)</h3>
+              <span class="attr-section__hint">Revise e, se necessario, inclua manualmente nos campos acima.</span>
+            </div>
+            <div id="draftAttributesUnmatched" class="attr-chip-list"></div>
+          </section>
+
+          <section id="variationSection" class="listing-clone-section attr-section hidden">
+            <div class="listing-clone-section__head">
+              <h3>Variacoes do anuncio</h3>
+              <span id="variationCountBadge" class="attr-section__hint">0 variacoes</span>
+            </div>
+            <p class="clone-help">
+              Revise preco e estoque por variacao. Desative variacoes que nao devem ser clonadas.
+            </p>
+            <div id="variationList" class="variation-list"></div>
+          </section>
+
+          <section class="listing-clone-section">
+            <div class="listing-clone-section__head">
+              <h3>Imagens</h3>
+              <span class="attr-section__hint">Exibicao por cards para revisar as imagens capturadas.</span>
+            </div>
+            <div id="draftImageGrid" class="listing-clone-image-grid"></div>
+            <label class="listing-clone-form-grid__full full-width">
+              URLs detectadas automaticamente
+              <textarea id="draftPictures" rows="4" readonly></textarea>
+              <small class="field-help">As imagens sao carregadas direto do anuncio de origem do Mercado Livre.</small>
+            </label>
+          </section>
+
+          <details class="listing-clone-section advanced-editor">
+            <summary>Campos avancados (JSON)</summary>
+            <label class="full-width">
+              Atributos (gerado automaticamente pelos campos acima)
+              <textarea id="draftAttributes" rows="6" readonly></textarea>
+            </label>
+            <label class="full-width">
+              Atributos adicionais (JSON manual)
+              <textarea id="draftAttributesExtra" rows="5" placeholder='[{"id":"SELLER_PACKAGE_HEIGHT","value_name":"20 cm"}]'></textarea>
+              <small class="field-help">Use para atributos obrigatorios que nao aparecerem nos campos visuais.</small>
+            </label>
+            <label class="full-width">
+              Termos de venda (JSON)
+              <textarea id="draftSaleTerms" rows="5"></textarea>
+            </label>
+          </details>
+
+          <label class="listing-clone-form-grid__full full-width">
+            Observacoes da revisao
+            <textarea id="draftNotes" rows="3" placeholder="Ex.: ajustar titulo para evitar duplicidade e revisar atributos obrigatorios"></textarea>
+          </label>
+
+          <div class="section-actions listing-clone-actions">
+            <button id="btnValidateDraft" type="button" class="btn btn-ghost">Validar no Mercado Livre</button>
+          </div>
+
+          <div id="publishProgress" class="publish-progress hidden">
+            <div class="publish-progress__head">
+              <strong id="publishProgressLabel">Iniciando publicacao...</strong>
+              <span id="publishProgressPercent">0%</span>
+            </div>
+            <div class="publish-progress__track">
+              <div id="publishProgressBar" class="publish-progress__bar"></div>
+            </div>
+            <p id="publishProgressHint" class="publish-progress__hint">
+              Aguarde ate concluir as etapas de validacao e criacao do anuncio.
+            </p>
+          </div>
+
+          <div id="publishResult" class="publish-result hidden">
+            <h3>Anuncio criado com sucesso</h3>
+            <div class="publish-result__grid">
+              <article>
+                <span class="publish-result__label">MLB gerado</span>
+                <strong id="publishResultItemId">-</strong>
+              </article>
+              <article>
+                <span class="publish-result__label">URL do anuncio</span>
+                <a id="publishResultPermalink" target="_blank" rel="noopener noreferrer">-</a>
+              </article>
+              <article>
+                <span class="publish-result__label">Publicado em</span>
+                <strong id="publishResultPublishedAt">-</strong>
+              </article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="draftsSection" class="section-card listing-clone-shell listing-clone-drafts hidden">
+      <div class="section-card__header">
+        <div>
+          <h3 class="section-title">Rascunhos recentes</h3>
+          <p class="muted">Continue uma clonagem salva ou revise historicos recentes.</p>
+        </div>
+        <div class="section-actions">
+          <button type="button" class="btn btn-ghost" id="btnReloadDrafts">Atualizar rascunhos</button>
+        </div>
+      </div>
+      <div class="section-card__body">
+        <div id="draftList" class="draft-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/ml/js/clonar-anuncio.js?v=17" defer></script>
+</body>
+</html>

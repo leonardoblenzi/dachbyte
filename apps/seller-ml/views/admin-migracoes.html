@@ -1,0 +1,177 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="stylesheet" href="/ml/css/ml-app.css?v=7" />
+<title>Admin - Migracoes</title>
+
+  <link rel="stylesheet" href="/ml/css/admin-migracoes.css?v=3">
+    <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/ml/css/ml-master-theme.css?v=2026081301" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+<main class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar__brand">
+        <div class="admin-sidebar__logo">DACHBYTE</div>
+        <div class="admin-sidebar__sub">Administracao</div>
+      </div>
+
+      <nav class="admin-menu">
+         <a class="admin-menu__item" href="/ml/admin/usuarios">
+          <span class="ico">U</span>
+          <span>Usuarios</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/empresas">
+          <span class="ico">E</span>
+          <span>Empresas</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/vinculos">
+          <span class="ico">V</span>
+          <span>Vinculos</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/contas-ml">
+          <span class="ico">M</span>
+          <span>Contas ML</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/relatorios-ml"><span class="ico">R</span><span>Relatorios ML</span></a>
+
+        <a class="admin-menu__item" href="/ml/admin/tokens-ml">
+          <span class="ico">T</span>
+          <span>Tokens ML</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/oauth-states">
+          <span class="ico">O</span>
+          <span>OAuth States</span>
+        </a>
+
+        <a class="admin-menu__item active" href="/ml/admin/migracoes">
+          <span class="ico">G</span>
+          <span>Migracoes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/patch-notes">
+            <span class="ico">P</span><span>Patch Notes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/jobs">
+            <span class="ico">J</span><span>Automacoes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/backup">
+            <span class="ico">B</span><span>Backup</span>
+        </a>
+      </nav>
+
+      <div class="admin-sidebar__footer">
+        <small>Area restrita</small>
+      </div>
+    </aside>
+
+    <section class="admin-content">
+      <div class="admin-content__header">
+        <div>
+          <h1 class="admin-title">Migracoes do banco</h1>
+          <p class="admin-subtitle">
+            Visualize o status das migracoes (.sql) e o historico de aplicacao no banco.
+          </p>
+        </div>
+
+        <div class="admin-actions">
+          <button id="btn-refresh" class="btn-lite" type="button">Atualizar</button>
+          <button id="btn-run" class="btn-primary" type="button">Executar pendentes</button>
+        </div>
+      </div>
+
+      <div class="admin-toolbar">
+        <div class="toolbar-left">
+          <span class="pill" id="pill-files">0 arquivos</span>
+          <span class="pill" id="pill-applied">0 aplicadas</span>
+          <span class="pill" id="pill-pending">0 pendentes</span>
+        </div>
+        <div class="toolbar-right">
+          <span class="hint-mini">Rodar pendentes executa SQL no banco. Use com cuidado.</span>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head">
+            <h3>Arquivos em /db</h3>
+            <small>Fonte: diretorio do projeto</small>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table" id="files-table">
+              <thead>
+                <tr>
+                  <th>Arquivo</th>
+                  <th style="width:140px;">Status</th>
+                  <th style="width:120px; text-align:right;">Acoes</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-files">
+                <tr><td colspan="3" class="table-empty">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Historico aplicado</h3>
+            <small>Fonte: tabela <code>migracoes</code></small>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table" id="applied-table">
+              <thead>
+                <tr>
+                  <th style="width:90px;">ID</th>
+                  <th>Arquivo</th>
+                  <th style="width:190px;">Aplicado em</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-applied">
+                <tr><td colspan="3" class="table-empty">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="hint">
+         A fonte da verdade do que foi aplicado e a tabela <strong>migracoes</strong>. Os arquivos em <strong>/db</strong> sao apenas a lista de scripts existentes.
+      </div>
+
+      <div class="hint hint-legacy">
+        Scripts marcados como <strong>LEGADO</strong> pertencem a funcionalidades descontinuadas e foram mantidos apenas como historico de banco.
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal preview SQL -->
+  <div class="modal" id="modal-sql" aria-hidden="true">
+    <div class="modal-content modal-wide">
+      <div class="modal-header">
+        <h3 id="modal-title">Preview</h3>
+        <button class="close" id="modal-close" type="button"></button>
+      </div>
+
+      <div class="modal-body">
+        <pre class="codebox" id="sql-box">Carregando...</pre>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-lite" id="btn-close" type="button">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" style="display:none;"></div>
+<script src="/ml/js/admin-migracoes.js?v=1"></script>
+</body>
+</html>

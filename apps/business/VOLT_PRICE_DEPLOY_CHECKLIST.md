@@ -1,0 +1,31 @@
+# VoltPrice - checklist antes do primeiro deploy
+
+- [ ] Fazer commit/backup da branch atual antes de mesclar.
+- [ ] Copiar `volt-price/.env.example` para as variaveis do Render, nunca para um `.env` versionado.
+- [ ] Definir `VOLT_PRICE_ENCRYPTION_KEY` forte e guardar em secret manager/Render.
+- [ ] Confirmar `VOLT_PRICE_PUBLIC_BASE_URL` com a URL HTTPS publica real.
+- [ ] Cadastrar callbacks OAuth:
+  - Tray: `<BASE>/volt-price/api/integrations/tray/callback`
+  - Mercado Livre: `<BASE>/volt-price/api/integrations/meli/callback`
+  - Shopee: `<BASE>/volt-price/api/integrations/shopee/callback`
+- [ ] Inserir consumer key/secret do app Tray ja existente.
+- [ ] Validar se o host da API Tray retornado termina em `.commercesuite.com.br`; caso use host customizado confiavel, incluir explicitamente em `VOLT_PRICE_TRAY_ALLOWED_HOSTS`.
+- [ ] Inserir Client ID/Secret Mercado Livre.
+- [ ] Confirmar redirect URI do Mercado Livre exatamente igual ao callback configurado.
+- [ ] Inserir Partner ID/Key Shopee.
+- [ ] Conferir no console oficial Shopee os paths V2 e permissoes Order/Payment antes de conectar loja real.
+- [ ] Habilitar bootstrap Admin Master somente no primeiro deploy/recuperacao.
+- [ ] Configurar TOTP do Admin Master e senha >=16 caracteres em producao.
+- [ ] Apos criar o master, desligar `VOLT_PRICE_BOOTSTRAP_MASTER_ENABLED`.
+- [ ] Confirmar que `DB_VOLTPRICE` aponta para a URL pooled do Neon correto.
+- [ ] Confirmar que `DB_VOLTPRICE_DIRECT` aponta para a URL direta do mesmo banco.
+- [ ] Deploy: o pre-deploy executara `npm run migrate:all`; `business/start.js` nao executa DDL.
+- [ ] Abrir `/volt-price/health`.
+- [ ] Criar tenant de teste pelo Admin Master.
+- [ ] Testar login owner em tenant separado.
+- [ ] Conectar Tray e sincronizar periodo curto primeiro.
+- [ ] Validar um pedido Tray completo e vinculo com marketplace.
+- [ ] Conectar Mercado Livre e consultar taxas de um order id real.
+- [ ] Conectar Shopee e consultar escrow de um order_sn real.
+- [ ] Validar audit log do acesso Admin Master, conexoes e vinculo de pedido.
+- [ ] Antes de abrir para clientes, executar teste cross-tenant com dois tenants reais de QA.

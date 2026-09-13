@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: davantti-volt-core
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npm run preflight && npm run migrate
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VOLT_CORE_APP_DATABASE_URL
+        sync: false
+      - key: VOLT_CORE_DIRECT_DATABASE_URL
+        sync: false
+      - key: VOLT_CORE_JWT_SECRET
+        sync: false
+      - key: VOLT_CORE_ALLOWED_ORIGINS
+        sync: false
+      - key: VOLT_CORE_BOOTSTRAP_MASTER_ENABLED
+        sync: false
+      - key: VOLT_CORE_BOOTSTRAP_MASTER_EMAIL
+        sync: false
+      - key: VOLT_CORE_BOOTSTRAP_MASTER_PASSWORD
+        sync: false
+      - key: HUB_LOGIN_MODE
+        sync: false
+      - key: HUB_BASE_URL
+        sync: false
+      - key: HUB_INTERNAL_TOKEN
+        sync: false
+      - key: HUB_REQUEST_TIMEOUT_MS
+        value: "8000"
+      - key: VOLT_CORE_LOG_LEVEL
+        value: "info"
+      - key: VOLT_CORE_SLOW_REQUEST_MS
+        value: "1000"
+      - key: VOLT_CORE_SLOW_QUERY_MS
+        value: "750"
+      - key: VOLT_CORE_JOB_POLL_MS
+        value: "3000"
+      - key: VOLT_CORE_JOB_RECOVERY_MS
+        value: "60000"

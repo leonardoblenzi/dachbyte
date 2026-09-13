@@ -1,0 +1,72 @@
+{$DACHBYTE_SITE:http://localhost} {
+  encode zstd gzip
+  @seller-ml-web path /ml /ml/*
+  handle @seller-ml-web {
+    reverse_proxy seller-ml-web:3000
+  }
+  @seller-shopee path /shopee /shopee/*
+  handle @seller-shopee {
+    reverse_proxy seller-shopee:3000
+  }
+  @seller-madeira path /madeiramadeira /madeiramadeira/*
+  handle @seller-madeira {
+    reverse_proxy seller-madeira:3000
+  }
+  @seller-tracking path /avantracking /avantracking/*
+  handle @seller-tracking {
+    reverse_proxy seller-tracking:3000
+  }
+  @seller-log path /davanttilog /davanttilog/*
+  handle @seller-log {
+    reverse_proxy seller-log:3000
+  }
+  @seller-leader path /skuleader /skuleader/*
+  handle @seller-leader {
+    reverse_proxy seller-leader:3000
+  }
+  @dach-seller path /dach/seller /dach/seller/*
+  handle @dach-seller {
+    reverse_proxy gateway:3000
+  }
+  @business-stock path /voltstock /voltstock/* /icon.png /logo-volt-chat.png
+  handle @business-stock {
+    reverse_proxy business-stock:3000
+  }
+  @business-price path /volt-price /volt-price/*
+  handle @business-price {
+    reverse_proxy business-price:3000
+  }
+  @business-chat path /chat /chat/*
+  handle @business-chat {
+    reverse_proxy business-chat:3000
+  }
+  @chatApi path /chat-api /chat-api/*
+  handle @chatApi {
+    uri strip_prefix /chat-api
+    reverse_proxy business-chat-api:8001
+  }
+  @businessChatApi path /business/chat-api /business/chat-api/*
+  handle @businessChatApi {
+    uri strip_prefix /business/chat-api
+    reverse_proxy business-chat-api:8001
+  }
+  @core path /core /core/* /api/core /api/core/* /assets/* /status /health
+  handle @core {
+    reverse_proxy business-core:3000
+  }
+  @chatVersion path /version.json
+  handle @chatVersion {
+    reverse_proxy business-chat:3000
+  }
+  @business path /business /business/* /voltchat /voltchat/* /volt_chat /volt_chat/* /stock /stock/*
+  handle @business {
+    reverse_proxy business-portal:3000
+  }
+  @dach-business path /dach/business /dach/business/*
+  handle @dach-business {
+    reverse_proxy business-portal:3000
+  }
+  handle {
+    reverse_proxy gateway:3000
+  }
+}

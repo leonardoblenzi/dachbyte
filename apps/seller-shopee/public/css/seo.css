@@ -1,0 +1,366 @@
+/* ===========================
+   SEO — Neo cockpit (glass/dark)
+   Scoped to #tab-seo
+=========================== */
+
+#tab-seo{
+  --seo-bg: var(--card);
+  --seo-bg2: var(--card-strong);
+  --seo-border: var(--border);
+  --seo-text: var(--text);
+  --seo-muted: var(--muted);
+}
+
+#tab-seo .muted{color:var(--seo-muted)}
+
+/* Grid geral */
+#tab-seo .seo-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+@media (max-width:1100px){
+  #tab-seo .seo-grid{grid-template-columns:1fr}
+}
+
+/* Card base */
+#tab-seo .seo-card{
+  border:1px solid rgba(255,255,255,0.10);
+  background:linear-gradient(180deg,var(--seo-bg),rgba(255,255,255,0.02));
+  border-radius:14px;
+  overflow:hidden;
+  backdrop-filter:blur(10px);
+  box-shadow:0 10px 40px rgba(0,0,0,0.22);
+  transition:transform var(--t200), box-shadow var(--t260), border-color var(--t260);
+}
+#tab-seo .seo-card:hover{
+  transform:translateY(-1px);
+  border-color:rgba(255,255,255,0.16);
+  box-shadow:0 14px 52px rgba(0,0,0,0.38), var(--glow-blue);
+}
+
+/* Cabeçalho */
+#tab-seo .seo-card__head{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+  padding:12px;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  background:rgba(0,0,0,0.14);
+}
+
+#tab-seo .seo-card__title{
+  font-weight:1000;
+  font-size:13px;
+  color:rgba(255,255,255,0.92);
+  letter-spacing:-0.1px;
+}
+
+#tab-seo .seo-card__right{
+  font-size:12px;
+  font-weight:900;
+  color:rgba(255,255,255,0.65);
+  white-space:nowrap;
+}
+
+/* Lista */
+#tab-seo .seo-list{
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+/* Linha (row) */
+#tab-seo .seo-row{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:flex-start;
+  padding:10px;
+  border:1px solid rgba(255,255,255,0.08);
+  background:rgba(0,0,0,0.12);
+  border-radius:12px;
+  transition:transform var(--t200), border-color var(--t200), background var(--t200), box-shadow var(--t200);
+}
+
+#tab-seo .seo-row:hover{
+  transform:translateY(-1px);
+  border-color:rgba(255,255,255,0.14);
+  background:rgba(255,255,255,0.06);
+  box-shadow:0 12px 32px rgba(0,0,0,0.26);
+}
+
+#tab-seo .seo-row__left{min-width:0}
+
+#tab-seo .seo-row__term{
+  font-weight:1000;
+  font-size:13px;
+  line-height:1.2;
+  color:rgba(255,255,255,0.92);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  line-clamp:2;
+}
+
+#tab-seo .seo-row__sub{
+  font-size:12px;
+  color:rgba(255,255,255,0.65);
+  margin-top:4px;
+}
+
+#tab-seo .seo-row__right{
+  flex:0 0 auto;
+  text-align:right;
+  white-space:nowrap;
+  font-weight:1000;
+  color:rgba(255,255,255,0.90);
+}
+
+/* Barra de intensidade */
+#tab-seo .seo-bar{
+  height:8px;
+  border-radius:999px;
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.08);
+  overflow:hidden;
+  margin-top:6px;
+}
+
+#tab-seo .seo-bar>div{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background:linear-gradient(90deg, rgba(168,85,247,0.90), rgba(34,211,238,0.85));
+  box-shadow:0 0 18px rgba(34,211,238,0.18);
+  transition:width 420ms ease;
+}
+
+/* Sugestões (Autocomplete) – fica bonito mesmo como lista simples */
+#tab-seo #seoSuggestList .seo-row{
+  cursor:pointer;
+}
+#tab-seo #seoSuggestList .seo-row:active{
+  transform:translateY(0px);
+}
+
+/* Pequena “tag” quando você quiser usar (opcional no HTML gerado pelo JS) */
+#tab-seo .seo-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border:1px solid rgba(255,255,255,0.14);
+  background:rgba(255,255,255,0.06);
+  color:rgba(255,255,255,0.90);
+  padding:8px 12px;
+  border-radius:999px;
+  font-weight:1000;
+  font-size:12px;
+  cursor:pointer;
+  transition:transform var(--t200), box-shadow var(--t200), border-color var(--t200), background var(--t200);
+}
+#tab-seo .seo-chip:hover{
+  transform:translateY(-1px);
+  border-color:rgba(34,211,238,0.30);
+  box-shadow:var(--glow-blue);
+}
+#tab-seo .seo-chip:active{transform:translateY(0px)}
+
+/* Variações de chip (se você usar no JS) */
+#tab-seo .seo-chip--top{
+  border-color:rgba(59,130,246,0.28);
+  background:rgba(59,130,246,0.10);
+}
+#tab-seo .seo-chip--rising{
+  border-color:rgba(236,72,153,0.28);
+  background:rgba(236,72,153,0.10);
+}
+#tab-seo .seo-chip-dot{
+  width:8px;height:8px;border-radius:999px;background:currentColor;opacity:0.85;
+}
+
+/* Mensagens */
+#tab-seo #seoMsg{
+  color:rgba(255,255,255,0.70);
+  margin-bottom:10px;
+}
+
+/* Acessibilidade */
+@media (prefers-reduced-motion: reduce){
+  #tab-seo .seo-card,
+  #tab-seo .seo-row,
+  #tab-seo .seo-bar>div,
+  #tab-seo .seo-chip{transition:none}
+}
+/* SEO: produto referência */
+.seo-ref-pill .badge { display:flex; align-items:center; gap:8px; }
+.seo-ref-result { cursor:pointer; transition: transform .08s ease; }
+.seo-ref-result:hover { transform: translateY(-1px); }
+.seo-ref-thumb { width:44px; height:44px; border-radius:10px; object-fit:cover; }
+.seo-view-head{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.seo-choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width: 900px){.seo-choice-grid{grid-template-columns:1fr}}
+
+.seo-choice-card{
+  border:1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  border-radius:16px;
+  padding:18px;
+  text-align:left;
+  color:var(--seo-text);
+  cursor:pointer;
+  transition: transform .08s ease, border-color .08s ease, background .08s ease;
+}
+.seo-choice-card:hover{
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+}
+
+.seo-choice-card img{
+  width:100%;
+  height:160px;        /* ✅ mesmo tamanho pros dois */
+  object-fit: contain; /* mantém logo bonita sem cortar */
+  border-radius:12px;
+  background: rgba(0,0,0,0.12);
+  padding:10px;
+}
+
+.seo-choice-title{font-weight:900;font-size:18px;margin-top:12px}
+.seo-choice-sub{margin-top:6px}
+/* --- ShopeeTrends: badges de status --- */
+.badge--ok{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.35);color:rgba(195,255,220,.95)}
+.badge--warn{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.35);color:rgba(255,235,190,.95)}
+.badge--danger{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.35);color:rgba(255,205,205,.95)}
+
+/* --- listas: não estourar a tela --- */
+.seo-list{max-height:340px;overflow:auto;padding-right:6px}
+
+/* scrollbar discreta (webkit) */
+.seo-list::-webkit-scrollbar{width:10px}
+.seo-list::-webkit-scrollbar-track{background:rgba(255,255,255,0.04);border-radius:999px}
+.seo-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.16);border-radius:999px}
+.seo-list::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.22)}
+
+/* ===========================
+   SEO - White Mode
+=========================== */
+body.theme-light #tab-seo{
+  --seo-bg:#f8fbff;
+  --seo-bg2:#eef4ff;
+  --seo-border:rgba(37,99,235,0.18);
+  --seo-text:#0f172a;
+  --seo-muted:rgba(15,23,42,0.66);
+}
+
+body.theme-light #tab-seo .seo-card{
+  border-color:rgba(37,99,235,0.16);
+  background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,249,255,0.95));
+  box-shadow:0 14px 36px rgba(15,23,42,0.08);
+}
+
+body.theme-light #tab-seo .seo-card:hover{
+  border-color:rgba(37,99,235,0.24);
+  background:linear-gradient(180deg, rgba(255,255,255,0.99), rgba(238,246,255,0.98));
+  box-shadow:0 16px 44px rgba(15,23,42,0.10);
+}
+
+body.theme-light #tab-seo .seo-card__head{
+  border-bottom-color:rgba(15,23,42,0.10);
+  background:rgba(37,99,235,0.07);
+}
+
+body.theme-light #tab-seo .seo-card__title{
+  color:rgba(15,23,42,0.92);
+}
+
+body.theme-light #tab-seo .seo-card__right{
+  color:rgba(15,23,42,0.62);
+}
+
+body.theme-light #tab-seo .seo-row{
+  border-color:rgba(15,23,42,0.12);
+  background:rgba(255,255,255,0.94);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.75);
+}
+
+body.theme-light #tab-seo .seo-row:hover{
+  border-color:rgba(37,99,235,0.24);
+  background:rgba(241,246,255,0.98);
+  box-shadow:0 12px 28px rgba(15,23,42,0.10);
+}
+
+body.theme-light #tab-seo .seo-row__term{
+  color:rgba(15,23,42,0.92);
+}
+
+body.theme-light #tab-seo .seo-row__sub,
+body.theme-light #tab-seo .seo-row__right,
+body.theme-light #tab-seo #seoMsg,
+body.theme-light #tab-seo #seoCmpMsg,
+body.theme-light #tab-seo #seoShopeeMsg{
+  color:rgba(15,23,42,0.70);
+}
+
+body.theme-light #tab-seo .seo-bar{
+  background:rgba(148,163,184,0.18);
+  border-color:rgba(148,163,184,0.24);
+}
+
+body.theme-light #tab-seo .seo-bar>div{
+  background:linear-gradient(90deg, rgba(59,130,246,0.88), rgba(6,182,212,0.78));
+  box-shadow:0 0 10px rgba(59,130,246,0.20);
+}
+
+body.theme-light #tab-seo .seo-chip{
+  border-color:rgba(37,99,235,0.20);
+  background:rgba(37,99,235,0.09);
+  color:rgba(15,23,42,0.90);
+}
+
+body.theme-light #tab-seo .seo-chip:hover{
+  border-color:rgba(37,99,235,0.32);
+  background:rgba(37,99,235,0.12);
+  box-shadow:0 8px 20px rgba(37,99,235,0.14);
+}
+
+body.theme-light #tab-seo .seo-choice-card{
+  border-color:rgba(37,99,235,0.20);
+  background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(244,248,255,0.95));
+  color:rgba(15,23,42,0.92);
+  box-shadow:0 14px 30px rgba(15,23,42,0.08);
+}
+
+body.theme-light #tab-seo .seo-choice-card:hover{
+  border-color:rgba(37,99,235,0.28);
+  background:linear-gradient(180deg, rgba(255,255,255,1), rgba(238,246,255,0.98));
+}
+
+body.theme-light #tab-seo .seo-choice-card img{
+  border:1px solid rgba(37,99,235,0.16);
+  background:linear-gradient(180deg, rgba(241,245,255,0.92), rgba(255,255,255,0.94));
+}
+
+body.theme-light #tab-seo .seo-choice-title{
+  color:rgba(15,23,42,0.94);
+}
+
+body.theme-light #tab-seo .seo-choice-sub{
+  color:rgba(15,23,42,0.68);
+}
+
+body.theme-light #tab-seo .seo-list::-webkit-scrollbar-track{
+  background:rgba(148,163,184,0.20);
+}
+
+body.theme-light #tab-seo .seo-list::-webkit-scrollbar-thumb{
+  background:rgba(100,116,139,0.48);
+}
+
+body.theme-light #tab-seo .seo-list::-webkit-scrollbar-thumb:hover{
+  background:rgba(71,85,105,0.62);
+}

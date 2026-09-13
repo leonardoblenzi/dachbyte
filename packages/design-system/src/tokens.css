@@ -1,0 +1,64 @@
+/*
+ * DACHBYTE design tokens — canonical source.
+ *
+ * This file is intentionally framework-agnostic. Applications can consume it
+ * through their own build pipeline; legacy static pages should keep consuming
+ * public/brand/dachbyte/tokens.css until that pipeline is explicitly changed.
+ */
+
+:root {
+  /* Foundation */
+  --dachbyte-ink: #07131d;
+  --dachbyte-surface: #0b1c29;
+  --dachbyte-surface-raised: #102b3d;
+  --dachbyte-line: rgba(116, 220, 232, 0.2);
+  --dachbyte-text: #f4fbff;
+  --dachbyte-muted: #9cb3c2;
+
+  /* Shared signal colors */
+  --dachbyte-cyan: #48dfe7;
+  --dachbyte-blue: #478cff;
+  --dachbyte-green: #72e2a5;
+  --dachbyte-focus: 0 0 0 3px rgba(72, 223, 231, 0.28);
+
+  /* Semantic aliases: prefer these in new module UI. */
+  --dachbyte-bg: var(--dachbyte-ink);
+  --dachbyte-panel: var(--dachbyte-surface);
+  --dachbyte-panel-raised: var(--dachbyte-surface-raised);
+  --dachbyte-border: var(--dachbyte-line);
+  --dachbyte-text-primary: var(--dachbyte-text);
+  --dachbyte-text-secondary: var(--dachbyte-muted);
+  --dachbyte-action: var(--dachbyte-cyan);
+  --dachbyte-success: var(--dachbyte-green);
+
+  /* Shared layout and type primitives. */
+  --dachbyte-font-display: "Space Grotesk", "Inter", Arial, sans-serif;
+  --dachbyte-font-body: "Inter", Arial, sans-serif;
+  --dachbyte-radius-sm: 8px;
+  --dachbyte-radius-md: 12px;
+  --dachbyte-radius-lg: 20px;
+  --dachbyte-space-1: 4px;
+  --dachbyte-space-2: 8px;
+  --dachbyte-space-3: 12px;
+  --dachbyte-space-4: 16px;
+  --dachbyte-space-6: 24px;
+  --dachbyte-space-8: 32px;
+}
+
+/* Theme accents only. Foundation tokens do not change between business/seller. */
+[data-dachbyte-line="business"] {
+  --dachbyte-line-accent: var(--dachbyte-cyan);
+  --dachbyte-line-accent-strong: var(--dachbyte-green);
+}
+
+[data-dachbyte-line="seller"] {
+  --dachbyte-line-accent: #ff9a4d;
+  --dachbyte-line-accent-strong: #ff9a4d;
+}
+
+.dachbyte-wordmark {
+  color: var(--dachbyte-text-primary);
+  font-family: var(--dachbyte-font-display);
+  font-weight: 750;
+  letter-spacing: .08em;
+}

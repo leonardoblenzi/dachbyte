@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recuperar Senha Mercado Livre</title>
+    <link rel="stylesheet" href="./css/login.css" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+  </head>
+  <body class="auth-page theme-ml">
+    <a class="auth-back" id="btn-back-login" href="login">
+      <span>&larr;</span>
+      <span>Voltar</span>
+    </a>
+
+    <main class="auth-stage">
+      <div class="auth-shell">
+        <section class="auth-panel">
+          <div class="auth-kicker">
+            <span class="auth-kicker__dot"></span>
+            <span>Recuperacao de senha</span>
+          </div>
+
+          <h1 class="auth-title">Esqueci minha senha</h1>
+          <p class="auth-subtitle">
+            Informe o email do acesso. Se ele existir na base, enviaremos um link seguro para redefinir a senha.
+          </p>
+
+          <div id="fp-msg" class="login-msg"></div>
+
+          <form class="auth-form" id="fp-form" method="post" autocomplete="on">
+            <label class="auth-field">
+              <span class="auth-field__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 6h16v12H4z"></path>
+                  <path d="M4 7l8 6 8-6"></path>
+                </svg>
+              </span>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="E-mail"
+                class="auth-field__input"
+                autocomplete="email"
+                required
+              />
+            </label>
+
+            <div class="auth-actions">
+              <button class="auth-btn auth-btn--primary" id="btn-enviar" type="submit">Enviar link</button>
+            </div>
+          </form>
+        </section>
+
+        <aside class="auth-visual">
+          <div class="auth-visual__card">
+            <span class="auth-visual__badge">Seguranca e rastreio</span>
+            <h2 class="auth-visual__title">Link unico, com validade e auditoria</h2>
+            <p class="auth-visual__text">
+              Cada solicitacao registra data, IP e navegador. O link de reset e temporario e de uso unico.
+            </p>
+            <div class="auth-visual__stack">
+              <div class="auth-feature">
+                <div class="auth-feature__icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 12h16"></path>
+                    <path d="M12 4v16"></path>
+                  </svg>
+                </div>
+                <div>
+                  <span class="auth-feature__title">Resposta neutra</span>
+                  <span class="auth-feature__meta">A tela nao revela se o email esta cadastrado ou nao.</span>
+                </div>
+              </div>
+            </div>
+            <div class="auth-visual__pulse"></div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+        const form = document.getElementById("fp-form");
+        const msg = document.getElementById("fp-msg");
+        const btn = document.getElementById("btn-enviar");
+        const BASE = (() => {
+          const p = String(location.pathname || "/");
+          const m = p.match(
+            /^\/([^/]+)\/(?:login|esqueci-senha|redefinir-senha|ativar|cadastro|selecao-plataforma|select-conta|vincular-conta)(?:\/|$)/i,
+          );
+          return m && m[1] ? `/${m[1]}` : "";
+        })();
+
+        function withBase(path) {
+          if (!path || typeof path !== "string") return path;
+          if (/^https?:\/\//i.test(path)) return path;
+          if (!BASE) return path;
+          if (path === BASE || path.startsWith(BASE + "/")) return path;
+          if (path.startsWith("/")) return BASE + path;
+          return BASE + "/" + path;
+        }
+
+        document.getElementById("btn-back-login")?.setAttribute("href", withBase("/login"));
+
+        function showMsg(text, type) {
+          msg.style.display = "block";
+          msg.textContent = text;
+          msg.className = "login-msg";
+          if (type === "ok") msg.classList.add("is-success");
+          else if (type === "info") msg.classList.add("is-info");
+          else msg.classList.add("is-error");
+        }
+
+        function setLoading(on) {
+          btn.disabled = on;
+          btn.textContent = on ? "Enviando..." : "Enviar link";
+        }
+
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const email = document.getElementById("email").value.trim();
+          if (!email) {
+            showMsg("Informe o email.", "err");
+            return;
+          }
+          try {
+            setLoading(true);
+            const resp = await fetch(withBase("/api/auth/forgot-password"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ email }),
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.ok !== true) {
+              showMsg((data && (data.error || data.message)) || "Falha ao solicitar a redefinicao.", "err");
+              return;
+            }
+            showMsg(data.message || "Se o email existir, enviaremos as instrucoes.", "ok");
+          } catch (_err) {
+            showMsg("Erro de rede ao solicitar a redefinicao.", "err");
+          } finally {
+            setLoading(false);
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

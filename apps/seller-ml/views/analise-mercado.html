@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Análise de Mercado | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/ranking-anuncios.css?v=6" />
+  <link rel="stylesheet" href="/ml/css/analise-mercado.css?v=5" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="market-app intelligence-app">
+  <main class="ranking-page market-page">
+    <section class="rank-card market-hero">
+      <div class="market-hero__content">
+        <div class="market-eyebrow">INTELIGÊNCIA / MERCADO LIVRE</div>
+        <h1>Análise de mercado</h1>
+        <p>Explore categorias, tendências, mais vendidos e uma amostra de ofertas concorrentes antes de decidir onde atuar.</p>
+      </div>
+      <div class="market-head__status" id="marketStatus" data-state="ready">
+        <span class="market-status-dot" aria-hidden="true"></span>
+        <span>Pronto para analisar</span>
+      </div>
+    </section>
+
+    <section class="rank-card market-controls">
+      <div class="market-tabs" role="tablist" aria-label="Modos de análise de mercado">
+        <button class="is-active" type="button" data-market-tab="explorar" role="tab" aria-selected="true">Explorar mercado</button>
+        <button type="button" data-market-tab="palavras" role="tab" aria-selected="false">Palavras-chave</button>
+        <button type="button" data-market-tab="sugestoes" role="tab" aria-selected="false">Tendências gerais</button>
+      </div>
+
+      <form id="marketSearchForm" class="rank-filter-grid market-search-grid" data-explore-control>
+        <label class="rank-field market-query-field">
+          <span>Produto ou termo</span>
+          <input id="marketQuery" name="q" type="search" placeholder="Ex: poltrona, cadeira gamer, conjunto de panelas" autocomplete="off" />
+        </label>
+
+        <label class="rank-field">
+          <span>Amostra concorrente</span>
+          <select id="sampleLimit" name="sample_limit">
+            <option value="30">30 ofertas</option>
+            <option value="50" selected>50 ofertas</option>
+            <option value="100">100 ofertas</option>
+          </select>
+        </label>
+
+        <button id="btnMarketSearch" class="rank-btn rank-btn--primary market-search-button" type="submit">
+          Buscar mercado
+        </button>
+      </form>
+
+      <p class="market-controls__hint" data-explore-control>A busca identifica categorias e produtos de catálogo relacionados. Depois, escolha uma categoria para aprofundar a análise.</p>
+    </section>
+
+    <section id="marketAlert" class="rank-card market-alert" hidden></section>
+
+    <section id="marketKpis" class="rank-kpi-grid market-kpis" aria-live="polite" hidden></section>
+
+    <section class="market-panel" data-market-panel="explorar">
+      <section id="categoryResultsCard" class="rank-card" hidden>
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span>Categorias sugeridas</span>
+            <small id="categoryResultLabel">Busque um termo para encontrar as categorias mais prováveis.</small>
+          </div>
+        </div>
+        <div id="categoryResults" class="market-category-grid">
+          <div class="rank-empty">Nenhuma busca realizada.</div>
+        </div>
+      </section>
+
+      <section id="catalogResultsCard" class="rank-card" hidden>
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span>Produtos de catálogo relacionados</span>
+            <small id="catalogResultLabel">Referências de catálogo encontradas para o termo pesquisado.</small>
+          </div>
+        </div>
+        <div id="catalogResults" class="market-catalog-grid">
+          <div class="rank-empty">Nenhum produto de catálogo carregado.</div>
+        </div>
+      </section>
+
+      <section id="analysisSummaryCard" class="rank-card" hidden>
+        <div class="rank-section-head market-section-head--summary">
+          <div class="rank-section-head__title">
+            <span>Resumo da análise</span>
+            <small id="analysisLabel">Selecione uma categoria para carregar a análise.</small>
+          </div>
+          <span class="market-method-badge">Score DACHBYTE</span>
+        </div>
+        <div id="analysisSummary" class="market-summary">
+          <div class="rank-empty">Aguardando categoria.</div>
+        </div>
+      </section>
+
+      <section id="marketExplorerCard" class="rank-card" hidden>
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span>Explore este mercado</span>
+            <small id="marketExplorerLabel">Navegue pela árvore da categoria para descobrir submercados e categorias próximas.</small>
+          </div>
+          <span class="market-method-badge">Árvore Mercado Livre</span>
+        </div>
+        <div id="marketExplorerPath" class="market-category-path"></div>
+        <div id="marketExplorerGrid" class="market-submarket-grid"></div>
+      </section>
+
+      <section id="bestSellersCard" class="rank-card" hidden>
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span>Mais vendidos da categoria</span>
+            <small id="bestSellersLabel">Ranking oficial de até 20 posições retornado pelo Mercado Livre.</small>
+          </div>
+        </div>
+        <div id="bestSellersGrid" class="market-best-grid"></div>
+      </section>
+
+      <section id="categoryTrendsCard" class="rank-card" hidden>
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span>Tendências da categoria</span>
+            <small id="trendsLabel">Palavras-chave populares atualizadas semanalmente pelo Mercado Livre.</small>
+          </div>
+        </div>
+        <div id="categoryTrends" class="market-trends"></div>
+      </section>
+
+      <section id="marketProductsCard" class="rank-card" hidden>
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span>Amostra de ofertas concorrentes</span>
+            <small id="productsLabel">Ofertas obtidas a partir de páginas de catálogo e itens presentes entre os mais vendidos.</small>
+          </div>
+        </div>
+        <div class="market-source-note">
+          <strong>Como ler esta amostra</strong>
+          <span>Ela ajuda a comparar preço, sellers, frete e logística, mas não representa todos os anúncios existentes na categoria.</span>
+        </div>
+        <div class="rank-table-wrap market-table-wrap">
+          <table class="rank-table market-table">
+            <thead>
+              <tr>
+                <th>Oferta</th>
+                <th>Preço</th>
+                <th>Seller</th>
+                <th>Frete</th>
+                <th>Logística</th>
+                <th>Origem</th>
+              </tr>
+            </thead>
+            <tbody id="marketProductsBody">
+              <tr><td colspan="6" class="rank-empty">Sem ofertas carregadas.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section class="market-panel market-keywords-panel" data-market-panel="palavras" hidden>
+      <section class="rank-card market-keyword-controls">
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span>Pesquisa inteligente de palavras-chave</span>
+            <small>Digite um termo, uma categoria como MLB1626 ou um anúncio como MLB1234567890. O sistema identifica a categoria automaticamente.</small>
+          </div>
+          <span class="market-method-badge">SEO Mercado Livre</span>
+        </div>
+
+        <form id="keywordSearchForm" class="market-keyword-search">
+          <label class="rank-field">
+            <span>Termo, categoria ou MLB</span>
+            <input id="keywordQuery" name="q" type="search" placeholder="Ex: poltrona, MLB1626 ou MLB1234567890" autocomplete="off" />
+          </label>
+          <button id="btnKeywordSearch" class="rank-btn rank-btn--primary" type="submit">Analisar palavras-chave</button>
+        </form>
+        <p class="market-controls__hint">Para MLBs, a análise usa a categoria real do anúncio e compara as palavras fortes da categoria com o título e os atributos do produto.</p>
+      </section>
+
+      <section id="keywordContextCard" class="rank-card" hidden>
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span>Contexto analisado</span>
+            <small id="keywordContextLabel">Aguardando pesquisa.</small>
+          </div>
+        </div>
+        <div id="keywordContext" class="market-keyword-context"></div>
+      </section>
+
+      <section id="keywordKpis" class="rank-kpi-grid market-kpis market-keyword-kpis" hidden></section>
+
+      <section id="keywordTopCard" class="rank-card" hidden>
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span>Top palavras-chave</span>
+            <small>Score DACHBYTE com Trends oficial, categoria pai, líderes, catálogo e árvore da categoria, sempre com as fontes identificadas.</small>
+          </div>
+          <span class="market-method-badge">Não é volume de busca</span>
+        </div>
+        <div class="market-source-note">
+          <strong>Como interpretar</strong>
+          <span>Quanto maior o score e a presença entre os líderes, mais forte é o sinal. Trends oficial é somente o que o Mercado Livre devolve para a categoria; categoria pai, árvore, líderes e catálogo aparecem separados.</span>
+        </div>
+        <div class="market-keyword-toolbar">
+          <label class="rank-field">
+            <span>Filtrar palavras</span>
+            <input id="keywordFilter" type="search" placeholder="Ex: reclinável, recepção, bouclé" autocomplete="off" />
+          </label>
+          <label class="rank-field">
+            <span>Fonte</span>
+            <select id="keywordSourceFilter">
+              <option value="all">Todas</option>
+              <option value="trends">Trends oficial</option>
+              <option value="leaders">Líderes</option>
+              <option value="catalog">Catálogo</option>
+              <option value="parent_trends">Categoria pai</option>
+              <option value="category">Árvore da categoria</option>
+            </select>
+          </label>
+          <label class="rank-field">
+            <span>Ordenar</span>
+            <select id="keywordSort">
+              <option value="score">Melhor score</option>
+              <option value="trend">Trends primeiro</option>
+              <option value="leaders">Mais presente nos líderes</option>
+              <option value="az">A–Z</option>
+            </select>
+          </label>
+          <div class="market-keyword-toolbar__count" id="keywordCountLabel">0 palavras</div>
+        </div>
+        <div class="rank-table-wrap market-table-wrap market-keyword-table-wrap">
+          <table class="rank-table market-table market-keyword-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Palavra-chave</th>
+                <th>Sinais</th>
+                <th>Tendência</th>
+                <th>Presença nos líderes</th>
+                <th>Score</th>
+                <th id="keywordItemStatusHead">No anúncio</th>
+              </tr>
+            </thead>
+            <tbody id="keywordTableBody">
+              <tr><td colspan="7" class="rank-empty">Faça uma pesquisa para carregar as palavras-chave.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="keywordPagination" class="market-pagination" hidden>
+          <button id="keywordPrev" class="rank-btn rank-btn--ghost rank-btn--compact" type="button">Anterior</button>
+          <div id="keywordPageInfo" class="market-pagination__info">Página 1 de 1</div>
+          <button id="keywordNext" class="rank-btn rank-btn--ghost rank-btn--compact" type="button">Próxima</button>
+        </div>
+      </section>
+
+      <section id="keywordLeadersCard" class="rank-card" hidden>
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span>Palavras usadas pelos líderes</span>
+            <small>Termos recorrentes nos títulos dos produtos presentes no ranking de mais vendidos.</small>
+          </div>
+        </div>
+        <div id="keywordLeaderTerms" class="market-keyword-chip-grid"></div>
+      </section>
+
+      <section id="keywordOpportunitiesCard" class="rank-card" hidden>
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span>Oportunidades para este anúncio</span>
+            <small>Palavras fortes que ainda não aparecem no título ou atributos do MLB analisado.</small>
+          </div>
+          <span class="market-pill market-pill--yellow">Validar aderência</span>
+        </div>
+        <div class="market-source-note market-source-note--warning">
+          <strong>Importante</strong>
+          <span>Ausência não significa que a palavra deva ser adicionada. Só utilize termos que descrevam corretamente o produto.</span>
+        </div>
+        <div id="keywordOpportunities" class="market-opportunity-grid"></div>
+      </section>
+    </section>
+
+    <section class="market-panel market-trends-panel" data-market-panel="sugestoes" hidden>
+      <section class="rank-card market-trend-controls-card">
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span>Explorador de tendências</span>
+            <small>Veja as tendências gerais ou aprofunde por qualquer categoria navegando pela árvore do Mercado Livre.</small>
+          </div>
+          <span class="market-method-badge">Trends oficial</span>
+        </div>
+        <div class="market-trend-mode-tabs" role="tablist" aria-label="Modo de exploração de tendências">
+          <button class="is-active" type="button" data-trend-mode="general">Brasil</button>
+          <button type="button" data-trend-mode="category">Por categoria</button>
+        </div>
+
+        <div class="market-trend-mode" data-trend-mode-panel="general">
+          <div class="market-trend-general-controls">
+            <label class="rank-field">
+              <span>Filtrar as tendências gerais</span>
+              <input id="generalTrendFilter" type="search" placeholder="Ex: iphone, cadeira, creatina" autocomplete="off" />
+            </label>
+            <label class="rank-field">
+              <span>Sinal</span>
+              <select id="generalTrendSegment">
+                <option value="all">Todos</option>
+                <option value="growth">Maior crescimento</option>
+                <option value="desired">Mais desejadas</option>
+                <option value="popular">Tendência popular</option>
+              </select>
+            </label>
+            <button id="btnLoadSuggestions" class="rank-btn rank-btn--ghost" type="button">Atualizar tendências</button>
+          </div>
+          <div id="generalTrendCount" class="market-inline-status">Aguardando carregamento.</div>
+        </div>
+
+        <div class="market-trend-mode" data-trend-mode-panel="category" hidden>
+          <form id="trendCategorySearchForm" class="market-trend-category-search">
+            <label class="rank-field">
+              <span>Buscar categoria</span>
+              <input id="trendCategoryQuery" type="search" placeholder="Ex: poltrona, móveis para sala, MLB458191" autocomplete="off" />
+            </label>
+            <button class="rank-btn rank-btn--primary" type="submit">Encontrar categorias</button>
+          </form>
+          <p class="market-controls__hint">Escolha uma categoria sugerida e depois navegue por categorias filhas, irmãs ou pelo caminho da árvore.</p>
+          <div id="trendCategorySuggestions" class="market-trend-category-suggestions"></div>
+        </div>
+      </section>
+
+      <section id="generalTrendsCard" class="rank-card">
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span>Tendências gerais do Brasil</span>
+            <small>Lista oficial semanal do Mercado Livre. O filtro abaixo atua somente sobre os termos efetivamente retornados.</small>
+          </div>
+        </div>
+        <div id="suggestionsGrid" class="market-suggestions">
+          <div class="rank-empty">Carregue as tendências para iniciar.</div>
+        </div>
+      </section>
+
+      <section id="categoryTrendExplorerCard" class="rank-card" hidden>
+        <div class="rank-section-head">
+          <div class="rank-section-head__title">
+            <span id="categoryTrendTitle">Tendências da categoria</span>
+            <small id="categoryTrendLabel">Selecione uma categoria para explorar.</small>
+          </div>
+          <span id="categoryTrendCountBadge" class="market-method-badge">0 oficiais</span>
+        </div>
+        <div id="categoryTrendPath" class="market-category-path"></div>
+        <div class="market-trend-category-filter">
+          <label class="rank-field">
+            <span>Filtrar termos desta categoria</span>
+            <input id="categoryTrendFilter" type="search" placeholder="Filtrar tendências oficiais retornadas" autocomplete="off" />
+          </label>
+          <div class="market-inline-status" id="categoryTrendStatus"></div>
+        </div>
+        <div id="categoryTrendGrid" class="market-trends"></div>
+        <div class="market-trend-related-block">
+          <div class="market-subsection-title">Continuar explorando a árvore</div>
+          <div id="categoryTrendNavigation" class="market-submarket-grid"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="/ml/js/analise-mercado.js?v=5" defer></script>
+</body>
+</html>

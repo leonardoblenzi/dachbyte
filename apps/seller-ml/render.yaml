@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: drossiapi-web
+    env: node
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "node start.js"
+    autoDeploy: true
+    healthCheckPath: "/ml/health"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PROMO_OFFER_REF_TTL_SEC
+        value: "259200"
+      - key: PROMO_OFFER_REF_MAX_PER_BUCKET
+        value: "50"

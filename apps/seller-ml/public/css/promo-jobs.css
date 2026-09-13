@@ -1,0 +1,758 @@
+/* ===== Jobs Panel / Processos - premium dark visual ===== */
+:root {
+  --jobs-panel-bg: #13151f;
+  --jobs-panel-border: rgba(255,255,255,0.10);
+  --jobs-card-bg: rgba(255,255,255,0.05);
+  --jobs-card-border: rgba(255,255,255,0.10);
+  --jobs-card-hover: rgba(255,255,255,0.07);
+  --jobs-text: #fff;
+  --jobs-meta: rgba(255,255,255,0.65);
+  --jobs-subtle: rgba(255,255,255,0.45);
+  --jobs-loading: rgba(255,255,255,0.55);
+  --jobs-action: rgba(255,255,255,0.60);
+  --jobs-action-hover: rgba(255,255,255,0.90);
+  --jobs-blue: #5b9ded;
+  --jobs-blue-soft: #7eb8f7;
+  --jobs-ok: #7dd87a;
+  --jobs-ok-bg: rgba(76,175,80,0.06);
+  --jobs-ok-border: rgba(76,175,80,0.18);
+  --jobs-error: #e24b4a;
+  --jobs-error-soft: rgba(226,75,74,0.85);
+  --jobs-error-bg: rgba(226,75,74,0.06);
+  --jobs-error-border: rgba(226,75,74,0.18);
+}
+
+#bulkJobsPanel,
+.processos-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 200;
+  width: 300px;
+  max-height: min(430px, calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  background: var(--jobs-panel-bg);
+  border: 0.5px solid var(--jobs-panel-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+  color: var(--jobs-text);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.35;
+  overflow: hidden;
+}
+
+#bulkJobsPanel,
+#bulkJobsPanel *,
+.processos-panel,
+.processos-panel * {
+  box-sizing: border-box;
+}
+
+#bulkJobsPanel.hidden,
+.processos-panel.hidden {
+  display: none !important;
+}
+
+#bulkJobsPanel.collapsed,
+.processos-panel.collapsed {
+  height: auto;
+}
+
+#bulkJobsPanel.collapsed .processos-panel__header,
+.processos-panel.collapsed .processos-panel__header {
+  margin-bottom: 0;
+}
+
+#bulkJobsPanel.collapsed .processos-panel__list,
+#bulkJobsPanel.collapsed .processos-panel__footer,
+.processos-panel.collapsed .processos-panel__list,
+.processos-panel.collapsed .processos-panel__footer {
+  display: none !important;
+}
+
+.processos-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+.processos-panel__search {
+  flex-shrink: 0;
+  margin: -3px 0 9px;
+}
+
+.processos-panel__search input {
+  width: 100%;
+  height: 26px;
+  padding: 0 9px;
+  border: 0.5px solid rgba(255,255,255,0.10);
+  border-radius: 6px;
+  outline: none;
+  background: rgba(255,255,255,0.045);
+  color: var(--jobs-text);
+  font: inherit;
+  font-size: 10px;
+}
+
+.processos-panel__search input::placeholder {
+  color: rgba(255,255,255,0.38);
+}
+
+.processos-panel__search input:focus {
+  border-color: rgba(91,157,237,0.52);
+  background: rgba(255,255,255,0.065);
+}
+
+.processos-panel__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.processos-panel__count {
+  min-width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.72);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.processos-panel__actions,
+.job-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.processos-panel__btn {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--jobs-action);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.processos-panel__btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--jobs-action-hover);
+}
+
+.processos-panel__btn:disabled {
+  cursor: wait;
+  color: rgba(255,255,255,0.40);
+}
+
+.processos-panel__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.18) transparent;
+}
+
+.processos-panel__list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.processos-panel__list::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.18);
+  border-radius: 99px;
+}
+
+.processos-panel__empty {
+  padding: 10px 2px;
+  color: var(--jobs-loading);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.processos-panel__section {
+  margin: 10px -14px 0;
+  padding: 6px 14px 5px;
+  border-top: 0.5px solid rgba(255,255,255,0.09);
+  border-bottom: 0.5px solid rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.03);
+  color: rgba(255,255,255,0.72);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.processos-panel__section:first-child {
+  margin-top: 0;
+}
+
+.job-item {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--jobs-card-bg);
+  border: 0.5px solid var(--jobs-card-border);
+  border-radius: 8px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.job-item:hover {
+  background: var(--jobs-card-hover);
+}
+
+.job-item.done,
+.job-item[data-tone="ok"] {
+  align-items: flex-start;
+  background: var(--jobs-ok-bg);
+  border-color: var(--jobs-ok-border);
+}
+
+.job-item[data-tone="error"] {
+  background: var(--jobs-error-bg);
+  border-color: var(--jobs-error-border);
+}
+
+.job-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.job-main-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.job-title-block {
+  flex: 1;
+  min-width: 0;
+}
+
+.job-main-line .job-action-buttons {
+  margin-left: auto;
+}
+
+.job-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.job-icon--processing {
+  border: 2px solid rgba(91,157,237,0.25);
+  border-top-color: var(--jobs-blue);
+  border-radius: 50%;
+  animation: jobs-spin 0.8s linear infinite;
+}
+
+.job-icon--ok,
+.job-icon--error {
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  color: transparent;
+  font-size: 0;
+}
+
+.job-icon--ok {
+  background: var(--jobs-ok);
+}
+
+.job-icon--error {
+  background: var(--jobs-error);
+}
+
+@keyframes jobs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.job-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.job-number {
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(255,255,255,0.38);
+  cursor: copy;
+  font: inherit;
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.job-number:hover {
+  color: rgba(255,255,255,0.72);
+}
+
+.job-name {
+  flex: 1;
+  min-width: 0;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.job-item.done .job-name,
+.job-item[data-tone="ok"] .job-name {
+  color: #fff;
+}
+
+.job-meta {
+  color: var(--jobs-meta);
+  font-size: 11px;
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.job-subtext {
+  color: var(--jobs-subtle);
+  font-size: 10px;
+  font-weight: 400;
+  margin-top: 1px;
+}
+
+.job-badge {
+  display: inline-flex;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: rgba(91,157,237,0.10);
+  color: rgba(255,255,255,0.65);
+  font-size: 10px;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.job-status {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.job-status--proc {
+  background: rgba(91,157,237,0.16);
+  color: var(--jobs-blue-soft);
+}
+
+.job-status--ok {
+  background: rgba(125,216,122,0.16);
+  color: var(--jobs-ok);
+}
+
+.job-status--error {
+  background: rgba(226,75,74,0.16);
+  color: #ff8b8a;
+}
+
+.job-progress-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 7px;
+}
+
+.job-bar {
+  flex: 1;
+  height: 3px;
+  margin: 0;
+  background: rgba(255,255,255,0.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.job-pct {
+  min-width: 28px;
+  color: rgba(255,255,255,0.78);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.job-bar__fill--proc,
+.job-bar__fill--ok,
+.job-bar__fill--error {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.3s ease;
+}
+
+.job-bar__fill--proc {
+  background: linear-gradient(90deg, var(--jobs-blue), var(--jobs-blue-soft));
+}
+
+.job-bar__fill--ok {
+  background: var(--jobs-ok);
+}
+
+.job-bar__fill--error {
+  background: var(--jobs-error);
+}
+
+.job-chips {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.chip--ok,
+.chip--err {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.chip--ok {
+  background: rgba(125,216,122,0.12);
+  color: var(--jobs-ok);
+}
+
+.chip--err {
+  background: rgba(226,75,74,0.13);
+  color: #ff8b8a;
+}
+
+.chip-div {
+  width: 1px;
+  height: 10px;
+  background: rgba(255,255,255,0.18);
+}
+
+.job-error-msg {
+  display: block;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(226,75,74,0.12);
+  color: #ffb0ae;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.job-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 3px;
+}
+
+.job-loading-text {
+  margin-right: auto;
+  min-width: 0;
+  color: var(--jobs-loading);
+  font-size: 10px;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.job-dismiss:hover {
+  background: transparent;
+  color: rgba(226,75,74,0.85);
+}
+
+.btn-csv,
+.btn-retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  padding: 3px 8px;
+  border: 0.5px solid rgba(91,157,237,0.30);
+  border-radius: 5px;
+  background: rgba(91,157,237,0.12);
+  color: rgba(255,255,255,0.82);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.job-item.done .btn-csv,
+.job-item.needs-review .btn-csv {
+  border-color: rgba(91,157,237,0.28);
+  background: rgba(91,157,237,0.10);
+  color: rgba(255,255,255,0.78);
+}
+
+.btn-csv:hover,
+.btn-retry:hover {
+  background: rgba(91,157,237,0.20);
+  border-color: rgba(91,157,237,0.45);
+  color: #fff;
+}
+
+.btn-csv.is-preparing {
+  min-width: 86px;
+  cursor: wait;
+  border-color: rgba(91,157,237,0.42);
+  background: rgba(91,157,237,0.18);
+  color: #fff;
+  pointer-events: none;
+}
+
+.btn-csv.is-preparing::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border: 1.5px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 999px;
+  animation: csvPreparingSpin 0.75s linear infinite;
+}
+
+@keyframes csvPreparingSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.processos-panel__footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.btn-clear {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(255,255,255,0.50);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 400;
+  transition: color 0.15s ease;
+}
+
+.btn-clear:hover {
+  color: rgba(255,255,255,0.75);
+}
+
+@media (max-width: 480px) {
+  #bulkJobsPanel,
+  .processos-panel {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+  }
+}
+
+/* ===== Ajustes de legibilidade/espacamento dos cards de processos ===== */
+#bulkJobsPanel,
+.processos-panel {
+  width: 330px;
+}
+
+.job-item {
+  gap: 10px;
+  padding: 12px 13px;
+  margin-bottom: 10px;
+}
+
+.job-main-line {
+  gap: 10px;
+}
+
+.job-name-row {
+  gap: 7px;
+}
+
+.job-name {
+  line-height: 1.4;
+}
+
+.job-meta {
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.job-state-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 7px;
+  min-width: 0;
+}
+
+.job-state-line .job-status,
+.job-state-line .job-badge {
+  margin-top: 0;
+}
+
+.job-status {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
+
+.job-badge {
+  max-width: 100%;
+}
+
+.job-progress-line {
+  margin-top: 9px;
+}
+
+.job-chips {
+  margin-top: 6px;
+}
+
+.job-performance {
+  margin-top: 6px;
+  color: rgba(255,255,255,0.50);
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+.job-actions {
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.job-action-buttons {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.job-loading-text {
+  padding-top: 3px;
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.btn-support {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  padding: 3px 7px;
+  border: 0.5px solid rgba(255,255,255,0.13);
+  border-radius: 5px;
+  background: rgba(255,255,255,0.045);
+  color: rgba(255,255,255,0.58);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.btn-support:hover {
+  background: rgba(255,255,255,0.09);
+  color: rgba(255,255,255,0.88);
+}
+
+@media (max-width: 480px) {
+  #bulkJobsPanel,
+  .processos-panel {
+    width: calc(100vw - 24px);
+  }
+}
+
+/* ===== Isolamento do campo de busca do painel =====
+   O painel de processos e intencionalmente dark nos dois temas. Algumas telas
+   hospedeiras (especialmente body.ops-app) aplicam estilos globais com
+   !important a input[type="search"]. Sem este isolamento, o campo do painel
+   fica branco no White Mode. Mantenha este seletor mais especifico que os
+   estilos de formulario das paginas para o componente continuar autonomo. */
+#bulkJobsPanel .processos-panel__search input[type="search"],
+.processos-panel .processos-panel__search input[type="search"] {
+  width: 100% !important;
+  height: 26px !important;
+  min-height: 26px !important;
+  padding: 0 9px !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  border-radius: 6px !important;
+  outline: none !important;
+  background: rgba(255,255,255,0.045) !important;
+  color: #e5e7eb !important;
+  box-shadow: none !important;
+  font: inherit !important;
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  line-height: normal !important;
+  color-scheme: dark;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#bulkJobsPanel .processos-panel__search input[type="search"]::placeholder,
+.processos-panel .processos-panel__search input[type="search"]::placeholder {
+  color: rgba(255,255,255,0.38) !important;
+  opacity: 1 !important;
+}
+
+#bulkJobsPanel .processos-panel__search input[type="search"]:focus,
+.processos-panel .processos-panel__search input[type="search"]:focus {
+  border-color: rgba(91,157,237,0.52) !important;
+  background: rgba(255,255,255,0.065) !important;
+  box-shadow: 0 0 0 2px rgba(91,157,237,0.10) !important;
+}
+
+#bulkJobsPanel .processos-panel__search input[type="search"]::-webkit-search-cancel-button,
+.processos-panel .processos-panel__search input[type="search"]::-webkit-search-cancel-button {
+  filter: invert(1);
+  opacity: .55;
+}

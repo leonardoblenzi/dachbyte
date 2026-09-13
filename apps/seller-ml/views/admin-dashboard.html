@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Master | DACHBYTE Seller</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=7" />
+  <link rel="stylesheet" href="/ml/css/select-conta.css?v=8" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/ml/css/ml-master-theme.css?v=2026081301" />
+  <script src="/ml/js/select-conta.js?v=8" defer></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body data-master-page="dashboard">
+  <main class="page-wrap">
+    <section class="master-accounts-page">
+      <header class="master-hero">
+        <div class="master-hero__main">
+          <span class="master-kicker">Painel master</span>
+          <h1>Controle administrativo</h1>
+          <p>
+            Acompanhe atividade de login, usuarios, empresas e contas Mercado Livre. Use a
+            navegacao lateral para acessar a selecao global e as areas administrativas.
+          </p>
+        </div>
+        <aside class="master-hero__stats" aria-label="Resumo de contas">
+          <article>
+            <span>Usuarios logados hoje</span>
+            <strong id="stat-logged-24h">-</strong>
+          </article>
+          <article>
+            <span>Ultimo login</span>
+            <strong id="stat-latest-login">-</strong>
+          </article>
+        </aside>
+      </header>
+
+      <div id="alert" class="master-alert" hidden></div>
+
+      <section class="master-dashboard-grid" aria-label="Indicadores administrativos">
+        <article class="master-kpi">
+          <span>Total de usuarios</span>
+          <strong id="kpi-users-total">-</strong>
+          <small id="kpi-users-active">- ativos</small>
+        </article>
+        <article class="master-kpi">
+          <span>Logins em 7 dias</span>
+          <strong id="kpi-users-7d">-</strong>
+          <small>usuarios com acesso recente</small>
+        </article>
+        <article class="master-kpi">
+          <span>Empresas</span>
+          <strong id="kpi-companies">-</strong>
+          <small>tenants cadastrados</small>
+        </article>
+        <article class="master-kpi">
+          <span>Contas ML</span>
+          <strong id="kpi-accounts">-</strong>
+          <small id="kpi-accounts-token">- com tokens</small>
+        </article>
+      </section>
+
+      <section class="master-panel master-panel--chart" aria-label="Logins recentes">
+        <div class="master-panel__head">
+          <div>
+            <span class="master-kicker">Acessos</span>
+            <h2>Logins dos ultimos 7 dias</h2>
+          </div>
+          <div class="master-panel__meta" id="login-chart-meta">-</div>
+        </div>
+        <div class="login-chart" id="login-chart"></div>
+      </section>
+
+      <section class="master-panel" aria-label="Atividade por empresa">
+        <div class="master-panel__head">
+          <div>
+            <span class="master-kicker">Empresas</span>
+            <h2>Atividade das empresas</h2>
+          </div>
+          <div class="master-panel__meta" id="company-activity-meta">-</div>
+        </div>
+        <div class="company-activity-layout">
+          <div class="company-bar-chart" id="company-activity-chart"></div>
+          <div class="company-activity-cards" id="company-activity-cards"></div>
+        </div>
+      </section>
+
+      <section class="master-panel" aria-label="Insights de uso">
+        <div class="master-panel__head">
+          <div>
+            <span class="master-kicker">Insights</span>
+            <h2>Areas mais usadas</h2>
+          </div>
+          <div class="master-panel__meta" id="usage-insights-meta">Atividade auditada</div>
+        </div>
+        <div class="usage-insights-grid" id="usage-insights-grid"></div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

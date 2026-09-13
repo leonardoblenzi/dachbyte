@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Order" ADD COLUMN     "gmvCents" INTEGER NOT NULL DEFAULT 0;

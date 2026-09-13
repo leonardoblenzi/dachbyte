@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DACHBYTE Seller | Um painel só para vender em todo canal</title>
+<meta name="description" content="DACHBYTE Seller une Mercado Livre, Shopee, MadeiraMadeira e rastreio em um único painel. Margem, anúncios, pedidos e entregas sem abrir dez telas." />
+<meta name="theme-color" content="#090b10" />
+<link rel="icon" type="image/svg+xml" href="/ml/img/dachbyte-seller-mark.svg?v=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#090b10;
+  --ink-2:#0d1119;
+  --panel:rgba(255,255,255,.045);
+  --panel-2:rgba(255,255,255,.08);
+  --line:rgba(255,255,255,.10);
+  --line-strong:rgba(255,255,255,.18);
+  --text:#f4f2ec;
+  --muted:#8b8f9e;
+  --signal:#ff8a3f;
+  --signal-2:#ffb37a;
+  --mint:#2dd9a8;
+  --rose:#ff5470;
+  --ml:#ffe066;
+  --shopee:#ff5a2f;
+  --madeira:#c98a55;
+  --track:#6c93ff;
+  --r-lg:26px;
+  --r-md:16px;
+  --r-sm:10px;
+  --max:1240px;
+  --shadow:0 30px 80px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;color:var(--text);background:var(--ink);
+  font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+body:before{
+  content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:64px 64px;
+  mask-image:radial-gradient(circle at 50% 0%,rgba(0,0,0,.9),rgba(0,0,0,.1) 70%);
+}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+img{max-width:100%;display:block}
+:focus-visible{outline:2px solid var(--signal);outline-offset:3px;border-radius:4px}
+.wrap{width:min(var(--max),calc(100% - 40px));margin-inline:auto}
+.sec{padding:108px 0;position:relative}
+.sec--tight{padding:72px 0}
+h1,h2,h3,p{margin:0}
+.font-display{font-family:'Space Grotesk',sans-serif}
+.font-mono{font-family:'JetBrains Mono',monospace}
+.display{font-family:'Space Grotesk',sans-serif;font-size:clamp(38px,6vw,76px);line-height:1.02;letter-spacing:-.03em;font-weight:600}
+.h2{font-family:'Space Grotesk',sans-serif;font-size:clamp(30px,4vw,48px);line-height:1.06;letter-spacing:-.02em;font-weight:600;margin-bottom:14px}
+.h3{font-family:'Space Grotesk',sans-serif;font-size:clamp(22px,2.4vw,28px);line-height:1.12;letter-spacing:-.01em;font-weight:600}
+.muted{color:var(--muted)}
+.lede{color:var(--muted);font-size:18px;line-height:1.7;max-width:600px}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--signal-2);font-weight:500}
+.eyebrow i{width:6px;height:6px;border-radius:99px;background:var(--signal);box-shadow:0 0 12px var(--signal)}
+.section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:30px;margin-bottom:44px}
+.section-head .lede{margin-top:10px}
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s ease}
+.reveal.is-visible{opacity:1;transform:translateY(0)}
+
+/* buttons */
+.btn,.btn-ghost,.btn-link{border:0;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;border-radius:999px;font-weight:700;transition:transform .2s ease,background .2s ease,border-color .2s ease,opacity .2s ease}
+.btn{padding:15px 24px;background:var(--signal);color:#1a0e02;box-shadow:0 14px 32px rgba(255,138,63,.22)}
+.btn:hover{transform:translateY(-2px);background:var(--signal-2)}
+.btn.is-disabled{opacity:.4;pointer-events:none}
+.btn-ghost{padding:14px 22px;border:1px solid var(--line-strong);background:var(--panel);color:var(--text)}
+.btn-ghost:hover{transform:translateY(-2px);border-color:rgba(255,138,63,.45)}
+.btn-link{padding:10px 4px;color:var(--muted);font-weight:600;font-size:14px}
+.btn-link:hover{color:var(--text)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:60;backdrop-filter:blur(18px);border-bottom:1px solid var(--line);background:rgba(9,11,16,.78)}
+.nav-in{height:76px;display:flex;align-items:center;justify-content:space-between;gap:18px;width:min(1320px,calc(100% - 32px));margin:auto}
+.brand{display:flex;align-items:center;height:40px}
+.brand img{height:30px;width:auto;object-fit:contain}
+.brand-wordmark{display:grid;gap:1px;line-height:.9;text-transform:uppercase}
+.brand-wordmark strong{font-family:'Space Grotesk',sans-serif;font-size:21px;letter-spacing:-.07em;color:#f4f2ec}
+.brand-wordmark small{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.18em;color:var(--signal-2)}
+.nav-links{display:flex;gap:4px;align-items:center}
+.nav-links a{font-size:14px;color:var(--muted);padding:10px 14px;border-radius:999px;font-weight:600;transition:.2s}
+.nav-links a:hover{color:var(--text);background:var(--panel)}
+.nav-ctas{display:flex;gap:10px;align-items:center}
+.nav-burger{display:none;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:9px 11px}
+.nav-burger span{display:block;width:18px;height:2px;background:var(--text);margin:4px 0;border-radius:2px}
+.mobile-links{display:none}
+
+/* hero */
+.hero{padding:84px 0 40px}
+.hero-grid{display:grid;grid-template-columns:1.08fr .92fr;gap:56px;align-items:center}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin:30px 0 26px}
+.hero-fine{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--muted)}
+.hero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:38px;border-top:1px solid var(--line)}
+.hero-stat{padding:18px 18px 0 0}
+.hero-stat strong{display:block;font-family:'Space Grotesk',sans-serif;font-size:30px;letter-spacing:-.02em}
+.hero-stat span{display:block;color:var(--muted);font-size:13px;margin-top:4px}
+
+/* signal deck (signature element) */
+.signal-deck{border:1px solid var(--line-strong);border-radius:var(--r-lg);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));box-shadow:var(--shadow);overflow:hidden}
+.signal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.signal-live{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--mint);text-transform:uppercase;letter-spacing:.06em}
+.signal-live i{width:7px;height:7px;border-radius:99px;background:var(--mint);box-shadow:0 0 12px var(--mint);animation:blip 1.6s ease-in-out infinite}
+@keyframes blip{0%,100%{opacity:.5}50%{opacity:1}}
+.signal-tabs{display:flex;gap:6px}
+.signal-tab{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;border:1px solid transparent;background:transparent;font-size:12px;font-weight:600;color:var(--muted)}
+.signal-tab i{width:7px;height:7px;border-radius:99px;flex:0 0 7px}
+.signal-tab.is-active{background:var(--panel-2);border-color:var(--line-strong);color:var(--text)}
+.signal-feed{padding:6px 0;min-height:208px}
+.signal-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 18px;border-bottom:1px solid rgba(255,255,255,.05);font-family:'JetBrains Mono',monospace;font-size:13px}
+.signal-row span:first-child{color:#dfe1ea}
+.signal-tagx{font-size:11px;padding:4px 9px;border-radius:999px;border:1px solid var(--line-strong)}
+.signal-tagx.ok{color:#a9f6dc;background:rgba(45,217,168,.1);border-color:rgba(45,217,168,.3)}
+.signal-tagx.warn{color:#ffd9ad;background:rgba(255,138,63,.1);border-color:rgba(255,138,63,.3)}
+.signal-tagx.risk{color:#ffbfca;background:rgba(255,84,112,.1);border-color:rgba(255,84,112,.3)}
+.signal-tagx.info{color:#cdd9ff;background:rgba(108,147,255,.1);border-color:rgba(108,147,255,.3)}
+.signal-merge{display:flex;align-items:center;gap:8px;padding:15px 18px;border-top:1px solid var(--line);background:rgba(255,138,63,.06);font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--signal-2)}
+
+/* channel strip */
+.channels-strip{padding:34px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.channels-row{display:flex;align-items:center;gap:34px;flex-wrap:wrap;justify-content:space-between}
+.channels-row span.lbl{font-size:13px;color:var(--muted);font-weight:600;white-space:nowrap}
+.channel-chip{display:flex;align-items:center;gap:9px;color:#cfd2dd;font-weight:600;font-size:14.5px}
+.channel-chip b{width:8px;height:8px;border-radius:99px;flex:0 0 8px}
+
+/* before/after */
+.swap{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.swap-card{border-radius:var(--r-lg);padding:28px;border:1px solid var(--line)}
+.swap-card.before{background:linear-gradient(160deg,rgba(255,84,112,.09),transparent 60%)}
+.swap-card.after{background:linear-gradient(160deg,rgba(45,217,168,.1),transparent 60%)}
+.swap-card h3{margin-bottom:18px}
+.swap-list{display:grid;gap:10px}
+.swap-item{display:flex;gap:11px;align-items:flex-start;padding:13px 14px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);font-size:14.5px;color:#dfe1ec}
+.swap-item b{flex:0 0 20px;font-family:'JetBrains Mono',monospace;font-size:13px}
+.before .swap-item b{color:var(--rose)}
+.after .swap-item b{color:var(--mint)}
+
+/* command center */
+.cmd-shell{display:grid;grid-template-columns:280px 1fr;gap:18px}
+.cmd-menu{display:grid;gap:10px;align-content:start}
+.cmd-btn{display:flex;align-items:center;gap:12px;padding:15px;border-radius:16px;border:1px solid var(--line);background:var(--panel);text-align:left}
+.cmd-btn b{display:block;font-size:14.5px}
+.cmd-btn small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.cmd-btn.is-active{border-color:var(--signal);background:rgba(255,138,63,.08)}
+.cmd-panel{border:1px solid var(--line);border-radius:var(--r-lg);padding:28px;background:linear-gradient(170deg,rgba(255,255,255,.045),rgba(255,255,255,.01));min-height:540px;box-shadow:var(--shadow)}
+.cmd-top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:22px}
+.cmd-top p{color:var(--muted);margin-top:6px;max-width:520px;line-height:1.6}
+.live-pill{display:inline-flex;gap:8px;align-items:center;border:1px solid rgba(45,217,168,.3);background:rgba(45,217,168,.08);padding:8px 12px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#bdf7e2;white-space:nowrap}
+.live-pill i{width:7px;height:7px;border-radius:99px;background:var(--mint);box-shadow:0 0 12px var(--mint);animation:blip 1.6s ease-in-out infinite}
+.cmd-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.cmd-stat{padding:15px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.03)}
+.cmd-stat span{display:block;font-size:11.5px;color:var(--muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.04em}
+.cmd-stat strong{display:block;font-size:25px;margin-top:6px;font-family:'Space Grotesk',sans-serif}
+.cmd-table{display:grid;gap:9px;margin-bottom:18px}
+.cmd-row{display:grid;grid-template-columns:1.4fr .8fr .8fr auto;gap:12px;align-items:center;padding:12px 14px;border-radius:13px;background:rgba(255,255,255,.035);border:1px solid var(--line);font-size:13.5px}
+.cmd-row span{color:var(--muted)}
+.mini-bars{display:flex;gap:7px;align-items:end;height:88px}
+.mini-bars i{flex:1;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,var(--signal),rgba(255,138,63,.25));min-height:14px}
+
+/* modules */
+.module-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.mtab{border:1px solid var(--line);background:var(--panel);padding:12px 16px;border-radius:999px;font-weight:700;font-size:13.5px;color:var(--muted)}
+.mtab.is-active{background:rgba(255,138,63,.12);border-color:var(--signal);color:var(--text)}
+.module-panel{display:none}
+.module-panel.is-active{display:grid;grid-template-columns:.95fr 1.05fr;gap:22px}
+.module-copy,.module-visual{border:1px solid var(--line);border-radius:var(--r-lg);padding:28px;background:rgba(255,255,255,.03)}
+.module-tag{display:inline-flex;padding:7px 12px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line-strong);font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.module-copy h3{margin:14px 0 12px}
+.module-copy p{color:var(--muted);line-height:1.7;font-size:15.5px}
+.feat-list{display:grid;gap:10px;margin-top:20px}
+.feat-item{display:flex;gap:12px;align-items:flex-start;padding:13px;border-radius:14px;background:rgba(255,255,255,.035);border:1px solid var(--line);font-size:14px;color:#dde0ec;line-height:1.5}
+.feat-item span{flex:0 0 26px;color:var(--signal-2);font-family:'JetBrains Mono',monospace;font-weight:700}
+.benefit-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.benefit-row div{display:flex;gap:7px;align-items:center;font-size:13px;font-weight:600;color:#bdf7e2}
+.product-frame{border-radius:18px;background:#0c0e16;border:1px solid var(--line-strong);padding:18px;height:100%}
+.pf-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-size:12px;color:var(--muted)}
+.pf-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.pf-stat{padding:13px;border-radius:13px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+.pf-stat span{font-size:11px;color:var(--muted)}
+.pf-stat strong{display:block;font-size:21px;margin-top:4px;font-family:'Space Grotesk',sans-serif}
+.pf-list{display:grid;gap:8px;margin-top:12px}
+.pf-item{display:flex;justify-content:space-between;align-items:center;padding:11px 12px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid var(--line);font-size:13px}
+.pf-item small{display:block;color:var(--muted);font-size:11.5px}
+.pf-bars{display:grid;gap:9px;margin-top:16px}
+.pf-bar-row{display:grid;grid-template-columns:64px 1fr 36px;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
+.pf-track{height:7px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.pf-track b{display:block;height:100%;background:linear-gradient(90deg,var(--signal),var(--mint));border-radius:inherit}
+
+/* calculator */
+.calc-grid{display:grid;grid-template-columns:.95fr 1.05fr;gap:28px;align-items:stretch}
+.calc-card{border:1px solid var(--line);border-radius:var(--r-lg);padding:34px 30px 32px;background:rgba(255,255,255,.035)}
+.calc-card .lede{max-width:52ch;margin-bottom:0}
+.calc-fields{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:28px}
+.field{display:grid;gap:7px}
+.field label{font-size:12.5px;font-weight:700;color:#d9dbe6}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line-strong);background:rgba(255,255,255,.04);border-radius:12px;padding:13px;outline:0}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--signal)}
+.calc-card .field select{-webkit-appearance:none;-moz-appearance:none;appearance:none;background-color:#1b1e26;background-image:linear-gradient(45deg,transparent 50%,#f4f2ec 50%),linear-gradient(135deg,#f4f2ec 50%,transparent 50%);background-position:calc(100% - 20px) calc(50% - 3px),calc(100% - 14px) calc(50% - 3px);background-size:6px 6px,6px 6px;background-repeat:no-repeat;color:var(--text);padding-right:42px;color-scheme:dark}
+.calc-card .field select option{background:#11131c;color:#f4f2ec}
+.calc-card .field select::-ms-expand{display:none}
+.field textarea{min-height:110px;resize:vertical}
+.calc-results{display:grid;gap:16px;align-content:start}
+.result-box{border:1px solid var(--line);border-radius:var(--r-lg);padding:26px 24px;background:linear-gradient(160deg,rgba(255,138,63,.1),rgba(255,255,255,.02));min-height:170px}
+.result-box .big{font-family:'Space Grotesk',sans-serif;font-size:48px;letter-spacing:-.02em}
+.result-box p{color:var(--muted);margin-top:8px;line-height:1.6}
+.calc-results .checkout{
+  width:auto;
+  min-width:320px;
+  max-width:100%;
+  justify-self:start;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  margin-top:12px;
+  padding-inline:28px;
+}
+
+/* pricing */
+.cycle-toggle{display:flex;gap:6px;padding:6px;border-radius:999px;background:var(--panel);border:1px solid var(--line);width:max-content}
+.cycle-toggle button{border:0;background:transparent;color:var(--muted);border-radius:999px;padding:10px 16px;font-weight:700;font-size:13.5px}
+.cycle-toggle button.is-active{background:var(--signal);color:#1a0e02}
+.pricing-shell{display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,26vw,360px);gap:22px;align-items:start;margin-top:28px}
+.plans-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:stretch}
+.plan-card{min-width:0;border:1px solid var(--line);border-radius:var(--r-lg);padding:22px;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.025));position:relative;transition:.2s;display:flex;flex-direction:column;height:100%;align-items:stretch;overflow:hidden}
+.plan-card.is-selected{border-color:var(--mint);box-shadow:0 0 0 1px rgba(45,217,168,.25),0 24px 60px rgba(45,217,168,.08)}
+.plan-card>.module-tag{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.plan-card.is-selected>.module-tag{max-width:calc(100% - 112px)}.plan-card.is-selected:after{content:"Selecionado";position:absolute;top:18px;right:18px;z-index:2;font-size:10.5px;font-weight:700;line-height:1;color:#bdf7e2;background:rgba(45,217,168,.14);border:1px solid rgba(45,217,168,.38);padding:6px 9px;border-radius:999px;box-shadow:0 0 0 1px rgba(8,12,18,.42)}
+.plan-card h3{margin:16px 0 0;min-height:64px;display:flex;align-items:flex-end;max-width:none;font-size:clamp(23px,2vw,28px);line-height:1.05}
+.plan-pricing{display:flex;flex-direction:column;justify-content:flex-end;gap:7px;min-height:108px;margin-top:4px}
+.plan-price{margin:0;min-height:66px}
+.plan-price .eq{font-size:11.5px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.plan-price strong{font-family:'Space Grotesk',sans-serif;font-size:clamp(30px,2.7vw,36px);letter-spacing:-.03em;white-space:nowrap}
+.plan-price span{color:var(--muted);font-size:14px}
+.plan-price .overage-hint{display:block;margin-top:5px;color:var(--signal);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:800;letter-spacing:.01em}
+.plan-period{font-size:13px;color:var(--muted);min-height:20px;margin-top:0}
+.plan-saving{color:#bdf7e2;font-weight:700;font-size:12.5px;min-height:19px}
+.plan-select{margin:18px 0 0}
+.plan-select label{font-size:12px;font-weight:700;display:block;margin-bottom:7px;color:#d9dbe6}
+.plan-select select,.plan-select input{width:100%;min-width:0;border:1px solid var(--line-strong);background:#11131c;border-radius:11px;padding:11px 12px;color:var(--text);font-size:13.5px;font-weight:700;line-height:1.2;text-overflow:ellipsis}.plan-select select{padding-right:34px}
+.plan-select select option[data-overage="true"]{color:#ffb66c}
+.plan-feats{display:grid;gap:8px;margin:16px 0 0;font-size:13.2px;color:#dde0ec;align-content:start}
+.plan-feats div{display:flex;gap:8px;align-items:flex-start}
+.plan-feats div:before{content:"";width:6px;height:6px;border-radius:99px;background:var(--signal);margin-top:6px;flex:0 0 6px}
+.plan-note{font-size:11.3px;color:var(--muted);line-height:1.45;min-height:58px;margin-top:auto;padding-top:16px;display:flex;align-items:flex-end}
+.plan-add{width:100%;min-height:46px;margin-top:14px;border:1px solid var(--line-strong);border-radius:12px;padding:12px;font-weight:700;background:rgba(255,255,255,.05)}
+.plan-card.is-selected .plan-add{background:var(--mint);color:#04231a;border-color:var(--mint)}
+.addon-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.addon{padding:18px;border-radius:16px;border:1px dashed var(--line-strong);background:rgba(255,255,255,.025)}
+.addon strong{display:block;margin-bottom:6px}
+.addon p{color:var(--muted);font-size:13.5px;line-height:1.55}
+.summary-card{position:sticky;top:96px;border:1px solid rgba(255,138,63,.32);border-radius:var(--r-lg);padding:24px;background:linear-gradient(165deg,rgba(255,138,63,.12),rgba(45,217,168,.05));box-shadow:var(--shadow)}
+.summary-badge{display:inline-flex;gap:8px;align-items:center;font-size:11.5px;font-weight:700;padding:7px 11px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line-strong)}
+.summary-badge i{width:7px;height:7px;border-radius:99px;background:var(--mint)}
+.summary-card h3{margin:16px 0 6px}
+.combo-price{margin:14px 0}
+.combo-price strong{font-family:'Space Grotesk',sans-serif;font-size:38px;letter-spacing:-.02em}
+.summary-lines{display:grid;gap:9px;margin:16px 0}
+.summary-line{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.summary-line span{color:var(--muted)}
+.smart-combo{margin-top:16px;border:1px solid rgba(45,217,168,.28);background:rgba(45,217,168,.07);padding:14px;border-radius:14px;font-size:13px}
+.smart-combo strong{display:block;margin-bottom:4px;color:#cdfbe7}
+.checkout{display:block;text-align:center;width:100%;margin-top:14px}
+
+/* trust + testimonials */
+.trust-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.trust-card{border:1px solid var(--line);border-radius:18px;padding:22px;background:rgba(255,255,255,.03)}
+.trust-card span.k{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--signal-2)}
+.trust-card h4{font-family:'Space Grotesk',sans-serif;font-size:17px;margin:10px 0 6px;font-weight:600}
+.trust-card p{color:var(--muted);font-size:13.5px;line-height:1.6}
+.quotes-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.quote-card{border:1px solid var(--line);border-radius:var(--r-lg);padding:24px;background:rgba(255,255,255,.03)}
+.quote-metric{font-family:'Space Grotesk',sans-serif;font-size:30px;color:var(--mint);letter-spacing:-.02em}
+.quote-card blockquote{margin:14px 0;color:#e2e4ef;line-height:1.65;font-size:14.5px}
+.quote-author{display:flex;gap:10px;align-items:center;margin-top:16px}
+.avatar{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:rgba(255,138,63,.15);border:1px solid var(--line-strong);font-weight:700;font-size:13px}
+.quote-author small{display:block;color:var(--muted)}
+
+/* faq */
+.faq-shell{display:grid;grid-template-columns:340px 1fr;gap:30px}
+.faq-list{display:grid;gap:10px}
+.faq-item{border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.03);overflow:hidden}
+.faq-q{width:100%;display:flex;justify-content:space-between;gap:14px;align-items:center;background:transparent;border:0;padding:17px 18px;text-align:left;font-weight:700;font-size:14.5px}
+.faq-q span{font-family:'JetBrains Mono',monospace;color:var(--signal-2)}
+.faq-a{padding:0 18px 17px;color:var(--muted);line-height:1.65;font-size:14px}
+.faq-a.hidden{display:none}
+
+/* contact */
+.contact-shell{display:grid;grid-template-columns:.85fr 1.15fr;gap:26px}
+.how-steps{display:grid;gap:10px;margin-top:22px}
+.how-step{display:flex;gap:13px;align-items:flex-start;padding:14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+.how-num{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--signal-2);flex:0 0 26px}
+.how-step p{color:#dde0ec;font-size:14px;line-height:1.55}
+.tag-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
+.tag-chip{font-size:12px;padding:7px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--muted)}
+.form-card{border:1px solid var(--line);border-radius:var(--r-lg);padding:28px;background:rgba(255,255,255,.035)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-card .field{margin-bottom:14px}
+.channel-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:8px}
+.channel-option{display:flex;align-items:center;gap:10px;padding:14px 15px;border-radius:14px;border:1px solid var(--line-strong);background:rgba(255,255,255,.03);cursor:pointer;transition:border-color .2s ease,background .2s ease,transform .2s ease}
+.channel-option:hover{transform:translateY(-1px);border-color:rgba(255,138,63,.45)}
+.channel-option.is-active{border-color:var(--signal);background:rgba(255,138,63,.10)}
+.channel-option--multi{background:linear-gradient(180deg,rgba(255,138,63,.08),rgba(255,255,255,.03));border-color:rgba(255,138,63,.28)}
+.channel-option--multi .channel-copy strong{color:var(--signal-2)}
+.channel-option--multi.is-active{background:linear-gradient(180deg,rgba(255,138,63,.18),rgba(255,255,255,.05));box-shadow:0 0 0 1px rgba(255,138,63,.18)}
+.channel-option input{position:absolute;opacity:0;pointer-events:none}
+.channel-dot{width:10px;height:10px;border-radius:999px;flex:0 0 10px;background:var(--muted);box-shadow:0 0 0 4px rgba(255,255,255,.04)}
+.channel-option.is-active .channel-dot{background:var(--signal);box-shadow:0 0 0 4px rgba(255,138,63,.14)}
+.channel-copy strong{display:block;font-size:14px}
+.channel-copy small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px;line-height:1.4}
+.field-help{margin-top:10px;color:var(--muted);font-size:12.5px;line-height:1.5}
+.form-submit{width:100%;border:0;border-radius:14px;padding:16px;background:var(--signal);font-weight:700;color:#1a0e02}
+.fine{margin-top:12px;color:var(--muted);font-size:12px}
+.feedback{margin-top:12px;padding:13px;border-radius:13px;background:rgba(45,217,168,.08);border:1px solid rgba(45,217,168,.3);color:#cdfbe7;font-size:13.5px}
+.feedback.is-error{background:rgba(255,84,112,.08);border-color:rgba(255,84,112,.3);color:#ffd0d8}
+.feedback.is-success{background:rgba(45,217,168,.08);border-color:rgba(45,217,168,.3);color:#cdfbe7}
+
+/* footer */
+.footer{border-top:1px solid var(--line);padding:54px 0 38px}
+.footer-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:26px}
+.footer-grid p{color:var(--muted);line-height:1.65;margin-top:14px;font-size:14px;max-width:280px}
+.footer-grid a.mail{display:inline-block;margin-top:14px;color:var(--signal-2);font-weight:600;font-size:13.5px}
+.footer h5{font-family:'JetBrains Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:14px}
+.footer-links a{display:block;color:#cfd2dd;margin:9px 0;font-size:14px}
+.footer-bottom{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:38px;padding-top:24px;border-top:1px solid var(--line)}
+.badge-row{display:flex;gap:8px;flex-wrap:wrap}
+.badge{font-size:11.5px;padding:7px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--muted)}
+
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+
+@media (max-width:1280px) and (min-width:1101px){
+  .pricing-shell{grid-template-columns:minmax(0,1fr) 330px;gap:18px}
+  .plans-grid{gap:14px}
+  .plan-card{padding:20px}
+  .summary-card{padding:20px}
+}
+
+@media (max-width:1100px){
+  .nav-links{display:none}
+  .nav-burger{display:inline-flex}
+  .hero-grid,.swap,.cmd-shell,.calc-grid,.pricing-shell,.contact-shell,.module-panel.is-active{grid-template-columns:1fr}
+  .summary-card{position:relative;top:auto}
+  .plans-grid,.trust-grid,.quotes-grid{grid-template-columns:repeat(2,1fr)}
+  .footer-grid{grid-template-columns:1fr 1fr}
+  .faq-shell{grid-template-columns:1fr}
+  .section-head{display:block}
+  .section-head .lede{margin-top:12px}
+  .hero-stats{grid-template-columns:repeat(3,1fr)}
+}
+@media (max-width:720px){
+  .wrap{width:min(100% - 28px,var(--max))}
+  .sec{padding:76px 0}
+  .sec--tight{padding:54px 0}
+  .display{font-size:42px}
+  .calc-fields,.form-row,.benefit-row,.addon-row,.cmd-stats,.channel-picker{grid-template-columns:1fr}
+  .plans-grid,.trust-grid,.quotes-grid,.footer-grid,.hero-stats{grid-template-columns:1fr}
+  .cmd-row{grid-template-columns:1fr}
+  .nav-ctas .btn-link{display:none}
+  .hero-actions{display:grid}
+  .hero-actions a{width:100%}
+  .calc-results .checkout{width:100%;min-width:0;justify-self:stretch}
+  .mobile-links.is-open{display:grid;gap:4px;padding:14px;border-top:1px solid var(--line)}
+}
+</style>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body id="top">
+<nav class="nav">
+  <div class="nav-in">
+    <a class="brand dachbyte-signature" href="#top" aria-label="DACHBYTE Seller"><span class="dachbyte-signature__wordmark"><span>DACH</span><span>BYTE</span></span><span class="dachbyte-signature__label">Seller</span></a>
+    <div class="nav-links" aria-label="Navegação principal">
+      <a href="#central">Central</a><a href="#modulos">Módulos</a><a href="#calculadora">Economia</a><a href="#planos">Planos</a><a href="#faq">FAQ</a>
+    </div>
+    <div class="nav-ctas">
+      <a class="btn-link" href="/login">Já sou cliente</a>
+      <a class="btn" href="#planos">Montar pacote →</a>
+      <button class="nav-burger" id="navBurger" aria-label="Abrir menu" type="button"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+  <div class="mobile-links" id="mobileLinks">
+    <a href="#central">Central</a><a href="#modulos">Módulos</a><a href="#calculadora">Economia</a><a href="#planos">Planos</a><a href="#faq">FAQ</a><a href="/login">Já sou cliente</a>
+  </div>
+</nav>
+
+<main>
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div class="hero-copy reveal">
+        <div class="eyebrow"><i></i> operação multicanal em tempo real</div>
+        <h1 class="display">Mercado Livre, Shopee, Madeira e rastreio.<br>Um sinal só.</h1>
+        <p class="lede" style="margin-top:18px">DACHBYTE Seller junta preço, margem, anúncios, pedidos e entregas dos seus canais num único painel — para você decidir em minutos o que hoje leva a tarde inteira em planilha.</p>
+        <div class="hero-actions">
+          <a class="btn" href="#planos">Montar meu pacote →</a>
+          <a class="btn-ghost" href="#central">Ver central de comando</a>
+        </div>
+        <div class="hero-fine">Sem fidelidade longa • planos por faixa de pedidos • suporte em português</div>
+        <div class="hero-stats">
+          <div class="hero-stat"><strong data-count="84" data-suffix="k">0</strong><span>pedidos/mês acompanhados</span></div>
+          <div class="hero-stat"><strong data-count="29" data-suffix="%">0</strong><span>margem média identificada</span></div>
+          <div class="hero-stat"><strong data-count="6" data-suffix="">0</strong><span>alertas críticos antecipados/dia</span></div>
+        </div>
+      </div>
+      <div class="hero-stage reveal">
+        <div class="signal-deck">
+          <div class="signal-head">
+            <span class="signal-live"><i></i> sinal ao vivo</span>
+            <div class="signal-tabs" id="heroTabs"></div>
+          </div>
+          <div class="signal-feed" id="heroFeed"></div>
+          <div class="signal-merge">→ tudo convergindo para <strong>1 painel DACHBYTE Seller</strong></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="channels-strip">
+    <div class="wrap channels-row">
+      <span class="lbl">Conecta direto com</span>
+      <span class="channel-chip"><b style="background:var(--ml)"></b>Mercado Livre</span>
+      <span class="channel-chip"><b style="background:var(--shopee)"></b>Shopee</span>
+      <span class="channel-chip"><b style="background:var(--madeira)"></b>Madeira Madeira</span>
+      <span class="channel-chip"><b style="background:var(--track)"></b>Avantracking</span>
+    </div>
+  </section>
+
+  <section class="sec" id="dores">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div><div class="eyebrow"><i></i> o problema real</div><h2 class="h2">Sua operação não trava por falta de venda.<br>Trava por falta de visão.</h2></div>
+        <p class="lede">O seller multicanal não perde tempo vendendo — perde tempo conferindo. DACHBYTE Seller devolve esse tempo para a decisão.</p>
+      </div>
+      <div class="swap reveal">
+        <article class="swap-card before">
+          <h3 class="h3">Sem DACHBYTE Seller</h3>
+          <div class="swap-list">
+            <div class="swap-item"><b>01</b>Planilha paralela pra calcular margem de cada anúncio.</div>
+            <div class="swap-item"><b>02</b>Painel nativo de cada canal aberto em abas diferentes.</div>
+            <div class="swap-item"><b>03</b>Atraso de entrega descoberto só na reclamação do cliente.</div>
+            <div class="swap-item"><b>04</b>Decisão de canal feita no "achismo", sem comparar SKU.</div>
+          </div>
+        </article>
+        <article class="swap-card after">
+          <h3 class="h3">Com DACHBYTE Seller</h3>
+          <div class="swap-list">
+            <div class="swap-item"><b>01</b>Margem calculada automaticamente por anúncio e canal.</div>
+            <div class="swap-item"><b>02</b>Mercado Livre, Shopee e Madeira no mesmo painel.</div>
+            <div class="swap-item"><b>03</b>Exceção logística sinalizada antes do prazo vencer.</div>
+            <div class="swap-item"><b>04</b>DACHBYTE Leader mostra onde cada produto vende melhor.</div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="central">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div><div class="eyebrow"><i></i> demonstração</div><h2 class="h2">A central de comando da sua operação.</h2></div>
+        <p class="lede">Clique em cada canal e veja o tipo de leitura que o painel entrega - sem precisar abrir conta pra testar.</p>
+      </div>
+      <div class="cmd-shell reveal">
+        <div class="cmd-menu" id="cmdMenu"></div>
+        <div class="cmd-panel" id="cmdPanel"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="modulos">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div><div class="eyebrow"><i></i> módulos</div><h2 class="h2">Cada módulo resolve um gargalo específico.</h2></div>
+        <p class="lede">Comece pelo que dói mais hoje. Combine quando fizer sentido - sem perder histórico.</p>
+      </div>
+      <div class="module-tabs reveal" id="moduleTabs"></div>
+      <div id="modulePanels" class="reveal"></div>
+    </div>
+  </section>
+
+  <section class="sec" id="calculadora">
+    <div class="wrap calc-grid">
+      <div class="calc-card reveal">
+        <div class="eyebrow"><i></i> calculadora de economia</div>
+        <h2 class="h2" style="margin-top:14px">Quanto tempo sua operação perde por mês?</h2>
+        <p class="lede">Simule a perda gerada por planilha paralela, consulta manual e rastreio reativo.</p>
+        <div class="calc-fields">
+          <div class="field"><label>Pedidos por mês</label><input id="calcOrders" type="number" min="0" value="1500"></div>
+          <div class="field"><label>Canais usados</label><select id="calcChannels"><option value="1">1 canal</option><option value="2" selected>2 canais</option><option value="3">3 canais</option><option value="4">4 canais</option></select></div>
+          <div class="field"><label>Horas/semana em planilha</label><input id="calcSheets" type="number" min="0" value="6"></div>
+          <div class="field"><label>Horas/semana em rastreio</label><input id="calcTrack" type="number" min="0" value="4"></div>
+        </div>
+        <div style="margin-top:20px"><button class="btn" id="calcBtn" type="button">Calcular economia →</button></div>
+      </div>
+      <div class="calc-results reveal">
+        <article class="result-box"><span class="muted">Tempo operacional estimado</span><div class="big"><span id="hoursLost">42</span>h/mês</div><p>Tempo possivelmente perdido com tarefa repetitiva e conferência manual.</p></article>
+        <article class="result-box"><span class="muted">Impacto prático</span><strong id="impactText" style="display:block;font-size:18px;margin-top:8px">Sua operação pode recuperar dias úteis todos os meses.</strong></article>
+        <a class="btn checkout" href="#planos">Quero reduzir esse retrabalho →</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="planos">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div><div class="eyebrow"><i></i> builder de planos</div><h2 class="h2">Monte seu pacote DACHBYTE Seller.</h2><p class="lede">Escolha os módulos e a faixa de pedidos. A cobrança é mensal, sem fidelidade.</p></div>
+      </div>
+      <div class="pricing-shell">
+        <div>
+          <div class="plans-grid" id="planCards"></div>
+          <div class="addon-row">
+            <div class="addon"><strong>DACHBYTE Madeira incluso</strong><p>No combo de 2 ou mais módulos, o canal Madeira entra como cobertura complementar sem custo adicional — catálogo, frete e pedidos no mesmo stack.</p></div>
+            <div class="addon"><strong>DACHBYTE Leader estratégico</strong><p>Visão consultiva por SKU para comparar desempenho entre canais e decidir onde investir, ajustar preço ou revisar cadastro.</p></div>
+          </div>
+        </div>
+        <aside class="summary-card">
+          <div class="summary-badge"><i></i><span id="comboBadge">Monte seu pacote</span></div>
+          <h3 id="summaryTitle" class="h3">Pacote DACHBYTE Seller</h3>
+          <p class="muted" id="summaryDesc" style="font-size:13.5px;line-height:1.6">Adicione módulos para montar o pacote mensal.</p>
+          <div class="combo-price"><span class="muted" style="font-size:12px">equivale a</span><br><strong id="summaryMonthly">R$ 0,00</strong><span class="muted">/mês</span></div>
+          <div class="summary-lines" id="summaryLines"></div>
+          <div class="smart-combo" id="smartCombo"><strong>Pacote aguardando</strong><span>Selecione módulos para ver a mensalidade e os benefícios.</span></div>
+          <a class="btn checkout is-disabled" id="checkoutBtn" href="#" aria-disabled="true">Ir para checkout com pacote salvo →</a>
+          <a class="btn-ghost checkout" href="#contato">Falar com consultor</a>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec sec--tight" id="confianca">
+    <div class="wrap">
+      <div class="trust-grid reveal">
+        <article class="trust-card"><span class="k">01</span><h4>Implantação acompanhada</h4><p>Orientação pra conectar os módulos e começar a operar com clareza.</p></article>
+        <article class="trust-card"><span class="k">02</span><h4>Planos por faixa</h4><p>Você escolhe o volume de pedidos de cada canal e vê o custo de forma transparente.</p></article>
+        <article class="trust-card"><span class="k">03</span><h4>Sem fidelidade longa</h4><p>Planos mensais, com liberdade para ajustar sua operação quando precisar.</p></article>
+        <article class="trust-card"><span class="k">04</span><h4>Visão de dono</h4><p>Operação, comercial e rastreio no mesmo stack de decisão.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="depoimentos">
+    <div class="wrap">
+      <div class="section-head reveal"><div><div class="eyebrow"><i></i> quem já usa</div><h2 class="h2">Impacto real na rotina comercial.</h2></div></div>
+      <div class="quotes-grid reveal">
+        <article class="quote-card"><div class="quote-metric">2 min</div><blockquote>Antes eu abria quatro telas pra entender o dia. Agora abro o painel e em dois minutos sei onde agir.</blockquote><div class="quote-author"><div class="avatar">RB</div><div><strong>Rafael B.</strong><small>Vendedor full-time ML</small></div></div></article>
+        <article class="quote-card"><div class="quote-metric">+40%</div><blockquote>Reduzi reclamação de atraso no primeiro mês. O rastreio avisa antes do cliente reclamar - isso é ouro no pós-venda.</blockquote><div class="quote-author"><div class="avatar">CM</div><div><strong>Carla M.</strong><small>Gestora de e-commerce</small></div></div></article>
+        <article class="quote-card"><div class="quote-metric">4 x 1</div><blockquote>Entrei pelo DACHBYTE Shopee, dois meses depois fechei o combo. A operação ficou muito mais tranquila.</blockquote><div class="quote-author"><div class="avatar">PL</div><div><strong>Pedro L.</strong><small>Seller Shopee + ML</small></div></div></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="faq">
+    <div class="wrap faq-shell">
+      <div class="reveal">
+        <div class="eyebrow"><i></i> faq comercial</div>
+        <h2 class="h2" style="margin-top:14px">Perguntas frequentes.</h2>
+        <p class="lede">Objeções importantes, respondidas antes do formulário.</p>
+        <a class="btn-ghost" href="#contato" style="margin-top:20px">Falar com o time →</a>
+      </div>
+      <div class="faq-list reveal" id="faqList">
+        <div class="faq-item"><button class="faq-q" type="button">Posso começar com um módulo só e adicionar depois?<span>+</span></button><div class="faq-a">Sim. Você contrata o módulo que resolve seu problema hoje e adiciona outros quando fizer sentido, sem perder histórico. O combo fica disponível como upgrade natural.</div></div>
+        <div class="faq-item"><button class="faq-q" type="button">A DACHBYTE Seller substitui planilhas?<span>+</span></button><div class="faq-a hidden">A proposta é reduzir consulta manual e centralizar indicadores comerciais, operacionais e de rastreio. Planilhas podem continuar existindo, mas deixam de ser o centro da rotina.</div></div>
+        <div class="faq-item"><button class="faq-q" type="button">O que é o DACHBYTE Madeira incluso no combo?<span>+</span></button><div class="faq-a hidden">O canal Madeira entra no combo de 2 ou mais módulos sem custo adicional. Você acompanha catálogo, frete e pedidos no mesmo stack.</div></div>
+        <div class="faq-item"><button class="faq-q" type="button">Como funciona a cobrança por faixa de vendas?<span>+</span></button><div class="faq-a hidden">No DACHBYTE Mercado Livre e Shopee, a faixa acompanha o volume mensal de vendas. Acima de 1.500 vendas, adicionamos R$ 11,00 por bloco de 500 vendas, com créditos mensais e créditos iniciais extras.</div></div>
+        <div class="faq-item"><button class="faq-q" type="button">Como funciona a faixa do Tracking?<span>+</span></button><div class="faq-a hidden">No DACHBYTE Tracking, a faixa é por pedidos processados no mês. Acima de 6.000 pedidos processados, cobramos R$ 2,00 por bloco extra de 500 pedidos processados, sem sistema de créditos.</div></div>
+        <div class="faq-item"><button class="faq-q" type="button">Existe contrato de fidelidade?<span>+</span></button><div class="faq-a hidden">Não. A cobrança é mensal e você pode cancelar sem multa.</div></div>
+        <div class="faq-item"><button class="faq-q" type="button">Funciona pra quem vende em ML e Shopee juntos?<span>+</span></button><div class="faq-a hidden">Sim. O combo foi pensado pra sellers multicanal que querem comparar canais, reduzir retrabalho e acompanhar tudo numa visão só.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec sec--tight" id="contato">
+    <div class="wrap contact-shell">
+      <div class="reveal">
+        <div class="eyebrow"><i></i> contato comercial</div>
+        <h2 class="h2" style="margin-top:14px">Receba uma recomendação clara pra sua operação.</h2>
+        <p class="lede">Preencha seus dados, diga em quais canais você vende hoje e nosso time retorna para entender o contexto e orientar o próximo passo.</p>
+        <div class="how-steps">
+          <div class="how-step"><div class="how-num">01</div><p>Você informa nome, e-mail, celular e os canais que opera hoje.</p></div>
+          <div class="how-step"><div class="how-num">02</div><p>O time recebe seu contato com esse contexto comercial inicial.</p></div>
+          <div class="how-step"><div class="how-num">03</div><p>Nós avaliamos o lead e conduzimos o próximo passo da conversa.</p></div>
+        </div>
+        <div class="tag-row"><span class="tag-chip">Mercado Livre</span><span class="tag-chip">Shopee</span><span class="tag-chip">Rastreio</span><span class="tag-chip">Mais de um canal</span></div>
+      </div>
+      <form class="form-card reveal" id="contactForm">
+        <div class="form-row"><div class="field"><label for="leadName">Nome completo</label><input id="leadName" name="name" required placeholder="Seu nome completo"></div><div class="field"><label for="leadEmail">E-mail</label><input id="leadEmail" name="email" type="email" required placeholder="voce@empresa.com.br"></div></div>
+        <div class="form-row"><div class="field"><label for="leadPhone">Celular</label><input id="leadPhone" name="cellphone" required placeholder="(11) 99999-9999"></div><div class="field"><label for="leadCompany">Empresa</label><input id="leadCompany" name="company" placeholder="Nome da sua empresa"></div></div>
+        <div class="field">
+          <label>Canais que você opera hoje</label>
+          <div class="channel-picker" id="channelPicker">
+            <label class="channel-option" data-channel-option>
+              <input type="checkbox" value="Mercado Livre" data-channel-input>
+              <span class="channel-dot" aria-hidden="true"></span>
+              <span class="channel-copy"><strong>Mercado Livre</strong><small>Anuncios, margem, promocoes e operacao.</small></span>
+            </label>
+            <label class="channel-option" data-channel-option>
+              <input type="checkbox" value="Shopee" data-channel-input>
+              <span class="channel-dot" aria-hidden="true"></span>
+              <span class="channel-copy"><strong>Shopee</strong><small>Pedidos, campanhas e catalogo do canal.</small></span>
+            </label>
+            <label class="channel-option" data-channel-option>
+              <input type="checkbox" value="Rastreio" data-channel-input>
+              <span class="channel-dot" aria-hidden="true"></span>
+              <span class="channel-copy"><strong>Rastreio</strong><small>Entregas, atrasos e atendimento proativo.</small></span>
+            </label>
+            <label class="channel-option channel-option--multi" data-channel-option>
+              <input type="checkbox" value="Multicanal" data-channel-input>
+              <span class="channel-dot" aria-hidden="true"></span>
+              <span class="channel-copy"><strong>Mais de um canal</strong><small>Ideal para quem vende em operação multicanal e quer deixar isso claro logo no primeiro contato.</small></span>
+            </label>
+          </div>
+          <div class="field-help" id="channelHelp">Você pode marcar mais de uma opção. Usamos isso para direcionar melhor o contato comercial.</div>
+        </div>
+        <div class="field"><label for="leadMessage">Mensagem</label><textarea id="leadMessage" name="message" placeholder="Conte brevemente o momento da sua operação ou o que quer resolver primeiro."></textarea></div>
+        <button class="form-submit" type="submit">Enviar contato →</button>
+        <div class="fine">Ao enviar, seu contato será encaminhado para <strong>contato@davanttisuite.com.br</strong>.</div>
+        <div class="feedback" id="formFeedback" hidden></div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-grid">
+    <div>
+      <a class="dachbyte-signature" href="#top" aria-label="DACHBYTE Seller"><span class="dachbyte-signature__wordmark"><span>DACH</span><span>BYTE</span></span><span class="dachbyte-signature__label">Seller</span></a>
+      <p>Suite SaaS para você vender, operar e acompanhar sua rotina com mais clareza.</p>
+      <a class="mail" href="mailto:contato@davanttisuite.com.br">contato@davanttisuite.com.br</a>
+    </div>
+    <div class="footer-links"><h5>Módulos</h5><a href="#planos">DACHBYTE Mercado Livre</a><a href="#planos">DACHBYTE Tracking</a><a href="#planos">DACHBYTE Shopee</a><a href="#modulos">DACHBYTE Leader</a></div>
+    <div class="footer-links"><h5>Produto</h5><a href="#central">Central de comando</a><a href="#calculadora">Calculadora</a><a href="#faq">FAQ</a></div>
+    <div class="footer-links"><h5>Empresa</h5><a href="#contato">Contato comercial</a><a href="/login">Área do cliente</a><a href="/privacidade">Política de privacidade</a></div>
+  </div>
+  <div class="wrap footer-bottom">
+    <span class="muted" style="font-size:13px">© 2026 DACHBYTE</span>
+    <div class="badge-row"><span class="badge">Integração Mercado Livre</span><span class="badge">Integração Shopee</span><span class="badge">Integração Madeira Madeira</span><span class="badge">Integração Avantracking</span></div>
+  </div>
+</footer>
+
+<script>
+const money = (v) => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+
+/* ---------- hero signal deck ---------- */
+const heroChannels = {
+  ml:{label:'Mercado Livre',dot:'var(--ml)',rows:[['Cadeira Gamer Pro XL','margem 34%','ok'],['Monitor 27" IPS','promo ativa','ok'],['Headset BT 5.0','sem promoção','risk'],['Mesa Office L','margem 11%','warn']]},
+  shopee:{label:'Shopee',dot:'var(--shopee)',rows:[['Luminária LED 5m','enviado','ok'],['Capa iPhone 15','enviado','ok'],['Carregador 65W','pendente','warn'],['Suporte veicular','aguardando','info']]},
+  madeira:{label:'Madeira',dot:'var(--madeira)',rows:[['Mesa Home Office','frete R$42','info'],['Rack Madeira Prime','estoque baixo','warn'],['Cadeira Eames','12 pedidos','ok']]},
+  rastreio:{label:'Rastreio',dot:'var(--track)',rows:[['Pedido #48291','crítico','risk'],['Pedido #48105','atenção','warn'],['Pedido #47820','no prazo','ok']]}
+};
+let heroActive='ml', heroTimer=null;
+function renderHero(active){
+  heroActive=active;
+  const tabs=document.getElementById('heroTabs'), feed=document.getElementById('heroFeed');
+  tabs.innerHTML=Object.entries(heroChannels).map(([k,c])=>`<button class="signal-tab ${k===active?'is-active':''}" data-hero="${k}"><i style="background:${c.dot}"></i>${c.label}</button>`).join('');
+  feed.innerHTML=heroChannels[active].rows.map(r=>`<div class="signal-row"><span>${r[0]}</span><span class="signal-tagx ${r[2]}">${r[1]}</span></div>`).join('');
+  tabs.querySelectorAll('[data-hero]').forEach(b=>b.addEventListener('click',()=>{renderHero(b.dataset.hero);resetHeroTimer();}));
+}
+function resetHeroTimer(){
+  clearInterval(heroTimer);
+  const keys=Object.keys(heroChannels);
+  heroTimer=setInterval(()=>{const i=(keys.indexOf(heroActive)+1)%keys.length;renderHero(keys[i]);},4200);
+}
+
+/* ---------- command center ---------- */
+const commandData = {
+  ml:{name:'DACHBYTE Mercado Livre',icon:'ML',desc:'Anúncios, margem, promoções e Product Ads numa visão comercial completa.',stats:[['Faturamento','R$84k'],['Margem','29%'],['ROAS','4.2'],['Anúncios em risco','3']],rows:[['Cadeira Gamer Pro XL','Margem 34%','ROAS 5.1x','ok'],['Mesa de Escritório L','Margem 11%','ROAS 2.0x','warn'],['Monitor 27" IPS','Promo ativa','ROAS 4.8x','ok'],['Headset Bluetooth','Sem promoção','ROAS 1.7x','risk']],bars:[42,74,56,92,68,84,51]},
+  shopee:{name:'DACHBYTE Shopee',icon:'SH',desc:'Pedidos, campanhas e produtos vendidos sem depender só do painel nativo.',stats:[['Pedidos hoje','47'],['Campanhas','3'],['Ticket médio','R$142'],['Pendentes','4']],rows:[['Luminária LED 5m','Enviado','Ticket R$89','ok'],['Suporte Celular','Aguardando','Ticket R$45','info'],['Capa iPhone 15','Enviado','Ticket R$59','ok'],['Carregador USB-C','Pendente','Ticket R$129','warn']],bars:[58,40,72,49,80,63,55]},
+  rastreio:{name:'DACHBYTE Tracking',icon:'RT',desc:'Entregas paradas, atrasadas e sem atualização priorizadas antes da reclamação.',stats:[['Em trânsito','138'],['Atrasados','14'],['Parados','6'],['Críticos','3']],rows:[['Pedido #48291','Parado 5 dias','SP','risk'],['Pedido #48105','Atraso 2 dias','RJ','warn'],['Pedido #47988','Sem update 48h','MG','warn'],['Pedido #47820','Saiu p/ entrega','PR','ok']],bars:[30,52,44,71,38,60,47]},
+  sku:{name:'DACHBYTE Leader',icon:'LD',desc:'Compare produtos por canal e veja onde cada SKU merece investimento.',stats:[['SKUs ativos','84'],['Líderes ML','51'],['Líderes Shopee','33'],['Revisar','7']],rows:[['Cadeira Gamer Pro','ML líder','82%','ok'],['Luminária LED 5m','Shopee líder','79%','ok'],['Monitor 27" IPS','ML líder','91%','info'],['Capa iPhone 15','Shopee líder','71%','info']],bars:[82,64,38,90,55,71,60]},
+  madeira:{name:'DACHBYTE Madeira',icon:'MD',desc:'Catálogo, frete e pedidos do MadeiraMadeira no mesmo stack operacional.',stats:[['Pedidos mês','29'],['Itens catálogo','142'],['Frete médio','R$38'],['Estoque baixo','7']],rows:[['Mesa Home Office','Frete R$42','Ativo','info'],['Rack Madeira Prime','Estoque baixo','Revisar','warn'],['Cadeira Eames','Despacho semana','12 pedidos','ok'],['Combo Pro','Incluso','Sem custo extra','ok']],bars:[35,48,29,57,33,44,40]}
+};
+function renderCommand(active='ml'){
+  const menu=document.getElementById('cmdMenu'), panel=document.getElementById('cmdPanel');
+  menu.innerHTML=Object.entries(commandData).map(([k,c])=>`<button class="cmd-btn ${k===active?'is-active':''}" data-cmd="${k}"><span>${c.icon}</span><div><b>${c.name}</b><small>${c.desc.slice(0,46)}.</small></div></button>`).join('');
+  const item=commandData[active];
+  panel.innerHTML=`<div class="cmd-top"><div><h3 class="h3">${item.name}</h3><p>${item.desc}</p></div><span class="live-pill"><i></i>ao vivo</span></div>
+    <div class="cmd-stats">${item.stats.map(s=>`<div class="cmd-stat"><span>${s[0]}</span><strong>${s[1]}</strong></div>`).join('')}</div>
+    <div class="cmd-table">${item.rows.map(r=>`<div class="cmd-row"><strong>${r[0]}</strong><span>${r[1]}</span><span>${r[2]}</span><em class="signal-tagx ${r[3]}">${r[3]==='ok'?'OK':r[3]==='warn'?'Atenção':r[3]==='risk'?'Crítico':'Info'}</em></div>`).join('')}</div>
+    <div class="mini-bars">${item.bars.map(b=>`<i style="height:${b}%"></i>`).join('')}</div>`;
+  menu.querySelectorAll('[data-cmd]').forEach(b=>b.addEventListener('click',()=>renderCommand(b.dataset.cmd)));
+}
+
+/* ---------- modules ---------- */
+const moduleData = {
+  ml:{label:'DACHBYTE Mercado Livre',badge:'DACHBYTE Mercado Livre',icon:'ML',promise:'Domine preço, margem e campanhas sem abrir dez telas.',desc:'Centraliza anúncios, promoções, margem e Product Ads numa só tela para você agir mais rápido com contexto real.',stats:['R$84k','29%','4.2'],list:[['Cadeira Gamer Pro XL','Margem 34%','ok'],['Mesa de Escritório L','Margem 11%','warn'],['Monitor 27" IPS','Promoção ativa','ok'],['Headset Bluetooth','Sem promoção','risk']],feats:['Consulta avançada de anúncios por status, SKU, título e tipo de envio.','Promoções em massa: criação e remoção de campanhas em lote.','Margem calculada considerando custos, taxas, anúncios e impostos.','Product Ads com ROAS, ACOS, TACOS e diagnóstico de investimento.'],benefits:['Menos tempo em planilha','Margem baixa identificada','Preço e performance juntos','Mais velocidade comercial']},
+  shopee:{label:'DACHBYTE Shopee',badge:'DACHBYTE Shopee',icon:'SH',promise:'Entenda o que vende, onde trava e o que merece escala.',desc:'Acompanhe pedidos, campanhas e performance da sua loja Shopee com visão clara por produto e SKU.',stats:['47','3','R$142'],list:[['Luminária LED Strip 5m','Enviado','ok'],['Suporte Celular Veicular','Aguardando','info'],['Capa iPhone 15 Pro','Enviado','ok'],['Carregador USB-C 65W','Pendente','warn']],feats:['Acompanhamento de pedidos com visão operacional por produto.','Visão de campanhas, descontos e movimentações do canal.','Integração com DACHBYTE Leader para visão consolidada multicanal.','Controle de produtos vendidos com apoio à leitura de catálogo.'],benefits:['Menos dependência do painel nativo','Vendas por canal visíveis','Compara produtos e decisões','Reduz retrabalho multicanal']},
+  rastreio:{label:'DACHBYTE Tracking',badge:'DACHBYTE Tracking',icon:'RT',promise:'Descubra o problema logístico antes do cliente reclamar.',desc:'Monitora entregas, identifica pedidos em risco e organiza exceções para o atendimento agir antes da reclamação.',stats:['138','14','6'],list:[['Pedido #48291','Crítico','risk'],['Pedido #48105','Atenção','warn'],['Pedido #47988','Sem atualização','warn'],['Pedido #47820','No prazo','ok']],feats:['Monitoramento de entregas paradas, atrasadas ou em risco.','Organização de exceções logísticas com priorização imediata.','Apoio ao atendimento e SLA operacional com contexto claro.'],benefits:['Age antes da reclamação','Reduz risco de atraso','Clareza para atendimento','Elimina consulta manual']},
+  sku:{label:'DACHBYTE Leader',badge:'DACHBYTE Leader',icon:'LD',promise:'Veja qual produto vence em qual canal.',desc:'Consolida dados de SKU entre Mercado Livre e Shopee para entender onde investir, ajustar ou revisar.',stats:['84','51','33'],list:[['Cadeira Gamer Pro','ML 82%','ok'],['Luminária LED 5m','Shopee 79%','ok'],['Monitor 27" IPS','ML 91%','info'],['Capa iPhone 15','Shopee 71%','info']],feats:['Consolidação por SKU com vendas, margem, custo e operação.','Comparação de performance entre canais para achar o líder.','Visão estratégica para decidir onde investir ou revisar cadastro.'],benefits:['Desempenho real por produto','Evita decisão isolada por canal','Prioriza produto relevante','Clareza pra crescer multicanal']},
+  madeira:{label:'DACHBYTE Madeira',badge:'DACHBYTE Madeira',icon:'MD',promise:'Mais um canal dentro da sua operação unificada.',desc:'Módulo complementar para quem opera no MadeiraMadeira e quer acompanhar catálogo, frete e pedidos no mesmo ambiente.',stats:['29','142','R$38'],list:[['12 pedidos','Aguardando despacho','warn'],['8 entregas','Em trânsito','info'],['7 itens','Estoque baixo','warn'],['Combo Pro','Incluso','Sem custo extra','ok']],feats:['Leitura de catálogo, frete e pedidos do canal MadeiraMadeira.','Visão complementar junto aos demais canais.','Incluso no combo de 2+ módulos sem custo adicional.'],benefits:['Mesmo stack operacional','Evita controle separado','Incluso no combo','Tudo em um só lugar']}
+};
+function renderModules(active='ml'){
+  const tabs=document.getElementById('moduleTabs'), panels=document.getElementById('modulePanels');
+  tabs.innerHTML=Object.entries(moduleData).map(([k,m])=>`<button class="mtab ${k===active?'is-active':''}" data-module="${k}">${m.label}</button>`).join('');
+  panels.innerHTML=Object.entries(moduleData).map(([k,m])=>`<div class="module-panel ${k===active?'is-active':''}" data-panel="${k}">
+    <div class="module-copy"><span class="module-tag">${m.badge}</span><h3 class="h3">${m.promise}</h3><p>${m.desc}</p>
+      <div class="feat-list">${m.feats.map((f,i)=>`<div class="feat-item"><span>${String(i+1).padStart(2,'0')}</span>${f}</div>`).join('')}</div>
+      <div class="benefit-row">${m.benefits.map(b=>`<div>+ ${b}</div>`).join('')}</div>
+    </div>
+    <div class="module-visual"><div class="product-frame">
+      <div class="pf-head"><strong style="color:var(--text)">${m.badge} - visão em produto</strong><span class="signal-tagx info">mockup</span></div>
+      <div class="pf-stats"><div class="pf-stat"><span>Indicador 1</span><strong>${m.stats[0]}</strong></div><div class="pf-stat"><span>Indicador 2</span><strong>${m.stats[1]}</strong></div><div class="pf-stat"><span>Indicador 3</span><strong>${m.stats[2]}</strong></div></div>
+      <div class="pf-list">${m.list.map(r=>`<div class="pf-item"><div><strong>${r[0]}</strong><small>Contexto operacional</small></div><span class="signal-tagx ${r[2]}">${r[1]}</span></div>`).join('')}</div>
+      <div class="pf-bars">
+        <div class="pf-bar-row"><span>ML</span><i class="pf-track"><b style="width:82%"></b></i><em>82%</em></div>
+        <div class="pf-bar-row"><span>Shopee</span><i class="pf-track"><b style="width:64%"></b></i><em>64%</em></div>
+        <div class="pf-bar-row"><span>Madeira</span><i class="pf-track"><b style="width:38%"></b></i><em>38%</em></div>
+      </div>
+    </div></div>
+  </div>`).join('');
+  tabs.querySelectorAll('[data-module]').forEach(b=>b.addEventListener('click',()=>renderModules(b.dataset.module)));
+}
+
+/* ---------- pricing: monthly plans and ranges ---------- */
+const plans = {
+  ml:{name:'DACHBYTE ML', title:'DACHBYTE Mercado Livre', slug:'ml', label:'Vendas Mercado Livre', prices:[17.9,32.9,44.9,74.9,74.9], overage:11, noteBase:11, feats:['Promoções e alterações em massa','Leitura comercial e margem','Reputação e anúncios centralizados','Créditos mensais inclusos por faixa']},
+  tracking:{name:'DACHBYTE Tracking', title:'DACHBYTE Tracking', slug:'tracking', label:'Pedidos processados', prices:[119.9,149.9,219.9,319.9,449.9,449.9], overage:2, noteBase:2, feats:['Entregas paradas e atrasos em destaque','Contexto para atendimento e SLA','Visão de transporte sem manual']},
+  shopee:{name:'DACHBYTE Shopee', title:'DACHBYTE Shopee', slug:'shopee', label:'Vendas Shopee', prices:[17.9,32.9,44.9,74.9,74.9], overage:11, noteBase:11, feats:['Pedidos, produtos e sincronização','Campanhas e descontos organizados','Créditos mensais inclusos por faixa']}
+};
+const ranges = ['Até 30 vendas','31-200 vendas','201-700 vendas','701-1.500 vendas','Acima de 1.500 vendas'];
+const rangeCodes = ['up_to_30','from_31_to_200','from_201_to_700','from_701_to_1500','above_1500'];
+const trackingRanges = ['Até 200 pedidos','201-700 pedidos','701-1.500 pedidos','1.501-3.000 pedidos','3.001-6.000 pedidos','Acima de 6.000 pedidos'];
+const trackingRangeCodes = ['up_to_200','from_201_to_700','from_701_to_1500','from_1501_to_3000','from_3001_to_6000','above_6000'];
+const mlCredits = [100,250,500,1000,1000];
+const mlInitialCredits = [100,200,300,500,500];
+const checkoutBaseUrl = 'https://hub-pagamento.davantti-suite.workers.dev/';
+const state = {selected:new Set(), ranges:{ml:0, tracking:0, shopee:0}, openOrders:{ml:'', tracking:'', shopee:''}};
+function isOpenRange(key,index){
+  const moduleRanges = key === 'tracking' ? trackingRanges : ranges;
+  return index === moduleRanges.length - 1;
+}
+function overageLabel(key,index){
+  if(!isOpenRange(key,index)) return '';
+  return key === 'tracking'
+    ? `+ ${money(plans[key].overage)} / 500 pedidos extras`
+    : `+ ${money(plans[key].overage)} / 500 vendas extras`;
+}
+function rangeOptionLabel(key,label,index){
+  return overageLabel(key,index) ? `${label} (+ excedente)` : label;
+}
+function openRangeThreshold(key,index){
+  const moduleRanges = key === 'tracking' ? trackingRanges : ranges;
+  if(index !== moduleRanges.length - 1) return null;
+  return key === 'tracking' ? 6000 : 1500;
+}
+function declaredOrders(key){
+  const digits = String(state.openOrders[key] || '').replace(/[^0-9]/g,'');
+  return digits ? Number(digits) : null;
+}
+function monthlyWithOverage(key){
+  const idx = state.ranges[key] || 0;
+  let base = plans[key].prices[idx];
+  const threshold = openRangeThreshold(key,idx);
+  const orders = declaredOrders(key);
+  if(threshold && orders && orders > threshold){
+    base += Math.ceil((orders - threshold) / 500) * plans[key].overage;
+  }
+  return base;
+}
+function renderPlans(){
+  const wrap = document.getElementById('planCards');
+  wrap.innerHTML = Object.entries(plans).map(([key,p]) => {
+    const idx = state.ranges[key] || 0;
+    const moduleRanges = key === 'tracking' ? trackingRanges : ranges;
+    const base = monthlyWithOverage(key);
+    const extra = overageLabel(key,idx);
+    const selected = state.selected.has(key);
+    return `<article class="plan-card ${selected?'is-selected':''}" data-plan-card="${key}">
+      <span class="module-tag">${p.name}</span><h3 class="h3">${p.title || p.name}</h3>
+      <div class="plan-pricing">
+        <div class="plan-price"><div class="eq">${extra?'a partir de':'equivale a'}</div><strong>${money(base)}</strong><span>/mês</span>${extra?`<em class="overage-hint">${extra}</em>`:''}</div>
+        <div class="plan-period">Mensalidade: <strong>${money(base)}</strong></div>
+      </div>
+      <div class="plan-select"><label>${p.label}</label><select data-range="${key}">${moduleRanges.map((r,i)=>`<option value="${i}" ${i===idx?'selected':''} ${overageLabel(key,i)?'data-overage="true"':''}>${rangeOptionLabel(key,r,i)}</option>`).join('')}</select></div>${openRangeThreshold(key,idx)?`<div class="plan-select"><label>Quantidade no ultimo mes</label><input inputmode="numeric" data-open-orders="${key}" value="${state.openOrders[key]||''}" placeholder="Ex: 2300"></div>`:''}
+      <div class="plan-feats">${p.feats.map(f=>`<div>${f}</div>`).join('')}${key==='ml'||key==='shopee'?`<div>${mlCredits[Math.min(idx, mlCredits.length-1)].toLocaleString('pt-BR')} créditos/mês + ${mlInitialCredits[Math.min(idx, mlInitialCredits.length-1)].toLocaleString('pt-BR')} iniciais</div>`:''}</div>
+      <div class="plan-note">${key==='ml'||key==='shopee'?'Acima de 1.500 vendas: +R$ 11,00, +250 créditos/mês e +100 iniciais por bloco de 500 vendas.':`Faixa por pedidos processados/mês. Acima de 6.000 pedidos processados: +${money(p.noteBase)} por bloco extra de 500 pedidos processados.`}</div>
+      <button class="plan-add" data-toggle-plan="${key}" type="button">${selected?'Remover do pacote':'Adicionar ao pacote'}</button>
+    </article>`;
+  }).join('');
+  wrap.querySelectorAll('[data-range]').forEach(sel=>sel.addEventListener('change',e=>{state.ranges[e.target.dataset.range]=Number(e.target.value);renderPlans();updateSummary();}));
+  wrap.querySelectorAll('[data-open-orders]').forEach(input=>input.addEventListener('input',e=>{const key=e.target.dataset.openOrders;state.openOrders[key]=String(e.target.value||'').replace(/[^0-9]/g,'');renderPlans();const next=document.querySelector(`[data-open-orders="${key}"]`);if(next){next.focus();const len=next.value.length;try{next.setSelectionRange(len,len)}catch(_error){}}}));
+  wrap.querySelectorAll('[data-toggle-plan]').forEach(btn=>btn.addEventListener('click',e=>{const key=e.target.dataset.togglePlan;state.selected.has(key)?state.selected.delete(key):state.selected.add(key);renderPlans();updateSummary();}));
+  updateSummary();
+}
+function updateSummary(){
+  const selected = [...state.selected];
+  const count = selected.length;
+  const madeiraIncluded = count >= 2;
+  const monthly = selected.reduce((sum,key)=>sum + monthlyWithOverage(key),0);
+  document.getElementById('summaryMonthly').textContent = money(monthly);
+  document.getElementById('comboBadge').textContent = count ? (count >= 2 ? 'Pacote multicanal' : 'Módulo selecionado') : 'Monte seu pacote';
+  document.getElementById('summaryTitle').textContent = count >= 2 ? 'Combo Pro DACHBYTE' : count === 1 ? plans[selected[0]].name : 'Pacote DACHBYTE Seller';
+  document.getElementById('summaryDesc').textContent = count
+    ? 'Resumo atualizado com módulos, faixas e volume declarado. Madeira aparece como benefício incluso quando o pacote tem 2 ou mais módulos.'
+    : 'Adicione módulos para montar o pacote mensal.';
+  const lines = selected.map(k=>{
+    const idx = state.ranges[k] || 0;
+    const label = (k==='tracking'?trackingRanges:ranges)[idx];
+    const extra = overageLabel(k,idx);
+    return `<div class="summary-line"><span>${plans[k].name}</span><strong>${label}${extra?' + excedente':''}</strong></div>`;
+  }).join('') + (madeiraIncluded?`<div class="summary-line"><span>DACHBYTE Madeira</span><strong>Incluso</strong></div>`:'') + `<div class="summary-line"><span>Mensalidade</span><strong>${money(monthly)}</strong></div>`;
+  document.getElementById('summaryLines').innerHTML = lines;
+  const smart = document.getElementById('smartCombo');
+  if(!count){ smart.innerHTML='<strong>Pacote aguardando</strong><span>Selecione módulos para ver a mensalidade e os benefícios.</span>'; }
+  else if(count>=2){ smart.innerHTML='<strong>Pacote multicanal</strong><span>Madeira entra como benefício incluso na mensalidade.</span>'; }
+  else { smart.innerHTML='<strong>Módulo selecionado</strong><span>Escolha a faixa para seguir ao checkout.</span>'; }
+  const checkout = document.getElementById('checkoutBtn');
+  if(count){
+    const params = new URLSearchParams();
+    params.set('plan', count === 1 ? plans[selected[0]].slug : 'complete');
+    params.set('cycle', 'monthly');
+    params.set('modules', selected.map(key => plans[key].slug).join(','));
+    params.set('ranges', selected.map(key => `${plans[key].slug}:${(key==='tracking'?trackingRangeCodes:rangeCodes)[state.ranges[key] || 0]}`).join(','));
+    const declared = selected.reduce((acc,key)=>{ const orders = declaredOrders(key); if(orders) acc[plans[key].slug] = orders; return acc; },{});
+    if(Object.keys(declared).length) params.set('declared_orders', btoa(JSON.stringify(declared)));
+    checkout.href = `${checkoutBaseUrl}?${params.toString()}`;
+    checkout.classList.remove('is-disabled'); checkout.setAttribute('aria-disabled','false');
+  } else { checkout.href='#'; checkout.classList.add('is-disabled'); checkout.setAttribute('aria-disabled','true'); }
+}
+
+/* ---------- roi calculator ---------- */
+function updateCalc(){
+  const orders = Number(document.getElementById('calcOrders').value||0);
+  const channels = Number(document.getElementById('calcChannels').value||1);
+  const sheets = Number(document.getElementById('calcSheets').value||0);
+  const track = Number(document.getElementById('calcTrack').value||0);
+  const monthlyBase = (sheets * 0.95 + track * 1.08) * 4.3;
+  const orderPressure = Math.min(orders / 220, 34);
+  const channelPressure = Math.max(0, channels - 1) * 4.5;
+  const monthly = Math.max(4, Math.round(monthlyBase + orderPressure + channelPressure));
+  const businessDays = Math.max(1, Math.round(monthly / 8));
+  const driver = sheets >= track + 2
+    ? 'planilhas, conferência comercial e ajuste manual'
+    : track >= sheets + 2
+      ? 'rastreamento, exceções logísticas e retorno ao cliente'
+      : 'rotinas manuais espalhadas entre comercial e pós-venda';
+  const impact = monthly >= 60
+    ? `Com ${orders.toLocaleString('pt-BR')} pedidos por mês em ${channels} canais, sua operação pode recuperar cerca de ${businessDays} dias úteis por mês ao reduzir ${driver}.`
+    : monthly >= 38
+      ? `Hoje já existe espaço para recuperar cerca de ${businessDays} dias úteis por mês, principalmente ao organizar ${driver}.`
+      : monthly >= 22
+        ? `Mesmo nessa faixa, já dá para recuperar de 2 a ${businessDays} dias úteis por mês com menos retrabalho em ${driver}.`
+        : `A operação já pode ganhar previsibilidade e reduzir horas manuais em ${driver}, mesmo começando por um ajuste menor.`;
+  document.getElementById('hoursLost').textContent = monthly;
+  document.getElementById('impactText').textContent = impact;
+}
+
+/* ---------- faq, reveal, misc interactions ---------- */
+function initFaq(){
+  document.querySelectorAll('.faq-item').forEach(item=>{
+    const q=item.querySelector('.faq-q'), a=item.querySelector('.faq-a'), s=item.querySelector('.faq-q span');
+    q.addEventListener('click',()=>{const open=!a.classList.contains('hidden');a.classList.toggle('hidden',open);s.textContent=open?'+':'?';});
+  });
+}
+function initInteractions(){
+  const io = new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('is-visible')}),{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+  document.querySelectorAll('[data-count]').forEach(el=>{const target=Number(el.dataset.count), suffix=el.dataset.suffix||''; let current=0; const step=Math.max(1,Math.round(target/30)); const t=setInterval(()=>{current+=step;if(current>=target){current=target;clearInterval(t)}el.textContent=current+suffix},40);});
+  ['calcOrders','calcChannels','calcSheets','calcTrack'].forEach(id=>document.getElementById(id).addEventListener('input',updateCalc));
+  document.getElementById('calcBtn').addEventListener('click',updateCalc);
+  document.getElementById('navBurger').addEventListener('click',()=>document.getElementById('mobileLinks').classList.toggle('is-open'));
+  const form = document.getElementById('contactForm');
+  const feedback = document.getElementById('formFeedback');
+  const submit = form ? form.querySelector('button[type="submit"]') : null;
+  const channelInputs = Array.from(document.querySelectorAll('[data-channel-input]'));
+  const channelOptions = Array.from(document.querySelectorAll('[data-channel-option]'));
+  const channelHelp = document.getElementById('channelHelp');
+
+  const syncChannelSelection = () => {
+    const selectedChannels = channelInputs.filter((input) => input.checked).map((input) => input.value);
+    channelOptions.forEach((option) => {
+      const input = option.querySelector('[data-channel-input]');
+      option.classList.toggle('is-active', Boolean(input && input.checked));
+    });
+    if (channelHelp) {
+      channelHelp.textContent = selectedChannels.length
+        ? `Seleção atual: ${selectedChannels.join(', ')}.`
+        : 'Você pode marcar mais de uma opção. Usamos isso para direcionar melhor o contato comercial.';
+    }
+    return { selectedChannels };
+  };
+
+  const setFeedback = (type, text) => {
+    if (!feedback) return;
+    feedback.hidden = !text;
+    feedback.textContent = text || '';
+    feedback.classList.remove('is-error','is-success');
+    if (text) {
+      feedback.classList.add(type === 'error' ? 'is-error' : 'is-success');
+    }
+  };
+
+  const setLoading = (isLoading) => {
+    if (!submit) return;
+    submit.disabled = isLoading;
+    submit.textContent = isLoading ? 'Enviando...' : 'Enviar contato →';
+  };
+
+  channelInputs.forEach((input) => {
+    input.addEventListener('change', () => {
+      syncChannelSelection();
+    });
+  });
+  syncChannelSelection();
+
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    setFeedback('', '');
+    const { selectedChannels } = syncChannelSelection();
+    if (!selectedChannels.length) {
+      setFeedback('error', 'Selecione pelo menos um canal para continuar.');
+      return;
+    }
+    setLoading(true);
+
+    const data = new FormData(form);
+    const payload = {
+      name: String(data.get('name') || '').trim(),
+      email: String(data.get('email') || '').trim(),
+      cellphone: String(data.get('cellphone') || '').trim(),
+      company: String(data.get('company') || '').trim(),
+      channels: selectedChannels,
+      message: String(data.get('message') || '').trim(),
+      page_path: window.location.pathname || '/landing',
+    };
+
+    try {
+      const response = await fetch('/api/contact/commercial', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result?.ok === false) {
+        throw new Error(result?.error || 'Não foi possível enviar seu contato agora.');
+      }
+
+      setFeedback('success', result?.message || 'Contato enviado com sucesso. Nossa equipe comercial vai retornar em breve.');
+      form.reset();
+    } catch (error) {
+      setFeedback('error', error?.message || 'Não foi possível enviar seu contato agora.');
+    } finally {
+      setLoading(false);
+    }
+  });
+}
+
+renderHero('ml'); resetHeroTimer();
+renderCommand('ml'); renderModules('ml'); renderPlans(); updateCalc(); initFaq(); initInteractions();
+</script>
+</body>
+</html>

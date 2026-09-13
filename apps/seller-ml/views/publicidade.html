@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="/ml/css/ml-app.css?v=9" rel="stylesheet"/>
+<title>Publicidade | Product Ads</title>
+<link href="/ml/css/product-ads.css?v=2026080802" rel="stylesheet"/><link href="/ml/css/publicidade.css?v=2026080701" rel="stylesheet"/>
+<script src="/ml/js/ml-base.js?v=10"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="product-ads-app publicidade-module">
+<main class="page-wrap">
+<div class="container publicidade-wrap">
+<header class="ads-page-header"><div class="ads-page-header__main"><div class="ads-page-header__eyebrow">PUBLICIDADE</div><h1>Product Ads</h1><p>Acompanhe investimento, retorno, campanhas e anúncios patrocinados em uma visão única.</p></div><div class="ads-page-header__meta"><span class="ads-product-chip" data-product-id="PADS">Product Ads</span><span class="ads-product-future">Estrutura preparada para novos formatos</span></div></header><nav aria-label="Navegação do Product Ads" class="ads-workspace-tabs" id="adsWorkspaceTabs"><button class="ads-workspace-tab is-active" data-ads-tab="overview" type="button">Visão geral</button><button class="ads-workspace-tab" data-ads-tab="campaigns" type="button">Campanhas</button><button class="ads-workspace-tab" data-ads-tab="ads" type="button">Anúncios</button></nav><form class="ads-premium__filters ads-global-filters" id="ads-filters">
+<input id="dateFrom" type="hidden"/>
+<input id="dateTo" type="hidden"/>
+<div class="ads-period-control" id="adsPeriodControl">
+<button aria-expanded="false" aria-haspopup="true" class="ads-period-button" id="periodDropdownButton" type="button">
+<span aria-hidden="true" class="ads-period-icon"></span>
+<span id="periodDropdownLabel">Ultimos 30 dias</span>
+<span aria-hidden="true" class="ads-period-caret"></span>
+</button>
+<div class="ads-period-menu" hidden="" id="periodDropdownMenu">
+<button class="ads-period-option" data-period-days="7" type="button">
+<span>Ultimos 7 dias</span>
+<small data-period-range="7">-</small>
+</button>
+<button class="ads-period-option" data-period-days="15" type="button">
+<span>Ultimos 15 dias</span>
+<small data-period-range="15">-</small>
+</button>
+<button class="ads-period-option is-active" data-period-days="30" type="button">
+<span>Ultimos 30 dias</span>
+<small data-period-range="30">-</small>
+</button>
+<button class="ads-period-option" data-period-days="60" type="button">
+<span>Ultimos 60 dias</span>
+<small data-period-range="60">-</small>
+</button>
+<button class="ads-period-option" data-period-days="90" type="button">
+<span>Ultimos 90 dias</span>
+<small data-period-range="90">-</small>
+</button>
+<button class="ads-period-option" data-period-custom="1" type="button">
+<span>Personalizado</span>
+</button>
+<div class="ads-period-custom" hidden="" id="periodCustomFields">
+<input aria-label="Data inicial personalizada" id="customDateFrom" type="date"/>
+<input aria-label="Data final personalizada" id="customDateTo" type="date"/>
+<button id="btnApplyCustomPeriod" type="button">Aplicar</button>
+</div>
+</div>
+</div>
+<div aria-hidden="true" class="ads-period-divider"></div>
+<div class="ads-compare-control">
+<span>Comparado com:</span>
+<button aria-expanded="false" aria-haspopup="true" class="ads-period-button ads-period-button--compact" id="compareDropdownButton" type="button">
+<span aria-hidden="true" class="ads-period-icon"></span>
+<span id="compareDropdownLabel">Periodo anterior</span>
+<span aria-hidden="true" class="ads-period-caret"></span>
+</button>
+<div class="ads-period-menu ads-compare-menu" hidden="" id="compareDropdownMenu">
+<button class="ads-period-option is-active" data-compare-mode="previous_month" type="button">
+<span>Periodo anterior</span>
+<small id="compareRangePrevious">Mesmo intervalo no mes anterior</small>
+</button>
+<button class="ads-period-option" data-compare-mode="previous_year" type="button">
+<span>Ano anterior</span>
+<small id="compareRangeYear">Mesmo intervalo no ano anterior</small>
+</button>
+</div>
+</div>
+<div class="ads-field ads-field--metric" data-graph-control="1">
+<label for="metric">Metrica do grafico</label>
+<select id="metric">
+<option value="total_amount">Faturamento</option>
+<option value="cost">Investimento</option>
+<option value="roas">ROAS</option>
+<option value="ctr">CTR</option>
+</select>
+</div>
+<div class="ads-actions">
+<button class="btn-ghost" hidden="" id="btnBackToOverview" type="button">Voltar visao geral</button>
+<button class="btn-premium" id="btnReloadAds" type="submit">Atualizar</button>
+</div>
+</form>
+<section class="ads-campaign-focus" hidden="" id="campaignFocusHeader">
+<div class="ads-campaign-focus__top">
+<button class="btn-ghost" id="btnExitCampaignFocus" type="button">Voltar para campanhas</button>
+<h2 class="ads-campaign-focus__title" id="focusCampaignName">Campanha selecionada</h2>
+<div class="ads-campaign-focus__top-actions">
+<button class="btn-ghost" id="btnFocusEditCampaign" type="button">Editar campanha</button>
+</div>
+</div>
+<div class="ads-campaign-focus__status-row">
+<div class="ads-campaign-focus__status-main">
+<span class="ads-campaign-focus__label">Estado:</span>
+<button aria-checked="false" aria-label="Ativar ou pausar campanha" class="ads-campaign-focus__toggle" id="focusCampaignToggle" role="switch" type="button">
+<span class="ads-campaign-focus__toggle-track">
+<span class="ads-campaign-focus__toggle-thumb"></span>
+</span>
+</button>
+<span class="ads-campaign-focus__state-badge" id="focusCampaignStateBadge">-</span>
+</div>
+<span class="ads-campaign-focus__divider"></span>
+<span class="ads-campaign-focus__label">Diagnostico:</span>
+<span class="ads-campaign-focus__diagnosis" id="focusCampaignDiagnosis">Sem dados</span>
+<span aria-live="polite" class="ads-campaign-focus__feedback" id="focusCampaignInlineFeedback"></span>
+</div>
+<div class="ads-campaign-focus__facts">
+<article class="ads-campaign-focus__fact">
+<div class="ads-campaign-focus__fact-head">
+<span>Orcamento medio diario</span>
+
+</div>
+<div class="ads-campaign-focus__fact-value" id="focusBudgetValueWrap">
+<strong id="focusCampaignBudget">-</strong>
+
+</div>
+</article>
+<article class="ads-campaign-focus__fact">
+<div class="ads-campaign-focus__fact-head">
+<span>ROAS Objetivo</span>
+
+</div>
+<div class="ads-campaign-focus__fact-value" id="focusRoasValueWrap">
+<strong id="focusCampaignRoasTarget">-</strong>
+
+</div>
+</article>
+<article class="ads-campaign-focus__fact">
+<div class="ads-campaign-focus__fact-head">
+<span>Anuncios patrocinados</span>
+
+</div>
+<div class="ads-campaign-focus__fact-inline">
+<strong id="focusCampaignSponsoredCount">-</strong>
+<button class="ads-campaign-focus__link" id="btnFocusAddItems" type="button">Adicionar</button>
+</div>
+</article>
+</div>
+</section><nav aria-label="Navegação da campanha" class="ads-workspace-tabs ads-workspace-tabs--campaign" hidden="" id="campaignWorkspaceTabs"><button class="ads-workspace-tab is-active" data-campaign-tab="campaign-overview" type="button">Visão geral</button><button class="ads-workspace-tab" data-campaign-tab="campaign-ads" type="button">Anúncios</button><button class="ads-workspace-tab" data-campaign-tab="campaign-evolution" type="button">Evolução</button></nav>
+<section class="ads-premium" id="adsOverviewSection">
+<div class="ads-premium__top">
+<div>
+<h2 class="ads-premium__title" id="premiumTitle">Performance do periodo</h2>
+<p class="ads-premium__subtitle" id="premiumSubtitle">
+              Resultado primeiro, explicacao depois: KPIs principais e eficiencia de midia.
+            </p>
+</div>
+<div aria-live="polite" class="ads-premium__hint" hidden="" id="premiumPeriod"></div>
+</div>
+<div class="ads-premium__panel">
+
+<div class="ads-premium__kpis">
+<div class="kpi kpi--hero">
+<div class="kpi-top">
+<div class="kpi-label">Faturamento <span aria-label="Faturamento atribuido ao Product Ads no periodo selecionado." class="ads-help" data-tooltip="Faturamento atribuido ao Product Ads no periodo selecionado. Use junto com investimento e ROAS para avaliar retorno." tabindex="0">i</span></div>
+<div class="kpi-pill" id="pillRange">Receita</div>
+</div>
+<div class="kpi-value" id="kpiRevenue"></div>
+<div class="kpi-foot" id="kpiRevenueFoot">Total do periodo</div>
+</div>
+<div class="kpi kpi--hero">
+<div class="kpi-top">
+<div class="kpi-label">Investimento <span aria-label="Valor gasto nas campanhas de Product Ads dentro do periodo selecionado." class="ads-help" data-tooltip="Valor gasto nas campanhas de Product Ads dentro do periodo selecionado. E a base usada para calcular ROAS, ACOS e CPC." tabindex="0">i</span></div>
+<div class="kpi-pill">Ads</div>
+</div>
+<div class="kpi-value" id="kpiCost"></div>
+<div class="kpi-foot" id="kpiCostFoot">Total do periodo</div>
+</div>
+<div class="kpi kpi--hero">
+<div class="kpi-top">
+<div class="kpi-label">ROAS <span aria-label="Retorno sobre o investimento em publicidade: faturamento dividido pelo investimento." class="ads-help" data-tooltip="ROAS mostra quanto voltou em faturamento para cada R$ 1 investido em ads. Ex.: 8x significa R$ 8 vendidos para cada R$ 1 gasto." tabindex="0">i</span></div>
+<div class="kpi-pill">Receita/Invest.</div>
+</div>
+<div class="kpi-value" id="kpiRoas"></div>
+<div class="kpi-foot" id="kpiRoasFoot">Media do periodo</div>
+</div>
+<div class="kpi kpi--accent">
+<div class="kpi-top">
+<div class="kpi-label">ACOS <span aria-label="Percentual do faturamento de ads consumido pelo investimento." class="ads-help" data-tooltip="ACOS mostra quanto do faturamento gerado pelo ads foi gasto em publicidade. Quanto menor, mais eficiente tende a ser." tabindex="0">i</span></div>
+<div class="kpi-pill">Invest./Receita</div>
+</div>
+<div class="kpi-value" id="kpiAcos"></div>
+<div class="kpi-foot" id="kpiAcosFoot">Media do periodo</div>
+</div>
+<div class="kpi">
+<div class="kpi-top">
+<div class="kpi-label">TACOS <span aria-label="Percentual do investimento em ads sobre as vendas totais atribuiveis quando o Mercado Livre retorna essa metrica." class="ads-help" data-tooltip="TACOS relaciona o investimento em ads com uma base de venda mais ampla. Ajuda a ver se a publicidade esta pesando no resultado total, nao apenas nas vendas atribuidas ao anuncio." tabindex="0">i</span></div>
+<div class="kpi-pill">Ads/Total</div>
+</div>
+<div class="kpi-value" id="kpiTacos"></div>
+<div class="kpi-foot" id="kpiTacosFoot">Media do periodo</div>
+</div>
+<div class="kpi">
+<div class="kpi-top">
+<div class="kpi-label">Vendas por publicidade <span aria-label="Quantidade de vendas atribuidas ao Product Ads no periodo selecionado." class="ads-help" data-tooltip="Quantidade de vendas atribuidas ao Product Ads. Use junto com faturamento para entender volume, nao apenas valor vendido." tabindex="0">i</span></div>
+<div class="kpi-pill">Unidades</div>
+</div>
+<div class="kpi-value" id="kpiAdSales"></div>
+<div class="kpi-foot" id="kpiAdSalesFoot">Somatorio</div>
+</div>
+<div class="kpi">
+<div class="kpi-top">
+<div class="kpi-label">Cliques <span aria-label="Quantidade de vezes que compradores clicaram nos anuncios patrocinados." class="ads-help" data-tooltip="Cliques indicam interesse gerado pelos anuncios. Muitos cliques com poucas vendas podem sinalizar problema de oferta, preco ou pagina do produto." tabindex="0">i</span></div>
+<div class="kpi-pill">Total</div>
+</div>
+<div class="kpi-value" id="kpiClicks"></div>
+<div class="kpi-foot" id="kpiClicksFoot">Somatorio</div>
+</div>
+<div class="kpi">
+<div class="kpi-top">
+<div class="kpi-label">Impressoes <span aria-label="Quantidade de vezes que seus anuncios foram exibidos aos compradores." class="ads-help" data-tooltip="Impressoes mostram alcance. Se ha muitas impressoes e poucos cliques, o anuncio pode nao estar atraente para aquela busca." tabindex="0">i</span></div>
+<div class="kpi-pill">Total</div>
+</div>
+<div class="kpi-value" id="kpiPrints"></div>
+<div class="kpi-foot" id="kpiPrintsFoot">Somatorio</div>
+</div>
+<div class="kpi">
+<div class="kpi-top">
+<div class="kpi-label">CTR <span aria-label="Taxa de cliques: percentual de impressoes que viraram clique." class="ads-help" data-tooltip="CTR mede atratividade do anuncio. Quanto maior, maior a proporcao de pessoas que clicaram apos ver a publicidade." tabindex="0">i</span></div>
+<div class="kpi-pill">Cliques/Impr.</div>
+</div>
+<div class="kpi-value" id="kpiCtr"></div>
+<div class="kpi-foot" id="kpiCtrFoot">Media do periodo</div>
+</div>
+<div class="kpi">
+<div class="kpi-top">
+<div class="kpi-label">CPC <span aria-label="Custo medio de cada clique recebido nos anuncios." class="ads-help" data-tooltip="CPC e o custo medio por clique. Se sobe muito, cada visita paga fica mais cara e pode pressionar a margem." tabindex="0">i</span></div>
+<div class="kpi-pill">Invest./Clique</div>
+</div>
+<div class="kpi-value" id="kpiCpc"></div>
+<div class="kpi-foot" id="kpiCpcFoot">Media do periodo</div>
+</div>
+</div>
+<section aria-labelledby="adsBudgetTitle" class="ads-budget">
+<div class="ads-budget__head">
+<div>
+<span class="ads-budget__eyebrow">Planejamento de verba</span>
+<h2 id="adsBudgetTitle">Orcamento e projecao</h2>
+</div>
+<p id="budgetProjectionRange">Periodo selecionado</p>
+</div>
+<div class="ads-budget__grid">
+<article class="ads-budget-card">
+<div class="ads-budget-card__label">
+                  Orcamento diario ativo
+                  <span aria-label="Soma do orcamento diario das campanhas ativas." class="ads-help" data-tooltip="Soma do orcamento diario das campanhas ativas. Mostra quanto voce autorizou gastar por dia se todas consumirem a verba configurada." tabindex="0">i</span>
+</div>
+<strong id="budgetDailyTotal">-</strong>
+<p id="budgetDailyTotalFoot">Campanhas ativas</p>
+</article>
+<article class="ads-budget-card">
+<div class="ads-budget-card__label">
+                  Investimento medio diario
+                  <span aria-label="Media diaria gasta no periodo selecionado." class="ads-help" data-tooltip="Media diaria gasta no periodo selecionado. Calculada dividindo o investimento acumulado no intervalo pelos dias do filtro." tabindex="0">i</span>
+</div>
+<strong id="budgetAvgDailyInvestment">-</strong>
+<p id="budgetAvgDailyInvestmentFoot">Com base no periodo selecionado</p>
+</article>
+<article class="ads-budget-card ads-budget-card--projection">
+<div class="ads-budget-card__label">
+                  Projecao de investimento mensal
+                  <span aria-label="Estimativa com base no ritmo medio do periodo selecionado." class="ads-help" data-tooltip="Estimativa calculada usando a media diaria do periodo selecionado, mantendo o mesmo ritmo ao longo do proprio intervalo." tabindex="0">i</span>
+</div>
+<strong id="budgetMonthlyProjection">-</strong>
+<p id="budgetMonthlyProjectionFoot">Ritmo atual projetado</p>
+</article>
+</div>
+</section>
+</div>
+</section><div class="ads-overview-signals" id="adsOverviewSignals"><section class="ads-health ads-module" id="adsHealthSection">
+<div class="ads-module__head">
+<div>
+<span class="ads-module__eyebrow">DIAGNÓSTICO</span>
+<h2 class="ads-module__title">Saúde da publicidade</h2>
+</div>
+</div>
+<div class="ads-health__grid">
+<article class="ads-health__main" id="accountHealthMain">
+<span class="ads-health__dot" id="accountHealthDot"></span>
+<div>
+<strong id="accountHealthStatus">Sem dados</strong>
+<p id="accountHealthText">Atualize o painel para calcular a saude das campanhas do periodo.</p>
+</div>
+</article>
+<article class="ads-health__card ads-health__card--diagnosis">
+<span>Campanhas por diagnostico</span>
+<div aria-live="polite" class="ads-diagnosis-breakdown" id="healthDiagnosisCount">
+<span class="ads-diagnosis-chip is-critical"><strong>-</strong><small>criticas</small></span>
+<span class="ads-diagnosis-chip is-warn"><strong>-</strong><small>atencao</small></span>
+<span class="ads-diagnosis-chip is-good"><strong>-</strong><small>saudaveis</small></span>
+</div>
+<p id="healthDiagnosisText">somente campanhas ativas entram nesta leitura</p>
+</article>
+<article class="ads-health__card">
+<span>Dentro do ROAS objetivo</span>
+<strong id="healthRoasGoalPct">-</strong>
+<p id="healthRoasGoalText">campanhas batendo a meta</p>
+</article>
+<article class="ads-health__card">
+<span>Investimento sem retorno</span>
+<strong id="healthWasteValue">-</strong>
+<p id="healthWasteText">verba em campanhas sem venda</p>
+</article>
+<article class="ads-health__card">
+<span>Potencial de escala</span>
+<strong id="healthScaleCount">-</strong>
+<p id="healthScaleText">ROAS alto com baixo investimento relativo</p>
+</article>
+</div>
+</section><section class="ads-priorities ads-module" id="adsPrioritiesSection">
+<div class="ads-module__head">
+<div>
+<span class="ads-module__eyebrow">PRIORIDADES</span>
+<h2 class="ads-module__title">O que precisa de ação</h2>
+</div>
+
+</div>
+<div class="ads-priorities__grid" id="adsPrioritiesGrid">
+<article class="ads-priority">
+<small>Sem dados</small>
+<h3>Atualize o painel</h3>
+<p>As prioridades serao calculadas com base em ROAS, investimento, vendas e CTR.</p>
+</article>
+</div>
+</section></div>
+
+
+<section class="ads-ranking ads-module" id="adsRankingSection">
+<div class="ads-module__head">
+<div>
+<span class="ads-module__eyebrow">CAMPANHAS</span>
+<h2 class="ads-module__title">Campanhas de Product Ads</h2>
+<p class="ads-module__text">Compare retorno, investimento, meta e situação para decidir onde agir.</p>
+</div>
+<div class="ads-module__meta">
+<button class="btn-ghost btn-create-campaign" id="btnOpenCreateCampaign" type="button">+ Nova campanha</button>
+<span class="ads-module__period" id="rankingPeriod">Periodo: -</span>
+</div>
+</div>
+<div class="ads-list-filters" id="campaignFilters"><label class="ads-list-filter ads-list-filter--search"><span>Buscar</span><input id="campaignSearchInput" placeholder="Nome da campanha" type="search"/></label><label class="ads-list-filter"><span>Status</span><select id="campaignStatusFilter"><option value="all">Todos</option><option value="active">Ativas</option><option value="paused">Pausadas</option></select></label><label class="ads-list-filter"><span>Situação</span><select id="campaignHealthFilter"><option value="all">Todas</option><option value="critical">Críticas</option><option value="attention">Atenção</option><option value="healthy">Saudáveis</option></select></label></div><div class="ads-campaign-summary" id="adsCampaignSummary">
+<article>
+<strong id="campaignSummaryTotal">-</strong>
+<span>campanhas analisadas</span>
+</article>
+<article>
+<strong id="campaignSummaryCritical">-</strong>
+<span>críticas ou com problema</span>
+</article>
+<article>
+<strong id="campaignSummaryHealthy">-</strong>
+<span>saudáveis ou escaláveis</span>
+</article>
+<article>
+<strong id="campaignSummaryRisk">-</strong>
+<span>valor em risco sem retorno</span>
+</article>
+</div>
+<div class="table-wrapper table-wrapper--wide table-shell ads-module__table">
+<table class="table table-ranking" data-table="campaigns" id="tblCampaigns">
+<thead>
+<tr><th class="sticky-col">Nome da campanha</th><th>Status</th><th class="num">Orçamento</th><th class="num" data-campaign-sort="roas">ROAS</th><th class="num">Meta</th><th class="num" data-campaign-sort="acos">ACOS</th><th class="num" data-campaign-sort="sales">Vendas Ads</th><th class="num" data-campaign-sort="cost">Investimento</th><th data-campaign-sort="criticality">Situação</th><th></th></tr>
+</thead>
+<tbody id="tbodyCampaigns">
+<tr>
+<td class="muted" colspan="10">
+                  Defina o periodo e clique em <strong>Atualizar painel</strong> para carregar campanhas e comparar desempenho.
+                </td>
+</tr>
+</tbody>
+</table>
+</div>
+</section><section class="ads-module ads-global-ads" hidden="" id="adsGlobalAdsSection">
+<div class="ads-module__head">
+<div>
+<span class="ads-module__eyebrow">ANÚNCIOS</span>
+<h2 class="ads-module__title">Anúncios patrocinados</h2>
+<p class="ads-module__text">Encontre desperdícios e oportunidades sem abrir campanha por campanha.</p>
+</div>
+<div class="ads-module__meta"><span class="ads-module__period" id="globalAdsCount">-</span></div>
+</div>
+<div class="ads-list-filters ads-list-filters--ads">
+<label class="ads-list-filter ads-list-filter--search"><span>Buscar</span><input id="globalAdsSearchInput" placeholder="Título, MLB ou identificador" type="search"/></label>
+<label class="ads-list-filter"><span>Campanha</span><select id="globalAdsCampaignFilter"><option value="all">Todas</option></select></label>
+<label class="ads-list-filter"><span>Diagnóstico</span><select id="globalAdsDiagnosisFilter"><option value="all">Todos</option><option value="sugador">Sugadores</option><option value="clique_sem_venda">Clique sem venda</option><option value="oportunidade">Oportunidades</option><option value="saudavel">Saudáveis</option></select></label>
+</div>
+<div class="table-wrapper table-wrapper--wide table-shell ads-module__table">
+<table class="table ads-global-ads-table" id="tblGlobalAds">
+<thead><tr><th class="sticky-col">Anúncio</th><th>Campanha</th><th class="num">Investimento</th><th class="num">Vendas Ads</th><th class="num">ROAS</th><th class="num">ACOS</th><th class="num">Cliques</th><th>Situação</th></tr></thead>
+<tbody id="tbodyGlobalAds"><tr><td class="muted" colspan="8">Abra a aba Anúncios para carregar os dados.</td></tr></tbody>
+</table>
+<div class="ads-pagination" id="globalAdsPagination"></div>
+</div>
+</section>
+<section class="ads-evolution ads-module" id="adsEvolutionSection">
+<div class="ads-module__head">
+<div>
+<span class="ads-module__eyebrow">EVOLUÇÃO</span>
+<h2 class="ads-module__title">Evolução de performance</h2>
+<p class="ads-module__text" id="chartHint">Linha solida = periodo atual | tracejada = comparativo selecionado</p>
+</div>
+<div class="ads-module__meta">
+<span class="ads-module__period" id="chartScopeBadge">Visao geral</span>
+<label class="chart-compare-toggle" for="chartComparePrev">
+<input checked="" id="chartComparePrev" type="checkbox"/>
+<span>Comparar com referencia</span>
+</label>
+</div>
+</div>
+<div class="ads-evolution__panel" id="campaignChartCard">
+<div class="ads-evolution__chart">
+<div aria-label="Metrica do grafico" class="ads-chart-tabs" role="group">
+<button class="ads-chart-tab is-active" data-chart-metric="total_amount" type="button">Faturamento</button>
+<button class="ads-chart-tab" data-chart-metric="cost" type="button">Investimento</button>
+<button class="ads-chart-tab" data-chart-metric="roas" type="button">ROAS</button>
+<button class="ads-chart-tab" data-chart-metric="ctr" type="button">CTR</button>
+</div>
+<div class="chart-wrap">
+<canvas id="adsMetricsChart"></canvas>
+</div>
+<p class="ads-evolution__caption">O grafico explica a tendencia depois que o ranking mostra quais campanhas exigem acao.</p>
+</div>
+<details class="ads-daily-detail" id="adsDailyDetails"><summary class="ads-daily-detail__summary">Ver detalhamento diário / semanal</summary>
+<div class="card-hd">
+<div>
+<h3 class="card-title">Detalhamento</h3>
+<div class="card-sub">Diario ou semanal, no mesmo periodo do grafico</div>
+</div>
+<div class="ads-daily-detail__meta">
+<div aria-label="Agrupamento do detalhamento" class="ads-granularity-toggle" role="group">
+<button class="ads-granularity-btn is-active" data-daily-granularity="daily" type="button">Diario</button>
+<button class="ads-granularity-btn" data-daily-granularity="weekly" type="button">Semanal</button>
+</div>
+<div class="card-sub" id="tableCount"></div>
+</div>
+</div>
+<div class="card-bd">
+<div class="table-wrap">
+<table class="dash-table ads-daily-table">
+<thead>
+<tr>
+<th id="dailyPeriodHeader">Dia</th>
+<th class="num">Faturamento</th>
+<th class="num">Investimento</th>
+<th class="num">Cliques</th>
+<th class="num">CTR</th>
+<th class="num">ROAS</th>
+<th class="num">ACOS</th>
+</tr>
+</thead>
+<tbody id="tbodyDaily">
+<tr><td class="muted" colspan="7">Carregando...</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</details>
+</div>
+</section>
+<section class="ads-detail ads-module" hidden="" id="adsDetailSection">
+<div class="ads-module__head ads-module__head--detail">
+<div>
+<span class="ads-module__eyebrow">ANÚNCIOS DA CAMPANHA</span>
+<h2 class="ads-module__title">Desempenho por anúncio</h2>
+<p class="ads-module__text">Use os filtros para localizar desperdício, clique sem venda e oportunidades de escala.</p>
+</div>
+<div class="ads-module__meta">
+<span class="ads-module__pill">Exportacao pronta para CSV</span>
+</div>
+</div>
+<section class="ads-mlb-analysis" id="adsMlbAnalysisSection">
+<div class="ads-mlb-analysis__head">
+<div>
+<span class="ads-module__eyebrow">DIAGNÓSTICO</span>
+<h2 class="ads-module__title">Resumo dos anúncios</h2>
+<p class="ads-module__text">Sinais calculados com investimento, cliques, vendas e ROAS do período.</p>
+</div>
+<div aria-label="Filtros da microanalise" class="ads-mlb-analysis__filters" id="mlbAnalysisFilters">
+<button class="ads-mlb-filter is-active" data-mlb-filter="all" type="button">Todos</button>
+<button class="ads-mlb-filter" data-mlb-filter="sugador" type="button">Sugadores</button>
+<button class="ads-mlb-filter" data-mlb-filter="clique_sem_venda" type="button">Clique sem venda</button>
+<button class="ads-mlb-filter" data-mlb-filter="oportunidade" type="button">Oportunidades</button>
+</div>
+</div>
+<div class="ads-mlb-analysis__summary" id="mlbAnalysisSummary">
+<article class="ads-mlb-summary-card">
+<strong>-</strong>
+<span>Aguardando campanha</span>
+</article>
+</div>
+<div class="ads-mlb-analysis__insights" id="mlbAnalysisInsights">
+<article class="ads-mlb-insight">
+<small>Sem dados</small>
+<h3>Abra uma campanha</h3>
+<p>A microanalise sera calculada assim que os MLBs forem carregados.</p>
+</article>
+</div>
+</section>
+<div class="table-wrapper table-wrapper--wide table-shell ads-items-wrapper ads-module__table">
+<div class="ads-items-toolbar">
+<div class="ads-items-toolbar__left">
+<strong id="itemsTitle">Itens da campanha selecionada</strong>
+<span aria-live="polite" class="muted" id="itemsSubtitle">Selecione uma campanha no ranking acima para abrir os itens e entender onde agir.</span>
+<div class="ads-active-filter" hidden="" id="itemsActiveFilter">
+<span id="itemsActiveFilterLabel">Filtro: Todos</span>
+<button id="btnClearItemsFilter" type="button">Limpar filtro</button>
+</div>
+</div>
+<div class="ads-items-toolbar__right">
+<button class="btn-ghost" disabled="" id="btnOpenAddItems" type="button">
+                Adicionar anuncios
+              </button>
+
+<button class="btn" disabled="" id="btnExportCsv" type="button">
+                Exportar CSV
+              </button>
+</div>
+</div>
+<table class="table ads-items-table" id="tblItems">
+<thead>
+<tr>
+<th class="sticky-col">Nome do anuncio</th>
+<th>Diagnostico</th>
+<th class="num">Investimento</th>
+<th class="num">Vendas Ads</th>
+<th class="num">ROAS</th>
+<th class="num">Cliques</th>
+<th>Acoes</th>
+</tr>
+</thead>
+<tbody id="tbodyItems">
+<tr>
+<td class="muted" colspan="7">Nenhuma campanha selecionada. Escolha uma campanha no ranking para liberar o detalhe dos itens.</td>
+</tr>
+</tbody>
+</table>
+<div class="ads-pagination" id="adsPagination"></div>
+</div>
+</section>
+
+</div>
+</main>
+<div aria-hidden="true" class="ads-wizard-modal" hidden="" id="campaignWizardModal">
+<div class="ads-wizard-modal__backdrop" data-wizard-close="1"></div>
+<section aria-labelledby="wizardTitle" aria-modal="true" class="ads-wizard-modal__dialog" role="dialog">
+<header class="ads-wizard-modal__header">
+<div>
+<h2 id="wizardTitle">Criar campanha de Product Ads</h2>
+<p class="muted" id="wizardSubtitle">Passo 1 de 2 - selecione os anuncios patrocinados</p>
+</div>
+<div class="ads-wizard-modal__header-meta">
+<span class="ads-wizard-step-indicator" id="wizardStepIndicator">Etapa 1 de 2</span>
+<button aria-label="Fechar modal" class="ads-wizard-modal__close" id="wizardCloseBtn" type="button">×</button>
+</div>
+</header>
+<div aria-hidden="true" class="ads-wizard-progress">
+<span id="wizardProgressFill"></span>
+</div>
+<div class="ads-wizard-steps">
+<button class="ads-step-pill is-active" id="wizardStepBtn1" type="button">
+<span>1</span> Selecionar anuncios
+        </button>
+<button class="ads-step-pill" disabled="" id="wizardStepBtn2" type="button">
+<span>2</span> Configurar campanha
+        </button>
+</div>
+<section class="ads-wizard-panel" id="wizardStep1Panel">
+<div class="ads-wizard-hint"><span class="ads-wizard-hint__icon">i</span><span>Agrupe anúncios com preços, margem e estratégia semelhantes para facilitar a leitura da campanha.</span></div>
+<div class="ads-wizard-toolbar">
+<div class="ads-wizard-field ads-wizard-field--search">
+<label for="wizardSearchInput">Buscar por titulo ou MLB</label>
+<input id="wizardSearchInput" placeholder="Ex.: pe para movel ou MLB1234567890" type="search"/>
+</div>
+<div class="ads-wizard-field ads-wizard-field--status">
+<label for="wizardStatusFilter">Filtrar campanha atual</label>
+<div aria-label="Filtro da campanha atual" class="ads-wizard-status-chips" id="wizardStatusChips" role="group">
+<button aria-pressed="true" class="ads-status-chip is-active" data-status="all" type="button">Todos</button>
+<button aria-pressed="false" class="ads-status-chip" data-status="active" type="button">Ativos</button>
+<button aria-pressed="false" class="ads-status-chip" data-status="paused" type="button">Pausados</button>
+<button aria-pressed="false" class="ads-status-chip" data-status="without_campaign" type="button">Sem campanha</button>
+</div>
+<select class="sr-only" id="wizardStatusFilter">
+<option value="all">Todos</option>
+<option value="active">Ativos</option>
+<option value="paused">Pausados</option>
+<option value="without_campaign">Sem campanha</option>
+</select>
+</div>
+<div class="ads-wizard-toolbar__actions">
+<button class="btn-ghost" id="wizardRefreshItemsBtn" type="button">Atualizar lista</button>
+</div>
+</div>
+<div class="ads-wizard-ordering">Ordenar por: <strong>Vendas no Mercado Livre</strong></div>
+<div class="ads-wizard-selection">
+<strong id="wizardSelectedCount">0 anuncios selecionados</strong>
+<span class="muted" id="wizardSalesRange">Vendas no Mercado Livre: ultimos 30 dias</span>
+</div>
+<div class="ads-wizard-table-wrap">
+<table class="ads-wizard-table">
+<thead>
+<tr>
+<th class="check-col">
+<input aria-label="Selecionar todos da pagina" id="wizardCheckAll" type="checkbox"/>
+</th>
+<th>Anuncio patrocinado</th>
+<th>Campanha atual</th>
+<th class="num">Vendas no Mercado Livre<br/><small>Ultimos 30 dias</small></th>
+</tr>
+</thead>
+<tbody id="wizardItemsBody">
+<tr>
+<td class="muted" colspan="4">Carregando anuncios...</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="ads-pagination ads-pagination--wizard" id="wizardItemsPagination"></div>
+</section>
+<section class="ads-wizard-panel" hidden="" id="wizardStep2Panel">
+<div class="ads-wizard-card">
+<label for="wizardCampaignName">Nome da campanha</label>
+<input id="wizardCampaignName" maxlength="30" placeholder="Ex.: Campanha Drossi Abril" type="text"/>
+<div class="ads-wizard-field-hint" id="wizardCampaignNameCount">0 / 30</div>
+</div>
+<div class="ads-wizard-card">
+<div class="ads-wizard-card__head">
+<label for="wizardRoasRange">ROAS objetivo</label>
+<strong id="wizardRoasPreview">6x</strong>
+</div>
+<div class="ads-wizard-roas-scale">
+<span>1x</span>
+<span>35x</span>
+</div>
+<input id="wizardRoasRange" max="35" min="1" step="0.1" type="range" value="6"/>
+<div class="ads-wizard-roas-goal-hint">
+<span>Maximizar quantidade de vendas</span>
+<span>Maximizar retorno por venda</span>
+</div>
+<div class="ads-wizard-roas-grid">
+<button class="ads-roas-chip" data-roas="4.9" type="button">
+<span class="ads-roas-chip__value">4.9x</span>
+<span class="ads-roas-chip__meta">Mais agressivo em volume</span>
+</button>
+<button class="ads-roas-chip is-active" data-roas="6" type="button">
+<span class="ads-roas-chip__tag">REFERÊNCIA</span>
+<span class="ads-roas-chip__value">6x</span>
+<span class="ads-roas-chip__meta">Equilíbrio entre volume e retorno</span>
+</button>
+<button class="ads-roas-chip" data-roas="10" type="button">
+<span class="ads-roas-chip__value">10x</span>
+<span class="ads-roas-chip__meta">Mais conservador em eficiência</span>
+</button>
+<div class="ads-roas-custom">
+<label for="wizardRoasInput">Definir outro</label>
+<input id="wizardRoasInput" min="1" step="0.1" type="number" value="6"/>
+</div>
+</div>
+</div>
+<div class="ads-wizard-card">
+<label for="wizardDailyBudget">Orcamento medio diario (BRL)</label>
+<input id="wizardDailyBudget" min="1" step="1" type="number" value="50"/>
+<div class="ads-wizard-field-hint ads-wizard-field-hint--left" id="wizardBudgetMonthlyHint">
+            Consumo estimado no mes: R$ 1.500,00
+          </div>
+
+</div>
+<div class="ads-wizard-selection">
+<strong id="wizardSelectedCountStep2">0 anuncios selecionados</strong>
+<span class="muted">O passo 2 so e liberado com pelo menos 1 anuncio escolhido no passo 1.</span>
+</div>
+</section>
+<footer class="ads-wizard-modal__footer">
+<div class="muted" id="wizardCreateMessage"></div>
+<div class="ads-wizard-modal__actions">
+<button class="btn-ghost" id="wizardCancelBtn" type="button">Cancelar</button>
+<button class="btn-ghost" hidden="" id="wizardBackBtn" type="button">Voltar</button>
+<button class="btn-premium" id="wizardNextBtn" type="button">Continuar</button>
+<button class="btn-premium" hidden="" id="wizardCreateBtn" type="button">Criar campanha</button>
+</div>
+</footer>
+</section>
+</div>
+<div aria-hidden="true" class="ads-wizard-modal" hidden="" id="campaignEditModal">
+<div class="ads-wizard-modal__backdrop" data-edit-close="1"></div>
+<section aria-labelledby="campaignEditTitle" aria-modal="true" class="ads-wizard-modal__dialog" role="dialog">
+<header class="ads-wizard-modal__header">
+<div>
+<h2 id="campaignEditTitle">Editar campanha</h2>
+<p class="muted" id="campaignEditSubtitle">Ajuste nome, orcamento, ROAS e status da campanha.</p>
+</div>
+<div class="ads-wizard-modal__header-meta">
+<button aria-label="Fechar modal" class="ads-wizard-modal__close" id="campaignEditCloseBtn" type="button">×</button>
+</div>
+</header>
+<section class="ads-wizard-panel">
+<div class="ads-wizard-card">
+<label for="campaignEditName">Nome da campanha</label>
+<input id="campaignEditName" maxlength="30" placeholder="Ex.: Curva B Abril" type="text"/>
+<div class="ads-wizard-field-hint" id="campaignEditNameCount">0 / 30</div>
+</div>
+<div class="ads-wizard-card">
+<label for="campaignEditBudget">Orcamento medio diario (BRL)</label>
+<input id="campaignEditBudget" min="1" placeholder="50" step="1" type="number"/>
+</div>
+<div class="ads-wizard-card">
+<label for="campaignEditRoas">ROAS objetivo</label>
+<input id="campaignEditRoas" min="1" placeholder="6" step="0.1" type="number"/>
+</div>
+<div class="ads-wizard-card">
+<label for="campaignEditStatus">Status</label>
+<select id="campaignEditStatus">
+<option value="active">Ativa</option>
+<option value="paused">Pausada</option>
+</select>
+</div>
+</section>
+<footer class="ads-wizard-modal__footer">
+<div class="muted" id="campaignEditMessage"></div>
+<div class="ads-wizard-modal__actions">
+<button class="btn-ghost" id="campaignEditCancelBtn" type="button">Cancelar</button>
+<button class="btn-premium" id="campaignEditSaveBtn" type="button">Salvar alteracoes</button>
+</div>
+</footer>
+</section>
+</div>
+
+<div aria-hidden="true" class="ads-wizard-modal ads-status-confirm-modal" hidden="" id="campaignStatusConfirmModal">
+<div class="ads-wizard-modal__backdrop" data-status-confirm-close="1"></div>
+<section aria-labelledby="campaignStatusConfirmTitle" aria-modal="true" class="ads-wizard-modal__dialog ads-status-confirm-modal__dialog" role="dialog">
+<header class="ads-wizard-modal__header ads-status-confirm-modal__header">
+<div>
+<h2 id="campaignStatusConfirmTitle">Confirmar alteracao de status</h2>
+<p class="muted" id="campaignStatusConfirmSubtitle">Confirme para continuar.</p>
+</div>
+<div class="ads-wizard-modal__header-meta">
+<button aria-label="Fechar modal" class="ads-wizard-modal__close" id="campaignStatusConfirmCloseBtn" type="button">×</button>
+</div>
+</header>
+<section class="ads-status-confirm-modal__content">
+<p class="ads-status-confirm-modal__hint" id="campaignStatusConfirmHint">
+          Esta acao altera imediatamente o status da campanha.
+        </p>
+<div aria-live="polite" class="ads-focus-field-modal__message" id="campaignStatusConfirmMessage"></div>
+</section>
+<footer class="ads-wizard-modal__footer ads-status-confirm-modal__footer">
+<div></div>
+<div class="ads-wizard-modal__actions">
+<button class="btn-ghost" id="campaignStatusConfirmCancelBtn" type="button">Cancelar</button>
+<button class="btn-premium" id="campaignStatusConfirmConfirmBtn" type="button">Confirmar</button>
+</div>
+</footer>
+</section>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script defer="" src="/ml/js/product-ads.js?v=2026081003"></script>
+</body>
+</html>

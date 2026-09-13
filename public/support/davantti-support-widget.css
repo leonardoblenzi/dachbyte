@@ -1,0 +1,373 @@
+.dvt-sac-root {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #122033;
+  pointer-events: none;
+}
+
+.dvt-sac-root * {
+  box-sizing: border-box;
+}
+
+.dvt-sac-button {
+  position: fixed;
+  top: var(--dvt-sac-launcher-top, 58vh);
+  right: 0;
+  transform: translateY(-50%);
+  width: 34px;
+  min-height: 112px;
+  border: 0;
+  border-radius: 14px 0 0 14px;
+  color: #fff;
+  background: #0f766e;
+  box-shadow: -8px 14px 34px rgba(15, 118, 110, 0.26);
+  cursor: grab;
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 7px;
+  place-items: center;
+  padding: 10px 6px;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+}
+
+.dvt-sac-button:active {
+  cursor: grabbing;
+}
+
+.dvt-sac-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.dvt-sac-grip {
+  width: 15px;
+  height: 22px;
+  border-top: 2px solid rgba(255, 255, 255, 0.55);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.55);
+  position: relative;
+}
+
+.dvt-sac-grip::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  border-top: 2px solid rgba(255, 255, 255, 0.55);
+}
+
+.dvt-sac-tab-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.dvt-sac-panel {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: min(420px, calc(100vw - 24px));
+  max-height: min(720px, calc(100vh - 88px));
+  display: none;
+  overflow: hidden;
+  border: 1px solid #dbe5ef;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+  pointer-events: auto;
+}
+
+.dvt-sac-root.is-open .dvt-sac-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.dvt-sac-root.is-open .dvt-sac-button {
+  display: none;
+}
+
+.dvt-sac-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  color: #fff;
+  background: #0f766e;
+}
+
+.dvt-sac-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+}
+
+.dvt-sac-title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.dvt-sac-subtitle {
+  margin: 3px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12px;
+}
+
+.dvt-sac-close {
+  margin-left: auto;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.dvt-sac-body {
+  overflow: auto;
+  padding: 16px;
+  background: #f7fafc;
+}
+
+.dvt-sac-card {
+  border: 1px solid #dbe5ef;
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.dvt-sac-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.dvt-sac-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex: 0 0 auto;
+}
+
+.dvt-sac-dot.is-on {
+  background: #22c55e;
+}
+
+.dvt-sac-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.dvt-sac-actions.is-stack {
+  grid-template-columns: 1fr;
+}
+
+.dvt-sac-primary,
+.dvt-sac-secondary,
+.dvt-sac-ghost {
+  min-height: 42px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 10px 12px;
+}
+
+.dvt-sac-primary {
+  background: #0f766e;
+  color: #fff;
+}
+
+.dvt-sac-primary:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.dvt-sac-secondary {
+  background: #e0f2fe;
+  color: #075985;
+  border-color: #bae6fd;
+}
+
+.dvt-sac-ghost {
+  background: #fff;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.dvt-sac-form {
+  display: grid;
+  gap: 10px;
+}
+
+.dvt-sac-field {
+  display: grid;
+  gap: 5px;
+}
+
+.dvt-sac-field label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+}
+
+.dvt-sac-field input,
+.dvt-sac-field select,
+.dvt-sac-field textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  padding: 10px 11px;
+  font: inherit;
+  font-size: 14px;
+}
+
+.dvt-sac-field textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.dvt-sac-muted {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.dvt-sac-alert {
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+  border-radius: 12px;
+  padding: 11px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.dvt-sac-success {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+  border-radius: 12px;
+  padding: 11px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.dvt-sac-error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: 12px;
+  padding: 11px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.dvt-sac-chat-log {
+  display: grid;
+  gap: 8px;
+  max-height: 300px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.dvt-sac-message {
+  max-width: 88%;
+  padding: 10px 12px;
+  border-radius: 13px;
+  background: #e2e8f0;
+  color: #0f172a;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dvt-sac-message.is-customer {
+  justify-self: end;
+  background: #0f766e;
+  color: #fff;
+}
+
+.dvt-sac-message.is-admin {
+  justify-self: start;
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.dvt-sac-message.is-system {
+  max-width: 100%;
+  justify-self: center;
+  background: #fefce8;
+  color: #854d0e;
+  font-size: 12px;
+}
+
+.dvt-sac-message-meta {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  opacity: 0.8;
+}
+
+.dvt-sac-footer-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.dvt-sac-footer-form input {
+  min-width: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 11px;
+  font: inherit;
+}
+
+.dvt-sac-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: #334155;
+}
+
+.dvt-sac-check input {
+  margin-top: 2px;
+}
+
+@media (max-width: 520px) {
+  .dvt-sac-panel {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 70px);
+  }
+
+  .dvt-sac-actions {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,131 @@
+- generic [ref=e60]:
+  - complementary [ref=e61]:
+    - generic [ref=e63]:
+      - img "Volt Core" [ref=e64]
+      - generic [ref=e65]: VOLTCORE
+    - navigation "Navegacao principal" [ref=e66]:
+      - button "Operacao Vendas, clientes e estoque" [ref=e356] [cursor=pointer]:
+        - generic [ref=e362]:
+          - strong [ref=e363]: Operacao
+          - generic [ref=e364]: Vendas, clientes e estoque
+      - generic [ref=e406]:
+        - button "Financeiro Caixa, recebiveis e pagamentos" [expanded] [ref=e407] [cursor=pointer]:
+          - generic [ref=e411]:
+            - strong [ref=e412]: Financeiro
+            - generic [ref=e413]: Caixa, recebiveis e pagamentos
+        - generic [ref=e580]:
+          - button "Pagamentos" [ref=e581] [cursor=pointer]
+          - button "Recebiveis" [ref=e585] [cursor=pointer]
+          - button "Caixa" [ref=e591] [cursor=pointer]
+          - button "Recibos" [ref=e596] [cursor=pointer]
+      - button "Setorial Fluxos do segmento da empresa" [ref=e418] [cursor=pointer]:
+        - generic [ref=e422]:
+          - strong [ref=e423]: Setorial
+          - generic [ref=e424]: Fluxos do segmento da empresa
+      - button "Gestao Relatorios e leitura gerencial" [ref=e429] [cursor=pointer]:
+        - generic [ref=e433]:
+          - strong [ref=e434]: Gestao
+          - generic [ref=e435]: Relatorios e leitura gerencial
+      - button "Administracao Implantacao, usuarios e parametros" [ref=e440] [cursor=pointer]:
+        - generic [ref=e445]:
+          - strong [ref=e446]: Administracao
+          - generic [ref=e447]: Implantacao, usuarios e parametros
+    - generic [ref=e127]:
+      - generic [ref=e128]:
+        - generic [ref=e129]: A
+        - generic [ref=e131]:
+          - strong [ref=e132]: Master Volt Core
+          - generic [ref=e133]: Admin master
+      - button "Sair" [ref=e136] [cursor=pointer]
+  - generic [ref=e141]:
+    - banner [ref=e142]:
+      - generic [ref=e143]:
+        - heading "Caixa" [level=1] [ref=e600]
+        - paragraph [ref=e145]: Abertura, sangria, reforco, conferencia e fechamento.
+      - generic [ref=e146]:
+        - generic [ref=e452]:
+          - text: Empresa
+          - combobox "Empresa" [ref=e453]:
+            - option "Otica Nacional Sabaudia" [selected]
+        - generic [ref=e454]: "Setor: Otica"
+        - generic [ref=e147]: Banco real
+        - button "Painel master" [ref=e455] [cursor=pointer]
+        - button "Master Volt Core" [ref=e149] [cursor=pointer]
+    - main [ref=e150]:
+      - generic [ref=e601]:
+        - tablist [ref=e602]:
+          - button "Sessao" [ref=e603] [cursor=pointer]
+          - button "Conferencia" [ref=e607] [cursor=pointer]
+          - button "Historico" [ref=e612] [cursor=pointer]
+        - generic [ref=e616]:
+          - generic [ref=e617]:
+            - generic [ref=e618]:
+              - generic [ref=e624]:
+                - heading "Sessao de caixa" [level=2] [ref=e625]
+                - paragraph [ref=e626]: Dados e configuracoes do ambiente selecionado.
+              - button "Abrir caixa" [ref=e628] [cursor=pointer]
+            - generic [ref=e630]:
+              - generic [ref=e631]: Saldo esperado
+              - strong [ref=e632]: R$ 1.106,87
+              - generic [ref=e633]: Caixa fechado ou nao iniciado
+            - generic [ref=e634]:
+              - generic [ref=e635]:
+                - generic [ref=e636]: Entradas
+                - strong [ref=e637]: R$ 1.531,87
+              - generic [ref=e638]:
+                - generic [ref=e639]: Saidas
+                - strong [ref=e640]: "-R$ 425,00"
+              - generic [ref=e641]:
+                - generic [ref=e642]: Movimentos
+                - strong [ref=e643]: "15"
+              - generic [ref=e644]:
+                - generic [ref=e645]: Status
+                - strong [ref=e646]: Fechado
+            - generic [ref=e647]:
+              - button "Reforco" [ref=e648] [cursor=pointer]
+              - button "Sangria" [ref=e649] [cursor=pointer]
+              - button "Conferir" [ref=e650] [cursor=pointer]
+            - generic [ref=e651]:
+              - strong [ref=e652]: Ultimos movimentos
+              - generic [ref=e653]:
+                - generic [ref=e654]: "Estorno venda #9"
+                - generic [ref=e655]: Saida | Pix | R$ 175,00 | 17:10
+              - generic [ref=e656]:
+                - generic [ref=e657]: "Venda #9"
+                - generic [ref=e658]: Entrada | Pix | R$ 175,00 | 17:07
+              - generic [ref=e659]:
+                - generic [ref=e660]: "Estorno venda #8"
+                - generic [ref=e661]: Saida | Pix | R$ 150,00 | 14:41
+              - generic [ref=e662]:
+                - generic [ref=e663]: "Venda #8"
+                - generic [ref=e664]: Entrada | Pix | R$ 150,00 | 14:40
+          - generic [ref=e665]:
+            - generic [ref=e672]:
+              - heading "Rotina do caixa" [level=2] [ref=e673]
+              - paragraph [ref=e674]: Dados e configuracoes do ambiente selecionado.
+            - generic [ref=e675]:
+              - generic [ref=e676]:
+                - strong [ref=e677]: Reforco
+                - generic [ref=e678]: Entrada manual de dinheiro, como troco adicional.
+              - generic [ref=e679]:
+                - strong [ref=e680]: Sangria
+                - generic [ref=e681]: Retirada de dinheiro para reduzir o valor fisico no caixa.
+              - generic [ref=e682]:
+                - strong [ref=e683]: Conferir
+                - generic [ref=e684]: Compara o valor contado com o saldo esperado pelo sistema.
+              - generic [ref=e685]:
+                - strong [ref=e686]: Recebimento
+                - generic [ref=e687]: Valores recebidos devem aparecer como entrada e reduzir pendencias.
+            - generic [ref=e688]:
+              - generic [ref=e689]:
+                - generic [ref=e690]: Exigir caixa aberto para vender
+                - checkbox "Exigir caixa aberto para vender" [checked] [ref=e691]
+              - generic [ref=e692]:
+                - generic [ref=e693]: Permitir sangria por operador
+                - checkbox "Permitir sangria por operador" [checked] [ref=e694]
+              - generic [ref=e695]:
+                - generic [ref=e696]: Solicitar senha no fechamento
+                - checkbox "Solicitar senha no fechamento" [checked] [ref=e697]
+              - generic [ref=e698]:
+                - generic [ref=e699]: Imprimir relatorio ao fechar
+                - checkbox "Imprimir relatorio ao fechar" [checked] [ref=e700]

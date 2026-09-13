@@ -1,0 +1,11 @@
+"use strict";
+const express=require("express");const {authenticate,requirePasswordChangeComplete,requireCsrf}=require("../auth");const {requirePermission}=require("../permissions");
+const {marketingOverview,upsertSource,importMetrics,createOrderCost,createPromotion,createAffiliate}=require("../marketing/service");
+const router=express.Router();router.use(authenticate,requirePasswordChangeComplete);
+router.get("/ads",requirePermission("ads.read"),async(req,res,next)=>{try{res.json(await marketingOverview(req.vpAuth,req.query));}catch(e){next(e);}});
+router.post("/ads/sources",requireCsrf,requirePermission("ads.manage"),async(req,res,next)=>{try{res.status(201).json({source:await upsertSource(req.vpAuth,req.body,req)});}catch(e){next(e);}});
+router.post("/ads/metrics/import",requireCsrf,requirePermission("ads.manage"),async(req,res,next)=>{try{res.status(201).json({metrics:await importMetrics(req.vpAuth,req.body,req)});}catch(e){next(e);}});
+router.post("/ads/order-costs",requireCsrf,requirePermission("ads.manage"),async(req,res,next)=>{try{res.status(201).json({cost:await createOrderCost(req.vpAuth,req.body,req)});}catch(e){next(e);}});
+router.post("/ads/promotions",requireCsrf,requirePermission("ads.manage"),async(req,res,next)=>{try{res.status(201).json({promotion:await createPromotion(req.vpAuth,req.body,req)});}catch(e){next(e);}});
+router.post("/ads/affiliates",requireCsrf,requirePermission("ads.manage"),async(req,res,next)=>{try{res.status(201).json({affiliate:await createAffiliate(req.vpAuth,req.body,req)});}catch(e){next(e);}});
+module.exports={marketingRouter:router};

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/financeiro-ml.css?v=2026090401" />
+  <title>Margem de Venda Mercado Livre</title>
+  <script src="/ml/js/financeiro-ml-margem.js?v=15" defer></script>
+  <script src="/ml/js/ml-base.js?v=10"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="fml-app fml-margin-app">
+  <main class="page-wrap">
+    <section class="fml-page container">
+      <header class="fml-hero">
+        <div>
+          <div class="fml-breadcrumb">Operacao / Mercado Livre</div>
+          <h1>Margem de Venda Mercado Livre</h1>
+          <p>Auditoria das vendas, custos por SKU e precificacao de equilibrio dos anuncios da conta ativa.</p>
+        </div>
+        <span id="fml-margin-status" class="fml-status" data-tone="info" aria-live="polite">Pronto para consultar.</span>
+      </header>
+
+      <section class="fml-card fml-warning-note">
+        Ainda em elaboracao, numeros podem estar diferentes do real.
+      </section>
+
+      <section class="fml-card fml-filter-card">
+        <form id="fml-margin-filters" class="fml-filters fml-filters--wide fml-margin-filters">
+          <label>
+            <span>Data inicial</span>
+            <input class="fml-input" name="date_from" type="date" />
+          </label>
+          <label>
+            <span>Data final</span>
+            <input class="fml-input" name="date_to" type="date" />
+          </label>
+          <label>
+            <span>Buscar</span>
+            <input class="fml-input" name="q" type="search" placeholder="MLB, SKU ou produto" />
+          </label>
+          <label>
+            <span>Status anúncio</span>
+            <select class="fml-input" name="status">
+              <option value="all">Todos</option>
+              <option value="active">Ativo</option>
+              <option value="paused">Pausado</option>
+              <option value="closed">Fechado</option>
+            </select>
+          </label>
+          <label>
+            <span>Status pedido</span>
+            <select class="fml-input" name="order_status">
+              <option value="all">Todos</option>
+              <option value="in_progress">Em andamento</option>
+              <option value="preparing">Preparando</option>
+              <option value="in_transit">A caminho</option>
+              <option value="completed">Concluído</option>
+              <option value="cancelled">Cancelado</option>
+              <option value="returning">Devolução</option>
+              <option value="returned">Devolvido</option>
+              <option value="problem">Problema</option>
+            </select>
+          </label>
+          <label>
+            <span>Margem</span>
+            <select class="fml-input" name="margin_status">
+              <option value="all">Todas</option>
+              <option value="negative">Negativa</option>
+              <option value="low">Baixa</option>
+              <option value="positive">Positiva</option>
+              <option value="healthy">Saudavel</option>
+            </select>
+          </label>
+          <label>
+            <span>Custo</span>
+            <select class="fml-input" name="cost_status">
+              <option value="all">Todos</option>
+              <option value="missing">Sem custo</option>
+              <option value="filled">Com custo</option>
+            </select>
+          </label>
+          <label>
+            <span>Margem min. (%)</span>
+            <input class="fml-input" name="min_margin" type="text" inputmode="decimal" placeholder="Ex: 10" />
+          </label>
+          <label>
+            <span>Margem max. (%)</span>
+            <input class="fml-input" name="max_margin" type="text" inputmode="decimal" placeholder="Ex: 25" />
+          </label>
+          <label>
+            <span>Situacao equilibrio</span>
+            <select class="fml-input" name="equilibrium_state">
+              <option value="all">Todas</option>
+              <option value="abaixo">Abaixo do equilibrio</option>
+              <option value="proximo">Proximo do equilibrio</option>
+              <option value="acima">Acima do equilibrio</option>
+              <option value="sem_custo">Sem custo</option>
+            </select>
+          </label>
+          <button class="fml-btn fml-btn--primary" type="submit">Filtrar</button>
+        </form>
+      </section>
+
+      <nav class="fml-tabs" aria-label="Visoes de margem">
+        <button id="fml-tab-summary" class="fml-tab is-active" type="button">Resumo</button>
+        <button id="fml-tab-period" class="fml-tab" type="button">Margem por periodo</button>
+        <button id="fml-tab-equilibrium" class="fml-tab" type="button">Equilibrio estimado</button>
+      </nav>
+
+      <section id="fml-summary-panel" class="fml-tab-panel">
+        <div class="fml-panel-actions">
+          <button id="fml-export-summary" class="fml-btn fml-btn--ghost" type="button"><i class="bi bi-file-earmark-excel"></i> Exportar XLSX</button>
+        </div>
+        <div class="fml-section-label">Conciliacao com Mercado Livre</div>
+        <section class="fml-summary-strip fml-summary-strip--wide" aria-label="Conciliacao com Mercado Livre">
+          <div>
+            <span>Vendas brutas ML</span>
+            <div class="fml-metric-value">
+              <strong id="fml-summary-gross">R$ 0,00</strong>
+              <span class="fml-help" tabindex="0" aria-label="Total bruto aproximado ao painel do Mercado Livre: GMV considerado mais vendas canceladas e devolvidas encontradas no periodo." data-tooltip="Total bruto aproximado ao painel do Mercado Livre: GMV considerado mais vendas canceladas e devolvidas encontradas no periodo."><i class="bi bi-info-circle"></i></span>
+            </div>
+          </div>
+          <div>
+            <span>Canceladas</span>
+            <div class="fml-metric-value">
+              <strong id="fml-summary-cancelled">R$ 0,00</strong>
+              <span class="fml-help" tabindex="0" aria-label="Vendas canceladas no periodo usadas apenas para conciliacao com o painel do Mercado Livre." data-tooltip="Vendas canceladas no periodo usadas apenas para conciliacao com o painel do Mercado Livre."><i class="bi bi-info-circle"></i></span>
+            </div>
+          </div>
+          <div>
+            <span>Devolvidas</span>
+            <div class="fml-metric-value">
+              <strong id="fml-summary-returned">R$ 0,00</strong>
+              <span class="fml-help" tabindex="0" aria-label="Vendas devolvidas ou reembolsadas no periodo usadas apenas para conciliacao com o painel do Mercado Livre." data-tooltip="Vendas devolvidas ou reembolsadas no periodo usadas apenas para conciliacao com o painel do Mercado Livre."><i class="bi bi-info-circle"></i></span>
+            </div>
+          </div>
+          <div>
+            <span>GMV considerado</span>
+            <div class="fml-metric-value">
+              <strong id="fml-summary-gmv">R$ 0,00</strong>
+              <span class="fml-help" tabindex="0" aria-label="GMV e o total bruto do pedido: valor dos produtos mais o frete pago pelo comprador, antes de comissoes, cupons, impostos e demais custos. Em consultas que filtram apenas alguns itens do pedido, e alocado proporcionalmente." data-tooltip="GMV e o total bruto do pedido: valor dos produtos mais o frete pago pelo comprador, antes de comissoes, cupons, impostos e demais custos. Em consultas que filtram apenas alguns itens do pedido, e alocado proporcionalmente."><i class="bi bi-info-circle"></i></span>
+            </div>
+          </div>
+        </section>
+
+        <div class="fml-section-label">Resultado da margem</div>
+        <section class="fml-kpis fml-kpis--compact" aria-label="Resultado da margem">
+        <article class="fml-kpi">
+          <div class="fml-kpi-label"><i class="bi bi-box-seam"></i><span>Total de custos</span></div>
+          <div class="fml-metric-value">
+            <strong id="fml-margin-costs">R$ 0,00</strong>
+            <span class="fml-help" tabindex="0" aria-label="Soma de CMV, comissoes liquidas do Mercado Livre, impostos, tarifa de envio e cupons do vendedor. Descontos promocionais ja embutidos no preco nao sao descontados novamente." data-tooltip="Soma de CMV, comissoes liquidas do Mercado Livre, impostos, tarifa de envio e cupons do vendedor. Descontos promocionais ja embutidos no preco nao sao descontados novamente."><i class="bi bi-info-circle"></i></span>
+          </div>
+        </article>
+        <article class="fml-kpi">
+          <div class="fml-kpi-label"><i class="bi bi-graph-up-arrow"></i><span>Resultado</span></div>
+          <div class="fml-metric-value">
+            <strong id="fml-margin-profit">R$ 0,00</strong>
+            <span class="fml-help" tabindex="0" aria-label="GMV considerado menos CMV, comissoes liquidas, impostos, tarifa de envio e cupom do vendedor. O rebate nao e somado novamente porque ja esta refletido na comissao liquida." data-tooltip="GMV considerado menos CMV, comissoes liquidas, impostos, tarifa de envio e cupom do vendedor. O rebate nao e somado novamente porque ja esta refletido na comissao liquida."><i class="bi bi-info-circle"></i></span>
+          </div>
+        </article>
+        <article class="fml-kpi">
+          <div class="fml-kpi-label"><i class="bi bi-percent"></i><span>Margem</span></div>
+          <div class="fml-metric-value">
+            <strong id="fml-margin-pct">0%</strong>
+            <span class="fml-help" tabindex="0" aria-label="Percentual do resultado sobre o GMV considerado para margem." data-tooltip="Percentual do resultado sobre o GMV considerado para margem."><i class="bi bi-info-circle"></i></span>
+          </div>
+        </article>
+        <article class="fml-kpi">
+          <div class="fml-kpi-label"><i class="bi bi-arrow-up-circle"></i><span>Rebate ML (informativo)</span></div>
+          <div class="fml-metric-value">
+            <strong id="fml-margin-rebate">R$ 0,00</strong>
+            <span class="fml-help" tabindex="0" aria-label="Rebate do Mercado Livre exibido para conciliacao. No detalhe da venda do ML ele aparece como Estorno e ja esta considerado no valor liquido das comissoes; nao e somado novamente ao resultado." data-tooltip="Rebate do Mercado Livre exibido para conciliacao. No detalhe da venda do ML ele aparece como Estorno e ja esta considerado no valor liquido das comissoes; nao e somado novamente ao resultado."><i class="bi bi-info-circle"></i></span>
+          </div>
+        </article>
+        </section>
+
+        <div class="fml-section-label">Detalhamento de custos</div>
+        <section class="fml-kpis" aria-label="Detalhamento de custos">
+        <article class="fml-kpi">
+          <div class="fml-kpi-label"><i class="bi bi-box"></i><span>CMV</span></div>
+          <div class="fml-metric-value">
+            <strong id="fml-margin-product-cost">R$ 0,00</strong>
+            <span class="fml-help" tabindex="0" aria-label="Custo dos produtos vendidos calculado pelo custo cadastrado no SKU de referencia." data-tooltip="Custo dos produtos vendidos calculado pelo custo cadastrado no SKU de referencia."><i class="bi bi-info-circle"></i></span>
+          </div>
+        </article>
+        <article class="fml-kpi">
+          <div class="fml-kpi-label"><i class="bi bi-shop"></i><span>Comissoes ML</span></div>
+          <div class="fml-metric-value">
+            <strong id="fml-margin-commissions">R$ 0,00</strong>
+            <span class="fml-help" tabindex="0" aria-label="Valor liquido das comissoes e tarifas de venda do Mercado Livre. O rebate/estorno ja veio considerado neste valor e nao deve ser somado novamente ao resultado." data-tooltip="Valor liquido das comissoes e tarifas de venda do Mercado Livre. O rebate/estorno ja veio considerado neste valor e nao deve ser somado novamente ao resultado."><i class="bi bi-info-circle"></i></span>
+          </div>
+        </article>
+        <article class="fml-kpi">
+          <div class="fml-kpi-label"><i class="bi bi-receipt"></i><span>Base do imposto</span></div>
+          <div class="fml-metric-value">
+            <strong id="fml-margin-tax-base">R$ 0,00</strong>
+            <span class="fml-help" tabindex="0" aria-label="Soma dos produtos e do frete pago pelo comprador. Em um pedido completo, esta e a mesma base bruta usada no GMV; a aliquota configurada e aplicada sobre esse valor." data-tooltip="Soma dos produtos e do frete pago pelo comprador. Em um pedido completo, esta e a mesma base bruta usada no GMV; a aliquota configurada e aplicada sobre esse valor."><i class="bi bi-info-circle"></i></span>
+          </div>
+        </article>
+        <article class="fml-kpi">
+          <div class="fml-kpi-label"><i class="bi bi-calculator"></i><span>Impostos</span></div>
+          <div class="fml-metric-value">
+            <strong id="fml-margin-taxes">R$ 0,00</strong>
+            <span class="fml-help" tabindex="0" aria-label="Impostos calculados pela aliquota configurada sobre a Base do imposto de cada pedido, incluindo o frete pago pelo comprador quando houver." data-tooltip="Impostos calculados pela aliquota configurada sobre a Base do imposto de cada pedido, incluindo o frete pago pelo comprador quando houver."><i class="bi bi-info-circle"></i></span>
+          </div>
+        </article>
+        <article class="fml-kpi">
+          <div class="fml-kpi-label"><i class="bi bi-truck"></i><span>Frete por conta do comprador</span></div>
+          <div class="fml-metric-value">
+            <strong id="fml-margin-buyer-shipping">R$ 0,00</strong>
+            <span class="fml-help" tabindex="0" aria-label="Soma do frete pago pelo comprador nos pedidos lidos do Mercado Livre." data-tooltip="Soma do frete pago pelo comprador nos pedidos lidos do Mercado Livre."><i class="bi bi-info-circle"></i></span>
+          </div>
+        </article>
+        <article class="fml-kpi">
+          <div class="fml-kpi-label"><i class="bi bi-truck-front"></i><span>Tarifa Coletas</span></div>
+          <div class="fml-metric-value">
+            <strong id="fml-margin-collection-fee">R$ 0,00</strong>
+            <span class="fml-help" tabindex="0" aria-label="Soma das tarifas de coleta ou envio identificadas nos custos de shipment do Mercado Livre." data-tooltip="Soma das tarifas de coleta ou envio identificadas nos custos de shipment do Mercado Livre."><i class="bi bi-info-circle"></i></span>
+          </div>
+        </article>
+        <article class="fml-kpi">
+          <div class="fml-kpi-label"><i class="bi bi-ticket-perforated"></i><span>Cupom vendedor</span></div>
+          <div class="fml-metric-value">
+            <strong id="fml-margin-coupons">R$ 0,00</strong>
+            <span class="fml-help" tabindex="0" aria-label="Soma dos descontos e cupons financiados pelo vendedor." data-tooltip="Soma dos descontos e cupons financiados pelo vendedor."><i class="bi bi-info-circle"></i></span>
+          </div>
+        </article>
+        </section>
+
+        <div class="fml-section-label">Aquisicao e publicidade</div>
+        <section class="fml-card fml-marketing-card" aria-label="Aquisicao e publicidade do periodo">
+          <header class="fml-card-head fml-marketing-head">
+            <div>
+              <strong>Investimento de marketing do periodo</strong>
+              <small id="fml-marketing-note">Carregando Product Ads, DSP e Brand Ads em paralelo.</small>
+            </div>
+            <span id="fml-marketing-status" class="fml-marketing-status" data-tone="loading">Calculando</span>
+          </header>
+          <div class="fml-marketing-grid">
+            <article class="fml-marketing-source" data-channel="product_ads">
+              <div class="fml-marketing-source__head">
+                <span><i class="bi bi-megaphone"></i> Product Ads</span>
+                <em id="fml-marketing-product-ads-state">Calculando</em>
+              </div>
+              <strong id="fml-marketing-product-ads">--</strong>
+              <small id="fml-marketing-product-ads-note">Investimento consumido no periodo.</small>
+            </article>
+            <article class="fml-marketing-source" data-channel="dsp">
+              <div class="fml-marketing-source__head">
+                <span><i class="bi bi-badge-ad"></i> DSP</span>
+                <em id="fml-marketing-dsp-state">Calculando</em>
+              </div>
+              <strong id="fml-marketing-dsp">--</strong>
+              <small id="fml-marketing-dsp-note">Investimento consumido no Mercado Ads DSP.</small>
+            </article>
+            <article class="fml-marketing-source" data-channel="display">
+              <div class="fml-marketing-source__head">
+                <span><i class="bi bi-person-plus"></i> Display</span>
+                <em id="fml-marketing-display-state" data-tone="unavailable">Indisponivel</em>
+              </div>
+              <strong id="fml-marketing-display" class="fml-marketing-unavailable">Indisponivel</strong>
+              <small id="fml-marketing-display-note">Campanha de seguidores da pagina; investimento ainda sem fonte publica nesta integracao.</small>
+            </article>
+            <article class="fml-marketing-source" data-channel="brand_ads">
+              <div class="fml-marketing-source__head">
+                <span><i class="bi bi-stars"></i> Brand Ads</span>
+                <em id="fml-marketing-brand-ads-state">Calculando</em>
+              </div>
+              <strong id="fml-marketing-brand-ads">--</strong>
+              <small id="fml-marketing-brand-ads-note">Investimento consumido no periodo, quando disponivel para a conta.</small>
+            </article>
+            <article class="fml-marketing-source" data-channel="affiliates">
+              <div class="fml-marketing-source__head">
+                <span><i class="bi bi-people"></i> Afiliados</span>
+                <em id="fml-marketing-affiliates-state" data-tone="unavailable">Indisponivel</em>
+              </div>
+              <strong id="fml-marketing-affiliates" class="fml-marketing-unavailable">Indisponivel</strong>
+              <small id="fml-marketing-affiliates-note">A API publica do Mercado Livre ainda nao fornece a comissao de Afiliados para esta integracao.</small>
+            </article>
+            <article class="fml-marketing-source fml-marketing-source--total" data-channel="total">
+              <div class="fml-marketing-source__head">
+                <span><i class="bi bi-wallet2"></i> Marketing total</span>
+                <em id="fml-marketing-total-state">Conhecido</em>
+              </div>
+              <strong id="fml-marketing-total">--</strong>
+              <small id="fml-marketing-total-note">Soma dos canais que a integracao conseguiu consultar.</small>
+            </article>
+          </div>
+        </section>
+
+        <div class="fml-section-label">Resultado apos marketing</div>
+        <section class="fml-kpis fml-final-kpis" aria-label="Resultado apos marketing">
+          <article class="fml-kpi">
+            <div class="fml-kpi-label"><i class="bi bi-graph-up"></i><span>Resultado operacional</span></div>
+            <div class="fml-metric-value"><strong id="fml-final-operational">R$ 0,00</strong></div>
+            <small class="fml-kpi-note">Resultado antes dos investimentos agregados de marketing.</small>
+          </article>
+          <article class="fml-kpi">
+            <div class="fml-kpi-label"><i class="bi bi-megaphone"></i><span>Marketing conhecido</span></div>
+            <div class="fml-metric-value"><strong id="fml-final-marketing">--</strong></div>
+            <small class="fml-kpi-note">Product Ads, DSP e Brand Ads disponiveis; Display (seguidores) e Afiliados entram quando a API permitir.</small>
+          </article>
+          <article class="fml-kpi">
+            <div class="fml-kpi-label"><i class="bi bi-cash-coin"></i><span>Resultado apos marketing</span></div>
+            <div class="fml-metric-value"><strong id="fml-final-result">--</strong></div>
+            <small class="fml-kpi-note">Resultado operacional menos o marketing conhecido.</small>
+          </article>
+          <article class="fml-kpi">
+            <div class="fml-kpi-label"><i class="bi bi-percent"></i><span>Margem final</span></div>
+            <div class="fml-metric-value"><strong id="fml-final-margin">--</strong></div>
+            <small class="fml-kpi-note">Margem apos os canais de marketing que puderam ser consultados.</small>
+          </article>
+          <article class="fml-kpi">
+            <div class="fml-kpi-label"><i class="bi bi-pie-chart"></i><span>TACOS total</span></div>
+            <div class="fml-metric-value"><strong id="fml-final-tacos">--</strong></div>
+            <small class="fml-kpi-note">Marketing conhecido dividido pelo GMV considerado.</small>
+          </article>
+        </section>
+        <div id="fml-marketing-final-note" class="fml-marketing-final-note">Aguardando os dados de marketing.</div>
+
+        <section class="fml-card">
+          <header class="fml-card-head">
+            <div>
+              <strong>Insights automaticos</strong>
+              <small id="fml-margin-note">Aguardando carregamento.</small>
+            </div>
+          </header>
+          <div id="fml-insights" class="fml-insights"></div>
+        </section>
+      </section>
+
+      <section id="fml-period-panel" class="fml-card fml-tab-panel fml-hidden">
+        <header class="fml-card-head">
+          <div>
+            <strong>Margem por periodo</strong>
+            <small id="fml-margin-subtitle">0 pedidos.</small>
+          </div>
+          <div class="fml-actions">
+            <button id="fml-export-period" class="fml-btn fml-btn--ghost" type="button"><i class="bi bi-file-earmark-excel"></i> Exportar XLSX</button>
+            <button id="fml-refresh-margin" class="fml-btn fml-btn--ghost" type="button"><i class="bi bi-arrow-clockwise"></i> Atualizar</button>
+          </div>
+        </header>
+        <div class="fml-table-wrap">
+          <table class="fml-table fml-table--margin">
+            <thead>
+              <tr>
+                <th>Pedido</th>
+                <th>Data</th>
+                <th>Modo envio</th>
+                <th><span class="fml-th-label">GMV <span class="fml-help fml-help--table" tabindex="0" aria-label="GMV e o total bruto do pedido: valor dos produtos mais o frete pago pelo comprador, antes de comissoes, cupons, impostos e demais custos. Em consultas que filtram apenas alguns itens do pedido, e alocado proporcionalmente." data-tooltip="GMV e o total bruto do pedido: valor dos produtos mais o frete pago pelo comprador, antes de comissoes, cupons, impostos e demais custos. Em consultas que filtram apenas alguns itens do pedido, e alocado proporcionalmente."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Preço produto <span class="fml-help fml-help--table" tabindex="0" aria-label="Valor dos produtos vendidos no pedido, antes de somar o frete pago pelo comprador. O GMV bruto e formado por este valor mais o frete do comprador." data-tooltip="Valor dos produtos vendidos no pedido, antes de somar o frete pago pelo comprador. O GMV bruto e formado por este valor mais o frete do comprador."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">CMV <span class="fml-help fml-help--table" tabindex="0" aria-label="Custo dos produtos vendidos, calculado a partir do custo cadastrado para cada SKU e da quantidade vendida." data-tooltip="Custo dos produtos vendidos, calculado a partir do custo cadastrado para cada SKU e da quantidade vendida."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Comissoes ML <span class="fml-help fml-help--table" tabindex="0" aria-label="Comissoes liquidas cobradas pelo Mercado Livre neste pedido. O rebate/estorno ja esta considerado neste valor." data-tooltip="Comissoes liquidas cobradas pelo Mercado Livre neste pedido. O rebate/estorno ja esta considerado neste valor."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Frete comprador <span class="fml-help fml-help--table" tabindex="0" aria-label="Frete pago pelo comprador. Ele e somado ao valor dos produtos para formar o GMV bruto e tambem participa da Base do imposto." data-tooltip="Frete pago pelo comprador. Ele e somado ao valor dos produtos para formar o GMV bruto e tambem participa da Base do imposto."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Base imposto <span class="fml-help fml-help--table" tabindex="0" aria-label="Total tributavel do pedido: valor dos produtos mais o frete pago pelo comprador. Em um pedido completo, corresponde a mesma base bruta usada no GMV." data-tooltip="Total tributavel do pedido: valor dos produtos mais o frete pago pelo comprador. Em um pedido completo, corresponde a mesma base bruta usada no GMV."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Impostos <span class="fml-help fml-help--table" tabindex="0" aria-label="Imposto do pedido calculado sobre a Base imposto usando a aliquota configurada." data-tooltip="Imposto do pedido calculado sobre a Base imposto usando a aliquota configurada."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Tarifa Envios <span class="fml-help fml-help--table" tabindex="0" aria-label="Custo de envio ou logistica cobrado do vendedor e identificado no shipment do Mercado Livre." data-tooltip="Custo de envio ou logistica cobrado do vendedor e identificado no shipment do Mercado Livre."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Cupom <span class="fml-help fml-help--table" tabindex="0" aria-label="Parcela de cupom ou desconto efetivamente financiada pelo vendedor neste pedido." data-tooltip="Parcela de cupom ou desconto efetivamente financiada pelo vendedor neste pedido."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Rebate <span class="fml-help fml-help--table" tabindex="0" aria-label="Rebate exibido para conciliacao. No detalhe da venda do Mercado Livre aparece como Estorno e ja esta refletido na comissao liquida; nao e somado novamente ao resultado." data-tooltip="Rebate exibido para conciliacao. No detalhe da venda do Mercado Livre aparece como Estorno e ja esta refletido na comissao liquida; nao e somado novamente ao resultado."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Resultado <span class="fml-help fml-help--table" tabindex="0" aria-label="Resultado financeiro da venda depois de CMV, comissoes liquidas, impostos, envio e cupom do vendedor. Descontos promocionais ja embutidos no preco e rebates ja refletidos na comissao nao sao contabilizados novamente." data-tooltip="Resultado financeiro da venda depois de CMV, comissoes liquidas, impostos, envio e cupom do vendedor. Descontos promocionais ja embutidos no preco e rebates ja refletidos na comissao nao sao contabilizados novamente."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Margem <span class="fml-help fml-help--table" tabindex="0" aria-label="Percentual do resultado financeiro sobre o GMV desta venda." data-tooltip="Percentual do resultado financeiro sobre o GMV desta venda."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Equilibrio/un. <span class="fml-help fml-help--table" tabindex="0" aria-label="Preco unitario que teria deixado esta venda exatamente no zero a zero considerando tudo que aconteceu no pedido." data-tooltip="Preco unitario que teria deixado esta venda exatamente no zero a zero considerando tudo que aconteceu no pedido."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Folga/un. <span class="fml-help fml-help--table" tabindex="0" aria-label="Diferenca por unidade entre o preco efetivamente vendido e o preco de equilibrio. Positivo indica folga; negativo indica venda abaixo do equilibrio." data-tooltip="Diferenca por unidade entre o preco efetivamente vendido e o preco de equilibrio. Positivo indica folga; negativo indica venda abaixo do equilibrio."><i class="bi bi-info-circle"></i></span></span></th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="fml-margin-body">
+              <tr><td colspan="18" class="fml-empty">Carregando margens...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="fml-pagination">
+          <button id="fml-margin-prev" class="fml-btn fml-btn--ghost" type="button">Anterior</button>
+          <span id="fml-margin-page">Pagina 1</span>
+          <button id="fml-margin-next" class="fml-btn fml-btn--ghost" type="button">Proxima</button>
+        </footer>
+      </section>
+
+      <section id="fml-equilibrium-panel" class="fml-card fml-tab-panel fml-hidden">
+        <header class="fml-card-head">
+          <div>
+            <strong>Preco de equilibrio estimado</strong>
+            <small id="fml-equilibrium-subtitle">0 anuncios/variacoes.</small>
+          </div>
+          <div class="fml-actions">
+            <button id="fml-export-equilibrium" class="fml-btn fml-btn--ghost" type="button"><i class="bi bi-file-earmark-excel"></i> Exportar XLSX</button>
+            <button id="fml-refresh-equilibrium" class="fml-btn fml-btn--ghost" type="button"><i class="bi bi-arrow-clockwise"></i> Atualizar</button>
+          </div>
+        </header>
+        <div class="fml-equilibrium-note">
+          Estimativa anterior a venda. Usa custo atual, comissao/tarifa do anuncio, frete do vendedor e a aliquota fiscal. Para anuncios em que o comprador paga frete, a Base imposto estimada usa a media historica de frete por unidade observada no periodo selecionado. Sem historico, o frete do comprador nao e inventado e a estimativa e sinalizada como incompleta. O valor realizado fica na aba Margem por periodo.
+        </div>
+        <div class="fml-table-wrap">
+          <table class="fml-table fml-table--equilibrium">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>SKU</th>
+                <th>MLB</th>
+                <th>Variacao</th>
+                <th>Preco atual</th>
+                <th>Custo</th>
+                <th>Comissao</th>
+                <th><span class="fml-th-label">Frete compr. est. <span class="fml-help fml-help--table" tabindex="0" aria-label="Frete do comprador estimado antes da venda. Usa a media historica por unidade do anuncio no periodo selecionado; em frete gratis e zero; sem historico aparece como nao estimado." data-tooltip="Frete do comprador estimado antes da venda. Usa a media historica por unidade do anuncio no periodo selecionado; em frete gratis e zero; sem historico aparece como nao estimado."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Base imposto est. <span class="fml-help fml-help--table" tabindex="0" aria-label="Base fiscal estimada antes da venda: preco do produto mais o frete estimado do comprador. Pode variar quando o pedido real for criado." data-tooltip="Base fiscal estimada antes da venda: preco do produto mais o frete estimado do comprador. Pode variar quando o pedido real for criado."><i class="bi bi-info-circle"></i></span></span></th>
+                <th><span class="fml-th-label">Imposto est. <span class="fml-help fml-help--table" tabindex="0" aria-label="Imposto estimado sobre a Base imposto estimada. O imposto realizado e recalculado com o total tributavel efetivo do pedido." data-tooltip="Imposto estimado sobre a Base imposto estimada. O imposto realizado e recalculado com o total tributavel efetivo do pedido."><i class="bi bi-info-circle"></i></span></span></th>
+                <th>Frete/Tarifa vendedor</th>
+                <th>Equilibrio est. 0%</th>
+                <th>Preco 10%</th>
+                <th>Preco 15%</th>
+                <th>Preco 20%</th>
+                <th>Folga</th>
+                <th>Situacao</th>
+              </tr>
+            </thead>
+            <tbody id="fml-equilibrium-body">
+              <tr><td colspan="17" class="fml-empty">Carregando precificacao estimada...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="fml-pagination">
+          <button id="fml-equilibrium-prev" class="fml-btn fml-btn--ghost" type="button">Anterior</button>
+          <span id="fml-equilibrium-page">Pagina 1</span>
+          <button id="fml-equilibrium-next" class="fml-btn fml-btn--ghost" type="button">Proxima</button>
+        </footer>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

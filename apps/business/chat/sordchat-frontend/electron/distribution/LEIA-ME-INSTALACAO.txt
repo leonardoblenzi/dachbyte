@@ -1,0 +1,63 @@
+VOLTCHAT PARA WINDOWS - GUIA DE INSTALACAO
+===========================================
+
+Conteudo deste pacote
+---------------------
+- VoltChat-Setup-[versao].exe: instalador do aplicativo.
+- VoltCorp-Internal-Code-Signing.cer: certificado publico da Volt Corp.
+- Instalar-Certificado.ps1: instalacao automatizada do certificado.
+- LEIA-ME-INSTALACAO.txt: este guia.
+
+IMPORTANTE
+----------
+Extraia todo o conteudo do ZIP antes de iniciar. Nao execute os arquivos diretamente
+dentro da janela do ZIP.
+
+OPCAO RECOMENDADA - INSTALACAO AUTOMATICA DO CERTIFICADO
+--------------------------------------------------------
+1. Clique com o botao direito no arquivo Instalar-Certificado.ps1.
+2. Escolha "Executar com PowerShell".
+3. Se o Controle de Conta de Usuario aparecer, clique em "Sim".
+4. Aguarde a mensagem "Certificado interno Volt Corp instalado".
+5. Execute o arquivo VoltChat-Setup da versao baixada.
+6. Confirme a instalacao e aguarde o VoltChat abrir.
+
+Se o Windows bloquear o script, use a opcao manual abaixo.
+
+OPCAO MANUAL - INSTALACAO DO CERTIFICADO
+----------------------------------------
+O certificado deve ser instalado em dois repositorios do Windows.
+
+Primeiro repositorio: Autoridades de Certificacao Raiz Confiaveis
+1. Clique duas vezes em VoltCorp-Internal-Code-Signing.cer.
+2. Clique em "Instalar Certificado".
+3. Selecione "Maquina Local" e clique em "Avancar".
+4. Confirme a permissao de administrador, se solicitada.
+5. Marque "Colocar todos os certificados no repositorio a seguir".
+6. Clique em "Procurar".
+7. Selecione "Autoridades de Certificacao Raiz Confiaveis".
+8. Clique em "OK", "Avancar" e "Concluir".
+9. Confirme o aviso de seguranca apenas se o certificado mostrar a Volt Corp.
+
+Segundo repositorio: Editores Confiaveis
+10. Abra novamente VoltCorp-Internal-Code-Signing.cer.
+11. Clique em "Instalar Certificado" e selecione "Maquina Local".
+12. Marque "Colocar todos os certificados no repositorio a seguir".
+13. Clique em "Procurar" e selecione "Editores Confiaveis".
+14. Clique em "OK", "Avancar" e "Concluir".
+
+INSTALACAO DO APLICATIVO
+-----------------------
+1. Depois de instalar o certificado, execute o arquivo VoltChat-Setup da versao baixada.
+2. Confirme a permissao de administrador.
+3. Aguarde a conclusao. O atalho VoltChat sera criado na Area de Trabalho.
+4. As proximas atualizacoes serao oferecidas dentro do proprio aplicativo.
+
+SEGURANCA
+---------
+Este certificado e interno e deve ser instalado apenas em computadores autorizados
+pela sua empresa. Antes de confirmar, verifique se o certificado identifica
+"Volt Corp Internal Code Signing" e se a impressao digital SHA-1 e:
+D4 71 99 F2 1D 88 25 42 DD 1B 6D D4 53 04 BF C1 15 98 4D 65
+
+Suporte: acesse https://www.voltcorporation.com.br/chat

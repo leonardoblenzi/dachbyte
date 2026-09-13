@@ -1,0 +1,18 @@
+Hotfix VoltChat - disparo global de verificacao de atualizacao
+
+Altera o endpoint POST /admin/desktop-updates/force-check para enviar o evento force_update_check a TODAS as conexoes WebSocket online, de TODAS as empresas.
+
+Seguranca:
+- continua restrito a master/platform admin via ensure_admin().
+
+Retorno agora inclui:
+- companies_online
+- online_users
+- connections
+- companies[] com contagem por empresa
+
+O script PowerShell tambem foi ajustado para exibir o total global e o resumo por empresa.
+
+Nao exige migration.
+Nao exige novo EXE para os clientes que ja estao na 0.1.42 e reconhecem force_update_check.
+Exige deploy do backend no Render.

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plano e créditos | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/conta-creditos.css?v=1" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <script src="/ml/js/conta-creditos.js?v=1" defer></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="credits-app">
+  <main class="credits-page">
+    <section class="credits-hero">
+      <div>
+        <span class="credits-kicker">Conta / Plano e creditos</span>
+        <h1>Controle de creditos da conta ML.</h1>
+        <p>
+          Acompanhe o saldo mensal, creditos comprados e recargas avulsas para
+          operacoes pesadas como consultas, promocoes, atacado e jobs em lote.
+        </p>
+      </div>
+      <button class="credits-btn credits-btn-ghost" id="btn-refresh-credits" type="button">Atualizar</button>
+    </section>
+
+    <section class="credits-alert" id="credits-alert" hidden></section>
+
+    <section class="credits-grid credits-grid-summary" aria-label="Resumo de creditos">
+      <article class="credits-card credits-card-total">
+        <span>Saldo disponivel</span>
+        <strong id="credits-total">--</strong>
+        <p>Mensal + recargas compradas.</p>
+      </article>
+      <article class="credits-card">
+        <span>Credito mensal</span>
+        <strong id="credits-monthly">--</strong>
+        <p id="credits-period">Ciclo atual nao carregado.</p>
+      </article>
+      <article class="credits-card">
+        <span>Credito comprado</span>
+        <strong id="credits-purchased">--</strong>
+        <p>Nao expira e entra depois do mensal.</p>
+      </article>
+      <article class="credits-card">
+        <span>Status da conta</span>
+        <strong id="credits-status">--</strong>
+        <p id="credits-plan">Plano ainda nao carregado.</p>
+      </article>
+    </section>
+
+    <section class="credits-layout">
+      <article class="credits-panel">
+        <div class="credits-panel-head">
+          <div>
+            <span class="credits-kicker">Recarga avulsa</span>
+            <h2>Comprar creditos extras</h2>
+            <p>Use quando a operacao precisar de mais margem para jobs pesados.</p>
+          </div>
+        </div>
+        <div class="credits-packages" id="credits-packages">
+          <div class="credits-empty">Carregando pacotes...</div>
+        </div>
+      </article>
+
+      <aside class="credits-panel credits-panel-side">
+        <span class="credits-kicker">Como funciona</span>
+        <h2>Regra de consumo</h2>
+        <ol class="credits-flow">
+          <li>Primeiro usamos os creditos mensais da conta.</li>
+          <li>Depois usamos creditos comprados por recarga.</li>
+          <li>Contas legado, cortesia ou internas podem ficar ilimitadas.</li>
+        </ol>
+      </aside>
+    </section>
+
+    <section class="credits-layout credits-layout-ledger">
+      <article class="credits-panel">
+        <div class="credits-panel-head">
+          <div>
+            <span class="credits-kicker">Extrato</span>
+            <h2>Ultimas movimentacoes</h2>
+            <p>Concessoes, recargas, reservas, consumo e estornos da conta selecionada.</p>
+          </div>
+        </div>
+        <div class="credits-ledger" id="credits-ledger">
+          <div class="credits-empty">Carregando extrato...</div>
+        </div>
+      </article>
+
+      <aside class="credits-panel credits-panel-side">
+        <span class="credits-kicker">Jobs</span>
+        <h2>Reservas recentes</h2>
+        <p>Mostra creditos bloqueados temporariamente enquanto um job pesado esta em processamento.</p>
+        <div class="credits-reservations" id="credits-reservations">
+          <div class="credits-empty">Carregando reservas...</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="credits-panel">
+      <div class="credits-panel-head">
+        <div>
+          <span class="credits-kicker">Consumo</span>
+          <h2>Tokens por operacao</h2>
+          <p>Resumo das operacoes que mais consumiram tokens no extrato recente.</p>
+        </div>
+      </div>
+      <div class="credits-usage" id="credits-usage">
+        <div class="credits-empty">Carregando consumo por operacao...</div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

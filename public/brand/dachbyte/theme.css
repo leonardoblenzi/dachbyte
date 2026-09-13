@@ -1,0 +1,188 @@
+/* DACHBYTE application identity. Loaded after product styles; no layout or
+   status-color resets. Original artwork remains unmodified in this folder. */
+@import url('./tokens.css');
+
+html[data-dachbyte-line] {
+  --dachbyte-orange: #ff974a;
+  --dachbyte-action-light: #08758a;
+  --dachbyte-action-dark: #48dfe7;
+  --dachbyte-brand-gradient: linear-gradient(110deg, #478cff, #48dfe7 52%, var(--dachbyte-line-accent-strong));
+}
+html[data-dachbyte-line="seller"] {
+  --dachbyte-line-accent: #ff974a;
+  --dachbyte-line-accent-strong: #ff974a;
+}
+html[data-dachbyte-line="business"] {
+  --dachbyte-line-accent: #48dfe7;
+  --dachbyte-line-accent-strong: #72e2a5;
+}
+html[data-dachbyte-line] body {
+  font-family: var(--dachbyte-font-body, "Inter", "Segoe UI", Arial, sans-serif);
+}
+html[data-dachbyte-line] :is(button, input, select, textarea) { font-family: inherit; }
+html[data-dachbyte-line] :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid #08758a;
+  outline-offset: 3px;
+}
+html[data-dachbyte-line] :is(.theme-dark, .dark) :focus-visible,
+html[data-dachbyte-line]:is(.theme-dark, .dark) :focus-visible { outline-color: #48dfe7; }
+
+/* Live typography follows the supplied palette without a raster backdrop. */
+.dachbyte-signature {
+  font-family: var(--dachbyte-font-body, Arial, sans-serif);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.dachbyte-signature__wordmark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  font-family: var(--dachbyte-font-display, "Segoe UI", Arial, sans-serif);
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: .035em;
+  white-space: nowrap;
+  color: #48dfe7;
+}
+.dachbyte-signature__wordmark > span:last-child {
+  color: #ff974a;
+}
+[data-dachbyte-line="business"] .dachbyte-signature__wordmark > span:last-child {
+  color: #72e2a5;
+}
+.dachbyte-signature__label {
+  font-family: var(--dachbyte-font-body, Arial, sans-serif);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.dachbyte-artwork {
+  object-fit: contain;
+  object-position: center;
+  border-radius: 0;
+}
+
+/* Seller: all ML views and administrative shell, including async shell CSS. */
+html[data-dachbyte-app="seller-ml"] body,
+html[data-dachbyte-app="seller-leader"] body {
+  --master-brand: #08758a;
+  --master-brand-strong: #086778;
+  --master-brand-soft: #e3f5f7;
+  --master-orange: #c55a17;
+  --ml-blue: #08758a;
+  --ml-bg: linear-gradient(145deg, #f3f8fa, #edf4f7);
+}
+html[data-dachbyte-app="seller-ml"] body.theme-dark,
+html[data-dachbyte-app="seller-leader"] body.theme-dark {
+  --master-brand: #48dfe7;
+  --master-brand-strong: #48dfe7;
+  --master-brand-soft: #12343d;
+  --master-orange: #ff974a;
+  --ml-blue: #48dfe7;
+  --ml-bg: #07131d;
+}
+html[data-dachbyte-line="seller"] .ml-shell__brand-logo {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+html[data-dachbyte-line="seller"] .ml-shell__brand-logo img { width: 100%; height: 100%; object-fit: contain; }
+html[data-dachbyte-line="seller"] .ml-shell__brand-name { letter-spacing: .04em; }
+html[data-dachbyte-line="seller"] .ml-shell__brand-sub { color: #ffb477; }
+html[data-dachbyte-line="seller"] body.theme-light .ml-shell__sidebar {
+  background: #ffffff;
+}
+html[data-dachbyte-line="seller"] body.theme-dark .ml-shell__sidebar {
+  background: linear-gradient(165deg, #102b3d, #07131d 65%);
+}
+html[data-dachbyte-app="seller-shopee"] body.neo {
+  --id-primary: #08758a;
+  --id-primary-strong: #086778;
+  --id-violet: #b85216;
+}
+html[data-dachbyte-app="seller-shopee"] body.neo.theme-dark {
+  --id-primary: #48dfe7;
+  --id-primary-strong: #48dfe7;
+  --id-violet: #ff974a;
+  --id-bg: #07131d;
+  --id-surface: #0b1c29;
+  --id-surface-soft: #102b3d;
+}
+html[data-dachbyte-app="seller-madeira"] body { --cyan: #48dfe7; --blue: #478cff; --amber: #ff974a; }
+html[data-dachbyte-app="seller-log"] .brand-mark {
+  background: transparent;
+  padding: 0;
+  overflow: hidden;
+}
+html[data-dachbyte-app="seller-log"] .brand-mark img { width: 100%; height: 100%; object-fit: contain; }
+
+/* Original symbol cutouts: no image mat, card, rounded box or CSS backdrop. */
+html[data-dachbyte-line] img[src$="/mark-transparent.png"] {
+  object-fit: contain;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  filter: drop-shadow(0 0 1px #48dfe7);
+}
+html[data-dachbyte-app="core"] .brand-mark-frame {
+  overflow: visible;
+  background: transparent;
+  border-radius: 0;
+  filter: none;
+}
+html[data-dachbyte-app="core"] .brand-mark-frame img[src$="/mark-transparent.png"] {
+  width: 100%;
+  height: 100%;
+  transform: none;
+}
+
+/* Business: retain the existing light workspaces and dark Stock surfaces. */
+html[data-dachbyte-app="core"],
+html[data-dachbyte-app="chat"] {
+  --brand: #08758a;
+  --brand-dark: #086778;
+  --accent: #08758a;
+  --sidebar: #07131d;
+  --bg: #f3f8fa;
+  --border: #dbe7eb;
+}
+html[data-dachbyte-app="chat"].theme-dark {
+  --brand: #48dfe7;
+  --brand-dark: #28bcc9;
+  --accent: #48dfe7;
+  --bg: #07131d;
+  --surface: #0b1c29;
+  --surface-muted: #102b3d;
+}
+html[data-dachbyte-app="stock"] { --bg: #07131d; --surface: #0b1c29; --surface-2: #102b3d; --cyan: #48dfe7; --green: #72e2a5; }
+html[data-dachbyte-app="price"] { --purple: #08758a; --purple2: #128c96; --bg: #f3f8fa; --border: #dbe7eb; }
+html[data-dachbyte-app="price"] .nav-btn:is(:hover, .active) { background: #e3f5f7; color: #086778; }
+html[data-dachbyte-app="price"] .brand-mark { width: 38px; height: 38px; flex-basis: 38px; border-radius: 8px; }
+html[data-dachbyte-app="core"] .brand-logo { border-radius: 10px; }
+html[data-dachbyte-app="chat"] .sidebar--collapsed .dachbyte-signature__wordmark {
+  font-size: 0;
+}
+html[data-dachbyte-app="chat"] .sidebar--collapsed .dachbyte-signature__wordmark::before {
+  content: 'D';
+  font-size: 28px;
+  color: #48dfe7;
+}
+
+/* Landing accents: typography of the supplied wordmark stays in its asset;
+   UI copy remains readable, and product/channel colors are not overwritten. */
+html[data-dachbyte-line="business"] { --volt-blue: #48dfe7; --volt-green: #72e2a5; }
+html[data-dachbyte-line="seller"] { --signal: #48dfe7; --signal-2: #ff974a; }
+@media (max-width: 480px) {
+  .dachbyte-signature { gap: 8px; }
+  .dachbyte-signature__wordmark { font-size: 21px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dachbyte-signature, .dachbyte-artwork { animation: none; transition: none; }
+}

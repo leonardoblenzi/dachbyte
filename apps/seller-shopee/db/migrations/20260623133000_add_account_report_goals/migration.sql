@@ -1,0 +1,5 @@
+ALTER TABLE "Account"
+  ADD COLUMN IF NOT EXISTS "currentMonthGoalCents" BIGINT,
+  ADD COLUMN IF NOT EXISTS "quarterGoalCents" BIGINT,
+  ADD COLUMN IF NOT EXISTS "semesterGoalCents" BIGINT,
+  ADD COLUMN IF NOT EXISTS "annualGoalCents" BIGINT;

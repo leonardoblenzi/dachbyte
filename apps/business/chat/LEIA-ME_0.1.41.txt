@@ -1,0 +1,15 @@
+VoltChat 0.1.41
+
+NOVO BOTAO ATUALIZAR AO LADO DE SAIR
+
+- Botao "Atualizar" adicionado ao lado de "Sair" no rodape da barra lateral.
+- A verificacao manual consulta o manifesto de atualizacao diretamente no Cloudflare R2 atraves do updater nativo Electron.
+- Se houver uma versao mais nova: baixa o instalador, valida SHA-256, inicia a atualizacao e reinicia/fecha o app para o instalador concluir.
+- Durante o download o botao exibe progresso percentual quando disponivel.
+- Se nao houver versao nova: popup "Voce ja esta na versao mais atualizada" com a versao instalada.
+- Em caso de indisponibilidade do R2 ou erro de download: popup de erro sem afetar o uso do VoltChat.
+- Nao usa Neon para consulta ou download de releases.
+
+Pacote cumulativo com as alteracoes 0.1.39/0.1.40 relacionadas a baloes e notificacoes de grupo.
+
+Sem migration de banco.

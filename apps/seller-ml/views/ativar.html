@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ativar Conta Mercado Livre</title>
+    <link rel="stylesheet" href="./css/login.css" />
+    <script src="./js/ml-base.js?v=7"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+
+  <body class="auth-page theme-ml">
+    <a class="auth-back" href="login">
+      <span>&larr;</span>
+      <span>Voltar</span>
+    </a>
+
+    <main class="auth-stage">
+      <div class="auth-shell">
+        <section class="auth-panel">
+          <div class="auth-kicker">
+            <span class="auth-kicker__dot"></span>
+            <span>Convite de ativacao</span>
+          </div>
+
+          <h1 class="auth-title">Definir senha</h1>
+          <p class="auth-subtitle">
+            Finalize o acesso ao seu workspace, defina a senha da conta e siga para a vinculacao
+            do marketplace.
+          </p>
+
+          <div id="act-msg" class="login-msg"></div>
+
+          <div id="act-meta" class="auth-bodycopy" style="display: none"></div>
+
+          <form class="auth-form" id="act-form" method="post" autocomplete="on">
+            <label class="auth-field">
+              <span class="auth-field__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="5" y="11" width="14" height="9" rx="2"></rect>
+                  <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+                </svg>
+              </span>
+              <input
+                id="senha"
+                name="senha"
+                type="password"
+                placeholder="Nova senha"
+                class="auth-field__input"
+                autocomplete="new-password"
+                required
+              />
+            </label>
+
+            <label class="auth-field">
+              <span class="auth-field__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 12l2 2 4-4"></path>
+                  <rect x="5" y="11" width="14" height="9" rx="2"></rect>
+                  <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+                </svg>
+              </span>
+              <input
+                id="confirmar-senha"
+                name="confirmar_senha"
+                type="password"
+                placeholder="Confirmar senha"
+                class="auth-field__input"
+                autocomplete="new-password"
+                required
+              />
+            </label>
+
+            <div class="auth-actions">
+              <button class="auth-btn auth-btn--primary" id="btn-ativar" type="submit">
+                Ativar acesso
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <aside class="auth-visual">
+          <div class="auth-visual__card">
+            <span class="auth-visual__badge">Onboarding seguro</span>
+            <h2 class="auth-visual__title">Um acesso por cliente, sem cadastro publico</h2>
+            <p class="auth-visual__text">
+              O convite e individual, tem validade e libera o fluxo completo para login e
+              vinculacao da conta Mercado Livre.
+            </p>
+
+            <div class="auth-visual__stack">
+              <div class="auth-feature">
+                <div class="auth-feature__icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 12h16"></path>
+                    <path d="M12 4v16"></path>
+                  </svg>
+                </div>
+                <div>
+                  <span class="auth-feature__title">Defina sua senha</span>
+                  <span class="auth-feature__meta">A senha final nasce com o cliente, sem troca de senha padrao.</span>
+                </div>
+              </div>
+
+              <div class="auth-feature">
+                <div class="auth-feature__icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 15l4-4 3 3 6-6"></path>
+                    <path d="M18 8h-5v5"></path>
+                  </svg>
+                </div>
+                <div>
+                  <span class="auth-feature__title">Fluxo direto para OAuth</span>
+                  <span class="auth-feature__meta">Depois da ativacao, o sistema leva o usuario para vincular a conta.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="auth-visual__pulse"></div>
+          </div>
+        </aside>
+      </div>
+    </main>
+<script>
+      (function () {
+        const form = document.getElementById("act-form");
+        const msg = document.getElementById("act-msg");
+        const meta = document.getElementById("act-meta");
+        const btn = document.getElementById("btn-ativar");
+        const token = new URLSearchParams(window.location.search).get("token") || "";
+        const BASE = (window.ML && window.ML.base) || window.__ML_BASE__ || "";
+
+        function showMsg(text, type) {
+          msg.style.display = "block";
+          msg.textContent = text;
+          msg.className = "login-msg";
+          if (type === "ok") msg.classList.add("is-success");
+          else if (type === "info") msg.classList.add("is-info");
+          else msg.classList.add("is-error");
+        }
+
+        function setLoading(isLoading) {
+          btn.disabled = isLoading;
+          btn.textContent = isLoading ? "Ativando..." : "Ativar acesso";
+        }
+
+        function withBase(path) {
+          if (!path || typeof path !== "string") return path;
+          if (/^https?:\/\//i.test(path)) return path;
+          if (!BASE) return path;
+          if (path === BASE || path.startsWith(BASE + "/")) return path;
+          if (path.startsWith("/")) return BASE + path;
+          return BASE + "/" + path;
+        }
+
+        async function loadInvite() {
+          if (!token) {
+            showMsg("Token de convite ausente.", "err");
+            form.style.display = "none";
+            return;
+          }
+
+          try {
+            const resp = await fetch(
+              `${BASE}/api/auth/activation-info?token=${encodeURIComponent(token)}`,
+              {
+                credentials: "include",
+                cache: "no-store",
+              },
+            );
+
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.ok !== true) {
+              showMsg(
+                (data && (data.error || data.message)) || "Nao foi possivel validar o convite.",
+                "err",
+              );
+              form.style.display = "none";
+              return;
+            }
+
+            const convite = data.convite || {};
+            meta.style.display = "block";
+            meta.textContent = convite.email
+              ? `Convite para ${convite.email}`
+              : "Convite valido.";
+          } catch (err) {
+            showMsg("Erro de rede ao validar o convite.", "err");
+            form.style.display = "none";
+          }
+        }
+
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+
+          const senha = document.getElementById("senha").value;
+          const confirmarSenha = document.getElementById("confirmar-senha").value;
+
+          msg.style.display = "none";
+
+          if (!token) {
+            showMsg("Token de convite ausente.", "err");
+            return;
+          }
+
+          if (!senha || senha.length < 6) {
+            showMsg("A senha deve ter no minimo 6 caracteres.", "err");
+            return;
+          }
+
+          if (senha !== confirmarSenha) {
+            showMsg("As senhas nao conferem.", "err");
+            return;
+          }
+
+          setLoading(true);
+
+          try {
+            const resp = await fetch(`${BASE}/api/auth/activate`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ token, senha }),
+            });
+
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.ok !== true) {
+              showMsg(
+                (data && (data.error || data.message)) || "Falha ao ativar a conta.",
+                "err",
+              );
+              return;
+            }
+
+            const redirect = data.redirect || "/vincular-conta";
+            window.location.href = withBase(redirect);
+          } catch (err) {
+            showMsg("Erro de rede ao ativar a conta.", "err");
+          } finally {
+            setLoading(false);
+          }
+        });
+
+        loadInvite();
+      })();
+    </script>
+  </body>
+</html>

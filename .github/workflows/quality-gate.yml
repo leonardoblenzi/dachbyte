@@ -1,0 +1,76 @@
+name: Quality Gate
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - voltdev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  volt-core:
+    name: Volt Core tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/business/core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: apps/business/core/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Restore Linux Rolldown optional binding
+        run: npm install --no-save --package-lock=false @rolldown/binding-linux-x64-gnu@1.1.2
+      - name: Test
+        run: npm test
+
+  runtime-safety:
+    name: Runtime safety checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check changed runtime files parse
+        run: |
+          node --check apps/business/core/src/modules/integrations/worker.js
+          node --check apps/business/core/src/modules/integrations/workerConfig.js
+          node --check apps/business/core/src/modules/integrations/workerSignal.js
+          node --check apps/business/core/src/modules/integrations/jobStore.js
+          node --check apps/business/core/src/modules/integrations/outboxStore.js
+          node --check apps/seller-shopee/src/app.js
+      - name: Reject known production safety regressions
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const text = fs.readFileSync('apps/seller-shopee/src/app.js', 'utf8');
+          const unsafeSecret = /SESSION_SECRET\s*\|\|\s*["']dev-secret["']/.test(text);
+          const reflectiveCors = /cors\s*\(\s*\{[\s\S]{0,240}?origin\s*:\s*true[\s\S]{0,240}?credentials\s*:\s*true/.test(text)
+            || /cors\s*\(\s*\{[\s\S]{0,240}?credentials\s*:\s*true[\s\S]{0,240}?origin\s*:\s*true/.test(text);
+          if (unsafeSecret) {
+            console.error('Unsafe Shopee SESSION_SECRET fallback detected.');
+            process.exitCode = 1;
+          }
+          if (reflectiveCors) {
+            console.error('Reflective credentialed CORS detected.');
+            process.exitCode = 1;
+          }
+          NODE

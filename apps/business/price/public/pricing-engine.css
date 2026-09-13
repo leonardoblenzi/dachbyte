@@ -1,0 +1,57 @@
+.pricing-workspace{display:grid;gap:12px}
+.pricing-workspace .pagehead,.pricing-workspace .section-title{margin-bottom:0}
+.pricing-workspace .banner-ai{margin-bottom:0}
+.decision-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+.decision-kpis .card{border-top:3px solid var(--purple)}
+.price-sim{display:grid;grid-template-columns:1.05fr 1fr;gap:12px}
+.price-sim .section-title,.decision-queue>.section-title{margin:0 0 12px}
+.price-sim .form-grid{margin-bottom:12px}
+.matrix{display:grid;grid-template-columns:minmax(150px,1fr) minmax(120px,.7fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;font-size:11px}
+.matrix>div{padding:9px 10px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+.matrix>div:nth-child(2n){border-right:0;font-weight:700}
+.matrix>div:nth-last-child(-n+2){border-bottom:0}
+.decision-tools{display:flex;gap:8px;flex-wrap:wrap}
+.decision-editor{border-left:4px solid var(--purple);animation:decisionReveal .2s ease both}
+.decision-run{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:7px;align-items:end;min-width:min(100%,390px)}
+.decision-run label{grid-column:1/-1;color:var(--muted);font-size:11px}
+.decision-run select{min-width:0;border:1px solid var(--border);border-radius:9px;padding:8px 10px;background:#fff}
+.decision-feed{display:grid;gap:12px}
+.decision-card{overflow:hidden;border:1px solid var(--border);border-radius:12px;background:#fff;animation:decisionReveal .25s ease both}
+.decision-card[data-state="rupture"],.decision-card[data-state="margin_critical"]{border-left:4px solid var(--red)}
+.decision-card[data-state="acceleration"]{border-left:4px solid var(--green)}
+.decision-card[data-state="excess"],.decision-card[data-state="defense"]{border-left:4px solid var(--amber)}
+.decision-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:13px 14px;border-bottom:1px solid var(--border)}
+.decision-product h3{margin:7px 0 0;font-size:14px}
+.decision-product small,.decision-price small{display:block;color:var(--muted);margin-top:3px}
+.decision-price{text-align:right}
+.decision-price strong{font-size:17px}
+.decision-arrow{padding:0 4px;color:var(--purple)}
+.confidence-dial{--confidence:0%;position:relative;width:54px;height:54px;display:grid;place-items:center;border-radius:50%;background:conic-gradient(var(--purple) var(--confidence),#eceaf4 0)}
+.confidence-dial:before{content:"";position:absolute;inset:5px;border-radius:50%;background:#fff}
+.confidence-dial b{position:relative;font-size:11px}
+.decision-body{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;padding:13px 14px}
+.decision-narrative{display:grid;gap:10px}
+.decision-step{display:grid;grid-template-columns:25px 1fr;gap:9px}
+.decision-step i{width:24px;height:24px;display:grid;place-items:center;border-radius:7px;background:#f2eeff;color:var(--purple);font-size:9px;font-style:normal;font-weight:800}
+.decision-step b{font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+.decision-step p{margin:3px 0 0;color:#4c5166;line-height:1.45}
+.decision-evidence{padding:12px;border-radius:10px;background:#fafaff;border:1px solid var(--border)}
+.decision-evidence h4{margin:0 0 9px;font-size:12px}
+.decision-tags{display:flex;gap:6px;flex-wrap:wrap}
+.decision-tag{padding:4px 7px;border:1px solid #ded8ff;border-radius:999px;background:#fff;color:#513ac7;font-size:9px;font-weight:700}
+.risk-line{margin-top:8px;padding:7px 8px;border-radius:8px;background:#fff4dc;color:#8a5a0b;font-size:11px}
+.decision-actions{display:flex;gap:8px;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+.decision-actions .approve{border-color:var(--purple);background:var(--purple);color:#fff}
+.decision-actions small{margin-left:auto;color:var(--muted)}
+.scenario-table{margin-top:10px}
+.scenario-table summary{cursor:pointer;color:var(--purple);font-size:11px;font-weight:700}
+.scenario-table .table-wrap{margin-top:8px}
+.scenario-good{color:var(--green)}
+.scenario-bad{color:var(--red)}
+.decision-empty{padding:30px 18px;text-align:center;border:1px dashed #d8dbe6;border-radius:12px;background:#fbfbfd;color:var(--muted)}
+.decision-empty b{display:block;margin-bottom:5px;color:var(--text)}
+.simulation-result{margin-top:12px}
+@keyframes decisionReveal{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.decision-card,.decision-editor{animation:none}}
+@media(max-width:980px){.price-sim,.decision-body{grid-template-columns:1fr}.decision-kpis{grid-template-columns:repeat(2,1fr)}.decision-queue>.section-title{align-items:stretch;flex-direction:column}.decision-run{min-width:0}}
+@media(max-width:650px){.decision-kpis{grid-template-columns:1fr}.decision-head{grid-template-columns:1fr auto}.decision-price{grid-column:1/-1;text-align:left}.decision-run{grid-template-columns:1fr}.decision-run label{grid-column:auto}.decision-actions{align-items:stretch;flex-direction:column}.decision-actions small{margin-left:0}}

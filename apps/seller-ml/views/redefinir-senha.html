@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redefinir Senha Mercado Livre</title>
+    <link rel="stylesheet" href="./css/login.css" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+  </head>
+  <body class="auth-page theme-ml">
+    <a class="auth-back" id="btn-back-login" href="login">
+      <span>&larr;</span>
+      <span>Voltar</span>
+    </a>
+
+    <main class="auth-stage">
+      <div class="auth-shell">
+        <section class="auth-panel">
+          <div class="auth-kicker">
+            <span class="auth-kicker__dot"></span>
+            <span>Nova senha</span>
+          </div>
+
+          <h1 class="auth-title">Redefinir senha</h1>
+          <p class="auth-subtitle">
+            Defina uma nova senha para acessar seu workspace Mercado Livre.
+          </p>
+
+          <div id="reset-msg" class="login-msg"></div>
+          <div id="reset-meta" class="auth-bodycopy" style="display:none;"></div>
+
+          <form class="auth-form" id="reset-form" method="post" autocomplete="on">
+            <label class="auth-field">
+              <span class="auth-field__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="5" y="11" width="14" height="9" rx="2"></rect>
+                  <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+                </svg>
+              </span>
+              <input id="senha" type="password" placeholder="Nova senha" class="auth-field__input" autocomplete="new-password" required />
+            </label>
+
+            <label class="auth-field">
+              <span class="auth-field__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 12l2 2 4-4"></path>
+                  <rect x="5" y="11" width="14" height="9" rx="2"></rect>
+                  <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+                </svg>
+              </span>
+              <input id="confirmar-senha" type="password" placeholder="Confirmar senha" class="auth-field__input" autocomplete="new-password" required />
+            </label>
+
+            <div class="auth-actions">
+              <button class="auth-btn auth-btn--primary" id="btn-reset" type="submit">Salvar nova senha</button>
+            </div>
+          </form>
+        </section>
+
+        <aside class="auth-visual">
+          <div class="auth-visual__card">
+            <span class="auth-visual__badge">Protecao do acesso</span>
+            <h2 class="auth-visual__title">Token curto, uso unico e trilha de auditoria</h2>
+            <p class="auth-visual__text">
+              O link expira rapido e o reset fica registrado para investigacao de seguranca quando necessario.
+            </p>
+            <div class="auth-visual__pulse"></div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+        const form = document.getElementById("reset-form");
+        const msg = document.getElementById("reset-msg");
+        const meta = document.getElementById("reset-meta");
+        const btn = document.getElementById("btn-reset");
+        const token = new URLSearchParams(window.location.search).get("token") || "";
+        const BASE = (() => {
+          const p = String(location.pathname || "/");
+          const m = p.match(
+            /^\/([^/]+)\/(?:login|esqueci-senha|redefinir-senha|ativar|cadastro|selecao-plataforma|select-conta|vincular-conta)(?:\/|$)/i,
+          );
+          return m && m[1] ? `/${m[1]}` : "";
+        })();
+
+        function withBase(path) {
+          if (!path || typeof path !== "string") return path;
+          if (/^https?:\/\//i.test(path)) return path;
+          if (!BASE) return path;
+          if (path === BASE || path.startsWith(BASE + "/")) return path;
+          if (path.startsWith("/")) return BASE + path;
+          return BASE + "/" + path;
+        }
+
+        document.getElementById("btn-back-login")?.setAttribute("href", withBase("/login"));
+
+        function showMsg(text, type) {
+          msg.style.display = "block";
+          msg.textContent = text;
+          msg.className = "login-msg";
+          if (type === "ok") msg.classList.add("is-success");
+          else if (type === "info") msg.classList.add("is-info");
+          else msg.classList.add("is-error");
+        }
+
+        function setLoading(on) {
+          btn.disabled = on;
+          btn.textContent = on ? "Salvando..." : "Salvar nova senha";
+        }
+
+        async function loadReset() {
+          if (!token) {
+            form.style.display = "none";
+            showMsg("Token ausente.", "err");
+            return;
+          }
+
+          try {
+            const resp = await fetch(`${withBase("/api/auth/reset-info")}?token=${encodeURIComponent(token)}`, {
+              credentials: "include",
+              cache: "no-store",
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.ok !== true) {
+              form.style.display = "none";
+              showMsg((data && (data.error || data.message)) || "Link invalido.", "err");
+              return;
+            }
+            meta.style.display = "block";
+            meta.textContent = data.reset?.email
+              ? `Redefinindo acesso de ${data.reset.email}`
+              : "Link valido.";
+          } catch (_err) {
+            form.style.display = "none";
+            showMsg("Erro de rede ao validar o link.", "err");
+          }
+        }
+
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const senha = document.getElementById("senha").value;
+          const confirmarSenha = document.getElementById("confirmar-senha").value;
+          if (!senha || senha.length < 6) {
+            showMsg("A senha deve ter no minimo 6 caracteres.", "err");
+            return;
+          }
+          if (senha !== confirmarSenha) {
+            showMsg("As senhas nao conferem.", "err");
+            return;
+          }
+
+          try {
+            setLoading(true);
+            const resp = await fetch(withBase("/api/auth/reset-password"), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ token, senha }),
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.ok !== true) {
+              showMsg((data && (data.error || data.message)) || "Falha ao redefinir a senha.", "err");
+              return;
+            }
+            showMsg(data.message || "Senha redefinida com sucesso.", "ok");
+            setTimeout(() => {
+              window.location.href = withBase("/login");
+            }, 1200);
+          } catch (_err) {
+            showMsg("Erro de rede ao redefinir a senha.", "err");
+          } finally {
+            setLoading(false);
+          }
+        });
+
+        loadReset();
+      })();
+    </script>
+  </body>
+</html>

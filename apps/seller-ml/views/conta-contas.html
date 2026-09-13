@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contas vinculadas | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/conta-usuarios.css?v=5" />
+  <link rel="stylesheet" href="/ml/css/conta-contas.css?v=1" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <script src="/ml/js/conta-contas.js?v=1" defer></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="account-app account-linked-accounts-app">
+  <main class="page-wrap account-users-page">
+    <section class="account-users-hero linked-accounts-hero">
+      <div>
+        <span class="account-users-kicker">Conta / Contas vinculadas</span>
+        <h1>Gerencie as contas Mercado Livre.</h1>
+        <p>
+          Vincule novas contas, escolha a conta padrao de trabalho e desvincule
+          contas antigas sem apagar historico financeiro ou operacional.
+        </p>
+      </div>
+      <div class="linked-accounts-actions">
+        <button class="au-btn au-btn-secondary" id="btn-refresh-accounts" type="button">Atualizar</button>
+        <button class="au-btn au-btn-primary" id="btn-link-account" type="button">Vincular nova conta</button>
+      </div>
+    </section>
+
+    <section class="au-summary" aria-label="Resumo de contas vinculadas">
+      <article class="au-stat">
+        <span>Total</span>
+        <strong id="stat-total">0</strong>
+      </article>
+      <article class="au-stat">
+        <span>Operacionais</span>
+        <strong id="stat-active">0</strong>
+      </article>
+      <article class="au-stat">
+        <span>Sem token</span>
+        <strong id="stat-tokenless">0</strong>
+      </article>
+      <article class="au-stat">
+        <span>Desvinculadas</span>
+        <strong id="stat-unlinked">0</strong>
+      </article>
+    </section>
+
+    <section class="au-toolbar">
+      <label class="au-search">
+        <span>Buscar conta</span>
+        <input id="account-search" type="search" placeholder="Apelido, ML User ID ou empresa..." />
+      </label>
+      <label class="linked-accounts-toggle">
+        <input id="show-unlinked" type="checkbox" checked />
+        <span>Mostrar desvinculadas</span>
+      </label>
+    </section>
+
+    <section class="au-list-shell linked-accounts-shell">
+      <div class="au-list-head">
+        <div>
+          <h2>Contas da empresa</h2>
+          <p id="accounts-counter">Carregando contas...</p>
+        </div>
+      </div>
+      <div id="accounts-grid" class="linked-accounts-grid">
+        <article class="linked-account-card is-loading">Carregando contas...</article>
+      </div>
+    </section>
+  </main>
+
+  <dialog class="au-dialog" id="unlink-dialog">
+    <form method="dialog" class="au-dialog-card linked-unlink-dialog">
+      <header class="au-dialog-head">
+        <div>
+          <span class="account-users-kicker">Desvincular conta</span>
+          <h2 id="unlink-title">Confirmar desvinculacao</h2>
+          <p id="unlink-subtitle"></p>
+        </div>
+        <button class="au-icon-btn" value="cancel" aria-label="Fechar" type="submit">x</button>
+      </header>
+      <div class="au-dialog-body">
+        <section class="au-edit-block au-edit-block--wide">
+          <div>
+            <h3>Impacto</h3>
+            <p>
+              A conta sai da operacao, os tokens sao removidos e o recurso fica
+              marcado como desvinculado no Davantti Pay. O historico e mantido.
+            </p>
+          </div>
+        </section>
+        <section class="au-edit-block au-edit-block--wide">
+          <div>
+            <h3>Motivo administrativo</h3>
+            <p>Use uma descricao curta para auditoria.</p>
+          </div>
+          <textarea id="unlink-reason" class="au-input" rows="4" placeholder="Ex.: Cliente pediu para remover a conta antiga"></textarea>
+        </section>
+      </div>
+      <footer class="au-dialog-actions">
+        <button class="au-btn au-btn-secondary" value="cancel" type="submit">Cancelar</button>
+        <button class="au-btn au-btn-danger" id="btn-confirm-unlink" type="button">Desvincular conta</button>
+      </footer>
+    </form>
+  </dialog>
+</body>
+</html>

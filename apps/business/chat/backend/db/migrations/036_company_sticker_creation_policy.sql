@@ -1,0 +1,2 @@
+ALTER TABLE companies
+  ADD COLUMN IF NOT EXISTS allow_user_sticker_creation BOOLEAN NOT NULL DEFAULT TRUE;

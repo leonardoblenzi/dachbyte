@@ -1,0 +1,1018 @@
+/* DAVANTTI Identity Overhaul (print-match baseline)
+   Objective:
+   - Unified minimal style like provided reference (light/dark)
+   - Never show light text on light background
+   - Keep shell + cards + tables + charts visually consistent
+*/
+
+body.neo {
+  --id-font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --id-bg: #f4f7fc;
+  --id-surface: #ffffff;
+  --id-surface-soft: #f8fafc;
+  --id-border: #e2e8f0;
+  --id-border-strong: #cbd5e1;
+  --id-text: #0f172a;
+  --id-text-soft: #334155;
+  --id-text-muted: #64748b;
+  --id-primary: #3b82f6;
+  --id-primary-strong: #2563eb;
+  --id-violet: #7c3aed;
+  --id-success: #16a34a;
+  --id-warning: #b45309;
+  --id-warning-bg: #fff7ed;
+  --id-warning-border: #fed7aa;
+  --id-shadow-sm: 0 8px 22px rgba(15, 23, 42, 0.06);
+  --id-shadow-md: 0 14px 36px rgba(15, 23, 42, 0.08);
+  --id-radius-sm: 10px;
+  --id-radius-md: 14px;
+  --id-radius-lg: 18px;
+}
+
+body.neo.theme-dark {
+  --id-bg: #071224;
+  --id-surface: #0d1a30;
+  --id-surface-soft: #101f39;
+  --id-border: #1f3357;
+  --id-border-strong: #2b446f;
+  --id-text: #f8fafc;
+  --id-text-soft: #dbe7ff;
+  --id-text-muted: #9fb2d8;
+  --id-primary: #4f7dff;
+  --id-primary-strong: #5b86ff;
+  --id-violet: #7c6bff;
+  --id-success: #22c55e;
+  --id-warning: #fb923c;
+  --id-warning-bg: rgba(194, 65, 12, 0.14);
+  --id-warning-border: rgba(251, 146, 60, 0.38);
+  --id-shadow-sm: 0 12px 28px rgba(2, 8, 24, 0.35);
+  --id-shadow-md: 0 20px 46px rgba(2, 8, 24, 0.44);
+}
+
+body.neo,
+body.neo * {
+  font-family: var(--id-font);
+}
+
+body.neo {
+  background: var(--id-bg) !important;
+  color: var(--id-text) !important;
+}
+
+body.neo::after {
+  display: none !important;
+}
+
+/* Top bar - reference style */
+body.neo .ml-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--id-border) !important;
+  background: var(--id-surface) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  position: sticky !important;
+}
+
+body.neo .ml-topbar__left {
+  display: none !important; /* print has branding on sidebar, not topbar */
+}
+
+body.neo .ml-topbar__right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+body.neo .header-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--id-border) !important;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: var(--id-surface-soft) !important;
+  color: var(--id-text-soft) !important;
+  font-weight: 700;
+  box-shadow: none !important;
+}
+
+body.neo .header-pill .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.14);
+}
+
+body.neo .global-notifications__button,
+body.neo #btn-theme-toggle,
+body.neo #btn-switch-shop,
+body.neo #btn-logout,
+body.neo .support-shortcut {
+  border: 1px solid var(--id-border) !important;
+  background: var(--id-surface) !important;
+  color: var(--id-text-soft) !important;
+  border-radius: 12px !important;
+  min-height: 42px;
+  box-shadow: none !important;
+}
+
+body.neo .global-notifications__button:hover,
+body.neo #btn-theme-toggle:hover,
+body.neo #btn-switch-shop:hover,
+body.neo #btn-logout:hover,
+body.neo .support-shortcut:hover {
+  border-color: var(--id-border-strong) !important;
+  background: var(--id-surface-soft) !important;
+}
+
+/* App shell */
+body.neo .ml-app {
+  background: var(--id-bg) !important;
+  grid-template-columns: 280px 1fr !important;
+  min-height: calc(100vh - 72px);
+}
+
+@media (max-width: 1200px) {
+  body.neo .ml-app {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Sidebar - grouped minimal cards */
+body.neo .ml-sidebar {
+  top: 72px;
+  height: calc(100vh - 72px);
+  padding: 14px 12px !important;
+  border-right: 1px solid var(--id-border) !important;
+  background: var(--id-surface) !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+body.neo .ml-sidebar__section::before {
+  display: none !important;
+}
+
+body.neo .ml-sidebar__toolbar {
+  margin-bottom: 10px;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.neo .ml-sidebar__collapse {
+  border: 1px solid var(--id-border) !important;
+  background: var(--id-surface-soft) !important;
+  color: var(--id-text-soft) !important;
+  border-radius: 12px !important;
+}
+
+body.neo .ml-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--id-radius-md);
+  margin-bottom: 14px;
+  background: var(--id-surface-soft);
+  border: 1px solid var(--id-border);
+}
+
+body.neo .ml-sidebar__brand .title {
+  color: var(--id-text) !important;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+body.neo .ml-sidebar__brand .subtitle {
+  color: var(--id-text-muted) !important;
+  font-size: 12px;
+}
+
+body.neo .ml-sidebar__shop-toggle {
+  width: 100%;
+  margin: 0 0 10px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--id-border) !important;
+  border-radius: 12px !important;
+  background: var(--id-surface) !important;
+  color: var(--id-text-soft) !important;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
+body.neo .ml-sidebar__shop-toggle:hover {
+  border-color: var(--id-border-strong) !important;
+  background: var(--id-surface-soft) !important;
+}
+
+body.neo .ml-sidebar__title,
+body.neo .ml-sidebar__group-title {
+  color: var(--id-text-muted) !important;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 14px 10px 8px;
+}
+
+body.neo .ml-nav-item {
+  border: 1px solid transparent !important;
+  border-radius: var(--id-radius-sm) !important;
+  background: transparent !important;
+  color: var(--id-text-soft) !important;
+  padding: 10px 12px !important;
+  margin-bottom: 4px;
+  box-shadow: none !important;
+}
+
+body.neo .ml-nav-item .ml-nav-icon {
+  color: var(--id-text-muted) !important;
+}
+
+/* Unified icon system (tabs + shortcuts) */
+body.neo .tab-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  stroke-width: 1.85;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  vertical-align: middle;
+}
+
+body.neo .ml-nav-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  stroke-width: 1.85;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  vertical-align: middle;
+}
+
+body.neo .ml-nav-item .ml-nav-item__label {
+  color: var(--id-text-soft) !important;
+  font-weight: 700;
+}
+
+body.neo .ml-nav-item .ml-nav-item__hint {
+  color: var(--id-text-muted) !important;
+}
+
+body.neo .ml-nav-item:hover {
+  background: var(--id-surface-soft) !important;
+  border-color: var(--id-border) !important;
+}
+
+body.neo .ml-nav-item.active,
+body.neo .tab.active.ml-nav-item {
+  background: color-mix(in srgb, var(--id-primary) 12%, var(--id-surface)) !important;
+  border-color: color-mix(in srgb, var(--id-primary) 40%, var(--id-border)) !important;
+}
+
+body.neo .ml-nav-item.active .ml-nav-icon,
+body.neo .ml-nav-item.active .ml-nav-item__label {
+  color: var(--id-primary-strong) !important;
+}
+
+/* Main content */
+body.neo .ml-main.container {
+  width: 100% !important;
+  max-width: none !important;
+  padding: 20px 24px !important;
+}
+
+/* Global inner gutter so cards never touch tab edges */
+body.neo .tab-panel {
+  padding: 16px !important;
+}
+
+/* Consistent vertical rhythm between root blocks inside every tab */
+body.neo .tab-panel > * + * {
+  margin-top: 16px !important;
+}
+
+/* Prevent first item extra gap */
+body.neo .tab-panel > :first-child {
+  margin-top: 0 !important;
+}
+
+body.neo .workspace-strip {
+  border: 1px solid var(--id-border) !important;
+  border-radius: var(--id-radius-lg) !important;
+  background: var(--id-surface) !important;
+  box-shadow: var(--id-shadow-sm) !important;
+}
+
+body.neo .workspace-strip__eyebrow {
+  color: var(--id-text-muted) !important;
+}
+
+body.neo .workspace-strip__title {
+  color: var(--id-text) !important;
+}
+
+body.neo .workspace-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--id-border) !important;
+  border-radius: 12px !important;
+  background: var(--id-surface-soft) !important;
+  color: var(--id-text-soft) !important;
+  font-weight: 700 !important;
+}
+
+body.neo .workspace-pill__label {
+  line-height: 1;
+}
+
+body.neo .workspace-pill .tab-icon {
+  color: var(--id-text-muted);
+}
+
+body.neo .sidebar-category__icon .ml-nav-icon,
+body.neo .ml-nav-item--sub .ml-nav-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+}
+
+body.neo .sidebar-category__icon {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+body.neo .workspace-pill.active {
+  color: #fff !important;
+  border-color: transparent !important;
+  background: linear-gradient(135deg, var(--id-violet), var(--id-primary)) !important;
+}
+
+body.neo .workspace-pill.active .tab-icon {
+  color: #ffffff;
+}
+
+/* Shared card identity */
+body.neo .tab-panel,
+body.neo .tab-panel .section-card,
+body.neo .tab-panel .glass-tile,
+body.neo .tab-panel .dash-card,
+body.neo .tab-panel .cost-card,
+body.neo .tab-panel .seo-card {
+  background: var(--id-surface) !important;
+  border: 1px solid var(--id-border) !important;
+  border-radius: var(--id-radius-md) !important;
+  box-shadow: var(--id-shadow-sm) !important;
+}
+
+body.neo .tab-panel .section-card__header,
+body.neo .tab-panel .dash-card-head {
+  border-bottom: 1px solid var(--id-border) !important;
+}
+
+/* GLOBAL TEXT GUARANTEE (white mode) */
+body.neo.theme-light .tab-panel {
+  color: var(--id-text) !important;
+}
+
+body.neo.theme-light .tab-panel * {
+  color: inherit;
+}
+
+body.neo.theme-light .tab-panel .muted,
+body.neo.theme-light .tab-panel .ml-nav-item__hint,
+body.neo.theme-light .tab-panel .page-subtitle,
+body.neo.theme-light .tab-panel .section-card__header .muted,
+body.neo.theme-light .tab-panel .dash-card-right,
+body.neo.theme-light .tab-panel .dash-kpi-title,
+body.neo.theme-light .tab-panel .kpi-label,
+body.neo.theme-light .tab-panel small {
+  color: var(--id-text-muted) !important;
+}
+
+body.neo.theme-light .tab-panel .card-title,
+body.neo.theme-light .tab-panel h2,
+body.neo.theme-light .tab-panel h3,
+body.neo.theme-light .tab-panel h4,
+body.neo.theme-light .tab-panel strong,
+body.neo.theme-light .tab-panel .dash-kpi-value,
+body.neo.theme-light .tab-panel .kpi-value {
+  color: var(--id-text) !important;
+}
+
+/* Keep intentional white text in primary/hero/blue contexts */
+body.neo .btn-primary,
+body.neo .btn-primary *,
+body.neo .workspace-pill.active,
+body.neo .workspace-pill.active *,
+body.neo .glass-tile--brand,
+body.neo .glass-tile--brand *,
+body.neo .control-panel-hero__account.glass-tile--brand,
+body.neo .control-panel-hero__account.glass-tile--brand *,
+body.neo .control-panel-split__card--accent,
+body.neo .control-panel-split__card--accent *,
+body.neo .rank-pill--primary,
+body.neo .rank-pill--primary * {
+  color: #fff !important;
+}
+
+/* Hero panel like reference */
+body.neo .control-panel-hero__account.glass-tile--brand {
+  background: linear-gradient(135deg, #2f61e8 0%, #4e8af6 100%) !important;
+  border-color: transparent !important;
+  box-shadow: 0 20px 44px rgba(37, 99, 235, 0.24) !important;
+}
+
+body.neo .control-panel-hero__account .glass-mini-kpi {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+body.neo .control-panel-hero__account .glass-mini-kpi,
+body.neo .control-panel-hero__account .glass-mini-kpi * {
+  color: #ffffff !important;
+}
+
+/* Control panel rhythm / spacing (cards + KPIs) */
+body.neo .control-panel-hero__account {
+  padding: 28px !important;
+}
+
+body.neo .control-panel-hero__stats {
+  gap: 14px !important;
+}
+
+body.neo .glass-mini-kpi {
+  min-height: 96px !important;
+  padding: 18px 18px !important;
+  border-radius: 18px !important;
+}
+
+body.neo .control-panel-split {
+  gap: 16px !important;
+  margin-top: 22px !important;
+}
+
+body.neo .control-panel-split__card {
+  padding: 20px !important;
+  border-radius: 22px !important;
+}
+
+body.neo .control-panel-kpis {
+  gap: 14px !important;
+}
+
+body.neo .control-panel-kpi {
+  padding: 20px !important;
+  border-radius: 22px !important;
+}
+
+/* Inputs + buttons consistency */
+body.neo .input,
+body.neo input[type="text"],
+body.neo input[type="number"],
+body.neo input[type="date"],
+body.neo input[type="email"],
+body.neo textarea,
+body.neo select {
+  border: 1px solid var(--id-border) !important;
+  border-radius: 12px !important;
+  background: var(--id-surface) !important;
+  color: var(--id-text) !important;
+  box-shadow: none !important;
+}
+
+body.neo .input::placeholder,
+body.neo textarea::placeholder {
+  color: var(--id-text-muted) !important;
+}
+
+body.neo .input:focus,
+body.neo input:focus,
+body.neo textarea:focus,
+body.neo select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--id-primary) 45%, var(--id-border)) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--id-primary) 22%, transparent) !important;
+}
+
+body.neo .btn {
+  border-radius: 12px !important;
+  border: 1px solid var(--id-border) !important;
+  background: var(--id-surface) !important;
+  color: var(--id-text-soft) !important;
+  box-shadow: none !important;
+  min-height: 40px;
+}
+
+body.neo .btn:hover {
+  border-color: var(--id-border-strong) !important;
+  background: var(--id-surface-soft) !important;
+}
+
+body.neo .btn-primary {
+  border-color: transparent !important;
+  background: linear-gradient(135deg, var(--id-violet), var(--id-primary)) !important;
+}
+
+/* Tables */
+body.neo .table-wrap {
+  border: 1px solid var(--id-border) !important;
+  border-radius: var(--id-radius-sm) !important;
+  background: var(--id-surface) !important;
+  box-shadow: none !important;
+}
+
+body.neo .table thead th {
+  background: var(--id-surface-soft) !important;
+  color: var(--id-text-soft) !important;
+  border-bottom: 1px solid var(--id-border) !important;
+  font-weight: 800;
+}
+
+body.neo .table td {
+  color: var(--id-text) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--id-border) 80%, transparent) !important;
+}
+
+body.neo .table tbody tr:hover {
+  background: color-mix(in srgb, var(--id-primary) 7%, var(--id-surface)) !important;
+}
+
+/* Warnings */
+body.neo .warning-card,
+body.neo .intelligence-warning {
+  border: 1px solid var(--id-warning-border) !important;
+  background: var(--id-warning-bg) !important;
+  color: var(--id-warning) !important;
+}
+
+/* Dashboard + Ads text fallback hardening */
+body.neo.theme-light #tab-dashboard .dash-subtitle,
+body.neo.theme-light #tab-dashboard .dash-kpi-sub,
+body.neo.theme-light #tab-dashboard .dash-sales-heatmap__day,
+body.neo.theme-light #tab-dashboard .dash-sales-heatmap__hour,
+body.neo.theme-light #tab-dashboard .dash-sales-heatmap__total,
+body.neo.theme-light #tab-dashboard .dash-sales-heatmap__total-head,
+body.neo.theme-light #tab-dashboard .dash-sales-heatmap-legend,
+body.neo.theme-light #tab-ads .kpi-label,
+body.neo.theme-light #tab-ads .table th,
+body.neo.theme-light #tab-ads .table td {
+  color: var(--id-text-soft) !important;
+}
+
+body.neo.theme-light #tab-dashboard .dash-kpi-value,
+body.neo.theme-light #tab-dashboard .dash-title,
+body.neo.theme-light #tab-ads .kpi-value,
+body.neo.theme-light #tab-ads .section-title {
+  color: var(--id-text) !important;
+}
+
+body.neo.theme-light #tab-dashboard .control-panel-chart-wrap + .muted,
+body.neo.theme-light #tab-dashboard .control-panel-chart-wrap ~ .muted,
+body.neo.theme-light #tab-dashboard .chart-subtitle,
+body.neo.theme-light #tab-dashboard .chart-caption {
+  color: var(--id-text-soft) !important;
+}
+
+/* Dark mode mirror */
+body.neo.theme-dark .workspace-pill,
+body.neo.theme-dark .btn,
+body.neo.theme-dark .input,
+body.neo.theme-dark select,
+body.neo.theme-dark textarea,
+body.neo.theme-dark .table-wrap,
+body.neo.theme-dark .table thead th {
+  background: var(--id-surface-soft) !important;
+  border-color: var(--id-border) !important;
+}
+
+body.neo.theme-dark .table td {
+  color: var(--id-text-soft) !important;
+}
+
+/* Sidebar categories: deterministic collapse behavior */
+body.neo .sidebar-category__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0.72;
+  transition: grid-template-rows 220ms ease, opacity 220ms ease;
+}
+
+body.neo .sidebar-category.is-open .sidebar-category__body {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+body.neo .ml-app.is-sidebar-collapsed .sidebar-category__toggle {
+  display: none !important;
+}
+
+body.neo .ml-app.is-sidebar-collapsed .sidebar-category__body {
+  grid-template-rows: 0fr !important;
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+/* Full collapse: remove sidebar from layout and keep floating toggle */
+body.neo .ml-app.is-sidebar-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr) !important;
+}
+
+body.neo .ml-app.is-sidebar-collapsed .ml-sidebar {
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-right: 0 !important;
+  overflow: visible !important;
+  box-shadow: none !important;
+}
+
+body.neo .ml-app.is-sidebar-collapsed .ml-sidebar__brand,
+body.neo .ml-app.is-sidebar-collapsed .ml-sidebar__shop-toggle,
+body.neo .ml-app.is-sidebar-collapsed .ml-sidebar__title,
+body.neo .ml-app.is-sidebar-collapsed .ml-sidebar__group-title,
+body.neo .ml-app.is-sidebar-collapsed .sidebar-category,
+body.neo .ml-app.is-sidebar-collapsed .ml-nav-item {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateX(-14px) !important;
+}
+
+body.neo .ml-app.is-sidebar-collapsed .ml-sidebar__toolbar {
+  display: none !important;
+}
+
+body.neo .ml-app.is-sidebar-collapsed .ml-main.container {
+  padding-left: 24px !important;
+}
+
+/* Sidebar toggle on topbar when collapsed */
+body.neo #btn-sidebar-toggle-topbar {
+  display: none !important;
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 12px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-right: 10px !important;
+  margin-left: 0 !important;
+  order: -1 !important;
+}
+
+body.neo.sidebar-collapsed #btn-sidebar-toggle-topbar {
+  display: inline-flex !important;
+}
+
+/* Keep reopen button clearly on the LEFT when sidebar is collapsed */
+body.neo.sidebar-collapsed .ml-topbar {
+  position: sticky !important;
+}
+
+body.neo.sidebar-collapsed #btn-sidebar-toggle-topbar {
+  position: relative !important;
+  left: 0 !important;
+  right: auto !important;
+}
+
+/* Dashboard breathing room (cards/KPIs) */
+body.neo #tab-dashboard .dash-kpis {
+  gap: 16px !important;
+}
+
+body.neo #tab-dashboard .dash-kpi {
+  padding: 16px 18px !important;
+  min-height: 108px !important;
+  border-radius: 16px !important;
+}
+
+body.neo #tab-dashboard .dash-grid-2,
+body.neo #tab-dashboard .dash-grid-1 {
+  gap: 16px !important;
+}
+
+body.neo #tab-dashboard .dash-card {
+  border-radius: 16px !important;
+}
+
+body.neo #tab-dashboard .dash-card-head {
+  padding: 14px 16px !important;
+}
+
+body.neo #tab-dashboard .dash-card-body {
+  padding: 16px !important;
+}
+
+/* White mode sidebar palette fix (no light text on light surfaces) */
+body.neo.theme-light .ml-sidebar,
+body.neo.theme-light .ml-sidebar * {
+  color: var(--id-text-soft);
+}
+
+/* White mode sidebar must be clean/light (no dark strip/effect) */
+body.neo.theme-light .ml-sidebar {
+  background: #ffffff !important;
+  border-right: 1px solid var(--id-border) !important;
+}
+
+body.neo.theme-light .ml-sidebar__section {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+body.neo.theme-light .ml-sidebar__toolbar {
+  background: transparent !important;
+}
+
+body.neo.theme-light .ml-sidebar .ml-sidebar__title,
+body.neo.theme-light .ml-sidebar .ml-nav-item__label,
+body.neo.theme-light .ml-sidebar .sidebar-category__meta strong {
+  color: var(--id-text) !important;
+}
+
+body.neo.theme-light .ml-sidebar .ml-sidebar__brand .title {
+  color: var(--id-text) !important;
+}
+
+body.neo.theme-light .ml-sidebar .ml-sidebar__brand .subtitle {
+  color: var(--id-text-muted) !important;
+}
+
+body.neo.theme-light .ml-sidebar .ml-nav-item__hint,
+body.neo.theme-light .ml-sidebar .sidebar-category__meta small,
+body.neo.theme-light .ml-sidebar .sidebar-category__chevron {
+  color: var(--id-text-muted) !important;
+}
+
+body.neo.theme-light .ml-sidebar .sidebar-category,
+body.neo.theme-light .ml-sidebar .ml-nav-item--sub {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+body.neo.theme-light .ml-sidebar .sidebar-category__icon,
+body.neo.theme-light .ml-sidebar .ml-nav-item--sub .ml-nav-icon {
+  color: var(--id-text-soft) !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Flat/minimal sidebar groups (no category cards separators) */
+body.neo .sidebar-category {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin-bottom: 4px !important;
+}
+
+body.neo .sidebar-category__toggle {
+  border: 0 !important;
+  background: transparent !important;
+  border-radius: 12px !important;
+  padding: 9px 10px !important;
+}
+
+body.neo .sidebar-category__toggle:hover {
+  background: color-mix(in srgb, var(--id-primary) 8%, transparent) !important;
+}
+
+body.neo .sidebar-category__inner {
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 0 0 2px !important;
+}
+
+body.neo .ml-nav-item--sub {
+  border: 0 !important;
+  background: transparent !important;
+  border-radius: 12px !important;
+  margin: 2px 0 !important;
+}
+
+body.neo .ml-nav-item--sub:hover {
+  background: color-mix(in srgb, var(--id-primary) 7%, transparent) !important;
+}
+
+body.neo .ml-nav-item--sub .ml-nav-icon,
+body.neo .sidebar-category__icon .ml-nav-icon {
+  width: 24px !important;
+  height: 24px !important;
+  flex: 0 0 24px !important;
+  stroke-width: 1.9 !important;
+}
+
+/* Store rating stars readable on white mode */
+body.neo.theme-light .control-panel-stars__base {
+  color: rgba(180, 130, 0, 0.24) !important;
+}
+
+body.neo.theme-light .control-panel-stars__fill {
+  color: #f6b400 !important;
+  text-shadow: 0 0 10px rgba(246, 180, 0, 0.2);
+}
+
+/* Remove legacy decorative overlays that polluted readability */
+body.neo .ml-nav-item::before,
+body.neo .glass-tile::before,
+body.neo .workspace-strip::before {
+  display: none !important;
+}
+
+/* keep shell readable on small screens */
+@media (max-width: 1200px) {
+  body.neo .ml-sidebar {
+    position: relative;
+    top: 0;
+    height: auto;
+  }
+
+  body.neo .ml-main.container {
+    padding: 14px !important;
+  }
+
+  body.neo .tab-panel {
+    padding: 12px !important;
+  }
+}
+
+/* Final white-mode contrast guard:
+   if background is blue/accent, force text to white (including muted labels). */
+body.neo.theme-light .tab-panel .glass-tile--brand,
+body.neo.theme-light .tab-panel .glass-tile--brand *,
+body.neo.theme-light .tab-panel .control-panel-hero__account.glass-tile--brand,
+body.neo.theme-light .tab-panel .control-panel-hero__account.glass-tile--brand *,
+body.neo.theme-light .tab-panel .control-panel-split__card--accent,
+body.neo.theme-light .tab-panel .control-panel-split__card--accent * {
+  color: #ffffff !important;
+}
+
+body.neo.theme-light .tab-panel .glass-tile--brand .muted,
+body.neo.theme-light .tab-panel .control-panel-hero__account.glass-tile--brand .muted,
+body.neo.theme-light .tab-panel .control-panel-hero__account .glass-mini-kpi span,
+body.neo.theme-light .tab-panel .control-panel-hero__account .glass-mini-kpi .muted,
+body.neo.theme-light .tab-panel .control-panel-split__card--accent .muted {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+
+/* Sidebar hard reset (priority) to match reference exactly in white mode */
+body.neo.theme-light .ml-sidebar,
+body.neo.theme-light .ml-sidebar::before,
+body.neo.theme-light .ml-sidebar::after,
+body.neo.theme-light .ml-sidebar__section,
+body.neo.theme-light .ml-sidebar__section::before,
+body.neo.theme-light .ml-sidebar__section::after,
+body.neo.theme-light .ml-sidebar__toolbar,
+body.neo.theme-light .ml-sidebar__toolbar::before,
+body.neo.theme-light .ml-sidebar__toolbar::after {
+  background: #ffffff !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+body.neo.theme-light .ml-sidebar__section {
+  border: 0 !important;
+}
+
+body.neo.theme-light .sidebar-category,
+body.neo.theme-light .sidebar-category__toggle,
+body.neo.theme-light .sidebar-category__body,
+body.neo.theme-light .sidebar-category__inner,
+body.neo.theme-light .ml-nav-item--sub {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+body.neo.theme-light .sidebar-category__icon,
+body.neo.theme-light .sidebar-category__icon .ml-nav-icon,
+body.neo.theme-light .ml-nav-item--sub .ml-nav-icon {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ------------------------------------------------------------------
+   SIDEBAR FINAL LOCK (reference match)
+   - remove dark strip in white mode
+   - flat category list (no card separators)
+   - icons without background containers, larger and minimal
+------------------------------------------------------------------- */
+
+/* Remove legacy dark toolbar gradient (works with/without .neo) */
+body.theme-light .ml-sidebar__toolbar,
+body.theme-light .ml-sidebar__toolbar::before,
+body.theme-light .ml-sidebar__toolbar::after,
+body.neo.theme-light .ml-sidebar__toolbar,
+body.neo.theme-light .ml-sidebar__toolbar::before,
+body.neo.theme-light .ml-sidebar__toolbar::after {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Keep collapse control clean/minimal in white mode */
+body.theme-light .ml-sidebar .ml-sidebar__collapse,
+body.neo.theme-light .ml-sidebar .ml-sidebar__collapse {
+  background: #f8fafc !important;
+  border: 1px solid #dbe3ee !important;
+  color: #334155 !important;
+  box-shadow: none !important;
+}
+
+/* Flat categories (both themes) */
+body.neo .ml-sidebar .sidebar-category,
+body.neo .ml-sidebar .sidebar-category__toggle,
+body.neo .ml-sidebar .sidebar-category__body,
+body.neo .ml-sidebar .sidebar-category__inner,
+body.neo .ml-sidebar .ml-nav-item--sub {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+body.neo .ml-sidebar .sidebar-category {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+body.neo .ml-sidebar .sidebar-category__toggle {
+  padding: 8px 8px !important;
+  border-radius: 10px !important;
+}
+
+body.neo .ml-sidebar .sidebar-category__inner {
+  padding: 0 0 0 2px !important;
+}
+
+body.neo .ml-sidebar .ml-nav-item--sub {
+  margin: 1px 0 !important;
+  padding: 8px 10px !important;
+  border-radius: 10px !important;
+}
+
+/* No icon chips/backgrounds */
+body.neo .ml-sidebar .sidebar-category__icon,
+body.neo .ml-sidebar .sidebar-category__icon .ml-nav-icon,
+body.neo .ml-sidebar .ml-nav-item--sub .ml-nav-icon {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Bigger, clean icon sizing */
+body.neo .ml-sidebar .sidebar-category__icon {
+  width: 30px !important;
+  height: 30px !important;
+  flex: 0 0 30px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+body.neo .ml-sidebar .sidebar-category__icon .ml-nav-icon,
+body.neo .ml-sidebar .ml-nav-item--sub .ml-nav-icon {
+  width: 22px !important;
+  height: 22px !important;
+  flex: 0 0 22px !important;
+  stroke-width: 1.9 !important;
+}
+
+/* Single visual language for hover/active (no card borders) */
+body.neo .ml-sidebar .sidebar-category__toggle:hover,
+body.neo .ml-sidebar .ml-nav-item--sub:hover {
+  background: color-mix(in srgb, var(--id-primary) 9%, transparent) !important;
+}
+
+body.neo .ml-sidebar .sidebar-category.is-active-category > .sidebar-category__toggle,
+body.neo .ml-sidebar .ml-nav-item--sub.tab.active {
+  background: color-mix(in srgb, var(--id-primary) 13%, var(--id-surface)) !important;
+}

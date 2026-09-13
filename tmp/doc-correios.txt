@@ -1,0 +1,2233 @@
+
+
+===== PAGE 1 =====
+
+DINEG/SUCAN/DEDIG
+Documentação de integração
+
+===== PAGE 2 =====
+
+Manual de Integração
+Sumário
+TABELA EVOLUTIVA ........................................................................................................................... 4
+1. GLOSSÁRIO ................................................................................................................................. 5
+2. INTRODUÇÃO .............................................................................................................................. 7
+3. CONHECENDO O AMBIENTE CORREIOS API ......................................................................... 8
+4. PRÉ-REQUISITOS PARA UTILIZAR O CORREIOS API ............................................................ 8
+5. ACESSO AS APIS ........................................................................................................................ 9
+A. REALIZANDO O PRIMEIRO TESTE EM HOMOLOGAÇÃO .................................................................................. 10
+6. CARACTERÍSTICAS DA API ..................................................................................................... 15
+7. APIS DOS CORREIOS ............................................................................................................... 16
+8. PREPARANDO O AMBIENTE NO POSTMAN .................................................................... 17
+B. CRIANDO UMA COLEÇÃO .................................................................................................................................... 17
+C. CRIANDO A REQUISIÇÃO .................................................................................................................................... 18
+D. CONHECENDO A TELA ......................................................................................................................................... 19
+E. REALIZANDO A PRIMEIRA REQUISIÇÃO PELO POSTMAN ................................................................................ 20
+9. API CEP ................................................................................................................................ 22
+10. DICA DE IMPORTAÇÃO DA DOCUMENTAÇÃO DA API PARA O POSTMAN ....................... 25
+11. COMO UTILIZAR O MESMO TOKEN PARA VÁRIOS RECURSOS ........................................ 30
+12. API AGÊNCIA ............................................................................................................................. 31
+13. API PREÇO E API PRAZO ......................................................................................................... 36
+F. API PRAZO ........................................................................................................................................................... 36
+G. API PREÇO ......................................................................................................................................................... 39
+14. API RASTRO ........................................................................................................................ 46
+15. API DE PRÉ-POSTAGEM DOS CORREIOS ............................................................................. 50
+H. PRÉ-POSTAGEM ................................................................................................................................................. 52
+I. EMITINDO/REEMITINDO O RÓTULO DE ENDEREÇAMENTO DO OBJETO.......................................................55
+J. SOLICITAÇÃO DE FAIXAS DE ETIQUETAS ............................................................................................................... 56
+K. EMITINDO A DECLARAÇÃO DE CONTEÚDO ............................................................................................ 58
+L. EMITINDO O AVISO DE RECEBIMENTO (AR) ................................................................................. 59
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 2
+
+===== PAGE 3 =====
+
+Manual de Integração
+M. CONSULTANDO OBJETOS POSTADOS E PRÉ-POSTADOS ...............................................................................60
+N. CANCELAMENTO DE UMA PRÉPOSTAGEM ............................................................................................................. 60
+O. POSTAGEM EM LOTE PARA OBJETOS SIMPLES OU SEM O NÚMERO DE RASTREAMENTO. UTILIZADO
+PARA POSTAGENS DE CARTAS SIMPLES .................................................................................................................................... 60
+a) Gerando o Lote ....................................................................................................................... 60
+b) Consultando o Lote ................................................................................................................. 61
+P. GERANDO O RÓTULO DE PRÉ-POSTAGENS .................................................................................................... 62
+16. API PEDIDO INFORMAÇÃO (FALE CONOSCO) ...................................................................... 64
+17. CONSIDERAÇÕES FINAIS ........................................................................................................ 88
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 3
+
+===== PAGE 4 =====
+
+Manual de Integração
+Tabela Evolutiva
+Data Melhoria Versão
+18/03/2022 Criação 1.0
+14/06/2023 Revisão e inclusão da Pré Postagem API 2.0
+23/08/2023 Corretivas 2.1
+08/09/2023 Inclusão da API Fale Conosco 2.2
+12/06/2024 Revisão da API Fale Conosco 2.3
+04/04/2025 Revisão da API Pedido de Informação 2.4
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 4
+
+===== PAGE 5 =====
+
+Manual de Integração
+1. Glossário
+Para facilitar o entendimento, listamos abaixo um pequeno glossário com os
+principais termos relacionados à este material.
+Termo Descriç
+ão
+API Application Programming Interfaces
+Autenticação Processo de verificação de uma identidade digital do usuário, ou
+seja, para assegurar que o usuário é realmente aquele quem diz
+ser.
+Autorização Processo para verificar quais são os privilégios concedidos, para
+utilizar uma aplicação.
+Aviso d É o serviço adicional que, por meio do preenchimento de
+recebiment e formulário próprio, permite comprovar, junto ao remetente, a
+o entrega do objeto.
+Cartão Cartão que identifica um usuário como cliente de contrato
+de dos Correios.
+postage
+m
+Código Código dos serviços contratados pelo cliente junto aos Correios.
+do Os códigos de serviços contratados constam do contrato comercial
+serviço que o cliente firmou com os Correios.
+Contrato Instrumento que o cliente firma com os Correios para a prestação
+de serviços de encomendas, mensagens, marketing direto e
+Comercial
+outros.
+Declaraç d Declaração que deve acompanhar o objeto entregue aos Correios
+ão e e que não estão sujeitos a tributação.
+conteúdo
+Expiração Processo de cancelamento de uma pré-postagem quando a
+postagem não é efetuada no prazo determinado. Atualmente esse
+prazo é de 7 dias corridos.
+HTTPS Hypertext Transfer Protocol Secure
+Meu Correios Mecanismo de autenticação e autorização para acesso aos
+serviços que os Correios disponibilizam via internet.
+Pré-postagem Processo de separação, embalagem e rotulagem de um objeto,
+pacote ou envelope, para entrega aos Correios.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 5
+
+===== PAGE 6 =====
+
+Manual de Integração
+REST Representational State Transfer
+Rótulo Etiqueta de identificação e endereçamento do objeto. Pode ou
+não
+de
+endereçamento ter o número do registro do objeto.
+Senha de Senha definida pelo usuário dos Correios que permite a um
+componente usuário utilizar os componentes disponibilizados pelos Correios.
+Token – Sistema gerador de tokens para acesso de APIs. Gera uma string
+codificada com a finalidade de garantir a segurança de quem está
+Api
+usando a API e evitar fraudes.
+Manager
+Diretório Base de endereçamento dos Correios.
+Nacional
+de Endereços -
+DNE
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 6
+
+===== PAGE 7 =====
+
+Manual de Integração
+2. Introdução
+Este material foi desenvolvido para contribuir no planejamento e integração com os
+Correios do Brasil em qualquer plataforma desejada pelo cliente.
+Para quem deseja integrar com os Correios, deve utilizar o Correios API, que é uma
+plataforma que contém um catálogo de API´s desenvolvidas em REST e utilizam o protocolo
+HTTPS. Ou seja, será fornecida uma url base para cada API e com os verbos HTTP, como:
+GET, POST, PUT, DELETE, entre outros, vão indicar qual ação está sendo requisitada pelo
+cliente.
+As APIs permitem acesso as informações sobre:
+• Dados de agências;
+• Endereçamento;
+• Disponibilidade de serviço;
+• Dados de prazo de entrega;
+• Dados de preço do serviço;
+• Dados de rastreamento, e; Criação de pré-postagem.
+É importante ressaltar que para utilizar o Correios API é necessário ter um contrato
+com os Correios. Uma vez que os acessos as APIs estão relacionadas ao cadastro de APIs
+restritas no contrato/cartão de postagem.
+Por fim a acesso ao Correios API é um dos benefícios da política comercial dos
+Correios.
+3. Conhecendo o ambiente Correios API
+O acesso as APIs, deve ser realizada pelo catálogo do Correios API. No catálogo o
+cliente poderá testar e acompanhar as mudanças quando houver. O catálogo está
+disponível no ambiente de Homologação e Produção:
+Homologação: https://cwshom.correios.com.br/
+Produção: https://cws.correios.com.br/
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 7
+
+===== PAGE 8 =====
+
+Manual de Integração
+Conhecendo a tela do Correios Web Services:
+1. Nome do cliente, lista de opções para acessar Meu Correios, sair do ambiente e
+outras configurações;
+2. Botão hambúrguer, abre o menu lateral e permitirá acessar a documentação e gestão
+de acesso a componentes;
+3. Barra de pesquisa e botão para gerar credenciais, a barra de pesquisa mostra uma
+lista de componentes no qual possui acesso. Já o botão Credenciais permite gerar o
+token ou “passe” para fazer as tentativas de requisições pelo site;
+4. Aba do componente, o conteúdo de cada barra mostra o nome da API, versão e um
+link com o api-docs. Logo abaixo do título, ou do grupo, mostra o verbo da requisição.
+A clicar no verbo “POST”, abre um local no qual permite a realização de testes pelo
+navegador utilizando a funcionalidade “Try-it out”.
+4. Pré-requisitos para utilizar o Correios API
+• Ter um cadastro válido no Meu Correios;
+• Para acessar a API, utiliza-se uma senha definida para o componente, para criar a
+senha deve-se acessar o Correios API;
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 8
+
+===== PAGE 9 =====
+
+Manual de Integração
+• Ter contrato ativo de prestação de serviços de encomendas ou mensagens com os
+Correios;
+• Empresas que fornecem soluções em TI no segmento de logística.
+5. Acesso as APIs.
+As APIs dos Correios, possuem regras de acesso, sendo:
+• API Pública: onde todos enxergam a API;
+• API Restrita: o acesso é realizado a partir do cadastro do serviço no cartão de
+postagem.
+Para visualizar as APIs liberadas no seu perfil, basta clicar na barra de pesquisa e
+visualizar o que está disponível.
+A exemplo da API CEP , ela não está visível na lista por ser uma
+API restrita, ou seja, requer o cadastro do servi ço no cartão de
+postagem.
+Para que APIs Restritas fiquem visíveis, deve-se incluir os dados em:
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 9
+
+===== PAGE 10 =====
+
+Manual de Integração
+1. Credenciais
+2. Usuário
+3. Senha
+4. Cartão de postagem
+5. Gerar Token
+6. Fechar
+Veja que agora aparecem as APIs:
+• Agência;
+• Endereço – CEP v3;
+• Prazo;
+• Preço;
+• Rastro
+• Pré-Postagem.
+A. Realizando o primeiro teste em homologação
+Para o primeiro teste, será com a geração do Token, API sem restrição e necessária
+na geração de uma string codificada com os dados de autenticação e autorização para
+informar as APIs dos Correios.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 10
+
+===== PAGE 11 =====
+
+Manual de Integração
+Ao clicar no “POST”, aparecerá o sub-item Parameters e para habilitar o ambiente
+basta clicar no botão “Try it out”
+Após clicar no botão a tela permitirá digitar o cartão de postagem (1) e clique em
+execute.
+Ao executar, teremos a resposta do servidor, basta rolar a página para baixo até o sub-item
+Responses.
+No item 1: Curl Comandos utilizados ou script de comandos, dentre ele está o
+verbo da requisição, neste caso “POST”; No item 2: URL de requisição;
+No item 3: Code 201 – Created, onde o Corpo do retorno contém o retorno em JSON.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 11
+
+===== PAGE 12 =====
+
+Manual de Integração
+No corpo da requisição do token, teremos: ambiente, id, perfil, dados de contrato, validade
+do token e o token.
+Ponto importante a ser observado, é com relação ao tempo de validade do
+token.
+Veja o retorno da requisição de exemplo:
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 12
+
+===== PAGE 13 =====
+
+Manual de Integração
+Dados {
+relacionados ao "ambiente":
+cartão de "HOMOLOGACAO", "id":
+postagem "xxxxxxxxxx",
+"perfil": "PJ",
+"cnpj": "00000000000101",
+"cartaoPostagem": {
+"numero": "00xxxxxxx7",
+"contrato": "99xxxxxxxx",
+"dr": 10,
+"api"
+: [
+93,
+3
+6
+,
+8
+3
+]
+},
+"api"
+: [
+93,
+36,
+54,
+87
+],
+Validade do Token "emissao": "20XX-03-18T10:26:51",
+"expiraEm": "20XX-03-19T10:26:51",
+Token eyJhbGciOiJSUzUxMiJ9.......
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 13
+
+===== PAGE 14 =====
+
+Manual de Integração
+Explorando o final da página da aba do Token, encontraremos o Grupo Schemas,
+onde poderá visualizar as propriedades,
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 14
+
+===== PAGE 15 =====
+
+Manual de Integração
+6. Características da API
+As APIs dos Correios foram desenvolvidas com a tecnologia REST, além de padrão
+de mercado, permite escolher ou adotar qual a linguagem de programação poderá utilizar,
+tais como: ASP, .Net, Java, PHP, Ruby, Python, entre outras.
+Entre outras características, os atributos que mais se destacam na API são:
+• Ausência de aplicativos proprietários: Para utilizar a API não há necessidade de
+instalação de um ambiente específico.
+• Simplicidade: o protocolo utilizado é puramente o HTTPS.
+• Credenciais: o tratamento das credenciais do cliente trafega em ambiente seguro.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 15
+
+===== PAGE 16 =====
+
+Manual de Integração
+7. APIs dos Correios
+A API dos Correios é uma arquitetura orientada a microsserviços permitindo
+desenvolver sistemas que sejam mais flexíveis, escaláveis e com manutenção mais
+simples.
+Correios
+API
+Rastreamento
+Busca CEP de Objetos Preço e Prazo Busca Agência Pré-Postagem
+Como o volume de requisições poderá variar de 1 ou centenas de requisições, para
+obter uma resposta rápida do servidor dos Correios estamos adotando duas formas de
+requisição: a forma síncrona e a forma assíncrona.
+A diferença entre síncrono e assíncrono:
+• Uma requisição síncrona, deve aguardar a finalização do processamento e
+somente poderá realizar uma nova solicitação após a resposta da requisição, esta
+ação, pode dar a sensação de congelamento da requisição.
+• Uma requisição assíncrona, o cliente envia uma requisição e recebe dados que
+permitem a consulta do status de processamento. Isso permite realizar novas
+requisições assíncronas, sem a necessidade de aguardar o fim do
+processamento das outras requisições. Ao fim poderá requisitar a coleta dos
+dados que foram processados.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 16
+
+===== PAGE 17 =====
+
+Manual de Integração
+8. Preparando o ambiente no Postman
+Para iniciar os testes, sem uma ferramenta no qual consiga salvar o que foi
+desenvolvido, poderá gerar retrabalho. Para isso, neste manual, utilizaremos a ferramenta
+Postman que permite realizar a execução dos testes e o mais importante salvar o trabalho.
+Além do download da ferramenta, poderá utilizar uma extensão pelo navegador
+Google Chrome, acrescentando a extensão do Postman. Existem outras ferramentas, tal
+como o Insomnia, utilize a ferramenta de sua preferência.
+Esclarecemos que a adoção do Postman é apenas para fins didáticos, considerando
+que ela facilita o entendimento dos passos para acesso as APIs disponibilizadas
+pelos Correios.
+B. Criando uma coleção
+A coleção permite que separe as APIs que será utilizada no decorrer do manual,
+poderá ser usado para separação do processo. Tal como: Geração de Token,
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 17
+
+===== PAGE 18 =====
+
+Manual de Integração
+Geração de Pré-Postagem, Geração de rótulo, etc. Clique no “+” e aparecerá uma
+coleção escrito “New Collection”.
+Clique no “New Collection” e do lado direto clique no lápis ícone ao lado direito
+do nome.
+Escreva o nome da coleção como “Geração de Token”.
+C. Criando a requisição
+Para criar uma requisição, após a criação de uma coleção, poderá clicar em “Add
+a request”.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 18
+
+===== PAGE 19 =====
+
+Manual de Integração
+Ao lado direito abre uma aba no qual poderá renomear para “Gerar token para o
+cartão de postagem”
+Gerar token para o cartão de postagem
+D. Conhecendo a tela
+Item 1: abas de navegação;
+Item 2: Nome da requisição e a qual coleção pertence;
+Item 3: Verbo e a url base;
+Item 4: informações que podem ser adicionadas por parâmetros, dados de
+autorização, cabeçalho da requisição, corpo da requisição.
+Item 5: botão Send, se pressionar a seta para baixo, poderá enviar e fazer o
+download do resultado;
+Item 6: resposta da requisição.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 19
+
+===== PAGE 20 =====
+
+Manual de Integração
+E. Realizando a primeira requisição pelo Postman
+É necessário utilizar as informações que estão no Correios API, para
+preencher os campos desta requisição:
+Relembrando, nos passos anteriores vimos:
+• Acesso aos componentes: Login e senha de acesso aos componentes;
+• Endereço de requisição;
+• Verbo utilizado na requisição; O corpo da requisição.
+Para este primeiro exemplo, a imagem a seguir, mostra o (1) endereço
+principal que será utilizado, (2) o verbo e (3) endereço da requisição.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 20
+
+===== PAGE 21 =====
+
+Manual de Integração
+Desta forma o endereço que será utilizado na requisição é a junção do
+endereço principal (1) e o endereço da requisição (3). Exemplo:
+https://apihom.correios.com.br/token/v1/autentica/cartaopostagem.
+No endereço de requisição e no verbo ficará assim:
+No login e senha, clique na aba (1) Authorization, selecione em Type (2) “Basic
+Auth” e (3) preencha os dados de login e senha:
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 21
+
+===== PAGE 22 =====
+
+Manual de Integração
+Próximo passo é enviar os dados do cartão de postagem, clique em (1) Body,
+(2) raw, (3) JSON e (4) copie o JSON do site Correios Web Services de homologação.
+Clique em “Send” e veja o retorno:
+Com base nesse passo a passo, poderá ser replicado a qualquer API.
+9. API CEP
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 22
+
+===== PAGE 23 =====
+
+Manual de Integração
+O CEP (Código de Endereçamento Postal) é um conjunto numérico constituído de
+oito algarismos, que orienta e acelera o encaminhamento, o tratamento e a distribuição de
+objetos de correspondência, por meio da sua atribuição a localidades, logradouros,
+unidades dos Correios, serviços, órgãos públicos, empresas e edifícios. (Para saber Tudo
+sobre CEP)
+Sobre a documentação existente no Correios API, é que os testes poderão ser
+realizados na própria documentação:
+Ou pelo Postman:
+Neste exemplo, será utilizado o método que requer o valor para consultar o endereço
+de um CEP.
+A url base é: 'https://apihom.correios.com.br/cep/ ' e que segundo a documentação
+será um GET : “/v1/endereços/{cep}”.
+Observação: Por padrão o CEP é formado por 8 dígitos numéricos, mas para alguns
+endereços utilizamos o 0 (zero) a esquerda, exemplo: 01001001.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 23
+
+===== PAGE 24 =====
+
+Manual de Integração
+curl --location -request GET
+'https://apihom.correios.com.br/cep/v1/enderecos/01001001' \
+--header 'Accept: application/json' \
+-header 'Authorization: Bearer
+eyJhbGciOiJSUzUxMiJ9.eyJhbWJpZW50ZSI6IkhPTU9MT0dBQ
+0FPIiwiaWQiOiI1MzQ2ODQ0MDAwMDEzNCIsInBmbCI6IlBKIiwiY25waiI6IjUzNDY4NDQwMDAwMTM0I
+iwiY2FydGFvLXBvc3RhZ2VtIjp7Im51bWVybyI6IjAwNzYzNjI2MzkiLCJjb250cmF0byI6Ijk5MTI0M
+jAyOTIiLCJkciI6MTAsImFwaSI6WzQxLDc2LDM0LDM2LDM1LDg3LDgzLDI2XX0sImlwIjoiMTAuOC42N
+C42MSwxMC4zOC4wLjAsMTAuOC42NC42MSIsImlhdCI6MTY0NzY5MzkzOSwiaXNzIjoidG9rZW4tc2Vyd
+mljZSIsImV4cCI6MTY0Nzc4MDMzOSwianRpIjoiN2ZmNTA0MGUtOWVjMS00NTAyLThjNGUtYzM5Yzk3O
+WY0OTNjIn0...
+Para a requisição:
+Teremos a resposta:
+{
+"cep": "01001001",
+"uf": "SP",
+"localidade": "São Paulo",
+"logradouro": "Praça da Sé",
+"tipoLogradouro": "Praça",
+"nomeLogradouro": "da Sé",
+"complemento": "- lado par",
+"abreviatura": "Pç da Sé",
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 24
+
+===== PAGE 25 =====
+
+Manual de Integração
+"bairro": "Sé",
+"numeroLocalidade": 96681,
+"tipoCEP": 2,
+"cepUnidadeOperacional": "01032970",
+"lado": "P",
+"numeroInicial": 0,
+"numeroFinal": 998
+}
+Em caso de exceção, há o retorno http 400 do servidor, tal como os seguintes
+exemplos:
+Em caso de CEP Inexistente:
+Em caso de digitar fora do padrão:
+Neste exemplo foi usado o CEP: 01001-001, com o hífen. Porém o retorno informa a
+quantidade de caracteres e o formato de exemplo.
+10. Dica de importação da documentação da API para o Postman
+O postman permite importar a documentação da API. Com essa importação é criada
+uma coleção trazendo todos os recursos existentes naquele momento da importação.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 25
+
+===== PAGE 26 =====
+
+Manual de Integração
+Para isso, no ambiente do CWS dos Correios, aproveitando a API CEP como
+exemplo, copie o link da documentação, como mostra a imagem:
+No postman, clique na opção APIs (1) e clique em Import (2):
+Cole o endereço da documentação da API, conforme pedido pelo postman:
+Clique em Import:
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 26
+
+===== PAGE 27 =====
+
+Manual de Integração
+Retorne ao Collections:
+Ao final, foi importado, todos os recursos da documentação. No entanto, deve-se
+atentar a alguns detalhes para dar continuidade no uso desta importação.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 27
+
+===== PAGE 28 =====
+
+Manual de Integração
+Ao clicar em um recurso (1), na url (2), aparece entre chaves duplas um termo
+chamado baseUrl, no postman é definida assim a variável e ao passar o mouse sobre a
+variável, aparece o conteúdo desta baseUrl.
+Para achar a variável, deve-se consultar o conteúdo da pasta principal CEP v3, nesta
+pasta, na próxima imagem, mostra como alterar o conteúdo da variável. No entanto, a
+alteração não é indicada, apenas caso necessite de realizar alguma alteração do endereço
+da requisição.
+Na pasta principal CEP v3 (1), aparece ao lado direito algumas abas dentre elas a
+aba Variables (2), ao clicar nesta aba, irá aparecer a variável (3) baseUrl.
+Como há possibilidade de existir mais de um ambiente para a mesma API, é indicado
+o uso da funcionalidade de ambiente (environments), este recurso permite que utilize a
+mesma variável para os ambientes de homologação e produção.
+Fazendo um overview, de como criar um ambiente, basta entrar na aba Environments
+(1), ao clicar no (+) gera um novo ambiente (2), coloque na coluna Variable a variável que
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 28
+
+===== PAGE 29 =====
+
+Manual de Integração
+será utilizada “baseUrl” e em Initial value coloque o endereço base, neste caso
+“https://apihom.correios.com.br/cep”, atribua um nome (4) “CEP Homologacao” e salve (5).
+Crie um ambiente para o ambiente de produção da API CEP:
+Ao criar os dois ambientes, retorne a coleções. No canto superior direito, existe uma
+lista de ambientes, neste caso, por default é “No Environment”, ao listar quais ambientes irá
+aparecer os dois ambientes:
+Retornando a um recurso, selecione no ambiente CEP Homologação (1) e veja o
+conteúdo da variável (2).
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 29
+
+===== PAGE 30 =====
+
+Manual de Integração
+Mudando somente o ambiente para produção (1), repare o conteúdo da variável (2)
+mudou a requisição para produção.
+Com isso, o postman poderá alternar nos ambientes homologação e produção, não
+necessitando alteração da variável local da pasta CEP v3. A partir deste ponto, basta
+importar o link de documentação de cada API.
+11. Como utilizar o mesmo token para vários recursos
+Ao importar a documentação da API Token, será possível criar o ambiente para
+homologação e produção, aproveite a dica anterior para gerar esses dois ambientes. No
+entanto, como utilizar dentro da API que deseja gerar os testes apenas um token e utilizar
+em todos recursos existentes na mesma pasta.
+A pasta CEP v3, como exemplo a imagem a seguir, mostra selecionando a pasta (1),
+a direita escolher a aba Authorization (2), escolher em Type a opção Bearer Token (3) e
+colar o token gerado pela API Token. Ao colar, deve salvar antes de sair da aba.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 30
+
+===== PAGE 31 =====
+
+Manual de Integração
+Já no recurso, não é necessário colar o token, uma vez que o recurso busca o token
+que foi definido na pasta principal. Em Type já está definido “Inherit auth from parent”.
+12. API Agência
+A API Busca Agência tem a funcionalidade de mostrar as agências por localidade.
+Há pesquisa por unidades e localidades.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 31
+
+===== PAGE 32 =====
+
+Manual de Integração
+Para utilizar a consulta das unidades, é necessário recuperar os dados de tipos de
+unidades e status.
+Para a API Agência a base url: “https://apihom.correios.com.br/agencia”, e para o
+exemplo será utilizado um GET: “/v1/unidades” com parâmetros.
+Exemplo da requisição:
+curl --location -request GET
+'https://apihom.correios.com.br/agencia/v1/unidades?status=2&status=
+5&codigoTipoUnidade=09&codigoTipoUnidade=12&codigoTipoUnidade=43&codigoTipoUnida
+de=46&codigoTipoUnidade=24&codigoTipoUnidade=25&codigoTipoUnidade=27&codigoTipoU
+nidade=16&codigoTipoUnidade=18&codigoTipoUnidade=20&codigoTipoUnidade=21&codigoT
+ipoUnidade=24&codigoTipoUnidade=25&municipio=Sao Paulo&bairro=CENTRO&uf=SP&page=
+0&size=50' \
+--header 'Accept: application/json' \
+-header 'Authorization: Bearer
+eyJhbGciOiJSUzUxMiJ9.eyJhbWJpZW50ZSI6IkhPTU9MT0dBQ
+0FPIiwiaWQiOiI1MzQ2ODQ0MDAwMDEzNCIsInBmbCI6IlBKIiwiY25waiI6IjUzNDY4NDQwMDAwMTM0I
+iwiY2FydGFvLXBvc3RhZ2VtIjp7Im51bWVybyI6IjAwNzYzNjI2MzkiLCJjb250cmF0byI6Ijk5MTI0M
+jAyOTIiLCJkciI6MTAsImFwaSI6WzQxLDc2LDM0LDM2LDM1LDg3LDgzLDI2XX0sImlwIjoiMTAuOC42N
+C42MSwxMC4zOC4wLjAsMTAuOC42NC42MSIsImlhdCI6MTY0NzY5MzkzOSwiaXNzIjoidG9rZW4tc2Vyd
+mljZSIsImV4cCI6MTY0Nzc4MDMzOSwianRpIjoiN2ZmNTA0MGUtOWVjMS00NTAyLThjNGUtYzM5Yzk3O
+WY0OTNjIn0...
+Com o retorno:
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 32
+
+===== PAGE 33 =====
+
+Manual de Integração
+{
+"itens": [
+{
+"id": "00024419",
+"codigoAntigo": "72300019",
+"codigoCadastroGeral": 16439,
+"nome": "AC CENTRAL DE SAO PAULO",
+"ativa": true,
+"status": "2",
+"descStatus": "INSTALADO",
+"tipo": "A",
+"tipoUnidade": {
+"codigo": "09",
+"descricao": "AGENCIA CORREIO",
+"sigla": "AC -TCO"
+},
+"emails": [
+"spmacacp@correios.com.br"
+],
+"endereco": {
+"cep": "01031970",
+"uf": "SP",
+"localidade": "SAO PAULO",
+"municipio": "SAO PAULO",
+"logradouro": "PRACA DO CORREIO",
+"bairro": "CENTRO",
+"numero": "SN",
+"codigoIbge": "3550308",
+"regiao": "SDE",
+"longitude": "-46.636301",
+"latitude": "-23.544201",
+"fuso": "UTC-03:00",
+"fusoVerao": "UTC-03:00"
+},
+"horarios": {
+"funcionamento": "SEGUNDA À SEXTA",
+"iniExpediente": "09:00",
+"fimExpediente": "18:00",
+"limitePostagemSemana": "17:35"
+},
+"codigoSro": [
+"01009972"
+],
+"dhAlteracao": "2021-03-16T01:01:22.27"
+},...],
+"page": {
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 33
+
+===== PAGE 34 =====
+
+Manual de Integração
+"size": 50,
+"totalElements": 7209,
+"totalPages": 145,
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 34
+
+===== PAGE 35 =====
+
+Manual de Integração
+"number": 0
+}
+}
+Nesta pesquisa de exemplo, o atributo size informa quantos elementos por página, foi
+colocado na requisição um size= 50 ou seja 50 elementos por página, totalizando 145
+páginas. Caso a mesma consulta for realizada para informar o conteúdo das demais
+páginas, basta informar no atributo page o valor de 0..144, se mantiver o size=50.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 35
+
+===== PAGE 36 =====
+
+Manual de Integração
+13. API Preço e API Prazo
+A busca do preço e prazo, estão separadas, para atender ao conceito de
+microsserviços. Desta forma, são duas páginas no catálogo do Correios API.
+F. API Prazo
+Para a base url: https://apihom.correios.com.br/prazo/ utilizando o GET:
+/v1/nacional/{coproduto}
+curl --location -request GET
+'https://apihom.correios.com.br/prazo/v1/nacional/03220?cepO
+rigem=70002900&cepDestino=05311900' \ --header 'Accept: application/json' \
+--
+header 'Authorization: Bearer eyJhbGciOiJSUzUxMiJ9.eyJhbWJpZW50ZSI6IkhPT
+U9MT0dBQ0FPIiwiaWQiOiI1MzQ2ODQ0MDAwMDEzNCIsInBmbCI6IlBKIiwiY25waiI6IjUzN
+DY4NDQwMDAwMTM0IiwiY2FydGFvLXBvc3RhZ2VtIjp7Im51bWVybyI6IjAwNzYzNjI2MzkiL
+CJjb250cmF0byI6Ijk5MTI0MjAyOTIiLCJkciI6MTAsImFwaSI6WzQxLDc2LDM0LDM2LDM1L
+Dg3LDgzLDI2XX0sImlwIjoiMTAuOC42NC42MSwxMC4zOC4wLjAsMTAuOC42NC42MSIsImlhd
+CI6MTY0NzY5MzkzOSwiaXNzIjoidG9rZW4tc2VydmljZSIsImV4cCI6MTY0Nzc4MDMzOSwia
+nRpIjoiN2ZmNTA0MGUtOWVjMS00NTAyLThjNGUtYzM5Yzk3OWY0OTNjIn0....
+Temos o seguinte retorno:
+{
+"coProduto": "03220",
+"prazoEntrega": 1,
+"dataMaxima": "2022-03-22T23:58:00",
+"entregaDomiciliar": "S",
+"entregaSabado": "N"
+}
+Utilizando o Postman:
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 36
+
+===== PAGE 37 =====
+
+Manual de Integração
+Para a base url: https://apihom.correios.com.br/prazo/ utilizando o POST:
+/v1/nacional
+curl --location -request POST
+'https://apihom.correios.com.br/prazo/v1/nacional' \
+--header 'Content-Type: application/json' \ --header
+'Accept: application/json' \
+header 'Authorization: Bearer eyJhbGciOiJSUzUxMiJ9.eyJhbWJpZW50ZSI6IkhPTU9MT0dB
+Q0FPIiwiBvc3RhZ2VtIjp7Im51bWVybyI6IjAwNzYzNjI2MzkiLCJjb250cmF0byI6Ij... \
+--data-raw '{
+"idLote": "1",
+"parametrosPrazo": [
+{
+"cepDestino": "70002900",
+"cepOrigem": "05311900",
+"coProduto": "04162",
+"nuRequisicao": "1",
+"dtEvento": "18/03/2022"
+},
+{
+"cepDestino": "70002900",
+"cepOrigem": "05311900",
+"coProduto": "04669",
+"nuRequisicao": "2",
+"dtEvento": "18/03/2022"
+}
+]
+}'
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 37
+
+===== PAGE 38 =====
+
+Manual de Integração
+Para obter o seguinte retorno:
+[
+{
+"coProduto": "04162",
+"nuRequisicao": "1",
+"prazoEntrega": 1,
+"dataMaxima": "2022-03-21T23:58:00",
+"entregaDomiciliar": "S",
+"entregaSabado": "N"
+},
+{
+"coProduto": "04669",
+"nuRequisicao": "2",
+"prazoEntrega": 5,
+"dataMaxima": "2022-03-25T23:58:00",
+"entregaDomiciliar": "S",
+"entregaSabado": "N"
+}
+]
+Utilizando o Postman
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 38
+
+===== PAGE 39 =====
+
+Manual de Integração
+G. API Preço
+Para a base url: https://apihom.correios.com.br/preco utiliza-se o
+GET: /v1/nacional/{codigoServico} Para a requisição:
+curl --location -request GET
+'https://apihom.correios.com.br/preco/v1/nacional/03220?cepDestino=7
+1930000&cepOrigem=70902000&psObjeto=300&tpObjeto=2&comprimento=20&largura=20&alt
+ura=20&servicosAdicionais=019&servicosAdicionais=001&vlDeclarado=200' \
+--header 'Accept: application/json' \
+-header 'Authorization: Bearer
+eyJhbGciOiJSUzUxMiJ9.eyJhbWJpZW50ZSI6IkhPTU9MT0dBQ
+0FPIiwiaWQiOiI1MzQ2ODQ0MDAwMDEzNCIsInBmbCI6IlBKIiwiY25waiI6IjUzNDY4NDQwMDAwMTM0I
+iwiY2FydGFvLXBvc3RhZ2VtIjp7Im51bWVybyI6IjAwNzYzNjI2MzkiLCJjb250cmF0byI6Ijk5MTI0M
+jAyOTIiLCJkciI6MTAsImFwaSI6WzQxLDc2LDM0LDM2LDM1LDg3LDgzLDI2XX0sImlwIjoiMTAuOC42N
+C42MSwxMC4zOC4wLjAsMTAuOC42NC42MSIsImlhdCI6MTY0NzY5MzkzOSwiaXNzIjoidG9rZW4tc2Vyd
+mljZSIsImV4cCI6MTY0Nzc4MDMzOSwianRpIjoiN2ZmNTA0MGUtOWVjMS00NTAyLThjNGUtYzM5Yzk3O
+WY0OTNjIn0...
+Temos o seguinte retorno:
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 39
+
+===== PAGE 40 =====
+
+Manual de Integração
+{
+"coProduto": "03220",
+"pcBase": "10,68",
+"pcBaseGeral": "11,13",
+"peVariacao": "0,0000",
+"pcReferencia": "11,13",
+"vlBaseCalculoImposto": "19,92",
+"inPesoCubico": "N",
+"psCobrado": "300",
+"servicoAdicional": [
+{
+"coServAdicional": "019",
+"tpServAdicional": "V",
+"pcServicoAdicional": "1,79"
+},
+{
+"coServAdicional": "001",
+"tpServAdicional": "A",
+"pcServicoAdicional": "7,00"
+}
+],
+"peAdValorem": "0,0100",
+"vlSeguroAutomatico": "21,00",
+"qtAdicional": "0",
+"pcFaixa": "11,13",
+"pcFaixaVariacao": "11,13",
+"pcProduto": "11,13",
+"pcTotalServicosAdicionais": "8,79",
+"pcFinal": "19,92"
+}
+No Postman:
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 40
+
+===== PAGE 41 =====
+
+Manual de Integração
+Para obter a precificação de até 5 simulações, será utilizado o POST. Para base url:
+https://apihom.correios.com.br/preco e com o POST: /v1/nacional
+curl --location -request POST
+'https://apihom.correios.com.br/preco/v1/nacional' \
+--header 'Content-Type: application/json' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer eyJhbGciOiJSUzUxMiJ9.... \
+--data-raw '{
+"idLote": "1",
+"parametrosProduto": [
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 41
+
+===== PAGE 42 =====
+
+Manual de Integração
+{
+"coProduto": "04162",
+"nuRequisicao": "1",
+"cepOrigem": "70902000",
+"psObjeto": "300",
+"tpObjeto": "2",
+"comprimento": "20",
+"largura": "20",
+"altura": "20",
+"servicosAdicionais": [{ "coServAdicional":"019"}, {"coServAdicional":"00
+1"} ],
+"vlDeclarado": "100",
+"dtEvento": "18/03/2022",
+"cepDestino": "71930000" },{
+"coProduto": "04162",
+"nuRequisicao": "1",
+"cepOrigem": "70902000",
+"psObjeto": "300",
+"tpObjeto": "2",
+"comprimento": "20",
+"largura": "20",
+"altura": "20",
+"servicosAdicionais": [{ "coServAdicional":"019"}, {"coServAdicional":"00
+1"} ],
+"vlDeclarado": "100",
+"dtEvento": "18/03/2022",
+"cepDestino": "71930000"
+}
+]
+}'
+Obtendo o seguinte retorno:
+[ {
+"coProduto": "04162",
+"pcBase": "9,73",
+"pcBaseGeral": "10,14",
+"peVariacao": "0,0000",
+"pcReferencia": "10,14",
+"vlBaseCalculoImposto": "17,93",
+"nuRequisicao": "1",
+"inPesoCubico": "N",
+"psCobrado": "300",
+"servicoAdicional": [
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 42
+
+===== PAGE 43 =====
+
+Manual de Integração
+{
+"coServAdicional": "019",
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 43
+
+===== PAGE 44 =====
+
+Manual de Integração
+"tpServAdicional": "V",
+"pcServicoAdicional": "0,79"
+},
+{
+"coServAdicional": "001",
+"tpServAdicional": "A",
+"pcServicoAdicional": "7,00"
+}
+],
+"peAdValorem": "0,0100",
+"vlSeguroAutomatico": "21,00",
+"qtAdicional": "0",
+"pcFaixa": "10,14",
+"pcFaixaVariacao": "10,14",
+"pcProduto": "10,14",
+"pcTotalServicosAdicionais": "7,79",
+"pcFinal": "17,93"
+},
+{
+"coProduto": "04162",
+"pcBase": "9,73",
+"pcBaseGeral": "10,14",
+"peVariacao": "0,0000",
+"pcReferencia": "10,14",
+"vlBaseCalculoImposto": "17,93",
+"nuRequisicao": "1",
+"inPesoCubico": "N",
+"psCobrado": "300",
+"servicoAdicional": [
+{
+"coServAdicional": "019",
+"tpServAdicional": "V",
+"pcServicoAdicional": "0,79"
+},
+{
+"coServAdicional": "001",
+"tpServAdicional": "A",
+"pcServicoAdicional": "7,00"
+}
+],
+"peAdValorem": "0,0100",
+"vlSeguroAutomatico": "21,00",
+"qtAdicional": "0",
+"pcFaixa": "10,14",
+"pcFaixaVariacao": "10,14",
+"pcProduto": "10,14",
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 44
+
+===== PAGE 45 =====
+
+Manual de Integração
+"pcTotalServicosAdicionais": "7,79",
+"pcFinal": "17,93"
+}]
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 45
+
+===== PAGE 46 =====
+
+Manual de Integração
+No Postman
+14. API Rastro
+Esta API permite consultar o status do objeto dentro do fluxo postal. A aba desta API
+será:
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 46
+
+===== PAGE 47 =====
+
+Manual de Integração
+A exemplo das demais APIs, é utilizado um url base:
+https://apphom.correios.com.br/rastro com o GET: /v1/objetos/{codigoObjeto}
+Objetos de exemplo: DG049186230BR, DG049186226BR e DG049186212BR
+Realizando a requisição:
+curl --location -request GET
+'https://apihom.correios.com.br/srorastro/v1/objetos/DG049186226BR?r
+esultado=T' \
+--header 'Accept: application/json' \ --header 'Authorization:
+Bearer eyJhbGciOiJSUzUxMiJ9....
+Obtendo o retorno:
+{
+"versao": "1.8.7", "quantidade": 1,
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 47
+
+===== PAGE 48 =====
+
+Manual de Integração
+"resultado": "Todos os Eventos",
+"objetos": [
+{
+"codObjeto": "DG049186226BR",
+"tipoPostal": {
+"sigla": "DG",
+"descricao": "ENCOMENDA SEDEX (ETIQ LOGICA)",
+"categoria": "SEDEX"
+},
+"dtPrevista": "2022-03-11T20:58:00",
+"modalidade": "F",
+"peso": 0.5,
+"formato": "Pacote",
+"eventos": [
+{
+"codigo": "BDE",
+"tipo": "01",
+"dtHrCriado": "2022-03-11T17:03:00",
+"descricao": "Objeto entregue ao destinatário",
+"unidade": {
+"tipo": "Unidade de Atendimento",
+"endereco": {
+"uf": "AC",
+"cidade": "XAPURI"
+}
+}
+},
+{
+"codigo": "OEC",
+"tipo": "03",
+"dtHrCriado": "2022-03-11T17:02:45",
+"descricao": "Objeto em rota de entrega",
+"detalhe": "Aguarde envio de link para acompanhar a entrega
+em tempo real\r\n",
+"unidade": {
+"tipo": "Unidade de Tratamento",
+"endereco": {
+"uf": "SP",
+"cidade": "SAO PAULO"
+}
+}
+},
+{
+"codigo": "RO",
+"tipo": "01",
+"dtHrCriado": "2022-03-11T17:02:35",
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 48
+
+===== PAGE 49 =====
+
+Manual de Integração
+"descricao": "Objeto em trânsito",
+"detalhe": "Por favor, aguarde",
+"unidade": {
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 49
+
+===== PAGE 50 =====
+
+Manual de Integração
+"tipo": "Unidade de Distribuição",
+"endereco": {
+"uf": "DF",
+"cidade": "BRASILIA"
+}
+},
+"unidadeDestino": {
+"tipo": "Unidade de Tratamento",
+"endereco": {
+"uf": "GO",
+"cidade": "APARECIDA DE GOIANIA"
+}
+}
+},
+{
+"codigo": "PO",
+"tipo": "01",
+"dtHrCriado": "2022-03-10T19:10:36",
+"descricao": "Objeto postado",
+"unidade": {
+"tipo": "Unidade de Atendimento",
+"endereco": {
+"uf": "SP",
+"cidade": "SAO PAULO"
+}
+}
+}
+]
+}
+]
+}
+15. API de pré-postagem dos Correios
+A API de pré-postagem é microsserviço no qual permite ao cliente encaminhar aos
+Correios um arquivo eletrônico com todos os dados necessários para realizar uma
+postagem. Além disso, permite realizar o acompanhamento, geração de rótulos e até o
+cancelamento da pré-postagem.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 50
+
+===== PAGE 51 =====
+
+Manual de Integração
+G a o g b e r j r e u a t p o ç a ã s d o s a i m de p les G o e b n e j c r e o a t m o çã s e o d n e d d e a s E r e ó n m t d u i e l s o r s s e ã ç o d a e d m e e nto G Re e c ra e r b A im v e is n o t o d e G D C e o e c n ra l t a e r r ú a a d ç o ã o de C Po a s n t c a e g l e a m r a Pré-
+Cada pré-postagem é considerada um objeto postal. A novidade é o cuidado com
+relação ao volume de pré-postagens que são enviadas ao nossos servidores.
+Como o volume poderá variar de 1 ou centenas de pré-postagens, em um único envio
+eletrônico, para obter uma resposta rápida do servidor dos Correios estamos adotando duas
+formas de requisição: a forma síncrona e a forma assíncrona.
+A diferença entre síncrono e assíncrono:
+• Uma requisição síncrona, deve aguardar a finalização do processamento e
+somente poderá realizar uma nova solicitação após a resposta da requisição, esta
+ação, pode dar a sensação de congelamento da requisição.
+• Uma requisição assíncrona, o cliente envia uma requisição e recebe dados que
+permitem a consulta do status de processamento. Isso permite realizar novas
+requisições assíncronas, sem a necessidade de aguardar o fim do
+processamento das outras requisições. Ao fim poderá requisitar a coleta dos
+dados que foram processados.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 51
+
+===== PAGE 52 =====
+
+Manual de Integração
+Os dados de pré-postagens, tais como: dados de contrato, dados de remetente,
+dados de destinatário, dados do objeto e serviços adicionais que serão contratados. Serão
+validados campo a campo, desta forma, se houver alguma inconsistência será devolvido
+uma mensagem de erro informando o motivo. Com a validação dos dados antes da
+encomenda ser levada na agência aumenta a assertividade no processo de postagem,
+diminuindo a necessidade de ajustes no balcão.
+Além disso, a ferramenta está comunicando com o recurso que possibilitará o
+fornecimento do rótulo de endereçamento, dispensando a construção do rótulo pelo cliente.
+H. Pré-Postagem
+No Postman, importe a coleção da Pré-postagem.:
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 52
+
+===== PAGE 53 =====
+
+Manual de Integração
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 53
+
+===== PAGE 54 =====
+
+Manual de Integração
+Se o preenchimento do JSON foi feita corretamente, lembre-se de consultar o
+Schema, o retorno do status da requisição será 200 e com o (1) id da pré-postagem.
+A importância de consultar o CWS, em Schemas e ver o detalhamento do atributo. Possui
+as regras, informando se o atributo é obrigatório, qual tipo e o tamanho.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 54
+
+===== PAGE 55 =====
+
+Manual de Integração
+I. Emitindo/Reemitindo o rótulo de endereçamento do objeto
+O endereçamento consiste no conjunto de informações que identificam e orientam o
+caminho da sua encomenda nos Correios, da postagem à entrega. O correto
+endereçamento de um objeto tem impactos diretos na efetividade da entrega nos prazos
+estabelecidos.
+Esta API de pré-postagem utiliza uma nova API de geração de rótulo de
+endereçamento, criada para tirar do usuário a tarefa de montar o rótulo antes da sua
+impressão. Além disso, somente através da API de pré-postagem que vai gerar o código do
+objeto que será impresso no rótulo, no momento em que sua emissão for solicitada pelo
+usuário.
+A emissão do rótulo de endereçamento do objeto deverá ser solicitada pela
+informação do código da pré-postagem ou pela informação do código de registro do objeto
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 55
+
+===== PAGE 56 =====
+
+Manual de Integração
+(em caso de reimpressão) e o tipo do rótulo (P-padrão ou R-reduzido). A impressão só
+poderá ser realizada com as mesmas credenciais utilizadas para gerar a pré-postagem.
+Requisição
+https://apihom.correios.com.br/prepostagem/v1/prepostagens/rotulo/assincrono/pdf
+{
+"idsPrePostagem": [
+"PRgddyJTC0QMyNqlCX7w0H9A"
+],
+"tipoRotulo": "P",
+"formatoRotulo": "ET"
+}
+J. Solicitação de faixas de etiquetas
+Logo na criação da pré-postagem não é necessário informar um número de objeto,
+sendo assim, o sistema já entende que deve atribuir a uma pré-postagem um número de
+objeto para o rastreamento.
+Há claro as exceções, onde é o usuário deseja utilizar um número de objeto de forma
+antecipada. Porém há regras:
+O sistema deve permitir a liberação da faixa de etiquetas, utilizando a média dos
+últimos 3 meses de postagem. Caso tenha uma excepcionalidade na solicitação da
+quantidade de etiquetas devido a um evento que não estava previsto deve consultar o
+assistente comercial solicitando uma excepcionalidade de etiquetas.
+Para solicitar etiquetas:
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 56
+
+===== PAGE 57 =====
+
+Manual de Integração
+Para consultar o saldo:
+Com esses recursos será possível consultar quem fez a solicitação e a quantidade.
+Desta forma, verifique sempre antes de solicitar uma nova faixa, se há necessidade de fazer
+novos pedidos. Já que há uma regra de controle para solicitações de faixas de etiquetas.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 57
+
+===== PAGE 58 =====
+
+Manual de Integração
+K. Emitindo a declaração de conteúdo
+Requisição v1/prepostagens/declaracaoconteudo/{ids}
+Detalhamento do recurso
+PROPRIEDADE TIPO TAMANH OBRIGATÓRI DESCRIÇÃO
+O O
+ids String 24 Sim Código da pré-postagem.
+Deve ser um código Válido.
+O status da pré-postagem deve
+ser pré-postado. Em nenhum
+outro status o rótulo será
+emitido.
+Retorno: arquivo em html.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 58
+
+===== PAGE 59 =====
+
+Manual de Integração
+L. Emitindo o Aviso de Recebimento (AR)
+Requisição v1/prepostagens/avisorecebimento/{ids}
+Detalhamento do recurso
+PROPRIEDADE TIPO TAMANH OBRIGATÓRI DESCRIÇÃO
+O O
+ids String 24 Sim Código da pré-postagem.
+Deve ser um código Válido.
+O status da pré-postagem deve
+ser pré-postado. Em nenhum
+outro status o rótulo será
+emitido.
+Retorno: arquivo em html.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 59
+
+===== PAGE 60 =====
+
+Manual de Integração
+M. Consultando objetos postados e pré-postados
+Lista as pré-postagens de forma paginada. Retorna um booleano indicando se há
+uma próxima página. É obrigatório informar combinação de parâmetros ou apenas um
+parâmetro relacionado a Id/Código/Eticket.
+Requisição
+/v2/prepostagens
+N. Cancelamento de uma prépostagem
+O cancelamento poderá ser realizado utilizando estes recursos.
+Pelo id da pré-postagem ou pelo código do objeto.
+O. Postagem em Lote para objetos simples ou sem o número de rastreamento.
+Utilizado para postagens de cartas simples.
+a) Gerando o Lote
+Para gerar um lote de pré-postagens, criar uma requisição do tipo POST para
+https://apihom.correios.com.br/prepostagem/v1/prepostagens/lote.
+Antes de utilizar a funcionalidade, lembre-se da validade do token.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 60
+
+===== PAGE 61 =====
+
+Manual de Integração
+Na aba body, escolha a opção form-data e inclua o arquivo com os exemplos de lote
+para serem gerados.
+No campo Key, é obrigatório colocar o nome “lote”, conforme print abaixo.
+Se a requisição estiver correta, vai ser gerado um id para o lote e o seu
+processamento iniciará de forma assíncrona.
+b) Consultando o Lote
+Consultando o lote de pré-postagens Para consultar o lote gerado, deverá ser feito
+uma requisição do tipo GET para a URL :
+https://apihom.correios.com.br/prepostagem/v1/prepostagens/lote/{id do lote}.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 61
+
+===== PAGE 62 =====
+
+Manual de Integração
+Um dos retornos desse recurso são os ids das pré-postagens geradas. Essas ids
+serão usadas para gerar os rótulos, descrito a seguir.
+P. Gerando o rótulo de pré-postagens
+Para consultar o lote gerado, deverá ser feito uma requisição do tipo POST para a
+URL https://apihom.correios.com.br/prepostagem/v1/prepostagens/rotulo.
+No body da requisição, deverão ser informados os Ids das pré-postagens. No caso
+de carta simples, pode-se informar até 6 ids por requisição. Deve-se informar também o tipo
+de rótulo (P = padrão, R = reduzido). Exemplo: { "idsPrePostagem":[
+"PR1JncySxyRO0Eq0OaQp6dSQ",
+"PR2qlXxTEeTkGX4VLJE05Daw",
+"PRdwWpHjB0RXm39yK3tz1y0w",
+"PRE48D30P0RHmYYMhVhEdQuA",
+"PRi76lTnCGTsGLc7IdSHmSvw",
+"PRNdWRO2tSTGCQqFSh5PEwHw" ],
+"tipoRotulo" : "R"
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 62
+
+===== PAGE 63 =====
+
+Manual de Integração
+}
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 63
+
+===== PAGE 64 =====
+
+Manual de Integração
+16. API Pedido Informação (Fale Conosco)
+A API Pedido Informação permite a integração com o canal Fale Conosco dos
+Correios.
+Estão disponíveis 3 métodos que permitem registar, reativar e acompanhar as
+manifestações de objetos registrados nacionais, 3 métodos que permitem registrar,
+reativar e acompanhar as manifestações internacionais de objetos Correios Packet,
+além de um método que permite consultar a versão atual da API.
+A URL base é: ‘https://api.correios.com.br/pedido-informacao’.
+CADASTRA NACIONAL
+Cadastra uma nova manifestação de objeto registrado nacional no Fale Conosco
+dos Correios.
+A requisição deverá ser pelo método POST que deverá enviar o seguinte corpo:
+Diretoria de Negócios – Superintendência Execut iva de Canais de Vendas - SUCAN
+64
+Revisão 04/2025 – V2.4
+
+===== PAGE 65 =====
+
+Manual de Integração
+{
+"contrato": "1234567890",
+"cartao": "1234567890",
+"telefone": "string",
+"pedidos": [
+{
+"codigoObjeto": "AA123456789BR",
+"emailResposta": "mariasilva@hotmail.com",
+"nomeDestinatario": "Maria da Silva",
+"codigoMotivoReclamacao": 132,
+"tipoEmbalagem": "E",
+"tipoManifestacao": "R"
+}
+]
+}
+Onde:
+contrato: Número do contrato de postagem do objeto.
+cartao: Número do cartão de postagem do objeto.
+telefone: Número de telefone do reclamante.
+pedidos: Uma lista com 1 ou até 50 pedidos, informando:
+codigoObjeto: Número do objeto postal a ser reclamado;
+emailResposta: Endereço de e-mail válido para recebimento das respostas;
+nomeDestinatario: Nome do destinatário do objeto postal;
+codigoMotivoReclamacao: Código numérico referente ao motivo da
+manifestação, conforme tabela de referência abaixo.
+tipoEmbalagem: Código referente ao tipo de embalagem: E – Envelope; C –
+Caixa;
+tipoManifestacao: Código referente ao tipo de manifestação a ser registrada: R
+– Reclamação; I – Solicitação de Ressarcimento.
+Diretoria de Negócios – Superintendência Execut iva de Canais de Vendas - SUCAN
+65
+Revisão 04/2025 – V2.4
+
+===== PAGE 66 =====
+
+Manual de Integração
+Tabela de Motivos
+Código Motivo
+132 Remessa/Objeto Postal entregue em local divergente
+133 Remessa/Objeto Postal violada
+134 Remessa/Objeto Postal avariada/danificada
+135 Remessa/Objeto Postal entregue com atraso
+136 Remessa/Objeto Postal devolvida indevidamente
+141 Não recebimento do pedido de confirmação
+142 Remetente não recebeu o pedido de cópia
+148 Remetente não recebeu o AR
+211 Remessa/Objeto Postal não entregue
+240 AR Digital - Imagem não disponível
+318 AR Eletrônico indisponível ou ilegível
+1414 Remessa/Objeto Postal sem tentativa de entrega domiciliar
+1432 Mão Própria entregue a terceiros
+Exemplo de requisição:
+curl -X 'POST' \
+'https://api.correios.com.br/pedido-informacao/v1/externo/pedidos/cadastra' \
+-H 'accept: application/json' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: Bearer eyJhbGciOiJSUzUxMiJ9.eyJhbWJpZW50ZSI6IkhPTU
+-d '{
+"contrato": "1234567890",
+"cartao": "1234567890",
+"telefone": "string",
+"pedidos": [
+{
+"codigoObjeto": "AA123456789BR",
+"emailResposta": "mariasilva@hotmail.com",
+"nomeDestinatario": "Maria da Silva",
+"codigoMotivoReclamacao": 132,
+"tipoEmbalagem": "E",
+"tipoManifestacao": "R"
+Diretoria de Negócios – Superintendência Execut iva de Canais de Vendas - SUCAN
+66
+Revisão 04/2025 – V2.4
+
+===== PAGE 67 =====
+
+Manual de Integração
+}
+]
+}
+Exemplo de retorno:
+{
+"codigoRetorno": 0,
+"descricaoRetorno": "Olá, sua manifestação foi registrada com sucesso.",
+"numeroLote": "0000000",
+"dataHoraCadastro": "20/04/2023 16:13:15",
+"pi": [
+{
+"codigo do objeto": "AA123456789BR",
+"numero do pi": "123456789",
+"codigo retorno": "0",
+"descrição retorno": "Olá, sua manifestação foi registrada com sucesso."
+}
+],
+"mensagensPi": 0
+}
+Será retornada uma lista “pi” que constará os retornos de cada pedido.
+Cada retorno contará com um código e uma descrição, que poderá variar
+conforme a tabela a seguir, de acordo com cada situação.
+codigoRetorno descricaoRetorno
+0 Olá, sua manifestação foi registrada com sucesso.
+004 Olá, dados informados não encontrados na base dos Correios.
+30 Olá, precisamos que o CPF/CNPJ seja informado
+31 CPF/CNPJ não é válido
+55 Olá, o objeto não pertence ao contrato/cartão de postagem informado.
+60 Olá, para prosseguir o ID Tíquete precisa ser informado.
+121 Olá, o número do contrato não existe na base de dados dos Correios.
+125 Olá, o número do contrato informado não corresponde ao da postagem do objeto.
+Diretoria de Negócios – Superintendência Execut iva de Canais de Vendas - SUCAN
+67
+Revisão 04/2025 – V2.4
+
+===== PAGE 68 =====
+
+Manual de Integração
+Olá, o número do cartão de postagem informado não corresponde ao da postagem do
+126
+objeto.
+240 Olá, é necessário informar um e-mail para resposta.
+241 Olá, e-mail informado não está no formato correto.
+250 Olá, o código do objeto não foi informado.
+260 Olá, o código do motivo da manifestação não foi informado.
+261 Olá, o código do motivo da manifestação está fora do formato.
+Olá, não é permitido o registro desta manifestação/motivo via Webservice ou Correios
+262
+Mobile.
+271 Olá, o código do objeto está fora do formato “XX999999999XX”.
+Olá, este canal é exclusivo para o registro de manifestação para objetos/serviço
+272
+nacionais.
+280 Olá, o tipo de embalagem não foi informado.
+281 Olá, o tipo de embalagem não é válido.
+282 Olá, o tipo de manifestação não é válido.
+301 Olá, o nome do destinatário não foi informado.
+Olá, o prazo máximo para registro desta manifestação (90 dias, contados da “Data da
+510
+entrega” ou “Data prevista de entrega”, o que ocorrer primeiro), encontra-se expirado.
+Olá, a entrega, 1ª tentativa de entrega ou a disponibilização do objeto para retirada
+530 ocorreu dentro do prazo previsto de entrega. Para esta consulta não será gerado
+protocolo de atendimento.
+Olá, o objeto em questão não foi entregue, conforme dados disponíveis no sistema de
+531
+rastreamento do objeto. Para esta consulta não será gerado protocolo de atendimento.
+Olá, o objeto está aguardando retirada na agência, conforme dados disponíveis no
+534 sistema de rastreamento do objeto. Para esta consulta não será gerado protocolo de
+atendimento.
+Olá, a devolução do Aviso de Recebimento AR está dentro do prazo previsto, razão pela
+538
+qual não é possível o registro da manifestação pelo motivo selecionado.
+Olá, a disponibilização da Imagem do AR Digital está dentro do prazo previsto, razão
+539
+pela qual não é possível o registro da manifestação pelo motivo selecionado.
+Olá, código de serviço do objeto não localizado, razão pela qual, neste momento, não é
+540 possível o registro da manifestação pelo motivo selecionado. Caso o problema persista,
+gentileza contatar a Central de Atendimento dos Correios - CAC.
+Olá, o objeto em questão não foi entregue, conforme dados disponíveis no sistema de
+543
+rastreamento do objeto. Para esta consulta não será gerado protocolo de atendimento.
+Olá, o objeto está dentro do prazo previsto de entrega, conforme sistema calculador de
+544
+preços e prazos. Para esta consulta não será gerado protocolo de atendimento.
+Olá, o objeto em questão não se encontra com situação que possibilite o registro por
+545 esse motivo, conforme dados disponíveis no sistema de rastreamento do objeto. Para
+esta consulta não será gerado protocolo de atendimento.
+Diretoria de Negócios – Superintendência Execut iva de Canais de Vendas - SUCAN
+68
+Revisão 04/2025 – V2.4
+
+===== PAGE 69 =====
+
+Manual de Integração
+Olá, o objeto teve sua entrega realizada, conforme dados disponíveis no sistema de
+546
+rastreamento de objetos. Para esta consulta não será gerado protocolo de atendimento.
+Olá, para registro por este motivo o objeto precisa estar entregue. Para esta consulta
+547
+não será gerado protocolo de atendimento.
+Olá, o objeto está aguardando retirada na agência, conforme dados disponíveis no
+548 sistema de rastreamento do objeto. Para esta consulta não será gerado protocolo de
+atendimento.
+Olá, para este motivo necessária a confirmação da devolução do objeto ao remetente.
+549
+Para esta consulta não será gerado protocolo de atendimento.
+Olá, o objeto em questão não está relacionado com o motivo da manifestação
+550
+selecionado.
+560 Olá, o motivo selecionado não gera registro de manifestação.
+Olá, a disponibilização da Imagem do AR Digital encontra-se dentro do prazo previsto,
+561
+razão pela qual não é possível o registro da manifestação pelo motivo selecionado.
+Olá, o objeto em questão não possui evidência de postagem cancelada a pedido do
+562
+remetente. Para esta consulta não será gerado protocolo de atendimento.
+Olá, código de serviço do objeto não foi localizado, razão pela qual, neste momento,
+563 não é possível o registro da manifestação. Caso o problema persista, gentileza contatar
+a Central de Atendimento dos Correios - CAC.
+Olá, o prazo máximo para registro de manifestação por este motivo (30 dias, contados
+564 da “Data da entrega” ou “Data de informação da avaria/violação”), encontra-se
+expirado.
+Olá, a manifestação não pode ser reativada, pois o prazo para reativação encontra-se
+566
+expirado.
+580 Olá, o tipo de manifestação não foi informado.
+Olá, o objeto é mensurado pelo nível de serviço, portanto não é previsto o registro de
+630
+manifestação por este motivo.
+634 Olá, o logradouro não possui entrega domiciliar.
+Olá, o prazo máximo para registro desta manifestação (90 dias, contados da “Data da
+636
+entrega” ou “Data prevista de entrega”, o que ocorrer primeiro), expirou em {0}
+638 Olá, o objeto não foi encaminhado para entrega em unidades dos Correios.
+Olá, o objeto foi direcionado para entrega em unidade dos Correios a pedido do cliente.
+639
+Para esta consulta não será gerado protocolo de atendimento
+Olá, não identificamos o arquivo de previsão de postagem, assim não será possível
+640 registrar manifestação com esse motivo, conforme descrito no Termo de Condições
+Comerciais.
+Olá, informamos que a imagem do AR Digital está disponível para consulta no
+641 respectivo sistema, razão pela qual não é possível o registro da manifestação pelo
+motivo selecionado.
+Olá, não identificamos a contratação do AR Eletrônico, razão pela qual não é possível o
+642
+registro da manifestação pelo motivo selecionado.
+Diretoria de Negócios – Superintendência Execut iva de Canais de Vendas - SUCAN
+69
+Revisão 04/2025 – V2.4
+
+===== PAGE 70 =====
+
+Manual de Integração
+Olá, não identificamos a contratação do serviço de Mão Própria, razão pela qual não é
+645 possível o registro da manifestação pelo motivo selecionado.
+900 Olá, já existe uma manifestação registrada para objeto informado.
+Olá, ocorreu um erro durante o processo de cadastro. Tente novamente em alguns
+999
+minutos.
+REATIVA NACIONAL
+Reativa uma manifestação de objeto registrado nacional respondida
+previamente no Fale Conosco dos Correios.
+A requisição deverá ser pelo método POST que deverá enviar o seguinte corpo:
+{
+"contrato": "1234567890",
+"cartao": "1234567890",
+"reativacoes": [
+{
+"protocolo": "98043414",
+"tipoManifestacao": "I",
+"motivoReativacao": "135",
+"observacao": "string"
+}
+]
+}
+Sendo:
+contrato: Número do contrato de postagem do objeto.
+cartao: Número do cartão de postagem do objeto.
+reativacoes: Uma lista com 1 ou até 50 reativações, informando:
+protocolo: Número da manifestação a ser reativada;
+tipoManifestacao: Código referente ao tipo de manifestação a ser registrada:
+Diretoria de Negócios – Superintendência Execut iva de Canais de Vendas - SUCAN
+70
+Revisão 04/2025 – V2.4
+
+===== PAGE 71 =====
+
+Manual de Integração
+R – Reclamação; I – Solicitação de Ressarcimento.
+MotivoReativacao: Código numérico referente ao motivo da manifestação,
+conforme tabela de referência abaixo.
+observacao: Texto livre para inserção de observações sobre o motivo da
+reativação.
+Tabela de Motivos
+Código Motivo
+132 Remessa/Objeto Postal entregue em local divergente
+133 Remessa/Objeto Postal violada
+134 Remessa/Objeto Postal avariada/danificada
+135 Remessa/Objeto Postal entregue com atraso
+136 Remessa/Objeto Postal devolvida indevidamente
+141 Não recebimento do pedido de confirmação
+142 Remetente não recebeu o pedido de cópia
+148 Remetente não recebeu o AR
+211 Remessa/Objeto Postal não entregue
+240 AR Digital - Imagem não disponível
+318 AR Eletrônico indisponível ou ilegível
+1414 Remessa/Objeto Postal sem tentativa de entrega domiciliar
+1432 Mão Própria entregue a terceiros
+Exemplo de requisição:
+Diretoria de Negócios – Superintendência Execut iva de Canais de Vendas - SUCAN
+71
+Revisão 04/2025 – V2.4
+
+===== PAGE 72 =====
+
+Manual de Integração
+curl -X 'POST' \
+'https://api.correios.com.br/pedido-
+informacao/v1/externo/pedidos/reativa' \
+-H 'accept: application/json' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: Bearer
+eyJhbGciOiJSUzUxMiJ9.eyJhbWJpZW50ZSI6IlBST0RVQ0FPIiwiaWQiOiIxOTAi
+LCJwZm
+wiOiJTIiwiYXBpIjpbMjMsNTMsNTQsODcsNTE4LDU3Nyw1ODhdLCJpcCI6IjE3 '
+\
+-d '{
+"contrato": "1234567890",
+"cartao": "1234567890",
+"reativacoes": [
+{
+"protocolo": "98043414",
+"tipoManifestacao": "I",
+"motivoReativacao": "135",
+"observacao": "string"
+}
+]
+}'
+Exemplo de retorno:
+{
+"numeroLote": "0000000",
+"dataHoraReativacao": "20/04/2023 16:13:15",
+"listaPi": [
+{
+"protocolo": "0",
+"codigoRetorno": 512,
+"descricaoRetorno": "Olá, sua manifestação foi reativada com sucesso.",
+Diretoria de Negócios – Superintendência Execut iva de Canais de Vendas - SUCAN
+72
+Revisão 04/2025 – V2.4
+
+===== PAGE 73 =====
+
+Manual de Integração
+}
+]
+}
+Será retornada uma lista “pi” que constará os retornos de cada pedido.
+Cada retorno contará com um código e uma descrição, que poderá variar
+conforme a tabela a seguir, de acordo com cada situação.
+codigoRetorno
+descricaoRetorno
+4 Olá, dados informados não encontrados na base dos Correios.
+50 Olá, o número do protocolo não foi informado.
+55 Olá, o objeto não pertence ao contrato/cartão de postagem informado.
+56 Olá, protocolo informado não está respondido
+122 Olá, o objeto não pertence ao contrato/cartão de postagem informado.
+260 Olá, o código do motivo da manifestação não foi informado.
+512 Olá, sua manifestação foi reativada com sucesso.
+513 Olá, os campos Observação e Motivo devem ser informados.
+Olá, o objeto em questão não foi entregue, conforme dados disponíveis no sistema de
+531 rastreamento do objeto. Para esta consulta não será gerado protocolo de
+atendimento.
+534 Olá, o objeto está aguardando retirada na agência, conforme dados disponíveis no
+sistema de rastreamento do objeto. Para esta consulta não será gerado protocolo de
+atendimento.
+Olá, a disponibilização da Imagem do AR Digital está dentro do prazo previsto, razão
+539
+pela qual não é possível o registro da manifestação pelo motivo selecionado.
+Olá, o objeto em questão não se encontra com situação que possibilite o registro por
+545 esse motivo, conforme dados disponíveis no sistema de rastreamento do objeto. Para
+esta consulta não será gerado protocolo de atendimento.
+Olá, o objeto em questão não está relacionado com o motivo da manifestação
+550
+selecionado.
+560 Olá, o motivo selecionado não gera registro de manifestação.
+Olá, o objeto em questão não possui evidência de postagem cancelada a pedido do
+562
+remetente. Para esta consulta não será gerado protocolo de atendimento.
+575 Olá, informamos que o protocolo não foi encontrado.
+582 Olá, o tipo da manifestação não pode ser alterado.
+583 Olá, o motivo informado não é permitido para este tipo de manifestação.
+Diretoria de Negócios – Superintendência Execut iva de Canais de Vendas - SUCAN
+73
+Revisão 04/2025 – V2.4
+
+===== PAGE 74 =====
+
+Manual de Integração
+586 Olá, o tipo de reativação não é válido.
+587 Olá, o prazo máximo para reativação expirou em {0}
+588 Olá, o motivo informado não é permitido para o assunto da manifestação.
+589 Olá, a indenização está dentro do prazo de pagamento. Prazo: {0}
+590 Olá, já existe solicitação de ressarcimento para este objeto.
+591 Olá, a manifestação encontra-se em andamento.
+Olá, não é possível reativar manifestações do tipo reclamação sem um número de
+592
+objeto.
+593 Olá, essa manifestação não encontra-se encerrada.
+594 Olá, o objeto da manifestação está vinculado a outro contrato.
+595 Olá, o objeto não atende aos critérios para reativação pelo motivo solicitado.
+Olá, o objeto foi entregue dentro do prazo previsto, por isso a reativação não é
+596
+permitida por este motivo.
+597 Olá, o objeto foi entregue, assim a reativação não é permitida por este motivo.
+Olá, o objeto está aguardando retirada, assim a reativação não é permitida por este
+598
+motivo.
+Olá, o objeto é mensurado pelo nível de serviço, portanto não é possível reativar por
+632
+este motivo.
+634 Olá, o logradouro não possui entrega domiciliar.
+Olá, não identificamos a contratação do AR Eletrônico, razão pela qual não é possível a
+643
+reativação da manifestação pelo motivo selecionado.
+Olá, ocorreu um erro durante o processo de cadastro. Tente novamente em alguns
+999
+minutos.
+ACOMPANHA NACIONAL
+Permite acompanhar o status de uma manifestação de objeto registrado
+nacional no Fale Conosco dos Correios.
+A requisição deverá ser pelo método GET, conforme a seguir:
+Diretoria de Negócios – Superintendência Execut iva de Canais de Vendas - SUCAN
+74
+Revisão 04/2025 – V2.4
+
+===== PAGE 75 =====
+
+Manual de Integração
+Onde:
+contrato: Número do contrato de postagem do objeto.
+canal: Canal de registro da manifestação (sempre deverá ser informado W);
+codigodoObjetoOuProtocolo: Número do protocolo da manifestação ou o
+código de registro do objeto postal nacional.
+Exemplo de requisição:
+curl -X 'GET' \
+'https://api.correios.com.br/pedido-
+informacao/v1/externo/pedidos/acompanha?contrato=1234567890&canal=W&codigodoObjeto
+OuProtocolo=123456789' \
+-H 'accept: application/json' \
+-H 'Authorization: Bearer eyJhbGciOiJSUzUxMiJ9.
+Diretoria de Negócios – Superintendência Execut iva de Canais de Vendas - SUCAN
+75
+Revisão 04/2025 – V2.4
+
+===== PAGE 76 =====
+
+Manual de Integração
+Exemplo de retorno (sucesso):
+{
+"codigoObjeto": "AB000000000BR",
+"numeroPi": "123456789",
+"motivoReclamacaoInicial": "134",
+"descMotivoReclamacaoInicial": "Conteúdo Avariado",
+"motivoReclamacaoFinal": "135",
+"descMotivoReclamacaoFinal": "Conteúdo Avariado",
+"dataAberturaPI": "02/06/2024 18:30:59",
+"dataPostagemObjeto": "10/01/2023 15:10:22",
+"codigoServico": "04790",
+"descricaoServico": "SEDEX 10 à vista",
+"postagemDH": "false",
+"dataUltimoEvento": "30/01/2023 16:28:53 ",
+"codigoUltimoEvento": "00",
+"tipoUltimoEvento": "BDE",
+"descricaoUltimoEvento": "Entregue",
+"situaçãoManifestacao": "Fechado",
+"houveRecorrencia": "Sim",
+"indicativoProcedencia": "Não Procedente",
+"dataUltimaRecorrencia": "07/06/2024 - 16:00:59 ",
+"mensagemUltimaResposta": "Olá, informamos que o objeto postal em questão foi entregue ",
+"dataUltimaResposta": "07/06/2024 - 16:15:43",
+"tipoManifestacao": "Solicitação de Ressarcimento"
+"registradaNivelServico": "S"
+}
+Exemplo de retorno (erro/dados inconsistentes):
+{
+"codigoRetorno": "004",
+"descricaoRetorno": " Olá, dados informados não encontrados na base dos Correios."
+}
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 76
+
+===== PAGE 77 =====
+
+Manual de Integração
+Serão retornadas informações referentes a manifestação consultada ou, no caso de
+insucesso, poderão ser retornadas as mensagens conforme tabela a seguir:
+codigoRetorno descricaoRetorno
+004 Olá, dados informados não encontrados na base dos Correios.
+122 Olá, o objeto não pertence ao contrato/cartão de postagem informado.
+291 Tipo de consulta inválido
+Olá, esta manifestação foi registrada pelo sistema nível de serviço, assim não é
+631
+possível acompanhá-la.
+990 Não foi encontrada uma manifestação que atenda aos critérios informados
+Olá, ocorreu um erro durante o processo de cadastro. Tente novamente em alguns
+999
+minutos.
+CADASTRA INTERNACIONAL (CORREIOS PACKET)
+Cadastra uma nova manifestação de objeto registrado Correios Packet no Fale Conosco
+dos Correios.
+A requisição deverá ser pelo método POST que deverá enviar o seguinte corpo:
+{
+"contractNumber": "1234567890",
+"postageCard": "1234567890",
+"email": "internationalCompany@hotmail.com",
+"internationalRequests": [
+{
+"trackingNumber": "AA123456789BR",
+"requestReasonCode": 132
+}
+]
+}
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 77
+
+===== PAGE 78 =====
+
+Manual de Integração
+Onde:
+contractNumber: Número do contrato de postagem do objeto.
+postageCard: Número do cartão de postagem do objeto.
+Email: Endereço de e-mail válido para recebimento das respostas
+internationalRequests: Uma lista com 1 ou até 50 solicitações, informando:
+trackingNumber: Número do objeto postal a ser reclamado;
+requestReasonCode: Código numérico referente ao motivo da manifestação, conforme
+tabela de referência abaixo.
+Tabela de Motivos
+Código Descrição do Motivo
+132 Remessa/Objeto Postal entregue em local divergente
+133 Remessa/Objeto postal violada
+134 Remessa/Objeto postal avariada/danificada
+136 Remessa/Objeto postal devolvida indevidamente
+211 Remessa/Objeto postal não entregue
+242 Objeto em revisão de tributos
+311 Objeto em Processo de Desembaraço
+312 Dificuldade com o pagamento de tributos
+Exemplo de requisição:
+curl -X 'POST' \
+'https://apihom.correios.com.br/pedido-informacao/v1/international/requests/register' \
+-H 'accept: application/json' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: Bearer eyJhbGciOiJSUzUxMiJ9' \
+-d '{
+"contractNumber": "1234567890",
+"postageCard": "1234567890",
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 78
+
+===== PAGE 79 =====
+
+Manual de Integração
+"email": "internationalCompany@hotmail.com",
+"internationalRequests": [
+{
+"trackingNumber": "AA123456789BR",
+"requestReasonCode": 211
+}
+]
+}'
+Exemplo de retorno:
+{
+"contractNumber": "1234567890",
+"dateTimeRegister": "29/07/2024 11:40:01",
+"internationalRequests": [
+{
+"trackingNumber": "AA123456789BR",
+"responseCode": "0",
+"responseDescription": "Olá, sua manifestação foi registrada com sucesso.",
+"requestCode": "123456789"
+}
+]
+}
+Será retornada uma lista “internationalrequests” que constará os retornos de cada pedido.
+Cada retorno contará com um código e uma descrição, que poderá variar conforme a
+tabela a seguir, de acordo com cada situação.
+codigoRetorno descricaoRetorno
+0 Olá, sua manifestação foi registrada com sucesso.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 79
+
+===== PAGE 80 =====
+
+Manual de Integração
+4 Olá, dados informados não encontrados na base dos Correios.
+55 Olá, o objeto não pertence ao contrato/cartão de postagem informado.
+124 Olá, o número do contrato/cartão de postagem não foi informado.
+241 Olá, e-mail informado não está no formato correto.
+250 Olá, o código do objeto não foi informado.
+260 Olá, o código do motivo da manifestação não foi informado.
+Olá, o prazo máximo para registro desta manifestação (90 dias, contados da “Data da
+510
+entrega” ou “Data prevista de entrega”, o que ocorrer primeiro), encontra-se expirado.
+Olá, o objeto ainda está dentro do prazo previsto de entrega. Para esta consulta não será
+520
+gerado protocolo de atendimento.
+Olá, o objeto em questão não foi entregue, conforme dados disponíveis no sistema de
+531
+rastreamento do objeto. Para esta consulta não será gerado protocolo de atendimento.
+Olá, o objeto está aguardando retirada na unidade, conforme dados disponíveis no
+534 sistema de rastreamento do objeto. Para esta consulta não será gerado protocolo de
+atendimento.
+Olá, não existe confirmação da devolução do objeto ao remetente, conforme dados
+535 disponíveis no sistema de rastreamento de objetos. Para esta consulta não será gerado
+protocolo de atendimento.
+Olá, o objeto em questão não se encontra com situação que possibilite o registro por esse
+545 motivo, conforme dados disponíveis no sistema de rastreamento do objeto. Para esta
+consulta não será gerado protocolo de atendimento.
+Olá, código de serviço do objeto não foi localizado, razão pela qual, neste momento, não é
+563 possível o registro da manifestação. Caso o problema persista, gentileza contatar a Central
+de Atendimento dos Correios - CAC.
+Olá, o prazo máximo para registro de manifestação por este motivo (30 dias, contados da
+564
+Data da entrega ou Data de informação da avaria/violação), encontra-se expirado.
+Olá, o objeto é mensurado pelo nível de serviço, portanto não é previsto o registro de
+630
+manifestação por este motivo.
+900 Olá, já existe uma manifestação registrada para o objeto informado.
+1006 Código do objeto inválido. Por favor confira o código informado e tente novamente.
+1007 Olá, o motivo informado não é permitido para este tipo de serviço.
+Olá, o objeto teve sua entrega realizada, conforme dados disponíveis no sistema de
+1008
+rastreamento de objetos. Para esta consulta não será gerado protocolo de atendimento.
+Olá, o objeto está aguardando retirada em Locker, conforme dados disponíveis no sistema
+1009
+de rastreamento do objeto. Para esta consulta não será gerado protocolo de atendimento.
+Olá, o objeto foi apreendido por autoridade competente, conforme dados disponíveis no
+1010 sistema de rastreamento do objeto. Para esta consulta não será gerado protocolo de
+atendimento
+Olá, o objeto teve sua importação não autorizada pela autoridade competente, conforme
+1011 dados disponíveis no sistema de rastreamento do objeto. Para esta consulta não será
+gerado protocolo de atendimento.
+O objeto em questão encontra-se aguardando envio ao órgão fiscalizador. Para esta
+1012
+consulta não será gerado protocolo de atendimento
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 80
+
+===== PAGE 81 =====
+
+Manual de Integração
+Olá! Após pesquisas em nossos sistemas, não encontramos registro de entrada deste
+1013
+objeto no Brasil. Para esta consulta não será gerado protocolo de atendimento
+Olá! O objeto está em processo de envio ao cliente. Para esta consulta não será gerado
+1014
+protocolo de atendimento
+Olá, o objeto foi encaminhado para fiscalização de autoridade competente, conforme
+1015 dados disponíveis no sistema de rastreamento de objetos. Para esta consulta não será
+gerado protocolo de atendimento.
+Olá, o número do objeto informado não está previsto para abertura de manifestação por
+1016
+este canal. Para esta consulta não será gerado protocolo de atendimento.
+1029 Olá, tipo de dado é inválido para o campo [campoXYZ].
+1031 Olá, o contrato informado não pertence ao usuário logado.
+Olá, o prazo máximo para registro desta manifestação (90 dias, contados da “Postagem”),
+1035
+encontra-se expirado.
+1037 Olá, o número do objeto não foi localizado na base dos Correios.
+REATIVA INTERNACIONAL (CORREIOS PACKET)
+Reativa uma manifestação de objeto registrado Correios Packet respondida previamente
+no Fale Conosco dos Correios.
+A requisição deverá ser pelo método POST que deverá enviar o seguinte corpo:
+{
+"contractNumber": "1234567890",
+"postageCard": "1234567890",
+"internationalRequests": [
+{
+"requestCode": "123456789",
+"requestReasonReactivationCode": 132
+"descriptionReasonReactivation": "string"
+}
+]
+}
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 81
+
+===== PAGE 82 =====
+
+Manual de Integração
+Sendo:
+contractNumber: Número do contrato de postagem do objeto.
+postageCard: Número do cartão de postagem do objeto.
+internationalRequests: Uma lista com 1 ou até 50 solicitações de reativação,
+informando:
+requestCode: Número da manifestação a ser reativada.
+requestReasonReactivationCode: Código numérico referente ao motivo da reativação,
+conforme tabela de referência abaixo.
+descriptionReasonReactivation: Texto livre para inserção de observações sobre o
+motivo da reativação.
+Tabela de Motivos
+Código Descrição do Motivo
+132 Remessa/Objeto Postal entregue em local divergente
+133 Remessa/Objeto postal violada
+134 Remessa/Objeto postal avariada/danificada
+136 Remessa/Objeto postal devolvida indevidamente
+211 Remessa/Objeto postal não entregue
+242 Objeto em revisão de tributos
+311 Objeto em Processo de Desembaraço
+312 Dificuldade com o pagamento de tributos
+Exemplo de requisição:
+curl -X 'POST' \
+'https://api.correios.com.br/pedido-
+informacao/v1/international/requests/reactivate' \
+-H 'accept: application/json' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: Bearer
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 82
+
+===== PAGE 83 =====
+
+Manual de Integração
+eyJhbGciOiJSUzUxMiJ9.eyJhbWJpZW50ZSI6IlBST0RVQ0FPIiwiaWQiOiIxOTAiL
+CJwZm
+wiOiJTIiwiYXBpIjpbMjMsNTMsNTQsODcsNTE4LDU3Nyw1ODhdLCJpcCI6IjE3 ' \
+-d '{
+"contratcNumber": "1234567890",
+"postageCard": "1234567890",
+"internationalRequests": [
+{
+"requestCode ": "98043414",
+"requestReasonReactivationCode ": "135",
+"descriptionReasonReactivation": "string"
+}
+]
+}'
+Exemplo de retorno:
+{
+"contractNumber": "1234567890",
+"dateTimeRegister": "aaaa-mm-dd hh:mm:ss",
+"internationalRequests": [
+{
+"requestCode": "123456789",
+"responseCode": "0",
+"responseDescription": "Hello, your request has been successfully
+reactivated."
+}
+]
+}
+Será retornada uma lista “internationalrequests” que constará os retornos de cada
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 83
+
+===== PAGE 84 =====
+
+Manual de Integração
+pedido.
+Cada retorno contará com um código e uma descrição, que poderá variar conforme a
+tabela a seguir, de acordo com cada situação.
+codigoRetorno descricaoRetorno
+4 Olá, dados informados não encontrados na base dos Correios.
+50 Olá, o número do protocolo não foi informado.
+56 Olá, protocolo informado não está respondido
+124 Olá, o número do contrato/cartão de postagem não foi informado.
+260 Olá, o código do motivo da manifestação não foi informado.
+512 Olá, sua manifestação foi reativada com sucesso.
+513 Olá, o campo Observação deve ser informado.
+Olá, a manifestação não pode ser reativada, pois o prazo para reativação encontra-se
+566
+expirado.
+Olá, o pagamento de indenização está dentro de prazo, por isso a manifestação não pode
+576
+ser reativada.
+1007 Olá, o motivo informado não é permitido para este tipo de serviço.
+Olá, o número do objeto informado não está previsto para abertura de manifestação por
+1016
+este canal. Para esta consulta não será gerado protocolo de atendimento.
+Olá, o objeto em questão não foi entregue, conforme dados disponíveis no sistema de
+1017 rastreamento do objeto. Portanto, não é possível reativar a manifestação pelo motivo
+escolhido.
+Olá, o objeto teve sua entrega realizada, conforme dados disponíveis no sistema de
+1018 rastreamento de objetos. Portanto, não é possível reativar a manifestação pelo motivo
+escolhido.
+Olá, o objeto foi apreendido por autoridade competente, conforme dados disponíveis no
+1019 sistema de rastreamento do objeto. Portanto, não é possível reativar a manifestação pelo
+motivo escolhido.
+Olá, o objeto está aguardando retirada em unidade dos Correios, conforme dados
+1020 disponíveis no sistema de rastreamento do objeto. Portanto, não é possível reativar a
+manifestação pelo motivo escolhido.
+Olá, o objeto está aguardando retirada em Locker, conforme dados disponíveis no sistema
+1021 de rastreamento do objeto. Portanto, não é possível reativar a manifestação pelo motivo
+escolhido.
+Olá, o objeto teve sua importação não autorizada pela autoridade competente, conforme
+1022 dados disponíveis no sistema de rastreamento do objeto. Portanto, não é possível reativar
+a manifestação pelo motivo escolhido.
+Olá! Após pesquisas em nossos sistemas, não encontramos registro de entrada deste
+1023
+objeto no Brasil. Portanto, não é possível reativar a manifestação pelo motivo escolhido.
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 84
+
+===== PAGE 85 =====
+
+Manual de Integração
+Olá, o objeto foi encaminhado para fiscalização de autoridade competente, conforme
+1024 dados disponíveis no sistema de rastreamento de objetos. Portanto, não é possível
+reativar a manifestação pelo motivo escolhido.
+Olá, o objeto em questão não se encontra em situação que possibilite a reativação por
+1025 esse motivo, conforme dados disponíveis no sistema de rastreamento do objeto.
+Portanto, não é possível reativar a manifestação.
+Olá! O objeto está em processo de envio ao cliente. Portanto, não é possível reativar a
+1026
+manifestação pelo motivo escolhido.
+O objeto mencionado encontra-se aguardando envio ao órgão fiscalizador. Portanto, não
+1027
+é possível reativar a manifestação.
+1029 Olá, tipo de dado é inválido para o campo [campoXYZ].
+1030 Olá, o protocolo informado não pertence ao seu contrato.
+1031 Olá, o contrato informado não pertence ao usuário logado.
+ACOMPANHA INTERNACIONAL (CORREIOS PACKET)
+Permite acompanhar o status de uma manifestação de objeto registrado Correios Packet no
+Fale Conosco dos Correios.
+A requisição deverá ser pelo método GET, conforme a seguir:
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 85
+
+===== PAGE 86 =====
+
+Manual de Integração
+Onde:
+contractNumber: Número do contrato de postagem do objeto.
+channel: Canal de registro da manifestação (sempre deverá ser informado W);
+trackingNumberOrProtocol: Número do protocolo da manifestação ou o código de
+registro do objeto postal.
+Exemplo de requisição:
+curl curl -X 'GET' \
+'https://api.correios.com.br/pedido-informacao/v1/international/requests/follow-
+up?contractNumber=1234567890&channel=W&trackingNumberOrProtocol =123456789'
+\
+-H 'accept: application/json' \
+-H 'Authorization: Bearer eyJhbGciOiJSUzUxMiJ9.
+Exemplo de retorno (sucesso):
+{
+"trackingNumber": "AB000000000BR",
+"requestCode": "123456789",
+"initialReasonCode": "134",
+"initialReasonDescription": "Conteúdo Avariado",
+"finalReasonCode": "135",
+"finalReasonDescription": "Conteúdo Avariado",
+"registrationDateTime": "2023-04-20 13:37:07",
+"postingDateTime": "2023-01-10 06:31:27",
+"maximumDeliveryDateTime": "2023-01-30 07:21:34",
+"serviceCode": "04790",
+"serviceDescription": "SEDEX 10 à vista",
+"lastEventDateTime": "2023-01-30 07:21:34",
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 86
+
+===== PAGE 87 =====
+
+Manual de Integração
+"lastEventCode": "00",
+"lastEventType": "BDE",
+"lastEventDescription": "Entregue",
+"currentStatus": "Fechado",
+"recurrenceOccurred": "Sim",
+"resolutionIndicator": "Procedente",
+"lastRecurrenceDate": "2023-01-30 06:31:27",
+"recurrenceReasonCode": "135",
+"lastRecurrenceMessage": "string",
+"lastResponseMessage": "string",
+"lastResponseDate": "2023-01-30 06:31:27",
+"requestType": "Solicitação de Ressarcimento",
+"registeredServiceLevel": "N"
+}
+Exemplo de retorno (erro/dados inconsistentes):
+{
+"contractNumber": "9992157970",
+"dateTimeRegister": "2024-11-04T11:38:35",
+"internationalRequests": [
+{
+"responseCode": "004",
+"responseDescription": "Olá, dados informados não encontrados na base dos Correios. "
+}
+]
+}
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 87
+
+===== PAGE 88 =====
+
+Manual de Integração
+Serão retornadas informações referentes a manifestação consultada ou, no caso de
+insucesso, poderão ser retornadas as mensagens conforme tabela a seguir:
+codigoRetorno descricaoRetorno
+004 Olá, dados informados não encontrados na base dos Correios.
+122 Olá, o objeto não pertence ao contrato/cartão de postagem informado.
+291 Tipo de consulta inválido
+990 Não foi encontrada uma manifestação que atenda aos critérios informados
+Olá, ocorreu um erro durante o processo de cadastro. Tente novamente em alguns
+999
+minutos.
+1033 Olá, não localizamos dados da sua manifestação, tente novamente mais tarde
+1034 Olá, este tipo de consulta não está previsto para ser realizada por este canal.
+Observação: Para os retornos dos métodos internacionais CADASTRA, REATIVA e
+ACOMPANHA do Correios Packet, poderá ser incluído, no cabeçalho da requisição,
+o parâmetro Accept-Language indicando se o resultado da requisição deverá vir em
+Português ou Inglês.
+17. Considerações Finais
+Este material foi desenvolvido para facilitar ao leitor que estava acostumado com o
+Web Services dos Correios, que havia um padrão SOAP XML e com a migração para REST
+poderá sentir falta de material explicativo que era fornecido para cada sistema. Com o
+Correios API, centralizamos as documentações e como a atualização é dinâmica
+recomenda-se que retorne com frequência.
+Para todas as APIs citadas neste material, são as que estão liberadas para uso.
+Desta forma, caso tenham dúvidas referente a API o procedimento é entrar em contato com
+o Assistente Comercial de sua região ou Contrato.
+Informações de atendimento poderão ser obtidas pelo nosso site:
+https://www.correios.com.br/falecomoscorreios/central-de-atendimento
+Diretoria de Negócios – Superintendência Executiva de Canais de Vendas - SUCAN
+Revisão 04/2025 – V2.4 88

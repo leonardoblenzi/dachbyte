@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <title>Ajuda e contato | DACHBYTE Seller</title>
+  <link rel="stylesheet" href="/ml/css/ajuda.css?v=2" />
+<script src="/ml/js/ajuda.js?v=2" defer></script>
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="help-app account-help-app">
+  <main class="page-wrap">
+    <section class="help-page">
+      <section class="help-hero">
+        <div class="help-hero__copy">
+          <span class="help-hero__eyebrow">Ajuda e contato</span>
+          <h1 class="help-hero__title">Fala com a gente</h1>
+          <p class="help-hero__text">
+            Se voce ficou com alguma duvida, encontrou um bug ou quer sugerir algo novo,
+            manda uma mensagem por aqui. A gente recebe tudo no email de suporte e responde
+            com o contexto da sua conta.
+          </p>
+        </div>
+
+        <div class="help-hero__meta">
+          <span class="help-hero__chip">Resposta organizada no suporte</span>
+          <span class="help-hero__chip">Email do login como referencia</span>
+          <span class="help-hero__chip">Conta ativa enviada no contexto</span>
+        </div>
+      </section>
+
+      <section class="help-layout">
+        <article class="help-card help-card--form">
+          <div class="help-card__header">
+            <div>
+              <span class="help-card__eyebrow">Nos escreva um email</span>
+              <h2 class="help-card__title">Conte o que aconteceu</h2>
+            </div>
+            <span class="pill pill-soft" id="help-account-pill">Conta: carregando...</span>
+          </div>
+
+          <form id="help-form" class="help-form" novalidate>
+            <div class="help-form__grid">
+              <label class="help-field">
+                <span class="help-field__label">Assunto</span>
+                <select id="help-topic" name="topic" required>
+                  <option value="duvidas">Duvidas</option>
+                  <option value="bugs">Problemas / Bugs</option>
+                  <option value="sugestoes">Sugestoes</option>
+                  <option value="reclamacoes">Reclamacoes</option>
+                  <option value="financeiro">Financeiro</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </label>
+            </div>
+
+            <fieldset class="help-preference">
+              <legend class="help-field__label">Como voce prefere nossa resposta-</legend>
+              <div class="help-preference__grid">
+                <label class="help-choice">
+                  <input type="radio" name="reply_preference" value="email" checked />
+                  <span class="help-choice__card">
+                    <strong>Email</strong>
+                    <small>Vamos responder no email do seu login.</small>
+                  </span>
+                </label>
+
+                <label class="help-choice">
+                  <input type="radio" name="reply_preference" value="cellphone" />
+                  <span class="help-choice__card">
+                    <strong>Celular</strong>
+                    <small>Voce informa o numero e a gente usa esse contato como referencia.</small>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+
+            <label class="help-field" id="help-phone-row" hidden>
+              <span class="help-field__label">Celular para retorno</span>
+              <input
+                id="help-cellphone"
+                name="cellphone"
+                type="text"
+                inputmode="tel"
+                autocomplete="tel"
+                placeholder="(11) 99999-9999"
+              />
+            </label>
+
+            <label class="help-field">
+              <span class="help-field__label">Mensagem</span>
+              <textarea
+                id="help-message"
+                name="message"
+                placeholder="Descreva sua duvida, contexto ou sugestao com o maximo de clareza possivel."
+                required
+              ></textarea>
+            </label>
+
+            <input type="hidden" id="help-account-label" name="account_label" value="" />
+            <input type="hidden" id="help-account-id" name="account_id" value="" />
+            <input type="hidden" id="help-meli-user-id" name="meli_user_id" value="" />
+            <input type="hidden" id="help-page-path" name="page_path" value="" />
+
+            <div class="help-form__actions">
+              <button class="btn-primary help-submit" id="help-submit" type="submit">
+                Enviar mensagem
+              </button>
+              <p class="help-form__hint">
+                A mensagem vai direto para o email de suporte com o seu contexto de login.
+              </p>
+            </div>
+
+            <div id="help-feedback" class="help-feedback" aria-live="polite" hidden></div>
+          </form>
+        </article>
+
+        <aside class="help-side">
+          <article class="help-card help-card--summary">
+            <span class="help-card__eyebrow">Seu contexto</span>
+            <h2 class="help-card__title">A gente ja preenche parte do caminho</h2>
+            <p class="help-card__text">
+              Para evitar retrabalho, usamos seu email de login e a conta ativa como referencia no atendimento.
+            </p>
+
+            <div class="help-summary-list">
+              <div class="help-summary-item">
+                <span>Email do login</span>
+                <strong id="help-user-email">Carregando...</strong>
+              </div>
+              <div class="help-summary-item">
+                <span>Nome</span>
+                <strong id="help-user-name">Carregando...</strong>
+              </div>
+              <div class="help-summary-item">
+                <span>Conta ativa</span>
+                <strong id="help-side-account">Carregando...</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="help-card help-card--tips">
+            <span class="help-card__eyebrow">Ajuda rapida</span>
+            <h2 class="help-card__title">O que ajuda muito no retorno</h2>
+            <div class="page-brief__items help-tips">
+              <article class="page-brief__item">
+                <strong>Explique o contexto</strong>
+                <span>Conte em qual tela voce estava e o que tentou fazer.</span>
+              </article>
+              <article class="page-brief__item">
+                <strong>Descreva o impacto</strong>
+                <span>Diga se bloqueia venda, operacao, analise ou apenas incomoda a rotina.</span>
+              </article>
+              <article class="page-brief__item">
+                <strong>Seja direto</strong>
+                <span>Quanto mais objetivo o relato, mais rapido a gente chega no ponto.</span>
+              </article>
+            </div>
+          </article>
+        </aside>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Projeção Mensal | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/visao-geral.css?v=1" />
+  <link rel="stylesheet" href="/ml/css/projecao-mensal.css?v=12" />
+  <script src="/ml/js/projecao-mensal.js?v=12" defer></script>
+  <script src="/ml/js/ml-base.js?v=9"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="overview-app overview-app--projection">
+  <main class="page-wrap">
+    <section class="overview-page projection-page">
+      <header class="overview-header">
+        <div class="overview-header__main">
+          <span class="overview-eyebrow">Visão geral</span>
+          <h1>Projeção mensal</h1>
+          <p class="overview-subtitle">Acompanhe o ritmo do mês, o fechamento estimado e a composição da receita.</p>
+          <div class="overview-meta">
+            <strong id="account-name-inline">Carregando...</strong>
+            <span class="overview-dot" aria-hidden="true"></span>
+            <span id="projection-period">--</span>
+            <span class="overview-dot" aria-hidden="true"></span>
+            <span>Dia <strong id="projection-day">--</strong></span>
+          </div>
+        </div>
+        <div class="overview-header__actions projection-header-actions">
+          <label class="overview-field overview-field--compact" for="projection-month">
+            <span>Mês</span>
+            <input id="projection-month" type="month" aria-label="Selecionar mês da projeção" />
+          </label>
+          <button id="projection-refresh" class="overview-primary-btn" type="button">Atualizar</button>
+        </div>
+      </header>
+
+      <div id="projection-alert" class="overview-alert projection-alert" aria-live="polite"></div>
+
+      <section class="overview-kpi-grid overview-kpi-grid--4">
+        <article class="overview-kpi overview-kpi--primary">
+          <span class="overview-kpi__label">Faturamento atual</span>
+          <strong id="projection-total" class="overview-kpi__value">R$ 0,00</strong>
+          <span id="projection-total-delta" class="overview-kpi__delta">vs mesmo período anterior</span>
+        </article>
+        <article class="overview-kpi">
+          <span class="overview-kpi__label">Projeção do mês</span>
+          <strong id="projection-projected" class="overview-kpi__value">R$ 0,00</strong>
+          <span id="projection-projected-delta" class="overview-kpi__delta">vs fechamento anterior</span>
+        </article>
+        <article class="overview-kpi">
+          <span class="overview-kpi__label">Ritmo diário</span>
+          <strong id="projection-avg-revenue-card" class="overview-kpi__value">R$ 0,00</strong>
+          <span id="projection-avg-revenue-delta" class="overview-kpi__delta">vs mês anterior</span>
+        </article>
+        <article class="overview-kpi">
+          <span class="overview-kpi__label">Pedidos</span>
+          <strong id="projection-orders-card" class="overview-kpi__value">0</strong>
+          <span id="projection-orders-delta" class="overview-kpi__delta">vs mesmo período anterior</span>
+        </article>
+      </section>
+
+      <section class="overview-mini-grid overview-mini-grid--3">
+        <article class="overview-mini-metric">
+          <span>Média de pedidos</span>
+          <strong id="projection-avg-orders-card">0</strong>
+          <small id="projection-avg-orders-delta">vs mês anterior</small>
+        </article>
+        <article class="overview-mini-metric">
+          <span>Ticket médio</span>
+          <strong id="projection-ticket-side">R$ 0,00</strong>
+          <small id="projection-ticket-delta">vs período anterior</small>
+        </article>
+        <article class="overview-mini-metric">
+          <span>Unidades vendidas</span>
+          <strong id="projection-units">0</strong>
+          <small>Acumulado do período</small>
+        </article>
+      </section>
+
+      <section class="overview-surface projection-evolution">
+        <div class="overview-section-head">
+          <div>
+            <span class="overview-section-kicker">Evolução</span>
+            <h2>Ritmo do mês</h2>
+            <p>Receita diária e comparação com o mesmo período do mês anterior.</p>
+          </div>
+          <label class="overview-toggle projection-compare-toggle" for="projection-compare-prev-month-same-day">
+            <input id="projection-compare-prev-month-same-day" type="checkbox" checked />
+            <span>Comparar mês anterior</span>
+          </label>
+        </div>
+
+        <div class="projection-progress" aria-label="Progresso do mês">
+          <div class="projection-progress__bar"><div id="projection-progress-fill" class="projection-progress__fill"></div></div>
+        </div>
+
+        <div class="projection-chart-wrap">
+          <div id="projection-sparkline" class="projection-sparkline"></div>
+          <div id="projection-spark-empty" class="overview-empty projection-sparkline__empty">Sem dados suficientes para exibir o gráfico.</div>
+        </div>
+
+        <details class="overview-details projection-formula">
+          <summary>Como calculamos a projeção</summary>
+          <p>Usamos a média diária acumulada no período e projetamos esse ritmo para os dias do mês.</p>
+          <small id="projection-formula-hint"></small>
+        </details>
+      </section>
+
+      <section class="overview-surface projection-composition">
+        <div class="overview-section-head">
+          <div>
+            <span class="overview-section-kicker">Composição</span>
+            <h2>Receita e publicidade</h2>
+            <p>Quanto da receita do período veio de Product Ads e quanto ficou fora da atribuição de mídia.</p>
+          </div>
+          <a class="overview-link" href="/ml/publicidade/product-ads">Ver Product Ads →</a>
+        </div>
+
+        <div class="projection-ads-grid projection-ads-grid--modern">
+          <article class="projection-ads-metric">
+            <span>Orgânico estimado</span>
+            <strong id="projection-organic">R$ 0,00</strong>
+            <small>Receita sem atribuição Ads</small>
+          </article>
+          <article class="projection-ads-metric">
+            <span>Receita atribuída Ads</span>
+            <strong id="projection-ads">R$ 0,00</strong>
+            <small id="projection-ads-revenue">R$ 0,00</small>
+          </article>
+          <article class="projection-ads-metric">
+            <span>Investimento Ads</span>
+            <strong id="projection-ads-spend">R$ 0,00</strong>
+            <small>TACOS <b id="projection-tacos">-</b></small>
+          </article>
+          <article class="projection-ads-metric">
+            <span>ROAS</span>
+            <strong id="projection-roas">-</strong>
+            <small>Eficiência da mídia no período</small>
+          </article>
+        </div>
+        <p id="projection-ads-summary" class="projection-ads-summary"></p>
+      </section>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+{
+  "name": "davantti-ml",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node start.js",
+    "dev": "nodemon start.js",
+    "dev:raw": "nodemon index.js",
+    "migrate": "node db/migrate.js",
+    "worker": "node worker.js",
+    "test:jobs-panel": "node --test tests/jobs-panel-adapters.test.js tests/job-contract.test.js tests/job-review-helper.test.js tests/filtro-job-reconciliation.test.js tests/filtro-promo-snapshot.test.js",
+    "test:anuncio-cadastro": "node --test tests/anuncio-cadastro.test.js tests/anuncio-cadastro-migrations.test.js tests/anuncio-cadastro-shared-regressions.test.js",
+    "tokens:encrypt": "node scripts/encrypt-existing-tokens.js",
+    "hub:ml-accounts:backfill": "node scripts/backfill-hub-ml-accounts.js",
+    "hub:ml-accounts:backfill:direct": "node scripts/backfill-hub-ml-accounts-direct.js",
+    "ranking:backfill": "node scripts/backfill-ranking-snapshots.js",
+    "ranking:monthly": "node scripts/run-ranking-monthly-snapshots.js",
+    "reputation:daily": "node scripts/run-reputation-daily-snapshots.js",
+    "sku-price-history:weekly": "node scripts/run-sku-price-history-weekly.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "axios": "^1.11.0",
+    "bcryptjs": "^3.0.3",
+    "bull": "^4.16.5",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
+    "dotenv": "^17.0.0",
+    "exceljs": "^4.4.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "ioredis": "^5.7.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.0.1",
+    "node-fetch": "^2.7.0",
+    "pg": "^8.17.1",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.5",
+    "zod-to-json-schema": "^3.25.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "manifest_version": 3,
+  "name": "DACHBYTE Seller Cloner",
+  "short_name": "DACHBYTE Cloner",
+  "version": "0.2.40",
+  "description": "Analise anuncios do Mercado Livre e Shopee em tempo real e envie rascunhos para a DACHBYTE Seller.",
+  "action": {
+    "default_title": "DACHBYTE Seller Cloner",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.mercadolivre.com.br/*",
+    "https://www.mercadolivre.com.br/*",
+    "https://*.mercadolibre.com/*",
+    "https://*.shopee.com.br/*",
+    "https://shopee.com.br/*",
+    "https://www.davanttisuite.com.br/*",
+    "https://davanttisuite.com.br/*",
+    "https://davanttisuite-staging.onrender.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.mercadolivre.com.br/*",
+        "https://www.mercadolivre.com.br/*",
+        "https://*.mercadolibre.com/*",
+        "https://*.shopee.com.br/*",
+        "https://shopee.com.br/*"
+      ],
+      "js": [
+        "content/davantti-network-hook.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://*.mercadolivre.com.br/*",
+        "https://www.mercadolivre.com.br/*",
+        "https://*.mercadolibre.com/*",
+        "https://*.shopee.com.br/*",
+        "https://shopee.com.br/*"
+      ],
+      "js": [
+        "content/davantti-content.js"
+      ],
+      "css": [
+        "content/davantti-panel.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/icone.png"
+      ],
+      "matches": [
+        "https://*.mercadolivre.com.br/*",
+        "https://www.mercadolivre.com.br/*",
+        "https://*.mercadolibre.com/*",
+        "https://*.shopee.com.br/*",
+        "https://shopee.com.br/*"
+      ]
+    }
+  ]
+}

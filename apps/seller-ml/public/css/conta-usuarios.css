@@ -1,0 +1,985 @@
+.account-users-page{
+  display:grid;
+  gap:18px;
+}
+
+.account-users-hero,
+.au-toolbar,
+.au-sector-manager,
+.au-list-shell{
+  width:min(100%, 1440px);
+  margin:0 auto;
+  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,255,255,.94));
+  border:1px solid var(--ml-border);
+  border-radius:22px;
+  box-shadow:var(--ml-shadow-soft);
+}
+
+.account-users-hero{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  padding:30px;
+  background:
+    radial-gradient(circle at 94% 12%, rgba(52,131,250,.14), transparent 24%),
+    linear-gradient(135deg, rgba(255,230,0,.18), rgba(255,255,255,.92) 42%, rgba(52,131,250,.08));
+}
+
+.au-hero-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.account-users-kicker{
+  display:inline-flex;
+  width:max-content;
+  color:#2563eb;
+  font-size:.74rem;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.account-users-hero h1{
+  margin:8px 0 8px;
+  font-size:clamp(1.8rem, 3vw, 2.7rem);
+}
+
+.account-users-hero p,
+.au-note,
+.au-list-head p,
+.au-edit-block p,
+.au-dialog-head p{
+  margin:0;
+  color:#64748b;
+  line-height:1.55;
+}
+
+.au-summary{
+  width:min(100%, 1440px);
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:14px;
+}
+
+.au-stat{
+  padding:20px;
+  border:1px solid var(--ml-border);
+  border-radius:18px;
+  background:#fff;
+  box-shadow:var(--ml-shadow-soft);
+}
+
+.au-stat span{
+  display:block;
+  color:#8190a7;
+  font-size:.78rem;
+  font-weight:900;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+
+.au-stat strong{
+  display:block;
+  margin-top:10px;
+  color:#334155;
+  font-size:2rem;
+  line-height:1;
+}
+
+.au-tabs{
+  width:min(100%, 1440px);
+  margin:0 auto;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:6px;
+  border:1px solid var(--ml-border);
+  border-radius:18px;
+  background:rgba(255,255,255,.72);
+  box-shadow:var(--ml-shadow-soft);
+}
+
+.au-tab{
+  min-height:42px;
+  padding:0 18px;
+  border:1px solid transparent;
+  border-radius:14px;
+  background:transparent;
+  color:#64748b;
+  cursor:pointer;
+  font-weight:900;
+}
+
+.au-tab.is-active{
+  background:#fff;
+  border-color:#d8e2ef;
+  color:#172033;
+  box-shadow:0 10px 24px rgba(15,23,42,.07);
+}
+
+.au-tab-panel{
+  width:min(100%, 1440px);
+  margin:0 auto;
+  display:grid;
+  gap:18px;
+}
+
+.au-tab-panel[hidden]{
+  display:none;
+}
+
+.au-toolbar{
+  display:flex;
+  align-items:end;
+  justify-content:space-between;
+  gap:18px;
+  padding:18px 20px;
+}
+
+.au-search{
+  display:grid;
+  gap:7px;
+  width:min(100%, 520px);
+}
+
+.au-search span{
+  color:#8190a7;
+  font-size:.76rem;
+  font-weight:900;
+  letter-spacing:.04em;
+}
+
+.au-search input,
+.au-input{
+  width:100%;
+  min-height:44px;
+  border:1px solid #d8e2ef;
+  border-radius:14px;
+  background:#fff;
+  color:#334155;
+  padding:0 14px;
+  outline:none;
+  transition:border-color .16s ease, box-shadow .16s ease;
+}
+
+.au-search input:focus,
+.au-input:focus{
+  border-color:#3483fa;
+  box-shadow:0 0 0 4px rgba(52,131,250,.12);
+}
+
+.au-list-shell{
+  overflow:hidden;
+}
+
+.au-sector-manager{
+  display:grid;
+  grid-template-columns:minmax(240px, 1fr) minmax(260px, 420px);
+  gap:16px;
+  padding:20px;
+}
+
+.au-sector-manager h2{
+  margin:6px 0 6px;
+  color:#172033;
+  letter-spacing:-.03em;
+}
+
+.au-sector-manager p{
+  margin:0;
+  color:#64748b;
+  line-height:1.5;
+}
+
+.au-sector-form{
+  display:flex;
+  align-items:end;
+  gap:10px;
+}
+
+.au-sector-form input{
+  width:100%;
+  min-height:44px;
+  border:1px solid #d8e2ef;
+  border-radius:14px;
+  background:#fff;
+  padding:0 14px;
+  outline:none;
+}
+
+.au-sector-list{
+  grid-column:1 / -1;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.au-sector-table{
+  min-width:720px;
+}
+
+.au-sector-table code{
+  color:#475569;
+  font-weight:800;
+}
+
+.au-list-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:20px 22px;
+  border-bottom:1px solid var(--ml-border);
+}
+
+.au-list-head h2,
+.au-edit-block h3,
+.au-dialog-head h2{
+  margin:0 0 5px;
+  color:#172033;
+  letter-spacing:-.03em;
+}
+
+.au-table-wrap{
+  overflow:auto;
+}
+
+.au-table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:980px;
+}
+
+.au-table th{
+  background:#f8fafc;
+  color:#71819a;
+  font-size:.72rem;
+  font-weight:900;
+  letter-spacing:.06em;
+  text-align:left;
+  text-transform:uppercase;
+  padding:14px 18px;
+  border-bottom:1px solid #e2e8f0;
+}
+
+.au-table td{
+  padding:16px 18px;
+  border-bottom:1px solid #edf2f7;
+  vertical-align:middle;
+}
+
+.au-user strong{
+  display:block;
+  color:#0f172a;
+}
+
+.au-user span{
+  color:#64748b;
+  font-size:.88rem;
+}
+
+.au-pill,
+.au-chip{
+  display:inline-flex;
+  align-items:center;
+  width:max-content;
+  max-width:100%;
+  border-radius:999px;
+  font-weight:900;
+}
+
+.au-pill{
+  min-height:28px;
+  padding:5px 10px;
+  border:1px solid #dbe7ff;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-size:.76rem;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+
+.au-pill--admin{
+  border-color:#d9ccff;
+  background:#efe7ff;
+  color:#6d28d9;
+}
+
+.au-pill--ok{
+  border-color:#bbf7d0;
+  background:#ecfdf3;
+  color:#15803d;
+}
+
+.au-pill--muted{
+  border-color:#e2e8f0;
+  background:#f8fafc;
+  color:#64748b;
+}
+
+.au-pill--danger{
+  border-color:#fecaca;
+  background:#fff0ef;
+  color:#b91c1c;
+}
+
+.au-chip-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.au-chip{
+  min-height:26px;
+  padding:4px 9px;
+  border:1px solid #e2e8f0;
+  background:#fff;
+  color:#475569;
+  font-size:.76rem;
+}
+
+.au-btn,
+.au-icon-btn{
+  border:1px solid transparent;
+  cursor:pointer;
+  font-weight:900;
+  transition:transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+}
+
+.au-btn{
+  min-height:44px;
+  padding:0 18px;
+  border-radius:14px;
+}
+
+.au-btn:hover,
+.au-icon-btn:hover{
+  transform:translateY(-1px);
+}
+
+.au-btn-primary{
+  background:#3483fa;
+  color:#fff;
+  box-shadow:0 12px 24px rgba(52,131,250,.22);
+}
+
+.au-btn-secondary{
+  background:#fff;
+  border-color:#d8e2ef;
+  color:#334155;
+}
+
+.au-btn-danger{
+  background:#fff;
+  border-color:#fecaca;
+  color:#b91c1c;
+}
+
+.au-row-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.au-btn:disabled{
+  cursor:not-allowed;
+  opacity:.58;
+  transform:none;
+  box-shadow:none;
+}
+
+.au-icon-btn{
+  width:38px;
+  height:38px;
+  border-radius:12px;
+  background:#fff;
+  border-color:#d8e2ef;
+  color:#334155;
+}
+
+.au-empty{
+  color:#64748b;
+  text-align:center;
+  padding:36px !important;
+}
+
+.au-dialog{
+  width:min(100% - 28px, 960px);
+  border:0;
+  border-radius:24px;
+  padding:0;
+  background:transparent;
+}
+
+.au-dialog--compact{
+  width:min(100% - 28px, 760px);
+}
+
+.au-dialog::backdrop{
+  background:rgba(15,23,42,.46);
+  backdrop-filter:blur(4px);
+}
+
+.au-dialog-card{
+  background:#fff;
+  border:1px solid #d8e2ef;
+  border-radius:24px;
+  overflow:hidden;
+  box-shadow:0 30px 80px rgba(15,23,42,.22);
+}
+
+.au-dialog-head,
+.au-dialog-actions{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:22px 24px;
+}
+
+.au-dialog-head{
+  border-bottom:1px solid #e2e8f0;
+}
+
+.au-dialog-actions{
+  border-top:1px solid #e2e8f0;
+  justify-content:flex-end;
+}
+
+.au-dialog-body{
+  display:grid;
+  gap:18px;
+  padding:22px 24px;
+  max-height:min(68vh, 720px);
+  overflow:auto;
+}
+
+.au-edit-block{
+  display:grid;
+  grid-template-columns:minmax(180px, 260px) minmax(0, 1fr);
+  gap:18px;
+  align-items:start;
+}
+
+.au-form-stack{
+  display:grid;
+  gap:12px;
+}
+
+.au-field{
+  display:grid;
+  gap:7px;
+}
+
+.au-field span{
+  color:#8190a7;
+  font-size:.76rem;
+  font-weight:900;
+  letter-spacing:.04em;
+}
+
+.au-edit-block[hidden],
+.au-check-grid[hidden],
+.au-integration-guide[hidden],
+[hidden]{
+  display:none !important;
+}
+
+.au-check-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.au-check-grid--stacked{
+  display:grid;
+  grid-template-columns:1fr;
+}
+
+.au-check,
+.au-module-row{
+  border:1px solid #d8e2ef;
+  background:#fff;
+  border-radius:14px;
+}
+
+.au-check{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:40px;
+  padding:8px 12px;
+  color:#334155;
+  font-weight:800;
+}
+
+.au-modules{
+  display:grid;
+  gap:12px;
+}
+
+.au-module-group{
+  display:grid;
+  gap:8px;
+}
+
+.au-module-group h4{
+  margin:0;
+  color:#64748b;
+  font-size:.78rem;
+  font-weight:900;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+
+.au-module-row{
+  display:grid;
+  grid-template-columns:minmax(180px, 1fr) auto auto;
+  align-items:center;
+  gap:14px;
+  padding:12px;
+}
+
+.au-module-row strong{
+  display:block;
+  color:#172033;
+}
+
+.au-module-row small{
+  display:block;
+  color:#64748b;
+  margin-top:2px;
+}
+
+.au-module-toggle{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:#334155;
+  font-size:.86rem;
+  font-weight:800;
+}
+
+.au-toast{
+  position:fixed;
+  right:20px;
+  bottom:20px;
+  z-index:60;
+  width:min(92vw, 360px);
+  padding:14px 16px;
+  border-radius:16px;
+  background:#0f172a;
+  color:#fff;
+  box-shadow:0 18px 40px rgba(15,23,42,.22);
+}
+
+.au-toast--ok{
+  background:#15803d;
+}
+
+.au-toast--error{
+  background:#b91c1c;
+}
+
+.au-integrations-grid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:16px;
+  padding:20px;
+}
+
+.au-integration-card{
+  display:grid;
+  gap:14px;
+  align-content:start;
+  min-height:260px;
+  padding:18px;
+  border:1px solid #d8e2ef;
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 12px 28px rgba(15,23,42,.06);
+}
+
+.au-integration-card__head{
+  display:flex;
+  justify-content:space-between;
+  gap:14px;
+  align-items:flex-start;
+}
+
+.au-integration-card h3{
+  margin:6px 0 0;
+  color:#172033;
+  font-size:1.25rem;
+  letter-spacing:-.03em;
+}
+
+.au-integration-card p{
+  margin:0;
+  color:#64748b;
+  line-height:1.45;
+}
+
+.au-integration-meta{
+  display:grid;
+  gap:6px;
+  color:#64748b;
+  font-size:.82rem;
+}
+
+.au-integration-meta b{
+  color:#334155;
+}
+
+.au-integration-url,
+.au-webhook-box code{
+  display:block;
+  padding:10px 12px;
+  border:1px solid #e2e8f0;
+  border-radius:12px;
+  background:#f8fafc;
+  color:#475569;
+  overflow:auto;
+  white-space:nowrap;
+}
+
+.au-inline-error{
+  padding:10px 12px;
+  border:1px solid #fecaca;
+  border-radius:12px;
+  background:#fff0ef;
+  color:#b91c1c;
+  font-size:.84rem;
+  line-height:1.4;
+}
+
+.au-webhook-box{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  gap:10px;
+  align-items:center;
+}
+
+.au-sector-trigger-box{
+  display:grid;
+  gap:8px;
+  padding:12px;
+  border:1px solid #d8e2ef;
+  border-radius:14px;
+  background:#f8fbff;
+}
+
+.au-sector-trigger-box strong{
+  color:#172033;
+  font-size:.9rem;
+}
+
+.au-sector-trigger-box p{
+  margin:0;
+  color:#64748b;
+  font-size:.82rem;
+  line-height:1.4;
+}
+
+.au-sector-trigger-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.au-check--pill{
+  min-height:auto;
+  padding:8px 10px;
+  border-radius:999px;
+  background:#fff;
+}
+
+.au-integration-guide{
+  display:grid;
+  gap:12px;
+}
+
+.au-integration-guide article{
+  display:grid;
+  gap:8px;
+  padding:14px;
+  border:1px solid #d8e2ef;
+  border-radius:16px;
+  background:#fff;
+}
+
+.au-integration-guide strong{
+  color:#172033;
+  font-size:.95rem;
+}
+
+.au-integration-guide p,
+.au-integration-guide small{
+  margin:0;
+  color:#64748b;
+  line-height:1.45;
+}
+
+.au-integration-guide code,
+.au-integration-guide pre{
+  display:block;
+  margin:0;
+  padding:10px 12px;
+  border:1px solid #e2e8f0;
+  border-radius:12px;
+  background:#f8fafc;
+  color:#334155;
+  overflow:auto;
+}
+
+.au-integration-guide pre{
+  max-height:280px;
+  font-size:.8rem;
+  line-height:1.45;
+  white-space:pre;
+}
+
+@media (max-width: 900px){
+  .account-users-hero,
+  .au-toolbar,
+  .au-sector-manager,
+  .au-list-head,
+  .au-dialog-head,
+  .au-dialog-actions{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .au-summary{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .au-integrations-grid{
+    grid-template-columns:1fr;
+  }
+
+  .au-webhook-box{
+    grid-template-columns:1fr;
+  }
+
+  .au-edit-block,
+  .au-module-row{
+    grid-template-columns:1fr;
+  }
+
+  .au-sector-form{
+    align-items:stretch;
+    flex-direction:column;
+  }
+}
+
+@media (max-width: 560px){
+  .au-summary{
+    grid-template-columns:1fr;
+  }
+}
+
+/* Final shell alignment for Account / Users & Integrations */
+body.account-app{
+  font-family:"Inter","Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+  background:transparent;
+}
+
+body.account-app .account-users-page{
+  display:grid;
+  gap:20px;
+  padding:18px 0 28px;
+}
+
+body.account-app .account-users-hero,
+body.account-app .au-toolbar,
+body.account-app .au-sector-manager,
+body.account-app .au-list-shell,
+body.account-app .au-stat,
+body.account-app .au-tabs,
+body.account-app .au-dialog-card{
+  backdrop-filter:blur(18px);
+}
+
+body.account-app .account-users-hero,
+body.account-app .au-toolbar,
+body.account-app .au-sector-manager,
+body.account-app .au-list-shell{
+  border-color:rgba(88,123,214,.14);
+  box-shadow:0 18px 44px rgba(15,23,42,.06);
+}
+
+body.account-app .account-users-hero{
+  border-radius:28px;
+  padding:28px;
+  background:
+    radial-gradient(circle at top right, rgba(52,131,250,.14), transparent 26%),
+    linear-gradient(135deg, rgba(255,230,0,.16), rgba(255,255,255,.94) 42%, rgba(52,131,250,.08));
+}
+
+body.account-app .account-users-kicker,
+body.account-app .au-search span,
+body.account-app .au-stat span,
+body.account-app .au-table th{
+  letter-spacing:.08em;
+}
+
+body.account-app .account-users-hero h1,
+body.account-app .au-list-head h2,
+body.account-app .au-sector-manager h2,
+body.account-app .au-edit-block h3,
+body.account-app .au-dialog-head h2,
+body.account-app .au-integration-card h3{
+  letter-spacing:-.03em;
+}
+
+body.account-app .au-stat{
+  border-radius:22px;
+  border-color:rgba(148,163,184,.18);
+  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,250,255,.96));
+}
+
+body.account-app .au-tabs{
+  border-radius:18px;
+  background:rgba(255,255,255,.76);
+}
+
+body.account-app .au-tab{
+  border-radius:14px;
+}
+
+body.account-app .au-tab.is-active{
+  box-shadow:0 12px 28px rgba(15,23,42,.07);
+}
+
+body.account-app .au-search input,
+body.account-app .au-input,
+body.account-app .au-sector-form input,
+body.account-app .au-btn{
+  min-height:44px;
+  border-radius:14px;
+}
+
+body.account-app .au-search input,
+body.account-app .au-input,
+body.account-app .au-sector-form input,
+body.account-app .au-integration-url,
+body.account-app .au-webhook-box code,
+body.account-app .au-integration-guide article,
+body.account-app .au-integration-guide code,
+body.account-app .au-integration-guide pre,
+body.account-app .au-sector-trigger-box{
+  border-color:rgba(148,163,184,.2);
+}
+
+body.account-app .au-table th{
+  background:linear-gradient(180deg, #f8fbff 0%, #f3f7ff 100%);
+  color:#7b8cad;
+}
+
+body.account-app .au-table td{
+  color:#24314d;
+  border-bottom-color:rgba(148,163,184,.12);
+}
+
+body.account-app .au-table tbody tr:hover td{
+  background:rgba(241,246,255,.72);
+}
+
+body.account-app .au-dialog-card{
+  border:1px solid rgba(88,123,214,.14);
+  border-radius:28px;
+  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,250,255,.96));
+  box-shadow:0 22px 52px rgba(15,23,42,.16);
+}
+
+body.theme-dark.account-app{
+  color:#dbe4ff;
+}
+
+body.theme-dark.account-app .account-users-hero,
+body.theme-dark.account-app .au-toolbar,
+body.theme-dark.account-app .au-sector-manager,
+body.theme-dark.account-app .au-list-shell,
+body.theme-dark.account-app .au-stat,
+body.theme-dark.account-app .au-tabs,
+body.theme-dark.account-app .au-dialog-card,
+body.theme-dark.account-app .au-integration-card,
+body.theme-dark.account-app .au-sector-trigger-box,
+body.theme-dark.account-app .au-integration-guide article,
+body.theme-dark.account-app .au-integration-guide code,
+body.theme-dark.account-app .au-integration-guide pre,
+body.theme-dark.account-app .au-integration-url,
+body.theme-dark.account-app .au-webhook-box code{
+  background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(18,27,48,.98));
+  border-color:rgba(86,107,157,.34);
+  box-shadow:0 22px 52px rgba(2,6,23,.32);
+}
+
+body.theme-dark.account-app .au-search input,
+body.theme-dark.account-app .au-input,
+body.theme-dark.account-app .au-sector-form input,
+body.theme-dark.account-app .au-btn,
+body.theme-dark.account-app .au-tab{
+  background:rgba(20,30,52,.95);
+  border-color:rgba(86,107,157,.32);
+  color:#dbe4ff;
+}
+
+body.theme-dark.account-app .account-users-hero h1,
+body.theme-dark.account-app .au-stat strong,
+body.theme-dark.account-app .au-list-head h2,
+body.theme-dark.account-app .au-sector-manager h2,
+body.theme-dark.account-app .au-edit-block h3,
+body.theme-dark.account-app .au-dialog-head h2,
+body.theme-dark.account-app .au-user strong,
+body.theme-dark.account-app .au-integration-card h3,
+body.theme-dark.account-app .au-integration-meta b,
+body.theme-dark.account-app .au-sector-trigger-box strong,
+body.theme-dark.account-app .au-table td{
+  color:#f8fbff;
+}
+
+body.theme-dark.account-app .account-users-kicker,
+body.theme-dark.account-app .account-users-hero p,
+body.theme-dark.account-app .au-note,
+body.theme-dark.account-app .au-list-head p,
+body.theme-dark.account-app .au-edit-block p,
+body.theme-dark.account-app .au-dialog-head p,
+body.theme-dark.account-app .au-stat span,
+body.theme-dark.account-app .au-search span,
+body.theme-dark.account-app .au-user span,
+body.theme-dark.account-app .au-table th,
+body.theme-dark.account-app .au-sector-manager p,
+body.theme-dark.account-app .au-integration-meta,
+body.theme-dark.account-app .au-inline-error,
+body.theme-dark.account-app .au-sector-trigger-box p,
+body.theme-dark.account-app .au-integration-guide p,
+body.theme-dark.account-app .au-integration-guide small{
+  color:#9fb0d9;
+}
+
+body.theme-dark.account-app .au-table th{
+  background:linear-gradient(180deg, rgba(31,41,63,.98), rgba(27,36,56,.98));
+  border-bottom-color:rgba(86,107,157,.28);
+}
+
+body.theme-dark.account-app .au-table td{
+  border-bottom-color:rgba(86,107,157,.16);
+}
+
+body.theme-dark.account-app .au-table tbody tr:hover td{
+  background:rgba(30,41,59,.58);
+}
+
+body.theme-dark.account-app .au-pill--muted{
+  border-color:rgba(86,107,157,.34);
+  background:rgba(51,65,85,.72);
+  color:#cbd5e1;
+}

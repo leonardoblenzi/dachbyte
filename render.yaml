@@ -1,0 +1,138 @@
+services:
+  - type: web
+    name: davanttiSuite
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install
+    preDeployCommand: npm run suite:migrate:deploy
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - apps/gateway/server.js
+        - package.json
+        - package-lock.json
+        - lib/**
+        - routes/**
+        - public/support/**
+        - apps/seller-ml/**
+        - apps/seller-shopee/**
+        - apps/seller-madeira/**
+        - apps/seller-tracking/**
+        - apps/seller-leader/**
+        - images/**
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: DATABASE_URL
+        sync: false
+      - key: SHOPEE_DATABASE_URL
+        sync: false
+      - key: AVANTRACKING_DATABASE_URL
+        sync: false
+      - key: VOLT_CORP_PUBLIC_URL
+        value: https://volt-corp.onrender.com
+
+  - type: worker
+    name: davanttiSuite-worker
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm run worker:ml
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - package.json
+        - package-lock.json
+        - lib/**
+        - apps/seller-ml/**
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  - type: web
+    name: volt-corp
+    runtime: node
+    plan: starter
+    region: oregon
+    rootDir: apps/business
+    buildCommand: python3 -m venv .venv-voltchat && .venv-voltchat/bin/pip install -r chat/backend/requirements.txt && npm install --workspaces=false --package-lock=false --no-save && npm run build
+    preDeployCommand: npm run migrate:all
+    startCommand: npm start
+    healthCheckPath: /business/health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - apps/business/**
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VOLT_CORE_DATABASE_URL
+        sync: false
+      - key: VOLT_CORE_DIRECT_DATABASE_URL
+        sync: false
+      - key: VOLT_CORE_JWT_SECRET
+        sync: false
+      - key: VOLT_CORE_BOOTSTRAP_MASTER_ENABLED
+        value: "true"
+      - key: VOLT_CORE_BOOTSTRAP_MASTER_EMAIL
+        sync: false
+      - key: VOLT_CORE_BOOTSTRAP_MASTER_PASSWORD
+        sync: false
+      - key: VOLT_STOCK_DATABASE_URL
+        sync: false
+      - key: DB_VOLTPRICE
+        sync: false
+      - key: DB_VOLTPRICE_DIRECT
+        sync: false
+      - key: VOLT_PRICE_PUBLIC_BASE_URL
+        sync: false
+      - key: VOLT_PRICE_ENCRYPTION_KEY
+        sync: false
+      - key: VOLT_PRICE_BOOTSTRAP_MASTER_ENABLED
+        value: "false"
+      - key: VOLT_PRICE_BOOTSTRAP_MASTER_EMAIL
+        sync: false
+      - key: VOLT_PRICE_BOOTSTRAP_MASTER_PASSWORD
+        sync: false
+      - key: VOLT_PRICE_BOOTSTRAP_MASTER_TOTP_SECRET
+        sync: false
+      - key: VOLT_PRICE_TRAY_CONSUMER_KEY
+        sync: false
+      - key: VOLT_PRICE_TRAY_CONSUMER_SECRET
+        sync: false
+      - key: VOLT_PRICE_MELI_CLIENT_ID
+        sync: false
+      - key: VOLT_PRICE_MELI_CLIENT_SECRET
+        sync: false
+      - key: VOLT_PRICE_SHOPEE_PARTNER_ID
+        sync: false
+      - key: VOLT_PRICE_SHOPEE_PARTNER_KEY
+        sync: false
+      - key: VOLT_STOCK_JWT_SECRET
+        sync: false
+      - key: VOLT_STOCK_JWT_REFRESH_SECRET
+        sync: false
+      - key: VOLT_STOCK_QR_HMAC_SECRET
+        sync: false
+      - key: VOLT_CHAT_DATABASE_URL
+        sync: false
+      - key: VOLT_CHAT_SECRET_KEY
+        sync: false
+      - key: VOLT_CHAT_REQUIRED
+        value: "true"
+      - key: DACHBYTE_CHAT_API_URL
+        sync: false
+      - key: VOLT_CHAT_PUBLIC_API_URL
+        value: /chat-api
+      - key: VOLT_CHAT_DESKTOP_DOWNLOAD_URL
+        sync: false
+      - key: VOLT_CHAT_DESKTOP_PACKAGE_URL
+        sync: false
+      - key: AUTO_MIGRATE_DB
+        value: "true"

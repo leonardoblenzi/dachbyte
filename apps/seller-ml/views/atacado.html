@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <title>Atacado | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/promo-jobs.css?v=2026081101" />
+  <link rel="stylesheet" href="/ml/css/atacado.css?v=20260618" />
+  <link rel="stylesheet" href="/ml/css/operacoes.css?v=2026080702" />
+  <script src="/ml/js/ml-base.js?v=10"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="atacado-app ops-app">
+  <main class="page-wrap atacado-page ops-page">
+    <section class="tab-page active">
+      <div class="container atacado-shell">
+        <header class="hero ops-hero">
+          <div class="ops-hero__content"><div class="hero-eyebrow">Operações</div><h1>Atacado</h1><p class="subtitle">Carregue os anúncios, configure as faixas e aplique preços de atacado com revisão antes do envio ao Mercado Livre.</p></div>
+          <div class="hero-actions ops-hero-actions"><button id="btnExportar" class="btn-secondary" disabled>Exportar CSV</button><button id="btnLimpar" class="btn-secondary">Limpar lista</button></div>
+        </header>
+
+        <section class="panel load-modes-panel">
+          <div class="panel-head"><div><h2>1. Escolha a origem dos anúncios</h2><p class="small-muted">Use a conta inteira ou trabalhe somente com MLBs específicos.</p></div><span id="loadModeBadge" class="badge badge-neutral">Sem carga</span></div>
+          <div class="load-modes-grid">
+            <section class="load-mode-card load-mode-card--primary">
+              <div class="load-mode-card__head"><div><span class="load-mode-card__eyebrow">Conta</span><h3>Anúncios ativos</h3></div><span class="badge badge-safe">Completo</span></div>
+              <p class="small-muted">Carrega os anúncios ativos da conta para filtrar, revisar e aplicar em lote.</p>
+              <button id="btnCarregar" class="btn-primary">Carregar ativos da conta</button>
+            </section>
+            <section class="load-mode-card">
+              <div class="load-mode-card__head"><div><span class="load-mode-card__eyebrow">Seleção</span><h3>MLBs específicos</h3></div><span class="badge badge-accent">Direto</span></div>
+              <label class="specific-ids-field">Lista de MLBs<textarea id="specificIdsInput" class="bulk-ids-input" rows="4" placeholder="MLB123456789, MLB987654321"></textarea></label>
+              <div class="specific-ids-actions"><button id="btnCarregarEspecificos" class="btn-secondary">Carregar lista</button></div>
+              <div id="specificIdsStatus" class="small-muted">A tabela será preenchida somente com os MLBs informados.</div>
+            </section>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><h2>2. Configuração do atacado</h2><p class="small-muted">Defina a faixa principal e, se necessário, adicione até quatro faixas extras.</p></div><span class="badge badge-accent">Aplicação</span></div>
+          <div class="form-grid">
+            <label>Desconto da faixa 1 (%)<input id="extraDiscountPercent" type="number" min="0.1" step="0.1" value="1" /></label>
+            <label>Quantidade mínima da faixa 1<input id="minPurchaseUnit" type="number" min="2" step="1" value="2" /></label>
+            <label>Número de faixas<select id="extraTierCount"><option value="0" selected>1 faixa</option><option value="1">2 faixas</option><option value="2">3 faixas</option><option value="3">4 faixas</option><option value="4">5 faixas</option></select></label>
+          </div>
+          <div class="tier-config">
+            <div class="tier-config__head"><strong>Faixas adicionais</strong><span id="tierSummary" class="small-muted">Cada faixa usa seu próprio desconto sobre o preço vigente atual.</span></div>
+            <div id="extraTierRows" class="tier-rows">
+              <label class="tier-row is-hidden" data-tier-row="2"><span>Qtd. mín. faixa 2</span><input data-tier-min="2" type="number" min="3" step="1" value="3" /><span>Desconto faixa 2 (%)</span><input data-tier-discount="2" type="number" min="0.1" step="0.1" value="2" /></label>
+              <label class="tier-row is-hidden" data-tier-row="3"><span>Qtd. mín. faixa 3</span><input data-tier-min="3" type="number" min="4" step="1" value="4" /><span>Desconto faixa 3 (%)</span><input data-tier-discount="3" type="number" min="0.1" step="0.1" value="3" /></label>
+              <label class="tier-row is-hidden" data-tier-row="4"><span>Qtd. mín. faixa 4</span><input data-tier-min="4" type="number" min="5" step="1" value="5" /><span>Desconto faixa 4 (%)</span><input data-tier-discount="4" type="number" min="0.1" step="0.1" value="4" /></label>
+              <label class="tier-row is-hidden" data-tier-row="5"><span>Qtd. mín. faixa 5</span><input data-tier-min="5" type="number" min="6" step="1" value="6" /><span>Desconto faixa 5 (%)</span><input data-tier-discount="5" type="number" min="0.1" step="0.1" value="5" /></label>
+            </div>
+          </div>
+          <div class="checks"><label><input id="promoOnly" type="checkbox" checked /> Somente anúncios em promoção</label><label><input id="dryRun" type="checkbox" /> Simular sem aplicar</label></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><h2>3. Revisar anúncios</h2><p class="small-muted">Filtre, selecione e aplique somente depois de conferir o preço vigente e o atacado sugerido.</p></div></div>
+          <div class="toolbar">
+            <input id="searchInput" class="search-input" type="text" placeholder="Buscar por MLB, título ou SKU" />
+            <button id="btnSelectFiltered" class="btn-secondary" disabled>Selecionar filtrados</button>
+            <button id="btnApplySelected" class="btn-warning" disabled>Aplicar selecionados</button>
+            <button id="btnApplyFiltered" class="btn-primary" disabled>Aplicar todos filtrados</button>
+          </div>
+          <div class="summary-row"><div class="stat-card"><strong id="statLoaded">0</strong><span>carregados</span></div><div class="stat-card"><strong id="statPromo">0</strong><span>com promoção</span></div><div class="stat-card"><strong id="statFiltered">0</strong><span>filtrados</span></div><div class="stat-card"><strong id="statSelected">0</strong><span>selecionados</span></div></div>
+          <div id="loadStatus" class="load-status">Nenhum anúncio carregado ainda.</div>
+        </section>
+
+        <section class="panel panel-table">
+          <div class="table-wrap"><table class="data-table"><thead><tr><th><input id="checkPage" type="checkbox" /></th><th>MLB</th><th>Título</th><th>SKU</th><th>Estoque</th><th>Preço atual</th><th>Preço vigente</th><th>Promo</th><th>Desc. promo</th><th>Atacado sugerido</th></tr></thead><tbody id="tableBody"><tr><td colspan="10" class="empty-row">Carregue anúncios para começar.</td></tr></tbody></table></div>
+          <div class="table-footer"><div id="tableInfo" class="small-muted">0 resultados</div><div id="pagination" class="pagination"></div></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><h2>Retorno do processamento</h2><p class="small-muted">Resumo rápido do lote; os detalhes ficam no painel de processos.</p></div><span class="badge badge-neutral">Lote atual</span></div>
+          <div id="applySummary" class="apply-summary">Aguardando ação.</div><div id="applyResults" class="results-list"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div id="bulkJobsPanel" class="processos-panel"></div>
+  <script src="/ml/js/jobs-panel-adapters.js?v=2026080701" defer></script>
+  <script src="/ml/js/jobs-panel.js?v=2026080701" defer></script>
+  <script src="/ml/js/atacado.js?v=2026080702" defer></script>
+</body>
+</html>

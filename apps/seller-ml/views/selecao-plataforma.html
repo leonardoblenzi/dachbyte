@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DACHBYTE Seller | Seleção de plataforma</title>
+  <meta name="theme-color" content="#090b10" />
+  <link rel="icon" type="image/svg+xml" href="/ml/img/dachbyte-seller-mark.svg?v=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --ink:#090b10;
+      --panel:rgba(255,255,255,.045);
+      --panel-2:rgba(255,255,255,.075);
+      --line:rgba(255,255,255,.10);
+      --line-strong:rgba(255,255,255,.18);
+      --text:#f4f2ec;
+      --muted:#8b8f9e;
+      --signal:#ff8a3f;
+      --signal-2:#ffb37a;
+      --mint:#2dd9a8;
+      --rose:#ff5470;
+      --yellow:#ffe066;
+      --blue:#6c93ff;
+      --r-xl:30px;
+      --r-lg:22px;
+      --r-md:16px;
+      --shadow:0 30px 80px rgba(0,0,0,.42);
+      --max:1240px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      min-height:100dvh;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,138,63,.14), transparent 18rem),
+        radial-gradient(circle at 82% 14%, rgba(45,217,168,.10), transparent 22rem),
+        radial-gradient(circle at 72% 88%, rgba(108,147,255,.10), transparent 22rem),
+        linear-gradient(180deg,#090b10 0%,#0d1119 46%,#090b10 100%);
+      font-family:"Inter",ui-sans-serif,system-ui,sans-serif;
+      -webkit-font-smoothing:antialiased;
+      overflow-x:hidden;
+    }
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+      opacity:.45;
+      background-image:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size:64px 64px;
+      mask-image:radial-gradient(circle at 50% 0%, rgba(0,0,0,.95), rgba(0,0,0,.14) 72%);
+    }
+    a{color:inherit;text-decoration:none}
+    button{font:inherit;color:inherit;cursor:pointer}
+    img{display:block;max-width:100%}
+    :focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+    .page{
+      position:relative;
+      z-index:1;
+      min-height:100dvh;
+      padding:14px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .brand{
+      display:inline-flex;
+      align-items:center;
+      gap:9px;
+      padding:10px 14px;
+      border-radius:999px;
+      border:1px solid var(--line-strong);
+      background:var(--panel);
+      backdrop-filter:blur(14px);
+    }
+    .brand__wordmark{
+      display:grid;
+      gap:1px;
+      min-width:max-content;
+      justify-items:center;
+      text-align:center;
+    }
+    .brand__wordmark strong{
+      display:block;
+      margin:0;
+      font-family:"Space Grotesk",sans-serif;
+      font-size:16px;
+      font-weight:700;
+      letter-spacing:-.04em;
+      line-height:.95;
+      color:#35a2ff;
+      text-shadow:0 0 18px rgba(53,162,255,.16);
+    }
+    .brand__wordmark span{
+      display:block;
+      color:#8abaff;
+      font-size:7.5px;
+      font-family:"JetBrains Mono",monospace;
+      letter-spacing:.18em;
+      text-transform:uppercase;
+    }
+    .brand__copy span{
+      display:block;
+      color:var(--muted);
+      font-size:12px;
+      margin-top:0;
+      font-family:"JetBrains Mono",monospace;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+    .back-btn{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      min-height:42px;
+      padding:0 15px;
+      border-radius:999px;
+      border:1px solid var(--line-strong);
+      background:var(--panel);
+      color:var(--text);
+      backdrop-filter:blur(14px);
+    }
+    .shell{
+      width:min(var(--max),100%);
+      margin:auto;
+      display:grid;
+      gap:10px;
+      align-content:center;
+    }
+    .notice,.context-panel,.modules-panel{
+      border:1px solid var(--line);
+      border-radius:var(--r-xl);
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      box-shadow:var(--shadow);
+    }
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:9px;
+      font-family:"JetBrains Mono",monospace;
+      font-size:12px;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      color:var(--signal-2);
+    }
+    .eyebrow i{
+      width:6px;height:6px;border-radius:999px;background:var(--signal);
+      box-shadow:0 0 12px var(--signal);
+    }
+    .hero-title{
+      margin:10px 0 0;
+      font-family:"Space Grotesk",sans-serif;
+      font-size:clamp(24px,2.8vw,34px);
+      line-height:1;
+      letter-spacing:-.05em;
+      max-width:14ch;
+    }
+    .meta-card{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      align-items:center;
+      gap:10px 16px;
+      padding:12px 14px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.07);
+      background:rgba(255,255,255,.02);
+      min-width:0;
+      max-width:420px;
+    }
+    .meta-card > span{
+      display:block;
+      color:var(--muted);
+      font-size:11px;
+      font-family:"JetBrains Mono",monospace;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+    }
+    .meta-card > strong{
+      display:block;
+      margin-top:0;
+      font-size:20px;
+      font-family:"Space Grotesk",sans-serif;
+      letter-spacing:-.04em;
+      color:#ebe7df;
+      min-width:36px;
+    }
+    .meta-list{
+      grid-column:1 / -1;
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px 14px;
+      margin-top:0;
+    }
+    .meta-line{
+      display:grid;
+      gap:4px;
+      font-size:11.5px;
+      color:#c8cedb;
+      padding:0;
+      border-bottom:0;
+    }
+    .meta-line span:first-child{
+      color:#7d8496;
+      font-size:10.5px;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    .notice{
+      display:none;
+      padding:12px 14px;
+      gap:14px;
+      align-items:center;
+      grid-template-columns:auto 1fr auto;
+      border-color:rgba(255,255,255,.06);
+      background:rgba(255,255,255,.02);
+      box-shadow:none;
+    }
+    .notice.is-visible{display:grid}
+    .notice.is-expired{
+      border-color:rgba(255,84,112,.18);
+      background:linear-gradient(180deg, rgba(255,84,112,.06), rgba(255,255,255,.02));
+    }
+    .notice.is-critical{
+      border-color:rgba(255,138,63,.18);
+      background:linear-gradient(180deg, rgba(255,138,63,.06), rgba(255,255,255,.02));
+    }
+    .notice__icon{
+      width:34px;height:34px;border-radius:12px;display:grid;place-items:center;
+      font-weight:900;background:rgba(255,255,255,.08);border:1px solid var(--line);
+    }
+    .notice.is-expired .notice__icon{background:rgba(255,84,112,.18);border-color:rgba(255,84,112,.30)}
+    .notice.is-critical .notice__icon{background:rgba(255,138,63,.18);border-color:rgba(255,138,63,.30)}
+    .notice__content strong{display:block;font-size:13.5px}
+    .notice__content span,.notice__content small{display:block;color:var(--muted);margin-top:3px;line-height:1.4}
+    .notice__content small{font-size:12px}
+    .notice__action{
+      min-height:38px;
+      padding:0 14px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      background:var(--signal);
+      color:#1a0e02;
+      font-weight:800;
+      white-space:nowrap;
+    }
+    .context-panel,.modules-panel{
+      padding:18px;
+    }
+    .context-head{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+      margin-bottom:12px;
+      flex-wrap:wrap;
+    }
+    .context-copy{
+      display:grid;
+      gap:14px;
+    }
+    .context-head h2{
+      margin:0;
+      font-family:"Space Grotesk",sans-serif;
+      font-size:clamp(21px,2.2vw,28px);
+      letter-spacing:-.03em;
+    }
+    .context-tools{
+      display:flex;
+      align-items:flex-start;
+      gap:14px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .modules-head{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      margin-bottom:14px;
+      flex-wrap:wrap;
+    }
+    .modules-head h2{
+      margin:0;
+      font-family:"Space Grotesk",sans-serif;
+      font-size:clamp(22px,2.4vw,30px);
+      letter-spacing:-.04em;
+    }
+    .modules-subcopy{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.5;
+    }
+    .modules-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+      align-items:stretch;
+    }
+    .module-card{
+      display:grid;
+      gap:14px;
+      padding:16px;
+      border-radius:22px;
+      border:1px solid var(--line);
+      background:
+        radial-gradient(circle at top left, rgba(255,138,63,.12), transparent 34%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.025));
+      transition:transform .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease;
+      min-height:154px;
+      position:relative;
+      overflow:hidden;
+    }
+    .module-card::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(120deg, transparent 0%, rgba(255,255,255,.10) 36%, transparent 62%);
+      opacity:0;
+      transform:translateX(-32%);
+      transition:opacity .25s ease, transform .45s ease;
+      pointer-events:none;
+    }
+    .module-card::after{
+      content:"";
+      position:absolute;
+      inset:auto -40px -48px auto;
+      width:160px;
+      height:160px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(255,138,63,.18), transparent 68%);
+      pointer-events:none;
+    }
+    .module-card:hover{
+      transform:translateY(-2px);
+      border-color:rgba(255,138,63,.24);
+      box-shadow:0 18px 34px rgba(0,0,0,.18);
+    }
+    .module-card:hover::before{
+      opacity:.65;
+      transform:translateX(16%);
+    }
+    .module-card[aria-disabled="true"]{
+      opacity:.72;
+      cursor:not-allowed;
+    }
+    .module-card.is-renewal-required{
+      border-color:rgba(255,84,112,.28);
+      background:
+        radial-gradient(circle at top left, rgba(255,84,112,.16), transparent 34%),
+        linear-gradient(180deg, rgba(255,84,112,.08), rgba(255,255,255,.03));
+    }
+    .module-card__top{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+    }
+    .module-mark{
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.04));
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 18px 34px rgba(0,0,0,.18);
+      overflow:hidden;
+      font-family:"Space Grotesk",sans-serif;
+      font-size:20px;
+      font-weight:800;
+      letter-spacing:-.05em;
+    }
+    .module-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      min-height:26px;
+      padding:0 9px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:var(--panel);
+      color:#c4cad8;
+      font-size:9px;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.1em;
+      opacity:.92;
+    }
+    .module-badge::before{
+      content:"";
+      width:7px;
+      height:7px;
+      border-radius:50%;
+      background:var(--mint);
+      box-shadow:0 0 0 5px rgba(45,217,168,.08);
+    }
+    .module-card.is-renewal-required .module-badge{
+      color:#ffd0d8;
+      border-color:rgba(255,84,112,.24);
+      background:rgba(255,84,112,.12);
+    }
+    .module-card.is-renewal-required .module-badge::before{
+      background:var(--rose);
+      box-shadow:0 0 0 5px rgba(255,84,112,.10);
+    }
+    .module-name{
+      font-family:"Space Grotesk",sans-serif;
+      font-size:22px;
+      letter-spacing:-.04em;
+      line-height:1.02;
+      margin-top:auto;
+      min-height:50px;
+      max-width:10ch;
+      display:flex;
+      align-items:flex-end;
+    }
+    .module-action{
+      display:inline-flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      font-weight:800;
+      color:var(--signal-2);
+      font-size:14px;
+      padding-top:12px;
+      border-top:1px solid rgba(255,255,255,.08);
+    }
+    .module-card[aria-disabled="false"] .module-action{color:var(--text)}
+    .module-action span{
+      display:inline-grid;
+      place-items:center;
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+      color:var(--signal-2);
+      transition:transform .2s ease, border-color .2s ease, background .2s ease;
+      flex:0 0 30px;
+    }
+    .module-card:hover .module-action span{
+      transform:translateX(2px);
+      border-color:rgba(255,138,63,.28);
+      background:rgba(255,138,63,.10);
+    }
+    .empty-state{
+      display:none;
+      margin-top:18px;
+      padding:18px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      color:var(--muted);
+      line-height:1.6;
+    }
+    .empty-state.is-visible{display:block}
+    .support{
+      margin-top:16px;
+      padding:14px 2px 0;
+      display:flex;
+      justify-content:space-between;
+      gap:18px;
+      align-items:center;
+      flex-wrap:wrap;
+      border-top:1px solid rgba(255,255,255,.08);
+      border-radius:0;
+      background:transparent;
+      box-shadow:none;
+    }
+    .support p{margin:0;color:#73798a;line-height:1.45;font-size:12.5px}
+    .support strong{color:var(--text)}
+    .support a{
+      min-height:34px;
+      padding:0 12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.03);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:700;
+      font-size:12.5px;
+    }
+    .session-loader{
+      position:fixed;
+      inset:auto 24px 24px auto;
+      display:none;
+      align-items:center;
+      gap:12px;
+      padding:14px 16px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:rgba(9,11,16,.92);
+      box-shadow:var(--shadow);
+      z-index:30;
+    }
+    .session-loader.is-visible{display:flex}
+    .spinner{
+      width:18px;height:18px;border-radius:999px;
+      border:2px solid rgba(255,255,255,.18);
+      border-top-color:var(--signal);
+      animation:spin .8s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @media (max-width:1080px){
+      .meta-card{width:100%;max-width:none}
+      .meta-list{grid-template-columns:1fr}
+      .modules-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+    @media (max-height:860px){
+      .page{padding:12px;gap:10px}
+      .shell{gap:10px}
+      .meta-card{padding:11px 13px}
+      .meta-card > strong{font-size:18px}
+      .meta-list{gap:8px 12px}
+      .notice{padding:12px 14px}
+      .context-panel,.modules-panel{padding:16px}
+      .module-card{min-height:144px;padding:15px}
+      .module-mark{width:48px;height:48px;font-size:18px}
+      .module-name{font-size:20px;min-height:38px}
+      .back-btn{min-height:38px;padding:0 13px}
+      .support{padding-top:12px}
+    }
+    @media (max-width:720px){
+      .page{padding:18px}
+      .context-panel,.modules-panel{padding:22px}
+      .modules-grid{grid-template-columns:1fr}
+      .notice{grid-template-columns:1fr}
+      .notice__action{width:100%}
+      .meta-card{
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+      .meta-list{grid-template-columns:1fr}
+      .module-name{max-width:none}
+      .context-tools{
+        width:100%;
+        justify-content:flex-start;
+      }
+      .support{
+        padding:4px 0 0;
+        gap:10px;
+        align-items:flex-start;
+      }
+    }
+    .renewal-modal{
+      position:fixed;
+      inset:0;
+      z-index:80;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:22px;
+      background:rgba(2,6,23,.72);
+      backdrop-filter:blur(16px);
+    }
+    .renewal-modal.is-visible{display:flex}
+    .renewal-modal__panel{
+      width:min(620px,100%);
+      border:1px solid rgba(255,255,255,.16);
+      border-radius:28px;
+      background:linear-gradient(145deg,rgba(24,27,35,.98),rgba(13,18,26,.98));
+      box-shadow:0 28px 90px rgba(0,0,0,.45);
+      color:var(--text);
+      overflow:hidden;
+    }
+    .renewal-modal__head,.renewal-modal__foot{padding:22px 24px;border-bottom:1px solid rgba(255,255,255,.1)}
+    .renewal-modal__foot{border-top:1px solid rgba(255,255,255,.1);border-bottom:0;display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap}
+    .renewal-modal__body{padding:18px 24px 22px;max-height:52vh;overflow:auto}
+    .renewal-modal__kicker{display:block;color:var(--accent);font-size:.68rem;font-weight:900;letter-spacing:.18em;text-transform:uppercase;margin-bottom:8px}
+    .renewal-modal__title{font-family:"Clash Display",Inter,sans-serif;font-size:1.55rem;font-weight:800;margin:0 0 6px}
+    .renewal-modal__copy{margin:0;color:var(--muted);line-height:1.5}
+    .renewal-resource{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(255,255,255,.045);margin-bottom:10px;cursor:pointer}
+    .renewal-resource input{margin-top:4px;accent-color:#ff8a3d}
+    .renewal-resource strong{display:block;font-size:.95rem;margin-bottom:3px}
+    .renewal-resource span{display:block;color:var(--muted);font-size:.78rem;line-height:1.45}
+    .renewal-modal__button{border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:11px 16px;font-weight:900;color:var(--text);background:rgba(255,255,255,.05);cursor:pointer}
+    .renewal-modal__button--primary{border-color:transparent;background:linear-gradient(135deg,#ff8a3d,#ffb15f);color:#1c1208}
+    .renewal-modal__button:disabled{opacity:.5;cursor:not-allowed}
+  </style>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+  <main class="page">
+    <section class="shell">
+      <section class="notice" id="billing-notice" role="status" aria-live="polite">
+        <div class="notice__icon" aria-hidden="true">!</div>
+        <div class="notice__content">
+          <strong id="billing-notice-title">Assinatura perto do vencimento</strong>
+          <span id="billing-notice-text">Sua assinatura está perto do vencimento.</span>
+          <small id="billing-notice-meta">Dados recebidos do Hub de pagamento.</small>
+        </div>
+        <a class="notice__action" id="billing-renewal-action" href="/landing">Regularizar</a>
+      </section>
+
+      <section class="context-panel" aria-labelledby="suite-title">
+        <div class="context-head">
+          <div class="context-copy">
+            <a class="brand" href="/selecao-plataforma" aria-label="DACHBYTE Seller — área do cliente">
+              <span class="brand__wordmark" aria-hidden="true">
+                <strong>DACHBYTE</strong>
+                <span>Seller</span>
+              </span>
+              <span class="brand__copy">
+                <span>Área do cliente</span>
+              </span>
+            </a>
+            <div>
+              <div class="eyebrow"><i></i> acesso por permissão</div>
+              <h2 class="hero-title" id="suite-title">Boa tarde, qual plataforma deseja acessar?</h2>
+            </div>
+          </div>
+          <div class="context-tools">
+            <div class="meta-card" aria-label="Resumo da sessão">
+              <span>Módulos liberados</span>
+              <strong><span id="available-count">0</span></strong>
+              <div class="meta-list">
+                <div class="meta-line"><span>Usuário</span><span id="suite-user-name">Usuário</span></div>
+                <div class="meta-line"><span>Hub</span><span id="hub-status-label">Hub ativo</span></div>
+                <div class="meta-line"><span>Assinatura</span><span id="subscription-status-label">Em dia</span></div>
+              </div>
+            </div>
+            <a class="back-btn" href="/landing">← Voltar</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="modules-panel" aria-labelledby="modules-title">
+        <div class="modules-head">
+          <div>
+            <h2 id="modules-title">Escolha seu módulo</h2>
+            <div class="modules-subcopy">Selecione a plataforma liberada para continuar sua operação.</div>
+          </div>
+        </div>
+        <div class="modules-grid">
+          <a class="module-card" href="/go/ml" data-module="ml" aria-disabled="false">
+            <div class="module-card__top">
+              <div class="module-mark" aria-hidden="true">ML</div>
+              <span class="module-badge">Disponível</span>
+            </div>
+            <div class="module-name">DACHBYTE Mercado Livre</div>
+            <div class="module-action">Entrar <span>→</span></div>
+          </a>
+
+          <a class="module-card" href="/go/shopee" data-module="shopee" aria-disabled="false">
+            <div class="module-card__top">
+              <div class="module-mark" aria-hidden="true">SH</div>
+              <span class="module-badge">Disponível</span>
+            </div>
+            <div class="module-name">DACHBYTE Shopee</div>
+            <div class="module-action">Entrar <span>→</span></div>
+          </a>
+
+          <a class="module-card" href="/go/tracking" data-module="tracking" aria-disabled="false">
+            <div class="module-card__top">
+              <div class="module-mark">TR</div>
+              <span class="module-badge">Disponível</span>
+            </div>
+            <div class="module-name">DACHBYTE Tracking</div>
+            <div class="module-action">Entrar <span>→</span></div>
+          </a>
+
+          <a class="module-card" href="/go/davanttilog" data-module="davanttilog" aria-disabled="false">
+            <div class="module-card__top">
+              <div class="module-mark">DL</div>
+              <span class="module-badge">Disponível</span>
+            </div>
+            <div class="module-name">DACHBYTE Log</div>
+            <div class="module-action">Entrar <span>→</span></div>
+          </a>
+
+          <a class="module-card" href="/go/madeiramadeira" data-module="madeiramadeira" aria-disabled="false">
+            <div class="module-card__top">
+              <div class="module-mark" aria-hidden="true">MD</div>
+              <span class="module-badge">Disponível</span>
+            </div>
+            <div class="module-name">DACHBYTE Madeira</div>
+            <div class="module-action">Entrar <span>→</span></div>
+          </a>
+
+          <a class="module-card" href="/go/skuleader" data-module="skuleader" aria-disabled="false">
+            <div class="module-card__top">
+              <div class="module-mark">SK</div>
+              <span class="module-badge">Disponível</span>
+            </div>
+            <div class="module-name">DACHBYTE Leader</div>
+            <div class="module-action">Entrar <span>→</span></div>
+          </a>
+        </div>
+
+        <div class="empty-state" id="empty-state">Nenhum módulo foi encontrado para esta sessão. Verifique as permissões vinculadas à conta no Hub.</div>
+
+        <div class="support">
+          <p><strong>Precisa de ajuda?</strong> Nosso time responde rápido para orientar acesso, renovação e próximos passos.</p>
+          <a href="mailto:contato@davanttisuite.com.br">Falar com suporte</a>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div class="session-loader" id="session-loader" role="status" aria-live="polite">
+    <span class="spinner" aria-hidden="true"></span>
+    <span>Carregando seu acesso...</span>
+  </div>
+
+  <script>
+    (function () {
+      const modules = Array.from(document.querySelectorAll("[data-module]"));
+      const title = document.getElementById("suite-title");
+      const userNameEl = document.getElementById("suite-user-name");
+      const statusEl = document.getElementById("modules-status");
+      const countEl = document.getElementById("available-count");
+      const emptyState = document.getElementById("empty-state");
+      const loader = document.getElementById("session-loader");
+      const billingNotice = document.getElementById("billing-notice");
+      const billingNoticeTitle = document.getElementById("billing-notice-title");
+      const billingNoticeText = document.getElementById("billing-notice-text");
+      const billingNoticeMeta = document.getElementById("billing-notice-meta");
+      const billingRenewalAction = document.getElementById("billing-renewal-action");
+      const hubStatusLabel = document.getElementById("hub-status-label");
+      const subscriptionStatusLabel = document.getElementById("subscription-status-label");
+      let currentSubscription = null;
+
+      function normalizeText(value) {
+        return String(value || "").trim();
+      }
+
+      function firstName(name) {
+        const source = normalizeText(name);
+        return source.split(/\s+/)[0] || "usuario";
+      }
+
+      function greeting() {
+        const hour = new Date().getHours();
+        if (hour < 12) return "Bom dia";
+        if (hour < 18) return "Boa tarde";
+        return "Boa noite";
+      }
+
+      function readBootstrap() {
+        try {
+          const bootstrap = JSON.parse(sessionStorage.getItem("suite_session_bootstrap") || "null");
+          const savedAt = Number(bootstrap && bootstrap.savedAt);
+          if (!bootstrap || !Number.isFinite(savedAt) || Date.now() - savedAt > 120000) {
+            sessionStorage.removeItem("suite_session_bootstrap");
+            return null;
+          }
+          return bootstrap;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function getUserName(data) {
+        const user = data && data.user ? data.user : {};
+        return user.nome || user.name || user.fullName || user.email || "Usuario";
+      }
+
+      function collectEntitlements(data) {
+        const raw = data && data.entitlements ? data.entitlements : null;
+        const user = data && data.user ? data.user : {};
+        const candidates = [raw, raw && raw.visibleModules, raw && raw.modules, raw && raw.modulos, raw && raw.allowedModules, user.modules, user.modulos, user.allowedModules];
+        const allowed = new Set();
+
+        candidates.forEach((item) => {
+          if (!item) return;
+          if (Array.isArray(item)) {
+            item.forEach((entry) => {
+              if (typeof entry === "string") allowed.add(entry.toLowerCase());
+              else if (entry && typeof entry === "object") {
+                const key = entry.slug || entry.id || entry.key || entry.module || entry.codigo || entry.name;
+                if (key) allowed.add(String(key).toLowerCase());
+              }
+            });
+          } else if (typeof item === "object") {
+            Object.entries(item).forEach(([key, value]) => {
+              if (value === true || value === "true" || value === 1 || value === "active" || value === "ativo" || value === "liberado") {
+                allowed.add(key.toLowerCase());
+              }
+            });
+          }
+        });
+        return allowed;
+      }
+
+      function aliasesFor(slug) {
+        const aliases = {
+          ml: ["ml", "meli", "mercadolivre", "mercado_livre", "mercado-livre", "mercado livre"],
+          shopee: ["shopee"],
+          tracking: ["tracking", "rastreio", "logistica", "logística", "correios", "avantracking"],
+          davanttilog: ["davanttilog", "davantti-log", "davantti_log", "davanlog", "davantti log", "logisync", "logsync"],
+          madeiramadeira: ["madeiramadeira", "madeira", "madeira_madeira", "madeira-madeira"],
+          skuleader: ["skuleader", "sku_leader", "sku-leader", "sku leader"]
+        };
+        return aliases[slug] || [slug];
+      }
+
+      function subscriptionFrom(data) {
+        if (!data) return null;
+        return (data.entitlements && data.entitlements.subscription) || data.subscription || null;
+      }
+
+      function renewalUrlFromSubscription(subscription) {
+        return normalizeText(subscription && subscription.renewal_url) || "/landing";
+      }
+
+      function renewableResourcesFromSubscription(subscription) {
+        const resources = subscription && Array.isArray(subscription.renewable_resources)
+          ? subscription.renewable_resources
+          : [];
+        return resources.filter((item) => item && typeof item === "object" && normalizeText(item.resource_key));
+      }
+
+      function renewableResourcesForModule(subscription, moduleSlug) {
+        const aliases = aliasesFor(moduleSlug);
+        return renewableResourcesFromSubscription(subscription).filter((item) => {
+          const resourceModule = normalizeText(item.module_slug).toLowerCase();
+          return aliases.includes(resourceModule);
+        });
+      }
+
+      function buildRenewalUrlFromResources(resources, fallbackUrl) {
+        const selectable = (Array.isArray(resources) ? resources : [])
+          .filter((item) => item && (item.checkout_ready === true || item.selectable === true) && !item.is_unlimited);
+        const fallback = normalizeText(fallbackUrl) || "/landing";
+        if (!selectable.length) return fallback;
+        if (selectable.length === 1 && normalizeText(selectable[0].renewal_url)) {
+          return normalizeText(selectable[0].renewal_url);
+        }
+
+        let url;
+        try {
+          url = new URL(normalizeText(selectable[0].renewal_url) || fallback, window.location.origin);
+        } catch (_) {
+          return fallback;
+        }
+
+        const modules = Array.from(new Set(selectable.map((item) => normalizeText(item.module_slug).toLowerCase()).filter(Boolean)));
+        const ranges = modules.map((moduleSlug) => {
+          const resource = selectable.find((item) => normalizeText(item.module_slug).toLowerCase() === moduleSlug) || {};
+          return moduleSlug + ":" + (normalizeText(resource.recommended_range_code) || normalizeText(resource.order_range_code) || "from_31_to_200");
+        });
+        const resourceItems = selectable.map((item) => ({
+          billing_resource_key: normalizeText(item.resource_key),
+          billing_module_slug: normalizeText(item.module_slug).toLowerCase(),
+          billing_account_id: normalizeText(item.external_account_id),
+          order_range_code: normalizeText(item.order_range_code),
+          recommended_range_code: normalizeText(item.recommended_range_code),
+          last_closed_period_orders: Number(item.measured_orders)
+        }));
+        ["billing_resource_key", "resource_key", "billing_module_slug", "module_slug", "billing_account_id", "account_id", "order_range_code", "recommended_range_code", "last_closed_period_orders"].forEach((key) => url.searchParams.delete(key));
+        url.searchParams.set("renewal", "1");
+        if (modules.length) url.searchParams.set("modules", modules.join(","));
+        if (ranges.length) url.searchParams.set("ranges", ranges.join(","));
+        url.searchParams.set("resource_items", JSON.stringify(resourceItems));
+        return url.toString();
+      }
+      function escapeHtml(value) {
+        return normalizeText(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function moduleLabel(moduleSlug) {
+        const labels = { ml: "Mercado Livre", shopee: "Shopee", tracking: "Rastreio" };
+        const normalized = normalizeText(moduleSlug).toLowerCase();
+        return labels[normalized] || normalized.toUpperCase() || "Modulo";
+      }
+
+      function readyRenewalResources(resources) {
+        return (Array.isArray(resources) ? resources : [])
+          .filter((item) => item && (item.checkout_ready === true || item.selectable === true) && !item.is_unlimited);
+      }
+
+      function openRenewalResourceModal(resources, fallbackUrl) {
+        const selectable = readyRenewalResources(resources);
+        if (selectable.length <= 1) return false;
+
+        let modal = document.getElementById("renewal-resource-modal");
+        if (!modal) {
+          modal = document.createElement("div");
+          modal.id = "renewal-resource-modal";
+          modal.className = "renewal-modal";
+          modal.innerHTML = "<div class='renewal-modal__panel' role='dialog' aria-modal='true' aria-labelledby='renewal-resource-title'><div class='renewal-modal__head'><span class='renewal-modal__kicker'>Renovacao por conta</span><h2 class='renewal-modal__title' id='renewal-resource-title'>Escolha as contas para renovar</h2><p class='renewal-modal__copy'>Cada conta sera cobrada pela faixa de pedidos apurada individualmente.</p></div><div class='renewal-modal__body' data-renewal-resource-list></div><div class='renewal-modal__foot'><button class='renewal-modal__button' type='button' data-renewal-cancel>Voltar</button><button class='renewal-modal__button renewal-modal__button--primary' type='button' data-renewal-confirm>Continuar para pagamento</button></div></div>";
+          document.body.appendChild(modal);
+          modal.addEventListener("click", (event) => {
+            if (event.target === modal || event.target.closest("[data-renewal-cancel]")) {
+              modal.classList.remove("is-visible");
+            }
+          });
+        }
+
+        const list = modal.querySelector("[data-renewal-resource-list]");
+        const confirm = modal.querySelector("[data-renewal-confirm]");
+        if (!list || !confirm) return false;
+        list.innerHTML = selectable.map((item, index) => {
+          const detail = [moduleLabel(item.module_slug), normalizeText(item.range_label), Number.isFinite(Number(item.measured_orders)) ? Number(item.measured_orders) + " pedidos no periodo" : "volume nao apurado"].filter(Boolean).join(" - ");
+          return "<label class='renewal-resource'><input type='checkbox' checked data-renewal-resource-index='" + index + "'><span><strong>" + escapeHtml(item.label || item.external_account_id || item.resource_key) + "</strong><span>" + escapeHtml(detail) + "</span></span></label>";
+        }).join("");
+        confirm.onclick = () => {
+          const checked = Array.from(list.querySelectorAll("[data-renewal-resource-index]:checked"))
+            .map((input) => selectable[Number(input.getAttribute("data-renewal-resource-index"))])
+            .filter(Boolean);
+          if (!checked.length) {
+            confirm.disabled = true;
+            setTimeout(() => { confirm.disabled = false; }, 700);
+            return;
+          }
+          window.location.href = buildRenewalUrlFromResources(checked, fallbackUrl);
+        };
+        modal.classList.add("is-visible");
+        return true;
+      }
+      function formatSubscriptionDate(value) {
+        if (!value) return "";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "";
+        return new Intl.DateTimeFormat("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric"
+        }).format(date);
+      }
+
+      function readSubscriptionState(subscription) {
+        const status = normalizeText(subscription && subscription.status).toLowerCase();
+        const isMaster = Boolean(subscription && subscription.is_master === true);
+        const active = subscription && subscription.active === true;
+        const rawDays = subscription && subscription.days_until_expiration;
+        const hasDaysValue = rawDays !== null && rawDays !== undefined && String(rawDays).trim() !== "";
+        const days = hasDaysValue ? Number(rawDays) : null;
+        const hasDays = Number.isFinite(days);
+        const expired = !isMaster && (status === "expired" || (subscription && subscription.active === false) || (hasDays && days < 0));
+        const shouldWarn = !isMaster && !expired && active && hasDays && days >= 0 && days <= 7;
+        return {
+          days,
+          hasDays,
+          isMaster,
+          expired,
+          shouldWarn,
+          renewalUrl: buildRenewalUrlFromResources(renewableResourcesFromSubscription(subscription), renewalUrlFromSubscription(subscription))
+        };
+      }
+
+      function applySubscriptionNotice(subscription) {
+        const state = readSubscriptionState(subscription);
+        const shouldShow = state.expired || state.shouldWarn;
+
+        if (hubStatusLabel) hubStatusLabel.textContent = subscription ? "Hub sincronizado" : "Hub ativo";
+        if (subscriptionStatusLabel) {
+          subscriptionStatusLabel.textContent = state.isMaster
+            ? "Master"
+            : state.expired
+              ? "Expirado"
+              : state.shouldWarn
+                ? "A vencer"
+                : "Em dia";
+        }
+
+        if (!billingNotice) return state;
+
+        billingNotice.classList.toggle("is-visible", shouldShow);
+        billingNotice.classList.toggle("is-expired", state.expired);
+        billingNotice.classList.toggle("is-critical", !state.expired && state.shouldWarn && state.hasDays && state.days <= 2);
+
+        if (!shouldShow) return state;
+
+        const safeDays = state.hasDays ? Math.max(0, Math.ceil(state.days)) : 0;
+        const expiresAt = formatSubscriptionDate(subscription && subscription.expires_at);
+
+        if (billingNoticeTitle) {
+          billingNoticeTitle.textContent = state.expired ? "Assinatura expirada" : "Assinatura perto do vencimento";
+        }
+        if (billingNoticeText) {
+          billingNoticeText.textContent = state.expired
+            ? "Renove para reativar seus módulos."
+            : safeDays === 0
+              ? "Sua assinatura vence hoje."
+              : `Sua assinatura vence em ${safeDays} dia${safeDays === 1 ? "" : "s"}.`;
+        }
+        if (billingNoticeMeta) {
+          billingNoticeMeta.textContent = expiresAt
+            ? `Vencimento: ${expiresAt}. Dados recebidos do Hub de pagamento.`
+            : "Dados recebidos do Hub de pagamento.";
+        }
+        if (billingRenewalAction) {
+          billingRenewalAction.href = state.renewalUrl;
+          billingRenewalAction.textContent = state.expired ? "Renovar acesso" : "Renovar agora";
+        }
+
+        return state;
+      }
+
+      function applySession(data) {
+        const name = getUserName(data);
+        const displayName = firstName(name);
+        if (userNameEl) userNameEl.textContent = name;
+        if (title) title.textContent = `${greeting()}, ${displayName}, qual plataforma deseja acessar?`;
+
+        const subscription = subscriptionFrom(data);
+        const subscriptionState = applySubscriptionNotice(subscription);
+        const allowed = collectEntitlements(data);
+        let visibleCount = 0;
+        const shouldFilter = allowed.size > 0;
+
+        modules.forEach((card) => {
+          const slug = card.dataset.module;
+          if (!card.dataset.defaultHref) card.dataset.defaultHref = card.getAttribute("href") || "";
+          const badge = card.querySelector(".module-badge");
+          if (badge && !badge.dataset.defaultText) badge.dataset.defaultText = badge.textContent;
+
+          const canAccess = !shouldFilter || aliasesFor(slug).some((key) => allowed.has(key));
+          card.hidden = !canAccess;
+          card.classList.toggle("is-renewal-required", Boolean(canAccess && subscriptionState.expired));
+          card.setAttribute("aria-disabled", canAccess && !subscriptionState.expired ? "false" : "true");
+
+          if (canAccess && subscriptionState.expired) {
+            card.href = "#";
+            card.dataset.renewalUrl = buildRenewalUrlFromResources(renewableResourcesForModule(subscription, slug), subscriptionState.renewalUrl);
+            if (badge) badge.textContent = "Regularização pendente";
+          } else {
+            card.href = card.dataset.defaultHref;
+            delete card.dataset.renewalUrl;
+            if (badge && badge.dataset.defaultText) badge.textContent = badge.dataset.defaultText;
+          }
+
+          if (canAccess) visibleCount += 1;
+        });
+
+        if (countEl) countEl.textContent = String(visibleCount);
+        if (statusEl) {
+          statusEl.textContent = subscriptionState.expired
+            ? "Regularize o acesso para continuar"
+            : `${visibleCount} módulo${visibleCount === 1 ? "" : "s"} liberado${visibleCount === 1 ? "" : "s"}`;
+        }
+        if (emptyState) emptyState.classList.toggle("is-visible", visibleCount === 0);
+      }
+
+      function setupCardLoading() {
+        modules.forEach((card) => {
+          card.addEventListener("click", (event) => {
+            if (card.getAttribute("aria-disabled") === "true") {
+              event.preventDefault();
+              const renewalUrl = card.dataset.renewalUrl || (billingRenewalAction && billingRenewalAction.href);
+              const renewalResources = renewableResourcesForModule(currentSubscription, card.dataset.module);
+              if (openRenewalResourceModal(renewalResources, renewalUrl)) return;
+              if (renewalUrl) {
+                window.location.href = renewalUrl;
+                return;
+              }
+              if (billingNotice) billingNotice.scrollIntoView({ behavior: "smooth", block: "center" });
+              if (billingRenewalAction) billingRenewalAction.focus({ preventScroll: true });
+              return;
+            }
+            if (loader) loader.classList.add("is-visible");
+          });
+        });
+      }
+
+      if (billingRenewalAction) {
+        billingRenewalAction.addEventListener("click", (event) => {
+          const resources = renewableResourcesFromSubscription(currentSubscription);
+          if (openRenewalResourceModal(resources, billingRenewalAction.href)) {
+            event.preventDefault();
+          }
+        });
+      }
+      async function refreshSessionFromHub() {
+        try {
+          const response = await fetch("/api/auth/me", {
+            credentials: "include",
+            cache: "no-store",
+            headers: { Accept: "application/json" }
+          });
+          if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+              window.location.href = "/login";
+            }
+            return;
+          }
+          const payload = await response.json().catch(() => null);
+          if (!payload || payload.ok === false) {
+            return;
+          }
+          try {
+            sessionStorage.setItem("suite_session_bootstrap", JSON.stringify(payload));
+          } catch (_) {}
+          applySession(payload);
+        } catch (_) {}
+      }
+
+      applySession(readBootstrap());
+      refreshSessionFromHub();
+      setupCardLoading();
+    })();
+  </script>
+</body>
+</html>

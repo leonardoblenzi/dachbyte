@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-log">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DACHBYTE Log | Seller</title>
+    <link rel="icon" type="image/svg+xml" href="/davanttilog/dachbyte-seller-mark.svg?v=1" />
+    <link rel="stylesheet" href="/davanttilog/styles.css" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/selecao-plataforma" aria-label="Voltar para o hub">
+        <span class="brand-mark" aria-hidden="true"><img src="/brand/dachbyte/seller/mark-transparent.png" alt="" /></span>
+        <span>
+          <strong>DACHBYTE Log</strong>
+          <small>Conciliacao de Fretes</small>
+        </span>
+      </a>
+      <nav class="nav-tabs" aria-label="Navegacao DACHBYTE Log">
+        <button class="is-active" data-view="dashboard" type="button">Dashboard</button>
+        <button data-view="conciliation" type="button">Conciliacao</button>
+        <button data-view="rules" type="button">Regras</button>
+        <button data-view="intelipost" type="button">Intelipost Sync</button>
+        <button data-view="audit" type="button">Auditoria</button>
+      </nav>
+      <div class="user-pill" id="user-pill">Carregando...</div>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Confiabilidade financeira</p>
+          <h1>Quanto foi cobrado, quanto deveria ser cobrado e por que existe diferenca.</h1>
+        </div>
+        <div class="hero-actions">
+          <button class="primary" id="sync-now" type="button">Sincronizar Intelipost</button>
+          <a class="secondary" id="export-csv" href="/davanttilog/api/export/reconciliation.csv">Exportar CSV</a>
+        </div>
+      </section>
+
+      <section class="view is-active" id="view-dashboard">
+        <div class="metric-grid" id="metric-grid"></div>
+        <div class="dashboard-grid">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Alertas inteligentes</h2>
+              <span>periodo atual</span>
+            </div>
+            <div class="alert-list" id="alert-list"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Distribuicao por status</h2>
+              <span>conciliacao</span>
+            </div>
+            <div class="bars" id="status-bars"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Divergencia por transportadora</h2>
+              <span>R$</span>
+            </div>
+            <div class="bars" id="carrier-bars"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Margem por canal</h2>
+              <span>R$</span>
+            </div>
+            <div class="bars" id="channel-bars"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-conciliation">
+        <div class="filters">
+          <label>
+            <span>Status</span>
+            <select id="filter-status">
+              <option value="">Todos</option>
+              <option value="nao_sincronizado">Nao sincronizado</option>
+              <option value="dados_incompletos">Dados incompletos</option>
+              <option value="sem_divergencia">Sem divergencia</option>
+              <option value="dentro_tolerancia">Dentro da tolerancia</option>
+              <option value="aguardando_conciliacao">Aguardando conciliacao</option>
+              <option value="divergencia_aprovada">Divergencia aprovada</option>
+              <option value="divergencia_contestada">Divergencia contestada</option>
+              <option value="fechado">Fechado</option>
+            </select>
+          </label>
+          <label>
+            <span>Busca</span>
+            <input id="filter-q" placeholder="Pedido, NF, CT-e ou fatura" />
+          </label>
+          <button class="secondary" id="apply-filters" type="button">Filtrar</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Pedido</th>
+                <th>Canal</th>
+                <th>Transportadora</th>
+                <th>Cliente</th>
+                <th>TMS</th>
+                <th>Cobrado</th>
+                <th>DACHBYTE</th>
+                <th>Dif. DACHBYTE</th>
+                <th>Margem</th>
+                <th>Regra</th>
+                <th>Acoes</th>
+              </tr>
+            </thead>
+            <tbody id="items-table"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="view" id="view-rules">
+        <div class="rule-layout">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Motor de regras</h2>
+              <span>versoes congeladas por pedido</span>
+            </div>
+            <div class="rule-list" id="rule-list"></div>
+          </section>
+          <section class="rule-map" aria-label="Mapa de regras">
+            <div class="node node-account">Conta</div>
+            <div class="node node-channel">Canal</div>
+            <div class="node node-carrier">Transportadora</div>
+            <div class="node node-region">Regiao</div>
+            <div class="node node-rule">Regra</div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-intelipost">
+        <div class="settings-grid">
+          <form class="panel settings" id="intelipost-form">
+            <div class="panel-head">
+              <h2>Integracao Intelipost</h2>
+              <span>API oficial</span>
+            </div>
+            <div class="integration-status" id="intelipost-tenant-box">
+              Carregando empresa...
+            </div>
+            <label>
+              <span>Client ID Intelipost</span>
+              <input name="intelipost_client_id" id="intelipost-client-id" placeholder="ID do cliente" />
+            </label>
+            <label>
+              <span>API Key Intelipost</span>
+              <input name="api_key" id="intelipost-api-key" type="password" placeholder="Nao exibida apos salvar" />
+            </label>
+            <label>
+              <span>Base REST Intelipost</span>
+              <input name="rest_base_url" id="intelipost-rest-base-url" placeholder="https://api.intelipost.com.br/api/v1" />
+            </label>
+            <label>
+              <span>GraphQL de rastreio</span>
+              <input name="tracking_graphql_url" id="intelipost-tracking-graphql-url" placeholder="https://tracking-graphql.intelipost.com.br/" />
+            </label>
+            <label>
+              <span>Caminho de busca de pedidos</span>
+              <input name="shipment_search_path" id="intelipost-shipment-search-path" placeholder="/shipment_order" />
+            </label>
+            <label class="toggle">
+              <input name="sync_enabled" id="intelipost-sync-enabled" type="checkbox" />
+              <span>Sincronizacao automatica habilitada</span>
+            </label>
+            <button class="primary" type="submit">Salvar integracao</button>
+          </form>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Fontes aceitas</h2>
+              <span>entrada de dados</span>
+            </div>
+            <div class="source-list" id="source-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-audit">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Historico auditavel</h2>
+            <span>acoes e exportacoes</span>
+          </div>
+          <div class="audit-list" id="audit-list"></div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="drawer" id="detail-drawer" aria-hidden="true">
+      <div class="drawer-panel">
+        <button class="icon-button" id="drawer-close" type="button" aria-label="Fechar">x</button>
+        <div id="drawer-content"></div>
+      </div>
+    </aside>
+
+    <div class="toast" id="toast" hidden></div>
+    <script src="/davanttilog/app.js" defer></script>
+  </body>
+</html>

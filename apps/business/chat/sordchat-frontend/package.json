@@ -1,0 +1,126 @@
+{
+  "name": "voltcorp",
+  "version": "0.1.47",
+  "description": "VoltChat web and desktop client",
+  "author": "Volt Corp",
+  "private": true,
+  "homepage": "./",
+  "main": "electron/main.js",
+  "devDependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@heroicons/react": "^2.2.0",
+    "@mui/icons-material": "^7.3.1",
+    "@mui/lab": "^7.0.0-beta.16",
+    "@mui/material": "^7.3.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.7.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^13.5.0",
+    "axios": "^1.11.0",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.539.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-dropzone": "^14.3.8",
+    "react-hot-toast": "^2.6.0",
+    "react-router-dom": "^7.8.0",
+    "react-scripts": "5.0.1",
+    "recharts": "^3.1.2",
+    "socket.io-client": "^4.8.1",
+    "web-vitals": "^2.1.4",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "scripts": {
+    "prebuild": "node scripts/write-version.js",
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "desktop:start": "electron .",
+    "desktop:pack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-desktop.ps1 -Directory",
+    "desktop:dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-desktop.ps1",
+    "desktop:publish": "python ../backend/scripts/publish_desktop_release.py",
+    "desktop:release": "npm run desktop:dist && npm run desktop:publish",
+    "desktop:cert:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-internal-code-signing.ps1",
+    "desktop:cert:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-internal-certificate.ps1",
+    "desktop:env:fix": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fix-electron-run-as-node.ps1",
+    "desktop:installer:assets": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-installer-assets.ps1",
+    "desktop:signature:verify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-desktop-signature.ps1",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "build": {
+    "extends": null,
+    "npmRebuild": false,
+    "appId": "com.voltcorp.app",
+    "productName": "VoltChat",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "icon": "electron/assets/icon.ico",
+    "files": [
+      "build/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "electron/certificates/VoltCorp-Internal-Code-Signing.cer",
+        "to": "certificates/VoltCorp-Internal-Code-Signing.cer"
+      }
+    ],
+    "win": {
+      "icon": "electron/assets/icon.ico",
+      "signAndEditExecutable": false,
+      "signtoolOptions": {
+        "sign": "scripts/sign-windows.js",
+        "signingHashAlgorithms": [
+          "sha256"
+        ],
+        "rfc3161TimeStampServer": "http://timestamp.digicert.com"
+      },
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "VoltChat-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "include": "electron/installer/installer.nsh",
+      "installerIcon": "electron/assets/icon.ico",
+      "uninstallerIcon": "electron/assets/icon.ico",
+      "installerHeaderIcon": "electron/assets/icon.ico",
+      "installerHeader": "electron/installer/header.bmp",
+      "installerSidebar": "electron/installer/sidebar.bmp",
+      "uninstallerSidebar": "electron/installer/sidebar.bmp",
+      "oneClick": true,
+      "perMachine": true,
+      "allowElevation": true,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "VoltChat",
+      "displayLanguageSelector": false,
+      "deleteAppDataOnUninstall": false
+    }
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

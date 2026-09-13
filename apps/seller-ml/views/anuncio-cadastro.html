@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cadastro de anúncios | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/anuncio-cadastro.css?v=2" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <script src="/ml/js/anuncio-cadastro.js?v=2" defer></script>
+  <script src="/ml/js/anuncio-cadastro-editor.js?v=2" defer></script>
+  <script src="/ml/js/anuncio-cadastro-rascunhos.js?v=2" defer></script>
+  <script src="/ml/js/anuncio-cadastro-groups.js?v=1" defer></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="ac-app">
+  <main class="ac-page">
+    <header class="ac-hero">
+      <div>
+        <div class="ac-breadcrumb">ANÚNCIOS / CADASTRO</div>
+        <h1>Cadastro de anúncios</h1>
+        <p>Crie anúncios do zero, use um anúncio da sua conta ou parta de uma referência externa. Tudo nasce como rascunho antes de publicar.</p>
+      </div>
+      <span id="ac-global-status" class="ac-status" data-tone="info" aria-live="polite">Carregando conta...</span>
+    </header>
+
+    <nav class="ac-tabs" aria-label="Navegação do cadastro de anúncios">
+      <button id="ac-tab-create" class="ac-tab is-active" type="button" data-ac-tab="create">Criar anúncio</button>
+      <button id="ac-tab-drafts" class="ac-tab" type="button" data-ac-tab="drafts">Rascunhos</button>
+    </nav>
+
+    <section id="ac-panel-create" class="ac-tab-panel">
+      <section id="ac-create-home">
+        <div class="ac-section-heading">
+          <div>
+            <span>INÍCIO</span>
+            <h2>Como deseja começar?</h2>
+            <p>A DACHBYTE identifica o modelo da conta e adapta o cadastro para Legacy ou User Products.</p>
+          </div>
+        </div>
+
+        <div class="ac-entry-grid">
+          <button class="ac-entry-card" type="button" data-ac-entry="blank">
+            <span class="ac-entry-icon">＋</span>
+            <strong>Criar do zero</strong>
+            <small>Comece um produto novo e preencha os dados diretamente na DACHBYTE.</small>
+          </button>
+          <button class="ac-entry-card" type="button" data-ac-entry="own">
+            <span class="ac-entry-icon">⧉</span>
+            <strong>Usar meu anúncio</strong>
+            <small>Informe um MLB ou link, procure na conta ou importe uma família.</small>
+          </button>
+          <button class="ac-entry-card" type="button" data-ac-entry="reference">
+            <span class="ac-entry-icon">↗</span>
+            <strong>Usar uma referência</strong>
+            <small>Use os dados públicos de um anúncio de outro vendedor como ponto de partida.</small>
+          </button>
+        </div>
+
+        <section id="ac-source-box" class="ac-card ac-source-box" hidden>
+          <header class="ac-card-head">
+            <div>
+              <strong id="ac-source-title">Usar meu anúncio</strong>
+              <small id="ac-source-subtitle">Informe um MLB ou link do Mercado Livre.</small>
+            </div>
+            <button id="ac-source-close" class="ac-btn ac-btn--ghost" type="button">Fechar</button>
+          </header>
+
+          <div id="ac-own-source" class="ac-source-content" hidden>
+            <div class="ac-source-grid">
+              <label class="ac-field ac-field--wide">
+                <span>MLB ou link</span>
+                <div class="ac-inline">
+                  <input id="ac-own-input" class="ac-input" type="text" placeholder="MLB1234567890 ou link do anúncio" />
+                  <button id="ac-own-import" class="ac-btn ac-btn--primary" type="button">Consultar</button>
+                </div>
+              </label>
+              <label class="ac-field ac-field--wide">
+                <span>Buscar nos meus anúncios</span>
+                <div class="ac-inline">
+                  <input id="ac-own-search" class="ac-input" type="search" placeholder="Título, SKU ou termo" />
+                  <button id="ac-own-search-btn" class="ac-btn ac-btn--ghost" type="button">Buscar</button>
+                </div>
+              </label>
+            </div>
+            <div id="ac-own-results" class="ac-search-results" hidden></div>
+            <div id="ac-own-preview" class="ac-source-preview" hidden>
+              <div class="ac-source-preview-main">
+                <span id="ac-own-preview-thumb" class="ac-thumb-fallback">ML</span>
+                <div>
+                  <strong id="ac-own-preview-title">—</strong>
+                  <small id="ac-own-preview-meta">—</small>
+                </div>
+              </div>
+              <div class="ac-source-preview-actions">
+                <button id="ac-own-create-item" class="ac-btn ac-btn--primary" type="button">Criar rascunho deste anúncio</button>
+                <button id="ac-own-create-family" class="ac-btn ac-btn--ghost" type="button" hidden>Clonar família completa</button>
+              </div>
+            </div>
+
+            <details class="ac-advanced">
+              <summary>Criar condições de venda em uma família existente</summary>
+              <div class="ac-inline ac-advanced-row">
+                <input id="ac-family-input" class="ac-input" type="text" placeholder="ID da família existente" />
+                <button id="ac-family-import" class="ac-btn ac-btn--ghost" type="button">Criar condições</button>
+              </div>
+              <p>Este fluxo não clona a família: ele cria rascunhos de novas condições comerciais nos User Products existentes. Para criar novos produtos/variações, use “Clonar família completa” a partir de um MLB.</p>
+            </details>
+          </div>
+
+          <div id="ac-reference-source" class="ac-source-content" hidden>
+            <label class="ac-field">
+              <span>MLB ou link do anúncio de referência</span>
+              <div class="ac-inline">
+                <input id="ac-reference-input" class="ac-input" type="text" placeholder="Cole o MLB ou link do anúncio" />
+                <button id="ac-reference-import" class="ac-btn ac-btn--primary" type="button">Criar rascunho</button>
+              </div>
+            </label>
+            <div class="ac-note ac-note--info">
+              A referência externa traz dados públicos para consulta. Fotos e descrição do outro vendedor não entram automaticamente na publicação final.
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section id="ac-editor" class="ac-editor" hidden>
+        <div class="ac-editor-topbar">
+          <button id="ac-editor-back" class="ac-btn ac-btn--ghost" type="button">← Voltar</button>
+          <div class="ac-editor-title">
+            <span id="ac-editor-origin">RASCUNHO</span>
+            <strong id="ac-editor-name">Novo anúncio</strong>
+          </div>
+          <span id="ac-save-state" class="ac-save-state">Salvo</span>
+        </div>
+
+        <div id="ac-sale-condition-note" class="ac-card ac-info-note" hidden>
+          <strong>Nova condição de venda</strong>
+          <p>Este rascunho será publicado no User Product de origem. Família, ficha técnica, fotos, condição e estoque são herdados pelo Mercado Livre; edite principalmente preço, tipo de anúncio, envio, termos de venda e descrição.</p>
+        </div>
+
+        <div id="ac-family-integrity-note" class="ac-card ac-info-note ac-info-note--warn" hidden>
+          <strong>Atenção ao agrupamento da família</strong>
+          <p id="ac-family-integrity-message">Alterar este campo pode fazer esta variação sair do agrupamento da família quando for publicada.</p>
+        </div>
+
+        <div class="ac-editor-layout">
+          <form id="ac-editor-form" class="ac-editor-main" autocomplete="off">
+            <section id="ac-reference-preview" class="ac-card ac-reference-preview" hidden>
+              <header class="ac-card-head">
+                <div><strong>Referência externa</strong><small>Conteúdo apenas para consulta durante o cadastro.</small></div>
+              </header>
+              <div class="ac-reference-body">
+                <div id="ac-reference-images" class="ac-reference-images"></div>
+                <div>
+                  <strong id="ac-reference-title">—</strong>
+                  <p id="ac-reference-description">Sem descrição pública.</p>
+                </div>
+              </div>
+            </section>
+
+            <section id="ac-product-section" class="ac-card">
+              <header class="ac-card-head">
+                <div><strong>Produto</strong><small>Identificação principal do anúncio.</small></div>
+                <span id="ac-model-chip" class="ac-chip">Carregando modelo...</span>
+              </header>
+              <div class="ac-form-grid">
+                <label id="ac-field-title" class="ac-field ac-field--2">
+                  <span>Título</span>
+                  <input name="title" class="ac-input" type="text" maxlength="180" placeholder="Título do anúncio" />
+                </label>
+                <label id="ac-field-family" class="ac-field ac-field--2" hidden>
+                  <span>Nome da família</span>
+                  <input name="family_name" class="ac-input" type="text" maxlength="180" placeholder="Nome genérico da família" />
+                  <small>O Mercado Livre gera o título final usando a família e os atributos.</small>
+                </label>
+                <label class="ac-field">
+                  <span>SKU</span>
+                  <input name="sku" class="ac-input" type="text" maxlength="120" placeholder="Seu código interno" />
+                </label>
+                <label class="ac-field">
+                  <span>GTIN / EAN</span>
+                  <input name="gtin" class="ac-input" type="text" maxlength="120" placeholder="Informe quando aplicável" />
+                </label>
+                <label class="ac-field">
+                  <span>Condição</span>
+                  <select name="condition" class="ac-input">
+                    <option value="new">Novo</option>
+                    <option value="used">Usado</option>
+                    <option value="refurbished">Recondicionado</option>
+                    <option value="not_specified">Não especificado</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <section id="ac-category-section" class="ac-card">
+              <header class="ac-card-head">
+                <div><strong>Categoria e ficha técnica</strong><small>Os atributos mudam conforme a categoria escolhida.</small></div>
+              </header>
+              <div class="ac-form-grid">
+                <label class="ac-field ac-field--2">
+                  <span>Categoria</span>
+                  <div class="ac-inline">
+                    <input name="category_id" id="ac-category-id" class="ac-input" type="text" placeholder="MLB..." />
+                    <button id="ac-load-attributes" class="ac-btn ac-btn--ghost" type="button">Carregar atributos</button>
+                  </div>
+                </label>
+                <label class="ac-field ac-field--2">
+                  <span>Sugerir categoria pelo nome do produto</span>
+                  <div class="ac-inline">
+                    <input id="ac-category-query" class="ac-input" type="text" placeholder="Ex.: Cabeceira estofada casal" />
+                    <button id="ac-category-suggest" class="ac-btn ac-btn--ghost" type="button">Sugerir</button>
+                  </div>
+                </label>
+              </div>
+              <div id="ac-category-suggestions" class="ac-category-suggestions" hidden></div>
+              <div class="ac-attributes-toolbar">
+                <div>
+                  <strong id="ac-category-name">Atributos da categoria</strong>
+                  <small id="ac-attributes-meta">Selecione uma categoria para carregar a ficha técnica.</small>
+                </div>
+                <button id="ac-toggle-all-attrs" class="ac-btn ac-btn--ghost" type="button" hidden>Mostrar todos</button>
+              </div>
+              <div id="ac-attributes" class="ac-attributes"></div>
+            </section>
+
+            <section class="ac-card">
+              <header class="ac-card-head">
+                <div><strong>Preço, estoque e venda</strong><small>Condições comerciais que serão enviadas na nova publicação.</small></div>
+              </header>
+              <div class="ac-form-grid">
+                <label class="ac-field">
+                  <span>Preço</span>
+                  <input name="price" class="ac-input" type="number" step="0.01" min="0" placeholder="0,00" />
+                </label>
+                <label class="ac-field">
+                  <span>Estoque</span>
+                  <input name="available_quantity" class="ac-input" type="number" step="1" min="0" />
+                </label>
+                <label class="ac-field">
+                  <span>Tipo de anúncio</span>
+                  <select name="listing_type_id" id="ac-listing-type" class="ac-input">
+                    <option value="gold_special">Clássico</option>
+                    <option value="gold_pro">Premium</option>
+                  </select>
+                </label>
+                <label class="ac-field">
+                  <span>Moeda</span>
+                  <input name="currency_id" class="ac-input" type="text" value="BRL" maxlength="12" />
+                </label>
+                <label class="ac-check">
+                  <input name="free_shipping" type="checkbox" />
+                  <span>Frete grátis</span>
+                </label>
+                <label class="ac-check">
+                  <input name="local_pick_up" type="checkbox" />
+                  <span>Retirada local</span>
+                </label>
+              </div>
+              <div class="ac-attributes-toolbar ac-sale-terms-toolbar">
+                <div>
+                  <strong>Garantia e termos de venda</strong>
+                  <small id="ac-sale-terms-meta">Carregados conforme a categoria. Preencha quando aplicável.</small>
+                </div>
+              </div>
+              <div id="ac-sale-terms" class="ac-attributes"></div>
+            </section>
+
+            <section id="ac-pictures-section" class="ac-card">
+              <header class="ac-card-head">
+                <div><strong>Fotos</strong><small>Envie JPG/PNG para o CDN do Mercado Livre ou informe URLs próprias.</small></div>
+              </header>
+              <div id="ac-picture-actions" class="ac-picture-actions">
+                <label class="ac-upload">
+                  <input id="ac-picture-files" type="file" accept="image/jpeg,image/png" multiple />
+                  <span>Enviar fotos</span>
+                </label>
+                <div class="ac-inline ac-picture-url-row">
+                  <input id="ac-picture-url" class="ac-input" type="url" placeholder="https://.../imagem.jpg" />
+                  <button id="ac-picture-url-add" class="ac-btn ac-btn--ghost" type="button">Adicionar URL</button>
+                </div>
+              </div>
+              <div id="ac-picture-gallery" class="ac-picture-gallery"></div>
+            </section>
+
+            <section class="ac-card">
+              <header class="ac-card-head">
+                <div><strong>Descrição</strong><small>A descrição é enviada após a criação do item, como exige a API do Mercado Livre.</small></div>
+              </header>
+              <div class="ac-pad">
+                <textarea name="description" class="ac-textarea" rows="10" placeholder="Descreva o produto em texto simples..."></textarea>
+              </div>
+            </section>
+
+            <section id="ac-validation-card" class="ac-card" hidden>
+              <header class="ac-card-head">
+                <div><strong>Validação do Mercado Livre</strong><small>Corrija os pontos abaixo antes de publicar.</small></div>
+              </header>
+              <div id="ac-validation-errors" class="ac-validation-errors"></div>
+            </section>
+          </form>
+
+          <aside class="ac-editor-side">
+            <section class="ac-card ac-side-card">
+              <div class="ac-side-label">STATUS DO RASCUNHO</div>
+              <div class="ac-side-status-row">
+                <span id="ac-draft-status-dot" class="ac-dot"></span>
+                <strong id="ac-draft-status">Em revisão</strong>
+              </div>
+              <dl class="ac-meta-list">
+                <div><dt>Origem</dt><dd id="ac-meta-origin">—</dd></div>
+                <div><dt>MLB origem</dt><dd id="ac-meta-source-item">—</dd></div>
+                <div><dt>Modelo</dt><dd id="ac-meta-model">—</dd></div>
+                <div><dt>Validação</dt><dd id="ac-meta-validation">Pendente</dd></div>
+                <div><dt>Grupo</dt><dd id="ac-meta-group">—</dd></div>
+              </dl>
+              <div class="ac-side-actions">
+                <button id="ac-batch-copy-editor" class="ac-btn ac-btn--ghost ac-btn--full" type="button">Criar cópias em lote</button>
+                <button id="ac-validate" class="ac-btn ac-btn--ghost ac-btn--full" type="button">Validar no Mercado Livre</button>
+                <button id="ac-publish" class="ac-btn ac-btn--primary ac-btn--full" type="button" disabled>Publicar</button>
+              </div>
+              <p class="ac-side-help">A publicação só é liberada quando a versão atual do rascunho passa pelo validador oficial.</p>
+            </section>
+          </aside>
+        </div>
+      </section>
+    </section>
+
+    <section id="ac-panel-drafts" class="ac-tab-panel" hidden>
+      <section class="ac-card ac-drafts-card">
+        <header class="ac-card-head">
+          <div><strong>Rascunhos</strong><small>Organize o que está em edição, acompanhe os publicados recentes e recupere itens da lixeira.</small></div>
+          <button id="ac-new-draft" class="ac-btn ac-btn--primary" type="button">＋ Novo anúncio</button>
+        </header>
+        <nav class="ac-subtabs" aria-label="Situação dos rascunhos">
+          <button class="ac-subtab is-active" type="button" data-ac-draft-view="editing">Em edição</button>
+          <button class="ac-subtab" type="button" data-ac-draft-view="published">Publicados recentemente</button>
+          <button class="ac-subtab" type="button" data-ac-draft-view="trash">Lixeira</button>
+        </nav>
+        <div class="ac-draft-toolbar">
+          <input id="ac-draft-search" class="ac-input" type="search" placeholder="Título, família, SKU, MLB ou grupo" />
+          <select id="ac-draft-status-filter" class="ac-input">
+            <option value="all">Todos os status</option>
+            <option value="incomplete">Incompletos</option>
+            <option value="review">Em revisão</option>
+            <option value="error">Com erros</option>
+            <option value="ready">Prontos</option>
+            <option value="publish_error">Falha na publicação</option>
+          </select>
+          <select id="ac-draft-source-filter" class="ac-input">
+            <option value="all">Todas as origens</option>
+            <option value="blank">Criado do zero</option>
+            <option value="own_item">Meu anúncio</option>
+            <option value="own_family">Minha família</option>
+            <option value="external_item">Referência externa</option>
+            <option value="draft_copy">Cópia</option>
+          </select>
+          <select id="ac-draft-group-filter" class="ac-input">
+            <option value="">Todos os grupos</option>
+          </select>
+          <button id="ac-draft-refresh" class="ac-btn ac-btn--ghost" type="button">Atualizar</button>
+        </div>
+        <div class="ac-table-wrap">
+          <table class="ac-table">
+            <thead id="ac-draft-head"><tr><th>Produto</th><th>Origem</th><th>Grupo</th><th>Alterado</th><th>Situação</th><th></th></tr></thead>
+            <tbody id="ac-draft-body"><tr><td colspan="6" class="ac-empty">Carregando rascunhos...</td></tr></tbody>
+          </table>
+        </div>
+        <footer class="ac-pagination">
+          <span id="ac-draft-page-label">Página 1</span>
+          <div><button id="ac-draft-prev" class="ac-btn ac-btn--ghost" type="button">Anterior</button><button id="ac-draft-next" class="ac-btn ac-btn--ghost" type="button">Próxima</button></div>
+        </footer>
+      </section>
+    </section>
+
+    <div id="ac-batch-modal" class="ac-modal-backdrop" hidden>
+      <section class="ac-modal ac-modal--compact" role="dialog" aria-modal="true" aria-labelledby="ac-batch-modal-title">
+        <header class="ac-card-head">
+          <div><strong id="ac-batch-modal-title">Criar cópias em lote</strong><small id="ac-batch-source-label">Origem selecionada</small></div>
+          <button class="ac-btn ac-btn--ghost" type="button" data-ac-modal-close="batch">Fechar</button>
+        </header>
+        <div class="ac-modal-body">
+          <label class="ac-field"><span>Quantidade</span><input id="ac-batch-quantity" class="ac-input" type="number" min="1" max="10" step="1" value="1" /><small>Mínimo 1 e máximo 10 cópias independentes.</small></label>
+          <label class="ac-field"><span>Nome do grupo</span><input id="ac-batch-name" class="ac-input" type="text" maxlength="240" /></label>
+          <div class="ac-note ac-note--info">Cada cópia será um rascunho independente. Alterações feitas em uma cópia não serão sincronizadas com as outras.</div>
+          <div id="ac-batch-sale-condition-warning" class="ac-note ac-note--warn" hidden>As cópias criarão novas condições de venda para o mesmo User Product da origem.</div>
+        </div>
+        <footer class="ac-modal-actions">
+          <button class="ac-btn ac-btn--ghost" type="button" data-ac-modal-close="batch">Cancelar</button>
+          <button id="ac-batch-create" class="ac-btn ac-btn--primary" type="button">Criar rascunhos</button>
+        </footer>
+      </section>
+    </div>
+
+    <div id="ac-family-modal" class="ac-modal-backdrop" hidden>
+      <section class="ac-modal ac-modal--wide" role="dialog" aria-modal="true" aria-labelledby="ac-family-modal-title">
+        <header class="ac-card-head">
+          <div><strong id="ac-family-modal-title">Clonar família completa</strong><small id="ac-family-modal-subtitle">Descobrindo família pelo MLB...</small></div>
+          <button class="ac-btn ac-btn--ghost" type="button" data-ac-modal-close="family">Fechar</button>
+        </header>
+        <div class="ac-modal-body">
+          <div id="ac-family-loading" class="ac-empty">Consultando User Products e condições de venda...</div>
+          <div id="ac-family-content" hidden>
+            <label class="ac-field"><span>Nome do grupo</span><input id="ac-family-group-name" class="ac-input" type="text" maxlength="240" /></label>
+            <div class="ac-note ac-note--info">Selecione até 10 variações. Cada uma será criada como <strong>new_item</strong>; o Mercado Livre calculará o agrupamento e o novo family_id na publicação.</div>
+            <div id="ac-family-count" class="ac-family-count"></div>
+            <div class="ac-table-wrap ac-family-table-wrap">
+              <table class="ac-table ac-family-table">
+                <thead><tr><th></th><th>Variação</th><th>Cor</th><th>Medida</th><th>SKU</th><th>Preço</th><th>Condição de origem</th></tr></thead>
+                <tbody id="ac-family-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <footer class="ac-modal-actions">
+          <button class="ac-btn ac-btn--ghost" type="button" data-ac-modal-close="family">Cancelar</button>
+          <button id="ac-family-clone-create" class="ac-btn ac-btn--primary" type="button" disabled>Criar rascunhos selecionados</button>
+        </footer>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

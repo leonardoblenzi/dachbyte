@@ -1,0 +1,106 @@
+.account-automations-app .automations-table{
+  min-width:1120px;
+}
+
+.automation-field-stack,
+.automation-form,
+.automation-runs-list{
+  display:grid;
+  gap:12px;
+}
+
+.automation-field-stack textarea,
+#automation-recipients{
+  min-height:96px;
+  padding:12px 14px;
+  resize:vertical;
+}
+
+.automation-enrichment-grid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:10px;
+}
+
+.automation-enrichment-grid label{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:46px;
+  padding:10px 12px;
+  border:1px solid rgba(148,163,184,.22);
+  border-radius:14px;
+  background:#fff;
+  color:#334155;
+  font-weight:850;
+  cursor:pointer;
+}
+
+.automation-enrichment-grid input{
+  width:16px;
+  height:16px;
+  accent-color:#2563eb;
+}
+
+.automation-schedule-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr 140px;
+  gap:10px;
+}
+
+.automation-recipients{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.automation-run{
+  display:grid;
+  grid-template-columns:180px 1fr auto;
+  gap:14px;
+  align-items:center;
+  padding:14px 18px;
+  border-bottom:1px solid rgba(148,163,184,.16);
+}
+
+.automation-run:last-child{
+  border-bottom:0;
+}
+
+.automation-run strong{
+  display:block;
+  color:#172033;
+}
+
+.automation-run span,
+.automation-run small{
+  color:#64748b;
+}
+
+.automation-run a{
+  color:#2563eb;
+  font-weight:850;
+  text-decoration:none;
+}
+
+.automation-dialog{
+  width:min(100% - 28px, 1040px);
+}
+
+@media (max-width: 900px){
+  .automation-enrichment-grid,
+  .automation-schedule-grid,
+  .automation-run{
+    grid-template-columns:1fr;
+  }
+}
+
+body.theme-dark.account-automations-app .automation-enrichment-grid label{
+  background:rgba(20,30,52,.95);
+  border-color:rgba(86,107,157,.32);
+  color:#dbe4ff;
+}
+
+body.theme-dark.account-automations-app .automation-run strong{
+  color:#f8fbff;
+}

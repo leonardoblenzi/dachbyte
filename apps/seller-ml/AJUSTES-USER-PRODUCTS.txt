@@ -1,0 +1,27 @@
+REVISÃO USER PRODUCTS — 31/08/2026
+
+Correções aplicadas sobre a primeira entrega de Anúncios > Cadastro:
+
+1. publication_target explícito no rascunho:
+   - new_item -> POST /items
+   - sale_condition -> POST /user-products/{USER_PRODUCT_ID}/items
+
+2. Importação de família gera condições de venda para os User Products existentes.
+
+3. Duplicação normal de MLB próprio continua new_item por padrão, mesmo quando o
+   anúncio original possui user_product_id. Isso evita transformar, por engano,
+   uma cópia de tamanho/modelo em uma segunda condição comercial do mesmo produto.
+
+4. Família manual só é aceita se family.user_id == seller_id da conta selecionada.
+   Família externa ou sem proprietário confirmado é bloqueada.
+
+5. Validação usa o mesmo objetivo de publicação:
+   - new_item: POST /items/validate.
+   - sale_condition: preflight do User Product (ownership + limite de condições)
+     porque a documentação pública não expõe dry-run equivalente para esse POST.
+
+6. condition foi removido do payload novo; ITEM_CONDITION passa em attributes.
+
+7. Hash de validação inclui target + UP + payload.
+
+8. Testes ampliados para 16 casos, incluindo rota UP e lock concorrente.

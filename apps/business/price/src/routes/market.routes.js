@@ -1,0 +1,11 @@
+"use strict";
+const express=require("express");const {authenticate,requirePasswordChangeComplete,requireCsrf}=require("../auth");const {requirePermission}=require("../permissions");
+const {marketOverview,upsertSource,importListings,syncMeliSource,reviewMatch,updateSignal}=require("../market/service");
+const router=express.Router();router.use(authenticate,requirePasswordChangeComplete);
+router.get("/market",requirePermission("market.read"),async(req,res,next)=>{try{res.json(await marketOverview(req.vpAuth,req.query));}catch(e){next(e);}});
+router.post("/market/sources",requireCsrf,requirePermission("market.manage"),async(req,res,next)=>{try{res.status(201).json({source:await upsertSource(req.vpAuth,req.body||{},req)});}catch(e){next(e);}});
+router.post("/market/import",requireCsrf,requirePermission("market.manage"),async(req,res,next)=>{try{res.status(201).json({results:await importListings(req.vpAuth,req.body?.sourceId,req.body?.listings||[],{observedAt:req.body?.observedAt,sourceType:"IMPORT"},req)});}catch(e){next(e);}});
+router.post("/market/sources/:id/sync",requireCsrf,requirePermission("market.manage"),async(req,res,next)=>{try{res.json({results:await syncMeliSource(req.vpAuth,req.params.id,req.body||{},req)});}catch(e){next(e);}});
+router.patch("/market/matches/:id",requireCsrf,requirePermission("market.manage"),async(req,res,next)=>{try{res.json({match:await reviewMatch(req.vpAuth,req.params.id,req.body||{},req)});}catch(e){next(e);}});
+router.patch("/market/signals/:id",requireCsrf,requirePermission("market.manage"),async(req,res,next)=>{try{res.json({signal:await updateSignal(req.vpAuth,req.params.id,req.body||{},req)});}catch(e){next(e);}});
+module.exports={marketRouter:router};

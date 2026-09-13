@@ -1,0 +1,20 @@
+VoltChat 0.1.40
+
+Alteracao das notificacoes push do desktop:
+
+- Mensagem direta continua exibindo:
+  Titulo: Nova mensagem de NOME
+  Descricao: conteudo da mensagem
+
+- Mensagem de grupo passa a exibir:
+  Titulo: Nova mensagem no grupo NOME DO GRUPO
+  Descricao: NOME DO REMETENTE: conteudo da mensagem
+
+- O nome do remetente usa o nome de exibicao vindo do backend e aparece em maiusculas no corpo da notificacao de grupo.
+- Notificacoes de arquivos e figurinhas tambem respeitam o formato do grupo.
+- Ao clicar em notificacao de grupo no desktop, o VoltChat abre o grupo correto, em vez da conversa direta com o remetente.
+- O backend agora inclui group_name no payload serializado das mensagens de grupo.
+
+Nao ha migration de banco nesta versao.
+
+Este pacote tambem preserva a correcao 0.1.39 de quebra de linha/overflow dos baloes (Chat.js + index.css).

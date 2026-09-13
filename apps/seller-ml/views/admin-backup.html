@@ -1,0 +1,107 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="stylesheet" href="/ml/css/ml-app.css?v=7" />
+<title>Admin - Backup</title>
+
+  <link rel="stylesheet" href="/ml/css/admin-usuarios.css?v=5"><!-- reaproveita o mesmo css -->
+    <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/ml/css/ml-master-theme.css?v=2026081301" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+<main class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar__brand">
+        <div class="admin-sidebar__logo">DACHBYTE</div>
+        <div class="admin-sidebar__sub">Administracao</div>
+      </div>
+
+      <nav class="admin-menu">
+            <a class="admin-menu__item" href="/ml/admin/usuarios">
+          <span class="ico">U</span>
+          <span>Usuarios</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/empresas">
+          <span class="ico">E</span>
+          <span>Empresas</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/vinculos">
+          <span class="ico">V</span>
+          <span>Vinculos</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/contas-ml">
+          <span class="ico">M</span>
+          <span>Contas ML</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/relatorios-ml"><span class="ico">R</span><span>Relatorios ML</span></a>
+
+        <a class="admin-menu__item" href="/ml/admin/tokens-ml">
+          <span class="ico">T</span>
+          <span>Tokens ML</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/oauth-states">
+          <span class="ico">O</span>
+          <span>OAuth States</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/migracoes">
+          <span class="ico">G</span>
+          <span>Migracoes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/patch-notes">
+            <span class="ico">P</span><span>Patch Notes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/jobs">
+            <span class="ico">J</span><span>Automacoes</span>
+        </a>
+        <a class="admin-menu__item active" href="/ml/admin/backup">
+            <span class="ico">B</span><span>Backup 
+            </span>
+        </a>
+      </nav>
+
+      <div class="admin-sidebar__footer"><small>Area restrita</small></div>
+    </aside>
+
+    <section class="admin-content">
+      <div class="admin-content__header">
+        <div>
+          <h1 class="admin-title">Backup do banco</h1>
+          <p class="admin-subtitle">Exporte um backup completo (tabelas + dados) e restaure um backup anterior.</p>
+        </div>
+      </div>
+
+      <div class="card" style="padding:16px;">
+        <h3 style="margin:0 0 10px;">Exportar</h3>
+        <p style="margin:0 0 14px; opacity:.85;">
+          Gera um arquivo JSON com todas as tabelas do sistema e os dados atuais.
+        </p>
+
+        <button id="btn-export" class="btn-primary" type="button"> Baixar backup (.json)</button>
+      </div>
+
+      <div class="card" style="padding:16px; margin-top:14px;">
+        <h3 style="margin:0 0 10px;">Restaurar</h3>
+        <p style="margin:0 0 14px; opacity:.85;">
+          Atencao: esta acao substitui os dados atuais pelo conteudo do backup (wipe & restore).
+        </p>
+
+        <input id="file" type="file" accept="application/json" />
+        <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="btn-import" class="btn-lite" type="button">♻ Restaurar backup selecionado</button>
+        </div>
+
+        <div id="msg" class="backup-message"></div>
+      </div>
+    </section>
+  </main>
+<script src="/ml/js/admin-backup.js?v=1"></script>
+</body>
+</html>

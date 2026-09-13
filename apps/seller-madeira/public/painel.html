@@ -1,0 +1,949 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-madeira">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/madeiramadeira/" />
+    <title>DACHBYTE Seller | MadeiraMadeira</title>
+    <link rel="icon" type="image/svg+xml" href="dachbyte-seller-mark.svg?v=1" />
+    <link rel="stylesheet" href="css/workspace.css" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+  </head>
+  <body class="workspace theme-light">
+    <header class="workspace-topbar">
+      <div class="workspace-brand">
+        <img class="workspace-brand__logo dachbyte-artwork" src="/brand/dachbyte/seller/mark-transparent.png" alt="DACHBYTE Seller MadeiraMadeira" />
+        <div>
+          <div class="workspace-brand__title">DACHBYTE</div>
+          <div class="workspace-brand__subtitle">MadeiraMadeira • Sales Intelligence</div>
+        </div>
+      </div>
+
+      <div class="workspace-topbar__actions">
+        <div class="workspace-pill">
+          <span class="workspace-pill__dot"></span>
+          <span id="workspace-status-text">Inicializando workspace</span>
+        </div>
+        <a class="workspace-btn workspace-btn--ghost" href="/selecao-plataforma">Trocar acesso</a>
+      </div>
+    </header>
+
+    <div class="workspace-app">
+      <aside class="workspace-sidebar">
+        <div class="workspace-sidebar__section">
+          <div class="workspace-sidebar__header">
+            <div class="workspace-sidebar__title">Central de Operacao</div>
+            <button class="workspace-sidebar__collapse" id="sidebar-collapse" type="button" aria-label="Recolher menu">
+              <span></span>
+              <span></span>
+            </button>
+          </div>
+
+          <button class="workspace-nav" data-tab="overview" type="button">
+            <span class="workspace-nav__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 16V8m6 8V5m6 11v-6" /></svg>
+            </span>
+            <span class="workspace-nav__content"><strong>Visao Executiva</strong><small>Saude geral do canal</small></span>
+          </button>
+          <button class="workspace-nav active" data-tab="dashboard" type="button">
+            <span class="workspace-nav__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h8V3H3v10zm10 8h8V3h-8v18zM3 21h8v-6H3v6z" /></svg>
+            </span>
+            <span class="workspace-nav__content"><strong>Dashboard</strong><small>Painel de controle</small></span>
+          </button>
+          <button class="workspace-nav" data-tab="settings" type="button">
+            <span class="workspace-nav__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12a4 4 0 0 1 4-4h6M16 12a4 4 0 0 1-4 4H6" /><path d="M14 6h4v4M10 18H6v-4" /></svg>
+            </span>
+            <span class="workspace-nav__content"><strong>Configuracoes</strong><small>Usuario e token</small></span>
+          </button>
+          <button class="workspace-nav" data-tab="analytics" type="button">
+            <span class="workspace-nav__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V9m7 10V5m7 14v-7" /></svg>
+            </span>
+            <span class="workspace-nav__content"><strong>Analytics</strong><small>KPIs, crescimento e projecoes</small></span>
+          </button>
+          <button class="workspace-nav" data-tab="abc" type="button">
+            <span class="workspace-nav__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16M6 14h4M6 10h8M6 6h12" /></svg>
+            </span>
+            <span class="workspace-nav__content"><strong>Curva ABC</strong><small>Faturamento e itens</small></span>
+          </button>
+          <button class="workspace-nav" data-tab="catalog" type="button">
+            <span class="workspace-nav__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v10H4z" /><path d="M9 7V5h6v2" /></svg>
+            </span>
+            <span class="workspace-nav__content"><strong>Catalogo</strong><small>Publicacao e mix</small></span>
+          </button>
+          <button class="workspace-nav" data-tab="orders" type="button">
+            <span class="workspace-nav__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14v10H5z" /><path d="M8 11h8M8 15h5" /></svg>
+            </span>
+            <span class="workspace-nav__content"><strong>Pedidos</strong><small>Operacao e SLA</small></span>
+          </button>
+          <button class="workspace-nav" data-tab="finance" type="button">
+            <span class="workspace-nav__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16" /><path d="M12 4v16" /><circle cx="12" cy="12" r="8" /></svg>
+            </span>
+            <span class="workspace-nav__content"><strong>Financeiro</strong><small>Repasse e margem</small></span>
+          </button>
+          <button class="workspace-nav" data-tab="messaging" type="button">
+            <span class="workspace-nav__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v9H9l-4 3z" /></svg>
+            </span>
+            <span class="workspace-nav__content"><strong>SAC</strong><small>Backlog e atendimento</small></span>
+          </button>
+          <button class="workspace-nav" data-tab="automation" type="button">
+            <span class="workspace-nav__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4m0 10v4M4.9 4.9l2.8 2.8m8.6 8.6l2.8 2.8M3 12h4m10 0h4M4.9 19.1l2.8-2.8m8.6-8.6l2.8-2.8" /><circle cx="12" cy="12" r="3.5" /></svg>
+            </span>
+            <span class="workspace-nav__content"><strong>Sync Center</strong><small>Importacao e monitoramento</small></span>
+          </button>
+          <button class="workspace-nav" data-tab="updates" type="button">
+            <span class="workspace-nav__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4H7z" /><path d="M6 8h12v12H6z" /><path d="M9 12h6M9 15h4" /></svg>
+            </span>
+            <span class="workspace-nav__content"><strong>Ultimas atualizacoes</strong><small>Historico de patch notes</small></span>
+          </button>
+          <button class="workspace-nav workspace-nav--admin" data-tab="admin" data-admin-only="true" type="button">
+            <span class="workspace-nav__icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v6c0 4.2-3 7.7-7 8.8C8 19.7 5 16.2 5 12V6z" /><path d="M9.5 12l1.5 1.5 3.5-3.5" /></svg>
+            </span>
+            <span class="workspace-nav__content"><strong>Admin</strong><small>Usuarios e convites</small></span>
+          </button>
+        </div>
+      </aside>
+
+      <main class="workspace-main">
+        <section class="dashboard-kpis kpi-deck">
+          <article class="kpi-card"><span>Produtos ativos</span><strong id="metric-products">0</strong><small id="metric-products-note">Catalogo local</small></article>
+          <article class="kpi-card"><span>Pedidos</span><strong id="metric-orders">0</strong><small id="metric-orders-note">Periodo atual</small></article>
+          <article class="kpi-card"><span>Receita bruta</span><strong id="metric-gross-revenue">R$ 0,00</strong><small id="metric-gross-note">Volume vendido</small></article>
+          <article class="kpi-card"><span>Receita liquida</span><strong id="metric-net-revenue">R$ 0,00</strong><small id="metric-net-note">Repasse consolidado</small></article>
+          <article class="kpi-card"><span>Margem liquida</span><strong id="metric-margin-rate">0%</strong><small id="metric-margin-note">Net / bruto</small></article>
+          <article class="kpi-card"><span>Entrega concluida</span><strong id="metric-delivery-rate">0%</strong><small id="metric-delivery-note">SLA operacional</small></article>
+        </section>
+
+        <section class="tab-panel" data-panel="overview">
+          <section class="hero-shell">
+            <div class="hero-main glass-tile glass-tile--brand">
+              <span class="glass-tile__kicker">Revenue cockpit</span>
+              <h1>MadeiraMadeira pronta para sincronizar, analisar e escalar.</h1>
+              <p class="glass-tile__lead">
+                Produtos, pedidos, financeiro e SAC em um unico cockpit com sincronizacao manual,
+                indicadores de margem, historico por periodo e projecoes do mes.
+              </p>
+
+              <div class="hero-actions">
+                <button class="workspace-btn workspace-btn--accent" data-sync-action="all" type="button">Sync geral</button>
+                <button class="workspace-btn" data-sync-action="catalog" type="button">Sync catalogo</button>
+                <button class="workspace-btn" data-sync-action="orders" type="button">Sync pedidos</button>
+                <button class="workspace-btn" data-sync-action="finance" type="button">Sync financeiro</button>
+                <button class="workspace-btn" data-sync-action="messaging" type="button">Sync SAC</button>
+              </div>
+            </div>
+
+            <div class="hero-side glass-tile">
+              <div class="control-group">
+                <label class="field-label" for="period-select">Periodo analytics</label>
+                <select id="period-select" class="workspace-field">
+                  <option value="current_month" selected>Mes atual</option>
+                  <option value="7d">Ultimos 7 dias</option>
+                  <option value="15d">Ultimos 15 dias</option>
+                  <option value="30d">Ultimos 30 dias</option>
+                  <option value="90d">Ultimos 90 dias</option>
+                  <option value="12m">Ultimos 12 meses</option>
+                </select>
+              </div>
+
+              <div class="control-group">
+                <label class="field-label" for="finance-date-from">Financeiro de</label>
+                <input id="finance-date-from" class="workspace-field" type="date" />
+              </div>
+
+              <div class="control-group">
+                <label class="field-label" for="finance-date-to">Financeiro ate</label>
+                <input id="finance-date-to" class="workspace-field" type="date" />
+              </div>
+
+              <div class="workspace-chip-stack">
+                <div class="workspace-chip"><span>Seller</span><strong id="seller-alias">madeira-dachbyte</strong></div>
+                <div class="workspace-chip"><span>Perfil</span><strong id="user-role">Operacao</strong></div>
+                <div class="workspace-chip"><span>Usuario</span><strong id="user-name">Equipe DACHBYTE</strong></div>
+              </div>
+            </div>
+          </section>
+
+          <div class="workspace-grid workspace-grid--three">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Direcionadores</span><h2>Onde agir primeiro</h2></div></div>
+              <div class="stack-list" id="overview-highlights"></div>
+            </article>
+
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Qualidade</span><h2>Indices do canal</h2></div></div>
+              <div class="stack-list" id="quality-highlights"></div>
+            </article>
+
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Projecao do mes</span><h2>Run rate atual</h2></div></div>
+              <div class="projection-board">
+                <div class="projection-item"><span>Pedidos</span><strong id="projection-orders">0</strong></div>
+                <div class="projection-item"><span>Bruto</span><strong id="projection-gross">R$ 0,00</strong></div>
+                <div class="projection-item"><span>Pago</span><strong id="projection-net">R$ 0,00</strong></div>
+                <div class="projection-item"><span>Margem</span><strong id="projection-margin">0%</strong></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="workspace-grid workspace-grid--two">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Radar de operacao</span><h2>Ultimos movimentos</h2></div></div>
+              <div class="stack-list" id="latest-activity-list"></div>
+            </article>
+
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Execucao</span><h2>Saude da sincronizacao</h2></div></div>
+              <table class="data-table">
+                <thead><tr><th>Dominio</th><th>Status</th><th>Processados</th><th>Fim</th></tr></thead>
+                <tbody id="sync-runs-table"></tbody>
+              </table>
+            </article>
+          </div>
+        </section>
+
+        <section class="tab-panel active" data-panel="dashboard">
+          <div class="ctrl-shell">
+            <header class="ctrl-header">
+              <div class="ctrl-brand">
+                <img src="logo.png" alt="MadeiraMadeira" />
+                <div>
+                  <strong>madeiramadeira</strong>
+                  <h1>Dashboard de Controle</h1>
+                  <p>Acompanhe o desempenho das operacoes no modulo MadeiraMadeira.</p>
+                </div>
+              </div>
+              <div class="ctrl-filters">
+                <select id="dash-period-select" class="workspace-field workspace-field--compact">
+                  <option value="current_month" selected>Mes atual</option>
+                  <option value="7d">Ultimos 7 dias</option>
+                  <option value="15d">Ultimos 15 dias</option>
+                  <option value="30d">Ultimos 30 dias</option>
+                  <option value="90d">Ultimos 90 dias</option>
+                  <option value="12m">Ultimos 12 meses</option>
+                </select>
+                <input id="dash-date-from" class="workspace-field workspace-field--compact" type="date" />
+                <input id="dash-date-to" class="workspace-field workspace-field--compact" type="date" />
+                <input id="dash-date-range" class="workspace-field workspace-field--compact" type="text" readonly value="-" />
+                <button class="workspace-btn workspace-btn--ghost" id="dash-current-month" type="button">Mes atual</button>
+                <button class="workspace-btn workspace-btn--accent" id="dash-apply-filters" type="button">Aplicar periodo</button>
+              </div>
+            </header>
+
+            <section class="ctrl-kpis">
+              <article class="ctrl-kpi-card"><span>Faturamento total</span><strong id="dash-kpi-revenue">R$ 0,00</strong><small id="dash-kpi-revenue-growth">0%</small><div id="dash-spark-revenue" class="ctrl-spark"></div></article>
+              <article class="ctrl-kpi-card"><span>Faturamento aprovado</span><strong id="dash-kpi-approved-revenue">R$ 0,00</strong><small id="dash-kpi-approved-revenue-growth">0%</small><div id="dash-spark-approved-revenue" class="ctrl-spark"></div></article>
+              <article class="ctrl-kpi-card"><span>Pedidos</span><strong id="dash-kpi-orders">0</strong><small id="dash-kpi-orders-growth">0%</small><div id="dash-spark-orders" class="ctrl-spark"></div></article>
+              <article class="ctrl-kpi-card"><span>Ticket medio</span><strong id="dash-kpi-ticket">R$ 0,00</strong><small id="dash-kpi-ticket-growth">0%</small><div id="dash-spark-ticket" class="ctrl-spark"></div></article>
+              <article class="ctrl-kpi-card"><span>Conversao</span><strong id="dash-kpi-conversion">0%</strong><small id="dash-kpi-conversion-growth">0 p.p.</small><div id="dash-spark-conversion" class="ctrl-spark"></div></article>
+              <article class="ctrl-kpi-card"><span>Cancelamentos</span><strong id="dash-kpi-cancelled">0</strong><small id="dash-kpi-cancelled-growth">0%</small><div id="dash-spark-cancelled" class="ctrl-spark"></div></article>
+            </section>
+
+            <section class="ctrl-grid ctrl-grid--two">
+              <article class="ctrl-panel">
+                <div class="ctrl-panel__head"><h2>Tendencia de Vendas (R$)</h2><span id="dash-trend-badge">0%</span></div>
+                <div id="dash-trend-chart" class="ctrl-chart ctrl-chart--line"></div>
+              </article>
+              <article class="ctrl-panel">
+                <div class="ctrl-panel__head"><h2>Top vendedores (R$)</h2><span>GMV</span></div>
+                <div id="dash-top-sellers" class="ctrl-list"></div>
+              </article>
+            </section>
+
+            <section class="ctrl-grid ctrl-grid--two">
+              <article class="ctrl-panel">
+                <div class="ctrl-panel__head"><h2>Desempenho de Vendas</h2><span>Progresso vs meta</span></div>
+                <div id="dash-performance-chart" class="ctrl-chart ctrl-chart--line"></div>
+              </article>
+              <article class="ctrl-panel">
+                <div class="ctrl-panel__head"><h2>Resumo do periodo</h2></div>
+                <div id="dash-period-summary" class="ctrl-summary"></div>
+              </article>
+            </section>
+
+            <section class="ctrl-grid ctrl-grid--two">
+              <article class="ctrl-panel">
+                <div class="ctrl-panel__head"><h2>Indicadores Operacionais</h2></div>
+                <div class="ctrl-operational">
+                  <div class="ctrl-op-card"><span>Novos produtos publicados</span><strong id="dash-op-published">0</strong><small id="dash-op-published-growth">0%</small><div id="dash-spark-published" class="ctrl-spark"></div></div>
+                  <div class="ctrl-op-card"><span>Produtos sem estoque</span><strong id="dash-op-oos">0</strong><small id="dash-op-oos-growth">0%</small><div id="dash-spark-oos" class="ctrl-spark"></div></div>
+                  <div class="ctrl-op-card"><span>Pedidos em aberto</span><strong id="dash-op-open-orders">0</strong><small id="dash-op-open-orders-growth">0%</small><div id="dash-spark-open-orders" class="ctrl-spark"></div></div>
+                  <div class="ctrl-op-card"><span>Anuncios ativos</span><strong id="dash-op-active">0</strong><small id="dash-op-active-growth">0%</small><div id="dash-spark-active" class="ctrl-spark"></div></div>
+                </div>
+              </article>
+              <article class="ctrl-panel">
+                <div class="ctrl-panel__head"><h2>Comparativo de Vendas (R$)</h2></div>
+                <div id="dash-compare-bars" class="ctrl-bars"></div>
+              </article>
+            </section>
+
+            <section class="ctrl-panel">
+              <div class="ctrl-panel__head"><h2>Evolucao Diaria de Vendas (R$)</h2></div>
+              <div id="dash-daily-heatmap" class="ctrl-heatmap"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="settings">
+          <div class="workspace-grid workspace-grid--two">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Usuario</span><h2>Configuracoes da conta</h2></div></div>
+              <div class="stack-list" id="settings-user-list"></div>
+            </article>
+
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Integracao</span><h2>Conectar TOKENMM da empresa</h2></div></div>
+              <form id="integration-form" class="integration-form">
+                <div class="control-group">
+                  <label class="field-label" for="integration-token">TOKENMM da empresa</label>
+                  <input id="integration-token" class="workspace-field" type="password" placeholder="Cole aqui o token da empresa" autocomplete="off" />
+                </div>
+                <div class="hero-actions hero-actions--compact">
+                  <button class="workspace-btn workspace-btn--accent" id="integration-submit" type="submit">Conectar token</button>
+                  <button class="workspace-btn" id="integration-refresh" type="button">Atualizar status</button>
+                </div>
+              </form>
+            </article>
+
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Workspace</span><h2>Status da empresa conectada</h2></div></div>
+              <div class="stack-list" id="integration-status-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="analytics">
+          <article class="glass-tile">
+            <div class="glass-tile__head"><div><span class="glass-tile__kicker">Recorte</span><h2>Periodo aplicado e comparacao</h2></div></div>
+            <form class="table-toolbar" id="analytics-filter-form">
+              <div class="table-toolbar__group">
+                <select id="analytics-period-select" class="workspace-field workspace-field--compact">
+                  <option value="current_month" selected>Mes atual</option>
+                  <option value="7d">Ultimos 7 dias</option>
+                  <option value="15d">Ultimos 15 dias</option>
+                  <option value="30d">Ultimos 30 dias</option>
+                  <option value="90d">Ultimos 90 dias</option>
+                  <option value="12m">Ultimos 12 meses</option>
+                </select>
+                <input id="analytics-date-from" class="workspace-field workspace-field--compact" type="date" />
+                <input id="analytics-date-to" class="workspace-field workspace-field--compact" type="date" />
+                <input id="analytics-compare-from" class="workspace-field workspace-field--compact" type="date" />
+                <input id="analytics-compare-to" class="workspace-field workspace-field--compact" type="date" />
+              </div>
+              <div class="table-toolbar__group">
+                <button class="workspace-btn workspace-btn--accent" id="analytics-apply" type="submit">Aplicar recorte</button>
+                <button class="workspace-btn workspace-btn--ghost" id="analytics-clear" type="button">Limpar datas</button>
+              </div>
+            </form>
+            <div class="workspace-grid workspace-grid--two">
+              <div class="stack-list" id="analytics-period-list"></div>
+              <div class="stack-list" id="analytics-quality-list"></div>
+            </div>
+          </article>
+
+          <div class="workspace-grid workspace-grid--two">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Receita</span><h2>Historico liquido</h2></div></div>
+              <div class="bar-chart" id="revenue-series-chart"></div>
+            </article>
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Pedidos</span><h2>Volume por periodo</h2></div></div>
+              <div class="bar-chart" id="orders-series-chart"></div>
+            </article>
+          </div>
+
+          <div class="workspace-grid workspace-grid--two">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Comparativo</span><h2>KPIs em grafico</h2></div></div>
+              <div class="bar-chart" id="kpi-comparison-chart"></div>
+            </article>
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Top produtos</span><h2>Faturamento no periodo</h2></div></div>
+              <div class="product-growth-grid" id="product-growth-cards"></div>
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead><tr><th>Produto</th><th>SKU</th><th>Faturamento</th><th>Crescimento</th><th>Unidades</th></tr></thead>
+                  <tbody id="product-growth-table"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+
+          <div class="workspace-grid workspace-grid--two">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Exportacao</span><h2>Relatorio de vendas</h2></div></div>
+              <form class="table-toolbar" id="sales-report-form">
+                <div class="table-toolbar__group">
+                  <input id="sales-report-date-from" class="workspace-field workspace-field--compact" type="date" />
+                  <input id="sales-report-date-to" class="workspace-field workspace-field--compact" type="date" />
+                </div>
+                <div class="table-toolbar__group table-toolbar__group--full">
+                  <textarea id="sales-report-order-ids" class="workspace-field workspace-field--textarea" placeholder="IDs/codigos de pedido, separados por virgula ou quebra de linha"></textarea>
+                  <textarea id="sales-report-product-ids" class="workspace-field workspace-field--textarea" placeholder="SKUs ou IDs de produto, separados por virgula ou quebra de linha"></textarea>
+                </div>
+                <div class="table-toolbar__group">
+                  <button class="workspace-btn workspace-btn--accent" id="sales-report-preview" type="submit">Gerar resumo</button>
+                  <button class="workspace-btn workspace-btn--ghost" id="sales-report-export-csv" type="button">Exportar CSV</button>
+                  <button class="workspace-btn workspace-btn--ghost" id="sales-report-export-json" type="button">Exportar JSON</button>
+                </div>
+              </form>
+            </article>
+
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Preview</span><h2>Resumo exportavel</h2></div></div>
+              <div class="stack-list" id="sales-report-status"></div>
+            </article>
+          </div>
+
+          <article class="glass-tile">
+            <div class="glass-tile__head"><div><span class="glass-tile__kicker">Pedidos filtrados</span><h2>Amostra do relatorio</h2></div></div>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead><tr><th>Pedido</th><th>Cliente</th><th>Status</th><th>Data</th><th>Bruto</th><th>Liquido</th><th>SKUs</th></tr></thead>
+                <tbody id="sales-report-orders-table"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section class="tab-panel" data-panel="abc">
+          <div class="workspace-grid workspace-grid--two">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Configuracao</span><h2>Filtro da Curva ABC</h2></div></div>
+              <form class="table-toolbar" id="abc-filter-form">
+                <div class="table-toolbar__group">
+                  <input id="abc-date-from" class="workspace-field workspace-field--compact" type="date" />
+                  <input id="abc-date-to" class="workspace-field workspace-field--compact" type="date" />
+                  <select id="abc-metric" class="workspace-field workspace-field--compact">
+                    <option value="revenue">Por faturamento</option>
+                    <option value="units">Por quantidade vendida</option>
+                  </select>
+                  <select id="abc-limit" class="workspace-field workspace-field--compact">
+                    <option value="100">Top 100</option>
+                    <option value="200" selected>Top 200</option>
+                    <option value="300">Top 300</option>
+                    <option value="500">Top 500</option>
+                  </select>
+                </div>
+                <div class="table-toolbar__group table-toolbar__group--full">
+                  <textarea id="abc-order-ids" class="workspace-field workspace-field--textarea" placeholder="Opcional: IDs/codigos de pedido (um por linha ou separados por virgula)"></textarea>
+                  <textarea id="abc-product-ids" class="workspace-field workspace-field--textarea" placeholder="Opcional: SKUs/IDs de produto (um por linha ou separados por virgula)"></textarea>
+                </div>
+                <div class="table-toolbar__group">
+                  <button class="workspace-btn workspace-btn--accent" id="abc-apply" type="submit">Aplicar curva</button>
+                  <button class="workspace-btn workspace-btn--ghost" id="abc-clear" type="button">Limpar filtros</button>
+                </div>
+              </form>
+            </article>
+
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Resumo</span><h2>Classificacao ABC</h2></div></div>
+              <div class="stack-list" id="abc-summary-list"></div>
+            </article>
+          </div>
+
+          <div class="workspace-grid workspace-grid--two">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Distribuicao</span><h2>Classes da curva selecionada</h2></div></div>
+              <div class="bar-chart" id="abc-class-chart"></div>
+            </article>
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Cruzamento</span><h2>Perfis por faturamento vs quantidade</h2></div></div>
+              <div class="bar-chart" id="abc-cumulative-chart"></div>
+            </article>
+          </div>
+
+          <article class="glass-tile">
+            <div class="glass-tile__head"><div><span class="glass-tile__kicker">Itens classificados</span><h2>Curva ABC cruzada</h2></div></div>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead><tr><th>Rank</th><th>SKU</th><th>Titulo</th><th>ABC Fat.</th><th>ABC Qtde.</th><th>Perfil</th><th>Faturamento</th><th>Itens</th><th>Participacao</th><th>Acumulado</th></tr></thead>
+                <tbody id="abc-table"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section class="tab-panel" data-panel="catalog">
+          <div class="workspace-grid workspace-grid--two">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Publicacao</span><h2>Status do catalogo</h2></div></div>
+              <div class="bar-chart" id="catalog-status-chart"></div>
+            </article>
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Mix</span><h2>Categorias dominantes</h2></div></div>
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead><tr><th>Categoria</th><th>Qtd</th></tr></thead>
+                  <tbody id="catalog-categories-table"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+
+          <div class="workspace-grid workspace-grid--two details-grid">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Catalogo</span><h2>Produtos sincronizados</h2></div></div>
+              <form class="table-toolbar" id="catalog-filter-form">
+                <div class="table-toolbar__group">
+                  <input id="catalog-search" class="workspace-field workspace-field--compact" type="search" placeholder="Buscar por SKU, titulo ou EAN" />
+                  <select id="catalog-status" class="workspace-field workspace-field--compact">
+                    <option value="">Todos os status</option>
+                    <option value="published">Publicados</option>
+                    <option value="queued">Na fila</option>
+                    <option value="validating">Validando</option>
+                    <option value="draft">Rascunho</option>
+                    <option value="paused">Pausados</option>
+                    <option value="failed">Falha</option>
+                  </select>
+                  <select id="catalog-stock-state" class="workspace-field workspace-field--compact">
+                    <option value="">Todo estoque</option>
+                    <option value="in_stock">Com estoque</option>
+                    <option value="low_stock">Baixo estoque</option>
+                    <option value="out_of_stock">Sem estoque</option>
+                  </select>
+                </div>
+                <div class="table-toolbar__group">
+                  <select id="catalog-sort" class="workspace-field workspace-field--compact">
+                    <option value="updated_desc">Mais recentes</option>
+                    <option value="revenue_desc">Maior receita</option>
+                    <option value="stock_desc">Maior estoque</option>
+                    <option value="price_desc">Maior preco</option>
+                    <option value="price_asc">Menor preco</option>
+                    <option value="title_asc">A-Z</option>
+                  </select>
+                  <select id="catalog-limit" class="workspace-field workspace-field--compact">
+                    <option value="20">20 por pagina</option>
+                    <option value="50">50 por pagina</option>
+                    <option value="100">100 por pagina</option>
+                    <option value="300">300 por pagina</option>
+                  </select>
+                  <button class="workspace-btn workspace-btn--ghost" type="submit">Aplicar</button>
+                  <button class="workspace-btn workspace-btn--ghost" id="catalog-clear" type="button">Limpar</button>
+                </div>
+              </form>
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead><tr><th>SKU</th><th>Titulo</th><th>Status</th><th>Preco</th><th>Estoque</th><th>Receita</th></tr></thead>
+                  <tbody id="catalog-products-table"></tbody>
+                </table>
+              </div>
+              <div class="table-footer">
+                <span id="catalog-pagination-summary" class="section-note">0 itens</span>
+                <div class="pager">
+                  <button class="workspace-btn workspace-btn--ghost" id="catalog-prev" type="button">Anterior</button>
+                  <button class="workspace-btn workspace-btn--ghost" id="catalog-next" type="button">Proxima</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Detalhe</span><h2>Ficha do produto</h2></div></div>
+              <div class="stack-list" id="catalog-product-summary"></div>
+              <div class="table-scroll detail-table">
+                <table class="data-table">
+                  <thead><tr><th>Atributo</th><th>Valor</th></tr></thead>
+                  <tbody id="catalog-product-attributes"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="orders">
+          <div class="workspace-grid workspace-grid--two">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Pedidos</span><h2>Status operacional</h2></div></div>
+              <div class="bar-chart" id="orders-status-chart"></div>
+            </article>
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Riscos</span><h2>Alertas operacionais</h2></div></div>
+              <div class="stack-list" id="orders-quality-list"></div>
+            </article>
+          </div>
+
+          <div class="workspace-grid workspace-grid--two details-grid">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Fila</span><h2>Pedidos recentes</h2></div></div>
+              <form class="table-toolbar" id="orders-filter-form">
+                <div class="table-toolbar__group">
+                  <input id="orders-search" class="workspace-field workspace-field--compact" type="search" placeholder="Pedido, codigo ou cliente" />
+                  <select id="orders-status" class="workspace-field workspace-field--compact">
+                    <option value="">Todos os status</option>
+                    <option value="imported">Importados</option>
+                    <option value="awaiting_invoice">Aguardando nota</option>
+                    <option value="ready_to_ship">Prontos para envio</option>
+                    <option value="shipped">Enviados</option>
+                    <option value="delivered">Entregues</option>
+                    <option value="cancelled">Cancelados</option>
+                    <option value="on_hold">Em espera</option>
+                  </select>
+                  <input id="orders-date-from" class="workspace-field workspace-field--compact" type="date" />
+                  <input id="orders-date-to" class="workspace-field workspace-field--compact" type="date" />
+                </div>
+                <div class="table-toolbar__group">
+                  <select id="orders-limit" class="workspace-field workspace-field--compact">
+                    <option value="20">20 por pagina</option>
+                    <option value="50">50 por pagina</option>
+                    <option value="100">100 por pagina</option>
+                    <option value="300">300 por pagina</option>
+                  </select>
+                  <button class="workspace-btn workspace-btn--ghost" type="submit">Aplicar</button>
+                  <button class="workspace-btn workspace-btn--ghost" id="orders-clear" type="button">Limpar</button>
+                </div>
+              </form>
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead><tr><th>Pedido</th><th>Cliente</th><th>Status</th><th>Total</th><th>Itens</th><th>Mensagens</th></tr></thead>
+                  <tbody id="orders-table"></tbody>
+                </table>
+              </div>
+              <div class="table-footer">
+                <span id="orders-pagination-summary" class="section-note">0 itens</span>
+                <div class="pager">
+                  <button class="workspace-btn workspace-btn--ghost" id="orders-prev" type="button">Anterior</button>
+                  <button class="workspace-btn workspace-btn--ghost" id="orders-next" type="button">Proxima</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Detalhe</span><h2>Ficha do pedido</h2></div></div>
+              <div class="stack-list" id="order-detail-summary"></div>
+              <div class="table-scroll detail-table">
+                <table class="data-table">
+                  <thead><tr><th>SKU</th><th>Titulo</th><th>Qtd</th><th>Total</th></tr></thead>
+                  <tbody id="order-detail-items-table"></tbody>
+                </table>
+              </div>
+              <div class="workspace-grid workspace-grid--two detail-sublists">
+                <div>
+                  <h3 class="detail-subtitle">Frete</h3>
+                  <div class="stack-list" id="order-detail-freight"></div>
+                </div>
+                <div>
+                  <h3 class="detail-subtitle">Financeiro</h3>
+                  <div class="stack-list" id="order-detail-financial"></div>
+                </div>
+              </div>
+              <div>
+                <h3 class="detail-subtitle">Threads</h3>
+                <div class="stack-list" id="order-detail-threads"></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="finance">
+          <div class="workspace-grid workspace-grid--two">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Recebiveis</span><h2>Resumo financeiro</h2></div></div>
+              <div class="stack-list" id="finance-summary-list"></div>
+            </article>
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Distribuicao</span><h2>Status financeiro</h2></div></div>
+              <div class="bar-chart" id="finance-status-chart"></div>
+            </article>
+          </div>
+
+          <article class="glass-tile">
+            <div class="glass-tile__head"><div><span class="glass-tile__kicker">Lancamentos</span><h2>Financeiro sincronizado</h2></div></div>
+            <form class="table-toolbar" id="finance-filter-form">
+              <div class="table-toolbar__group">
+                <input id="finance-search" class="workspace-field workspace-field--compact" type="search" placeholder="Descricao ou id externo" />
+                <select id="finance-status" class="workspace-field workspace-field--compact">
+                  <option value="">Todos os status</option>
+                  <option value="pending">Pendentes</option>
+                  <option value="released">Liberados</option>
+                  <option value="paid">Pagos</option>
+                  <option value="blocked">Bloqueados</option>
+                  <option value="disputed">Em disputa</option>
+                </select>
+                <input id="finance-filter-from" class="workspace-field workspace-field--compact" type="date" />
+                <input id="finance-filter-to" class="workspace-field workspace-field--compact" type="date" />
+              </div>
+              <div class="table-toolbar__group">
+                <select id="finance-limit" class="workspace-field workspace-field--compact">
+                  <option value="20">20 por pagina</option>
+                  <option value="50">50 por pagina</option>
+                  <option value="100">100 por pagina</option>
+                  <option value="300">300 por pagina</option>
+                </select>
+                <button class="workspace-btn workspace-btn--ghost" type="submit">Aplicar</button>
+                <button class="workspace-btn workspace-btn--ghost" id="finance-clear" type="button">Limpar</button>
+              </div>
+            </form>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead><tr><th>Tipo</th><th>Status</th><th>Bruto</th><th>Taxas</th><th>Liquido</th></tr></thead>
+                <tbody id="finance-entries-table"></tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <span id="finance-pagination-summary" class="section-note">0 itens</span>
+              <div class="pager">
+                <button class="workspace-btn workspace-btn--ghost" id="finance-prev" type="button">Anterior</button>
+                <button class="workspace-btn workspace-btn--ghost" id="finance-next" type="button">Proxima</button>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="tab-panel" data-panel="messaging">
+          <div class="workspace-grid workspace-grid--two">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Atendimento</span><h2>Backlog do SAC</h2></div></div>
+              <div class="stack-list" id="messaging-summary-list"></div>
+            </article>
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Fila</span><h2>Status das sessoes</h2></div></div>
+              <div class="bar-chart" id="messaging-status-chart"></div>
+            </article>
+          </div>
+
+          <article class="glass-tile">
+            <div class="glass-tile__head"><div><span class="glass-tile__kicker">Sessoes</span><h2>Conversas recentes</h2></div></div>
+            <form class="table-toolbar" id="messaging-filter-form">
+              <div class="table-toolbar__group">
+                <input id="messaging-search" class="workspace-field workspace-field--compact" type="search" placeholder="Thread, contato ou texto" />
+                <select id="messaging-status" class="workspace-field workspace-field--compact">
+                  <option value="">Todos os status</option>
+                  <option value="open">Abertas</option>
+                  <option value="waiting_seller">Aguardando seller</option>
+                  <option value="waiting_marketplace">Aguardando marketplace</option>
+                  <option value="resolved">Resolvidas</option>
+                  <option value="closed">Fechadas</option>
+                </select>
+                <label class="checkbox-chip">
+                  <input id="messaging-unread-only" type="checkbox" />
+                  <span>Somente nao lidas</span>
+                </label>
+              </div>
+              <div class="table-toolbar__group">
+                <select id="messaging-limit" class="workspace-field workspace-field--compact">
+                  <option value="20">20 por pagina</option>
+                  <option value="50">50 por pagina</option>
+                  <option value="100">100 por pagina</option>
+                  <option value="300">300 por pagina</option>
+                </select>
+                <button class="workspace-btn workspace-btn--ghost" type="submit">Aplicar</button>
+                <button class="workspace-btn workspace-btn--ghost" id="messaging-clear" type="button">Limpar</button>
+              </div>
+            </form>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead><tr><th>Thread</th><th>Status</th><th>Unread</th><th>Ultima data</th><th>Preview</th></tr></thead>
+                <tbody id="messaging-threads-table"></tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <span id="messaging-pagination-summary" class="section-note">0 itens</span>
+              <div class="pager">
+                <button class="workspace-btn workspace-btn--ghost" id="messaging-prev" type="button">Anterior</button>
+                <button class="workspace-btn workspace-btn--ghost" id="messaging-next" type="button">Proxima</button>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="tab-panel" data-panel="automation">
+          <div class="workspace-grid workspace-grid--two">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Acionadores</span><h2>Sincronizacao manual</h2></div></div>
+              <div class="action-grid">
+                <button class="action-card" data-sync-action="catalog" type="button"><strong>Catalogo</strong><span>Publicados, pendentes, em publicacao e nao comercializados.</span></button>
+                <button class="action-card" data-sync-action="orders" type="button"><strong>Pedidos</strong><span>Todos os pedidos, detalhe por status e enrich de frete.</span></button>
+                <button class="action-card" data-sync-action="finance" type="button"><strong>Financeiro</strong><span>Lancamentos do periodo, repasse e margem.</span></button>
+                <button class="action-card" data-sync-action="messaging" type="button"><strong>SAC</strong><span>Historico do seller e backlog de sessoes.</span></button>
+                <button class="action-card action-card--accent" data-sync-action="all" type="button"><strong>Sync geral</strong><span>Executa tudo em sequencia para reidratar o workspace.</span></button>
+              </div>
+            </article>
+
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Monitoramento</span><h2>Ultimos retornos</h2></div></div>
+              <div class="stack-list" id="sync-feedback-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="updates">
+          <div class="workspace-grid workspace-grid--two">
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Ultimas atualizacoes</span><h2>Historico de releases publicados</h2></div></div>
+              <div class="timeline" id="patch-notes-history-list"></div>
+            </article>
+
+            <article class="glass-tile">
+              <div class="glass-tile__head"><div><span class="glass-tile__kicker">Preview</span><h2>Destaque da versao selecionada</h2></div></div>
+              <div class="stack-list" id="patch-notes-preview-meta"></div>
+              <iframe id="patch-notes-preview-frame" class="patch-notes-preview-frame" title="Preview patch notes"></iframe>
+            </article>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="admin" data-admin-only="true">
+          <div class="subtab-nav">
+            <button class="subtab-btn is-active" data-admin-tab="users-company" type="button">Controle de usuarios/empresas</button>
+            <button class="subtab-btn" data-admin-tab="patch-notes" type="button">Patch notes</button>
+          </div>
+
+          <div class="admin-subpanel is-active" data-admin-panel="users-company">
+            <div class="workspace-grid workspace-grid--two">
+              <article class="glass-tile">
+                <div class="glass-tile__head"><div><span class="glass-tile__kicker">Empresas</span><h2>Selecao da empresa ativa</h2></div></div>
+                <div class="control-group">
+                  <label class="field-label" for="admin-workspace-select">Empresa / workspace</label>
+                  <select id="admin-workspace-select" class="workspace-field"></select>
+                </div>
+                <div class="stack-list" id="admin-workspace-meta"></div>
+              </article>
+
+              <article class="glass-tile">
+                <div class="glass-tile__head"><div><span class="glass-tile__kicker">Governanca</span><h2>Status da administracao</h2></div></div>
+                <div class="stack-list" id="admin-status-list"></div>
+              </article>
+            </div>
+
+            <div class="workspace-grid workspace-grid--two">
+              <article class="glass-tile">
+                <div class="glass-tile__head"><div><span class="glass-tile__kicker">Empresa</span><h2>Identidade da empresa</h2></div></div>
+                <form id="admin-company-form" class="integration-form">
+                  <div class="control-group">
+                    <label class="field-label" for="admin-company-name">Nome da empresa</label>
+                    <input id="admin-company-name" class="workspace-field" type="text" placeholder="Nome comercial da empresa" required />
+                  </div>
+                  <div class="control-grid control-grid--two">
+                    <div class="control-group">
+                      <label class="field-label" for="admin-company-document-type">Tipo de documento</label>
+                      <select id="admin-company-document-type" class="workspace-field">
+                        <option value="">Selecione</option>
+                        <option value="CPF">CPF</option>
+                        <option value="CNPJ">CNPJ</option>
+                      </select>
+                    </div>
+                    <div class="control-group">
+                      <label class="field-label" for="admin-company-document-number">Documento</label>
+                      <input id="admin-company-document-number" class="workspace-field" type="text" placeholder="CPF ou CNPJ" inputmode="numeric" autocomplete="off" />
+                    </div>
+                  </div>
+                  <div class="control-group">
+                    <label class="field-label" for="admin-company-tenant-global-id">Tenant global</label>
+                    <input id="admin-company-tenant-global-id" class="workspace-field" type="text" placeholder="Preenchido pelo hub de pagamento" autocomplete="off" />
+                  </div>
+                  <div class="hero-actions hero-actions--compact">
+                    <button class="workspace-btn workspace-btn--accent" id="admin-company-submit" type="submit">Salvar identidade</button>
+                  </div>
+                </form>
+              </article>
+
+              <article class="glass-tile">
+                <div class="glass-tile__head"><div><span class="glass-tile__kicker">Hub</span><h2>Status da identidade</h2></div></div>
+                <div class="stack-list" id="admin-company-status-list"></div>
+              </article>
+            </div>
+
+            <div class="workspace-grid workspace-grid--two">
+              <article class="glass-tile">
+                <div class="glass-tile__head"><div><span class="glass-tile__kicker">Usuarios</span><h2>Convidar novo usuario</h2></div></div>
+                <form id="admin-invite-form" class="integration-form">
+                  <div class="control-group">
+                    <label class="field-label" for="admin-user-name">Nome</label>
+                    <input id="admin-user-name" class="workspace-field" type="text" placeholder="Nome do usuario" required />
+                  </div>
+                  <div class="control-group">
+                    <label class="field-label" for="admin-user-email">E-mail</label>
+                    <input id="admin-user-email" class="workspace-field" type="email" placeholder="usuario@empresa.com.br" required />
+                  </div>
+                  <div class="control-group">
+                    <label class="field-label" for="admin-user-role">Perfil</label>
+                    <select id="admin-user-role" class="workspace-field">
+                      <option value="viewer">Viewer</option>
+                      <option value="operator">Operator</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div class="control-group">
+                    <label class="field-label" for="admin-user-workspace">Empresa do usuario</label>
+                    <select id="admin-user-workspace" class="workspace-field"></select>
+                  </div>
+                  <div class="hero-actions hero-actions--compact">
+                    <button class="workspace-btn workspace-btn--accent" id="admin-invite-submit" type="submit">Enviar convite</button>
+                    <button class="workspace-btn" id="admin-users-refresh" type="button">Atualizar usuarios</button>
+                  </div>
+                </form>
+              </article>
+
+              <article class="glass-tile">
+                <div class="glass-tile__head"><div><span class="glass-tile__kicker">Acessos</span><h2>Gestao de usuarios</h2></div></div>
+                <table class="data-table">
+                  <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Convite</th><th>Acoes</th></tr></thead>
+                  <tbody id="admin-users-table"></tbody>
+                </table>
+              </article>
+            </div>
+          </div>
+
+          <div class="admin-subpanel" data-admin-panel="patch-notes">
+            <div class="workspace-grid workspace-grid--two">
+              <article class="glass-tile">
+                <div class="glass-tile__head"><div><span class="glass-tile__kicker">Release notes</span><h2>Enviar patch notes</h2></div></div>
+                <form id="admin-release-form" class="integration-form">
+                  <div class="control-grid control-grid--two">
+                    <div class="control-group">
+                      <label class="field-label" for="admin-release-version">Versao</label>
+                      <input id="admin-release-version" class="workspace-field" type="text" placeholder="Ex: v1.2.0" required />
+                    </div>
+                    <div class="control-group">
+                      <label class="field-label" for="admin-release-title">Titulo</label>
+                      <input id="admin-release-title" class="workspace-field" type="text" placeholder="Ex: Melhorias de sync e analytics" />
+                    </div>
+                  </div>
+                  <div class="control-group">
+                    <label class="field-label" for="admin-release-summary">Resumo principal</label>
+                    <textarea id="admin-release-summary" class="workspace-field workspace-field--textarea" placeholder="Explique em uma mensagem curta o que entrou nesta versao." required></textarea>
+                  </div>
+                  <div class="control-grid control-grid--two">
+                    <div class="control-group">
+                      <label class="field-label" for="admin-release-features">Novidades</label>
+                      <textarea id="admin-release-features" class="workspace-field workspace-field--textarea" placeholder="Uma linha por novidade"></textarea>
+                    </div>
+                    <div class="control-group">
+                      <label class="field-label" for="admin-release-adjustments">Ajustes</label>
+                      <textarea id="admin-release-adjustments" class="workspace-field workspace-field--textarea" placeholder="Uma linha por ajuste"></textarea>
+                    </div>
+                  </div>
+                  <div class="control-group">
+                    <div class="field-label">Destinatarios ativos</div>
+                    <div class="patch-recipient-list" id="admin-release-recipients"></div>
+                  </div>
+                  <div class="hero-actions hero-actions--compact">
+                    <button class="workspace-btn" id="admin-release-preview" type="button">Gerar previa</button>
+                    <button class="workspace-btn workspace-btn--accent" id="admin-release-send" type="button">Enviar patch notes</button>
+                  </div>
+                </form>
+              </article>
+
+              <article class="glass-tile">
+                <div class="glass-tile__head"><div><span class="glass-tile__kicker">Compositor</span><h2>Previa do release</h2></div></div>
+                <div class="stack-list" id="admin-release-status"></div>
+                <iframe id="admin-release-preview-frame" class="patch-notes-preview-frame" title="Preview release notes"></iframe>
+              </article>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="js/workspace.js"></script>
+  </body>
+</html>

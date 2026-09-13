@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="business" data-dachbyte-app="price">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DACHBYTE Price</title>
+  <meta name="description" content="DACHBYTE Price: inteligência de preço, margem e marketplace para decisões rentáveis." />
+  <link rel="icon" type="image/svg+xml" href="/brand/dachbyte/business/mark.svg" />
+  <link rel="apple-touch-icon" href="/brand/dachbyte/business/mark.svg" />
+  <link rel="stylesheet" href="/volt-price/styles.css" />
+  <link rel="stylesheet" href="/volt-price/market.css" />
+  <link rel="stylesheet" href="/volt-price/pricing-engine.css" />
+  <link rel="stylesheet" href="/volt-price/responsive-shell.css" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+  <div id="toast"></div>
+  <section id="loginView" class="login-shell hidden">
+    <div class="login-card">
+      <div class="brand big"><img class="brand-mark" src="/brand/dachbyte/business/mark-transparent.png" alt="" aria-hidden="true" /><h1 style="margin:0;font:inherit">DACHBYTE Price</h1></div>
+      <p class="muted">Inteligência de preço, margem e marketplace.</p>
+      <form id="loginForm">
+        <label>E-mail<input id="loginEmail" type="email" autocomplete="username" required /></label>
+        <label>Senha<input id="loginPassword" type="password" autocomplete="current-password" required /></label>
+        <div id="loginError" class="notice danger-note hidden" role="alert" aria-live="assertive"></div>
+        <button class="primary" type="submit">Entrar no DACHBYTE Price</button>
+      </form>
+      <form id="passwordChangeForm" class="hidden">
+        <h2>Primeiro acesso</h2>
+        <p class="muted">Sua senha temporária deve ser substituída antes de continuar.</p>
+        <label>Senha temporária<input id="currentPassword" type="password" autocomplete="current-password" required /></label>
+        <label>Nova senha<input id="newPassword" type="password" autocomplete="new-password" required /></label>
+        <label>Confirme a nova senha<input id="confirmPassword" type="password" autocomplete="new-password" required /></label>
+        <div id="passwordChangeError" class="notice danger-note hidden" role="alert" aria-live="assertive"></div>
+        <button class="primary" type="submit">Definir nova senha</button>
+      </form>
+      <p class="tiny">Login exclusivo do DACHBYTE Price. A sessão é independente dos demais módulos DACHBYTE Business.</p>
+    </div>
+  </section>
+
+  <div id="appView" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand"><img class="brand-mark" src="/brand/dachbyte/business/mark-transparent.png" alt="" aria-hidden="true" /><strong>DACHBYTE Price</strong></div>
+      <nav id="nav"></nav>
+      <div class="side-foot"><div id="tenantName">DACHBYTE Price</div><small id="userName"></small><button id="logoutBtn" class="ghost">Sair</button></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div class="topbar-context"><h1 id="pageTitle">Dashboard</h1><p id="pageSubtitle">Visão geral do DACHBYTE Price</p></div><div class="topbar-search">Buscar produtos, SKUs, campanhas e relatórios...</div><div class="top-actions"><span id="supportBadge" class="badge warning hidden">Acesso assistido</span><button id="refreshPage" class="ghost">Atualizar</button></div></header>
+      <section id="content" class="content"></section>
+    </main>
+  </div>
+  <script src="/volt-price/users.js"></script>
+  <script src="/volt-price/app.js"></script>
+  <script src="/volt-price/tray-connection.js"></script>
+  <script src="/volt-price/orders-marketplace-link.js"></script>
+  <script src="/volt-price/orders-reconciliation.js"></script>
+  <script src="/volt-price/profit-financial.js"></script>
+  <script src="/volt-price/cash-financial.js"></script>
+  <script src="/volt-price/ads-financial.js"></script>
+  <script src="/volt-price/market-financial.js"></script>
+  <script src="/volt-price/pricing-engine.js"></script>
+</body>
+</html>

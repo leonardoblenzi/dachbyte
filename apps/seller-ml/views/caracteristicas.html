@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Características em Massa | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/promo-jobs.css?v=2026081101" />
+  <link rel="stylesheet" href="/ml/css/caracteristicas.css?v=20260618" />
+  <link rel="stylesheet" href="/ml/css/operacoes.css?v=2026080702" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="caracteristicas-app ops-app">
+  <main class="page-wrap caracteristicas-page ops-page">
+    <div class="car-shell">
+      <header class="car-page-header ops-hero">
+        <div class="ops-hero__content">
+          <div class="car-page-header__eyebrow">Operações</div>
+          <h1>Características em massa</h1>
+          <p>Escolha uma categoria da conta, baixe a planilha correta, valide o Excel preenchido e aplique apenas as linhas aprovadas.</p>
+        </div>
+        <div class="ops-hero-actions">
+          <button id="btnLoadCategories" class="car-btn car-btn-primary" type="button">Carregar categorias</button>
+          <button id="btnRefreshJobs" class="car-btn car-btn-soft" type="button">Atualizar processos</button>
+        </div>
+      </header>
+
+      <div class="ops-stepper" aria-label="Fluxo de características">
+        <div class="ops-step is-active"><span class="ops-step__number">1</span><div><strong>Categoria</strong><span>Escolher a base</span></div></div>
+        <div class="ops-step"><span class="ops-step__number">2</span><div><strong>Planilha</strong><span>Baixar ou preencher</span></div></div>
+        <div class="ops-step"><span class="ops-step__number">3</span><div><strong>Validar</strong><span>Checar cada linha</span></div></div>
+        <div class="ops-step"><span class="ops-step__number">4</span><div><strong>Aplicar</strong><span>Enviar linhas aprovadas</span></div></div>
+      </div>
+
+      <section class="car-panel">
+        <div class="car-panel-head">
+          <div><h2>1. Escolha a categoria</h2><p id="categoriesStatus">Carregue as categorias para agrupar os anúncios ativos da conta.</p></div>
+          <div class="car-search-wrap"><input id="categoryFilter" type="search" placeholder="Filtrar categoria" /></div>
+        </div>
+        <div class="category-layout">
+          <div class="category-list-wrap">
+            <table class="car-table">
+              <thead><tr><th>Categoria</th><th>Anúncios</th><th>Catálogo</th><th>Ações</th></tr></thead>
+              <tbody id="categoriesBody"><tr><td colspan="4" class="empty-row">Nenhuma categoria carregada.</td></tr></tbody>
+            </table>
+          </div>
+          <aside class="category-detail">
+            <span class="detail-kicker">Categoria selecionada</span>
+            <h3 id="selectedCategoryTitle">Nenhuma categoria</h3>
+            <p id="selectedCategoryPath">Selecione uma linha para liberar as opções de planilha.</p>
+            <div class="detail-stats"><span><strong id="selectedCategoryTotal">0</strong> anúncios</span><span><strong id="selectedCategoryCatalog">0</strong> catálogo</span></div>
+            <div class="detail-actions">
+              <button id="btnDownloadModel" class="car-btn car-btn-soft" type="button" disabled>Baixar modelo vazio</button>
+              <button id="btnDownloadFilled" class="car-btn car-btn-soft" type="button" disabled>Exportar preenchido</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="car-panel import-panel">
+        <div class="car-panel-head">
+          <div><h2>2. Envie a planilha preenchida</h2><p>O arquivo é validado antes de qualquer alteração no Mercado Livre.</p></div>
+          <span id="importCategoryBadge" class="car-badge">Sem categoria</span>
+        </div>
+        <div class="import-grid">
+          <label class="file-drop"><span>Arquivo Excel (.xlsx ou .xls)</span><input id="excelFile" type="file" accept=".xlsx,.xls" /></label>
+          <label class="dry-run-toggle"><input id="dryRun" type="checkbox" checked /> Simular antes de aplicar</label>
+          <button id="btnValidateImport" class="car-btn car-btn-primary" type="button" disabled>Validar arquivo</button>
+        </div>
+        <div id="validationSummary" class="validation-summary">Aguardando arquivo.</div>
+      </section>
+
+      <section id="validationPanel" class="car-panel" hidden>
+        <div class="car-panel-head">
+          <div><h2>3. Revise a validação</h2><p id="validationStatus">Confira erros e alertas antes de aplicar.</p></div>
+          <button id="btnApplyImport" class="car-btn car-btn-primary" type="button" disabled>4. Aplicar linhas validadas</button>
+        </div>
+        <div class="validation-cards">
+          <div><strong id="statRows">0</strong><span>linhas</span></div><div><strong id="statReady">0</strong><span>prontas</span></div><div><strong id="statErrors">0</strong><span>erros</span></div><div><strong id="statWarnings">0</strong><span>alertas</span></div>
+        </div>
+        <div class="table-wrap">
+          <table class="car-table">
+            <thead><tr><th>Linha</th><th>MLB</th><th>Título</th><th>Status</th><th>Mensagens</th></tr></thead>
+            <tbody id="validationBody"><tr><td colspan="5" class="empty-row">Nenhum arquivo validado.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="resultPanel" class="car-panel" hidden>
+        <div class="car-panel-head"><div><h2>Retorno do processamento</h2><p id="resultSummary">Aguardando aplicação.</p></div></div>
+        <div id="resultList" class="result-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="bulkJobsPanel" class="processos-panel"></div>
+  <script src="/ml/js/jobs-panel-adapters.js?v=2026080701" defer></script>
+  <script src="/ml/js/jobs-panel.js?v=2026080701" defer></script>
+  <script src="/ml/js/caracteristicas.js?v=2026080702" defer></script>
+</body>
+</html>

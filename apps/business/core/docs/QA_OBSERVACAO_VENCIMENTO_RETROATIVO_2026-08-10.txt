@@ -1,0 +1,33 @@
+VOLT CORE - OBSERVACAO DE QA DO VENCIMENTO RETROATIVO
+Data do teste: 10/08/2026
+Empresa: Otica Nacional Sabaudia
+
+Durante a carga de vendas de julho, a venda 38 de Jonas Mazuquin foi registrada
+com data operacional de 31/07/2026 e pagamento a receber de R$ 1.399,00.
+O vencimento persistido ficou em 10/09/2026 porque o valor automatico era
+calculado a partir da data de lancamento no sistema.
+
+Correcao aplicada neste commit:
+- o PDV optico calcula o prazo automatico a partir da data operacional da venda;
+- ao alterar a data retroativa, prazos ainda automaticos sao recalculados;
+- uma data digitada pelo operador nao e sobrescrita;
+- o backend usa a data operacional como base de seguranca quando o payload nao
+  informa vencimento.
+
+Observacao sobre o dado ja existente:
+o recebivel da venda 38 permanece com vencimento em 10/09/2026 ate que esta
+versao seja publicada e a correcao seja executada por um usuario autorizado.
+
+Correcao administrativa implementada em 11/08/2026:
+- a agenda de recebiveis oferece a acao "Corrigir vencimento";
+- a nova data e o motivo sao obrigatorios;
+- recebiveis pagos, compensados, recebidos ou cancelados nao podem ser alterados;
+- a operacao grava evento e auditoria com data anterior, nova data, motivo,
+  usuario responsavel e vinculo com a venda;
+- nenhuma correcao em massa ou silenciosa e realizada.
+
+Para a venda 38, a regra automatica de 30 dias aplicada a data operacional de
+31/07/2026 sugere 30/08/2026. Isso nao prova que essa seja a data correta: antes
+da correcao, confirme o prazo efetivamente combinado com Jonas Mazuquin. Use
+30/08/2026 somente se nao houver uma data diferente acordada e documente a
+decisao no motivo administrativo.

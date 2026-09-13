@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/financeiro-ml.css?v=2026081201" />
+  <title>Custos Mercado Livre</title>
+  <script src="/ml/js/financeiro-ml-custos.js?v=10" defer></script>
+  <script src="/ml/js/ml-base.js?v=10"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="fml-app fml-costs-app">
+  <main class="page-wrap">
+    <section class="fml-page container">
+      <header class="fml-hero">
+        <div>
+          <div class="fml-breadcrumb">Operacao / Mercado Livre</div>
+          <h1>Custos Mercado Livre</h1>
+          <p>CMV centralizado por SKU de referencia para todos os anuncios da conta ativa.</p>
+        </div>
+        <span id="fml-cost-status" class="fml-status" data-tone="info" aria-live="polite">Pronto para carregar.</span>
+      </header>
+
+      <section class="fml-card fml-toolbar-card">
+        <div class="fml-tax-control">
+          <label for="fml-tax-rate">Aliquota (%)</label>
+          <input id="fml-tax-rate" class="fml-input" type="text" inputmode="decimal" placeholder="0,00" />
+          <button id="fml-save-tax" class="fml-btn fml-btn--ghost" type="button">Salvar</button>
+        </div>
+        <div class="fml-actions">
+          <button id="fml-sync-costs" class="fml-btn fml-btn--ghost" type="button">Sincronizar SKUs relevantes</button>
+          <button id="fml-export-costs" class="fml-btn fml-btn--ghost" type="button">Baixar XLSX</button>
+          <button id="fml-import-costs" class="fml-btn fml-btn--primary" type="button">Importar XLSX</button>
+          <input id="fml-cost-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
+        </div>
+      </section>
+
+      <section class="fml-kpis" aria-label="Resumo de custos">
+        <article class="fml-kpi"><span>Total de SKUs ativos</span><strong id="fml-kpi-total">0</strong></article>
+        <article class="fml-kpi"><span>Ativos com custo</span><strong id="fml-kpi-filled">0</strong></article>
+        <article class="fml-kpi fml-kpi--warn"><span>Ativos sem custo</span><strong id="fml-kpi-missing">0</strong></article>
+        <article class="fml-kpi"><span>Cobertura dos ativos</span><strong id="fml-kpi-coverage">0%</strong></article>
+        <p id="fml-kpi-note" class="fml-kpi-note">
+          Indicadores da leitura carregada na tela. Para montar a planilha de preenchimento, use Baixar XLSX.
+        </p>
+      </section>
+
+      <section class="fml-card fml-risk-panel" aria-label="Alertas de historico por SKU">
+        <div>
+          <strong>Monitor de alteracoes</strong>
+          <small>Primeiro veja onde agir; depois use a base completa para editar custos em massa.</small>
+        </div>
+        <div class="fml-risk-tabs" role="group" aria-label="Filtro de alertas">
+          <button class="fml-risk-tab is-active" type="button" data-risk="all">Todos</button>
+          <button class="fml-risk-tab" type="button" data-risk="cost_up">Custo subindo</button>
+          <button class="fml-risk-tab" type="button" data-risk="price_down">Preco caindo</button>
+          <button class="fml-risk-tab" type="button" data-risk="margin_risk">Margem em risco</button>
+        </div>
+      </section>
+
+      <section class="fml-cost-decision-grid" aria-label="Diagnostico de custos">
+        <article class="fml-card fml-cost-insights-card">
+          <header class="fml-card-head fml-card-head--compact">
+            <div>
+              <strong>Insights de custos</strong>
+              <small>Alertas automaticos do recorte atual</small>
+            </div>
+          </header>
+          <div id="fml-cost-insights" class="fml-cost-insights">
+            <div class="fml-empty">Carregando insights...</div>
+          </div>
+        </article>
+
+        <article class="fml-card fml-cost-priority-card">
+          <header class="fml-card-head fml-card-head--compact">
+            <div>
+              <strong>Ranking de atencao</strong>
+              <small>SKUs que mais merecem revisao agora</small>
+            </div>
+          </header>
+          <div id="fml-cost-priority" class="fml-cost-priority">
+            <div class="fml-empty">Carregando ranking...</div>
+          </div>
+        </article>
+      </section>
+
+      <section class="fml-card fml-cost-filter-card">
+        <form id="fml-cost-filters" class="fml-filters fml-cost-filters">
+          <label class="fml-cost-filter-type">
+            <span>Tipo de busca</span>
+            <select id="fml-cost-lookup-type" class="fml-input" name="lookup_type">
+              <option value="sku">SKU</option>
+              <option value="mlb">MLB</option>
+              <option value="ean">EAN / GTIN</option>
+              <option value="product">Produto</option>
+            </select>
+          </label>
+          <label>
+            <span id="fml-cost-search-label">Buscar SKU</span>
+            <input id="fml-cost-search" class="fml-input" name="q" type="search" placeholder="Informe um SKU ou uma lista" />
+          </label>
+          <label>
+            <span>Status do custo</span>
+            <select class="fml-input" name="cost_status">
+              <option value="all">Todos</option>
+              <option value="filled">Preenchido</option>
+              <option value="missing">Nao preenchido</option>
+            </select>
+          </label>
+          <label>
+            <span>Status do anuncio</span>
+            <select class="fml-input" name="status">
+              <option value="active" selected>Ativo</option>
+              <option value="all">Todos</option>
+              <option value="paused">Pausado</option>
+              <option value="closed">Fechado</option>
+            </select>
+          </label>
+          <label>
+            <span>Categoria</span>
+            <input class="fml-input" name="category_id" type="text" placeholder="Ex: MLB..." />
+          </label>
+          <button class="fml-btn fml-btn--primary" type="submit">Filtrar</button>
+          <small id="fml-cost-filter-help" class="fml-filter-help">
+            SKU e MLB usam busca direta na origem. A lista inicial e buscas por produto/EAN usam leitura otimizada.
+          </small>
+        </form>
+      </section>
+
+      <section class="fml-card">
+        <header class="fml-card-head">
+          <div>
+            <strong>Base completa de SKUs</strong>
+            <small id="fml-cost-subtitle">0 registros.</small>
+          </div>
+          <button id="fml-refresh-costs" class="fml-btn fml-btn--ghost" type="button">Atualizar</button>
+        </header>
+        <div class="fml-table-wrap">
+          <table class="fml-table">
+            <thead>
+              <tr>
+                <th>SKU referencia</th>
+                <th>EAN</th>
+                <th>Produto</th>
+                <th>MLBs</th>
+                <th>Status</th>
+                <th>Preco</th>
+                <th>Status preco/custo</th>
+                <th>Custo (R$)</th>
+                <th>Acao</th>
+              </tr>
+            </thead>
+            <tbody id="fml-cost-body">
+              <tr><td colspan="9" class="fml-empty">Carregando custos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="fml-pagination">
+          <button id="fml-cost-prev" class="fml-btn fml-btn--ghost" type="button">Anterior</button>
+          <span id="fml-cost-page">Pagina 1</span>
+          <button id="fml-cost-next" class="fml-btn fml-btn--ghost" type="button">Proxima</button>
+        </footer>
+      </section>
+    </section>
+  </main>
+
+  <div id="fml-history-backdrop" class="fml-history-backdrop" hidden></div>
+  <aside id="fml-history-drawer" class="fml-history-drawer" hidden aria-hidden="true" aria-label="Historico do SKU">
+    <header class="fml-history-head">
+      <div>
+        <span>Historico do SKU</span>
+        <strong id="fml-history-sku">-</strong>
+      </div>
+      <button id="fml-history-close" class="fml-history-close" type="button" aria-label="Fechar">x</button>
+    </header>
+    <div id="fml-history-content" class="fml-history-content">
+      <p class="fml-empty">Selecione um SKU para analisar.</p>
+    </div>
+  </aside>
+</body>
+</html>

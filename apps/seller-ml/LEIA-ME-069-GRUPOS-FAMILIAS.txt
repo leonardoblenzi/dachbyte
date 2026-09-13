@@ -1,0 +1,62 @@
+Davantti ML — Anúncios > Cadastro
+Entrega: grupos de rascunhos, cópias em lote e clonagem de família User Products
+
+COMO APLICAR
+1. Faça backup da versão atual.
+2. Extraia este ZIP na raiz do projeto ml, preservando as pastas e substituindo os arquivos existentes.
+3. Execute a migration 069 pelo mecanismo normal do projeto (ex.: npm run migrate).
+4. Reinicie o serviço.
+
+MIGRATIONS
+- Esta entrega adiciona SOMENTE: db/069_create_anuncio_draft_groups.sql
+- Ela pressupõe que já existam:
+  db/067_create_anuncio_drafts.sql
+  db/068_anuncio_drafts_publication_target.sql
+- Não inclui e não deve reintroduzir migrations 058 ou 059.
+
+RECURSO 1 — CRIAR CÓPIAS EM LOTE
+- 1 a 10 cópias independentes.
+- Origem: rascunho existente ou anúncio publicado da própria conta.
+- Grupo + filhos criados na mesma transação PostgreSQL.
+- Anúncio publicado próprio => publication_target=new_item.
+- Rascunho => preserva publication_target.
+- sale_condition exibe aviso de que as cópias continuam apontando para o mesmo User Product.
+
+RECURSO 2 — CLONAR FAMÍLIA COMPLETA
+- Parte de um MLB próprio no modelo User Products.
+- Descobre User Product e family_id pela API do Mercado Livre.
+- Valida propriedade do item, família, User Products e condição de venda.
+- Mostra prévia das variações e permite selecionar até 10 por ação.
+- Se houver várias condições de venda ativas, exige escolha explícita da origem.
+- Cada filho nasce publication_target=new_item.
+- source_family_id é somente rastreabilidade; nunca é usado para forçar o destino.
+- family_blueprint preserva family_name, domínio/categoria e estrutura PARENT_PK/CHILD_PK para avisos de integridade.
+- Após publicação, o family_id calculado pelo ML é registrado e divergências dentro do grupo são sinalizadas.
+
+RASCUNHOS
+- Em edição
+- Publicados recentemente
+- Lixeira
+- Filtro por grupo com escopo de empresa + conta ML.
+
+RETENÇÃO
+- Limpeza diária somente no PostgreSQL, sem chamar a API ML.
+- Rascunho inativo: 30 dias desde updated_at.
+- Lixeira: 30 dias desde deleted_at.
+- Histórico publicado: 30 dias desde published_at.
+- Rascunhos publishing nunca são removidos.
+- Grupos vazios são removidos.
+
+FORA DE ESCOPO NESTA ENTREGA
+- edição em lote
+- sincronização de alterações entre rascunhos
+- substituição automática de textos
+- publicação em lote
+- regras específicas de categorias/produtos
+- qualquer reaproveitamento do clonador legado
+
+VERIFICAÇÕES DA ENTREGA
+- Cadastro: 30/30 testes aprovados.
+- Regressão Jobs Panel: 28/28 testes aprovados.
+- node --check: todos os JS alterados desta entrega aprovados.
+- Busca por referências ao clonador legado nos arquivos desta entrega: nenhuma encontrada.

@@ -1,0 +1,9 @@
+services:
+  backup:
+    profiles: [backup]
+    build: {context: "..", dockerfile: infra/docker/backup.Dockerfile}
+    env_file: ["./env/backup.env"]
+    networks: [edge, data]
+    volumes:
+      - chat_uploads:/uploads:ro
+      - ml_results:/ml-results:ro

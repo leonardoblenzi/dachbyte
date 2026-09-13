@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <title>Prazo de Produção | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/prazo.css?v=20260618" />
+  <link rel="stylesheet" href="/ml/css/operacoes.css?v=2026080702" />
+  <link rel="stylesheet" href="/ml/css/promo-jobs.css?v=2026081101" />
+  <script src="/ml/js/ml-base.js?v=10"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="prazo-app ops-app">
+  <main class="pz-page ops-page">
+    <div class="container-fluid pz-wrap">
+      <header class="pz-page-header ops-hero">
+        <div class="ops-hero__content">
+          <div class="pz-page-header__eyebrow">Operações</div>
+          <h1>Prazo de produção</h1>
+          <p>Consulte o prazo atual ou atualize um anúncio ou lote, com o processamento acompanhado pelo painel global.</p>
+        </div>
+      </header>
+
+      <nav class="pz-tabs" aria-label="Fluxos de prazo de produção">
+        <button class="pz-tab is-active" type="button" data-pz-tab="consultar">Consultar</button>
+        <button class="pz-tab" type="button" data-pz-tab="unitario">Alterar unitário</button>
+        <button class="pz-tab" type="button" data-pz-tab="lote">Alterar em lote</button>
+      </nav>
+
+      <section class="pz-tab-panel is-active" data-pz-panel="consultar">
+        <article class="pz-card pz-card--lookup">
+          <div class="pz-card__head"><div><span class="pz-chip pz-chip--blue">Consulta</span><h3>Consultar prazo atual</h3><p>Escolha MLBs específicos ou consulte todos os anúncios ativos da conta.</p></div></div>
+          <div class="pz-field">
+            <label>Fonte da consulta</label>
+            <div class="pz-source-grid" role="radiogroup" aria-label="Fonte da consulta de prazo">
+              <label class="pz-source-card"><input type="radio" name="consultaFonte" value="manual" checked /><span><strong>MLBs informados</strong><small>Uma lista específica de anúncios.</small></span></label>
+              <label class="pz-source-card"><input type="radio" name="consultaFonte" value="active" /><span><strong>Todos ativos da conta</strong><small>Consulta em job sem carregar tudo no navegador.</small></span></label>
+            </div>
+          </div>
+          <div class="pz-field pz-active-limit" id="consultaAtivosOptions" hidden><label for="consultaMaxAtivos">Limite opcional de ativos</label><input id="consultaMaxAtivos" placeholder="Em branco para todos" type="number" min="1" step="1" /><small>Útil para testar com uma amostra menor.</small></div>
+          <div class="pz-field" id="consultaManualField"><label for="consultaMlbIds">MLBs para consultar</label><textarea id="consultaMlbIds" placeholder="MLB1234567890&#10;MLB0987654321" rows="6"></textarea><small>Duplicados e entradas inválidas são removidos automaticamente.</small></div>
+          <div class="pz-actions"><button id="btnConsultarPrazo" class="btn btn-primary" onclick="consultarPrazos()">Consultar prazos</button><button class="btn btn-secondary" onclick="exportarConsultaPrazo()">Exportar CSV</button><button class="btn btn-ghost" onclick="limparConsulta()">Limpar</button></div>
+        </article>
+
+        <section id="consultaResumo" class="pz-lookup-summary" hidden>
+          <div class="pz-lookup-stat"><strong id="statConsultados">0</strong><span>consultados</span></div><div class="pz-lookup-stat"><strong id="statComPrazo">0</strong><span>com prazo</span></div><div class="pz-lookup-stat"><strong id="statSemPrazo">0</strong><span>sem prazo</span></div><div class="pz-lookup-stat"><strong id="statPrazoMedio">-</strong><span>prazo médio</span></div><div class="pz-lookup-stat"><strong id="statMaiorPrazo">-</strong><span>maior prazo</span></div>
+        </section>
+
+        <section id="consultaTabelaShell" class="pz-result-shell pz-lookup-results" hidden>
+          <div class="pz-section-head"><div><span class="pz-section-head__eyebrow">Resultado</span><h3>Prazos encontrados</h3><p id="consultaInfo">Nenhuma consulta executada.</p></div></div>
+          <div class="pz-table-wrap"><table class="pz-table"><thead><tr><th>MLB</th><th>Título</th><th>Status</th><th>Prazo atual</th><th>Envio</th><th>Atualizado em</th><th>Ação</th></tr></thead><tbody id="consultaPrazoBody"><tr><td colspan="7" class="pz-empty">Execute uma consulta para começar.</td></tr></tbody></table></div>
+          <div id="consultaPager" class="pz-pager-wrap" aria-label="Paginação da consulta"></div>
+        </section>
+      </section>
+
+      <section class="pz-tab-panel" data-pz-panel="unitario" hidden>
+        <article class="pz-card pz-card--single">
+          <div class="pz-card__head"><div><span class="pz-chip pz-chip--violet">Unitário</span><h3>Alterar um anúncio</h3><p>Informe o MLB e o novo prazo em dias.</p></div></div>
+          <div class="form-grid" style="grid-template-columns:minmax(0,1fr) 220px!important">
+            <div class="pz-field"><label for="prazoMlbId">MLB do anúncio</label><input id="prazoMlbId" placeholder="Ex.: MLB1234567890" type="text" /><small>A tela identifica o primeiro MLB válido no texto.</small></div>
+            <div class="pz-field"><label for="prazoDiasSingle">Prazo (dias)</label><input id="prazoDiasSingle" placeholder="Ex.: 3" type="number" min="0" step="1" /><small>Use valores inteiros.</small></div>
+          </div>
+          <div class="pz-actions"><button id="btnPrazoSingle" class="btn btn-primary" onclick="prazoSingle()">Atualizar prazo</button><button class="btn btn-ghost" onclick="limparSingle()">Limpar</button></div>
+        </article>
+      </section>
+
+      <section class="pz-tab-panel" data-pz-panel="lote" hidden>
+        <article class="pz-card pz-card--bulk">
+          <div class="pz-card__head"><div><span class="pz-chip pz-chip--teal">Em lote</span><h3>Alterar vários anúncios</h3><p>O mesmo prazo será aplicado a todos os MLBs válidos da lista.</p></div></div>
+          <div class="form-grid" style="grid-template-columns:220px minmax(0,1fr)!important">
+            <div class="pz-field"><label for="prazoDiasBulk">Prazo (dias)</label><input id="prazoDiasBulk" placeholder="Ex.: 5" type="number" min="0" step="1" /></div>
+            <div class="pz-field"><label for="prazoMlbIds">MLBs do lote</label><textarea id="prazoMlbIds" placeholder="MLB1234567890&#10;MLB0987654321" rows="6"></textarea><small>Duplicados e linhas inválidas são removidos.</small></div>
+          </div>
+          <div class="pz-actions"><button id="btnPrazoBulk" class="btn btn-warning" onclick="prazoBulk()">Atualizar em lote</button><button class="btn btn-ghost" onclick="limparBulk()">Limpar</button></div>
+        </article>
+      </section>
+
+      <section class="pz-result-shell"><div class="pz-section-head"><div><span class="pz-section-head__eyebrow">Retorno</span><h3>Resultado da operação</h3></div></div><div id="resultado" class="result-area"></div></section>
+    </div>
+  </main>
+
+  <div id="bulkJobsPanel" class="processos-panel"></div>
+  <script src="/ml/js/jobs-panel-adapters.js?v=2026080701" defer></script>
+  <script src="/ml/js/jobs-panel.js?v=2026080701" defer></script>
+  <script src="/ml/js/prazo-bulk.js?v=2026061802" defer></script>
+  <script src="/ml/js/prazo.js?v=2026080702" defer></script>
+</body>
+</html>

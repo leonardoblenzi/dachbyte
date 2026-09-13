@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Automações | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/conta-usuarios.css?v=5" />
+  <link rel="stylesheet" href="/ml/css/conta-automacoes.css?v=1" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <script src="/ml/js/conta-automacoes.js?v=1" defer></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="account-app account-automations-app">
+  <main class="page-wrap account-users-page">
+    <section class="account-users-hero">
+      <div>
+        <span class="account-users-kicker">Conta / Automacoes</span>
+        <h1>Relatorios automaticos</h1>
+        <p>
+          Programe consultas de anuncios para chegar por email, com uma base clara,
+          um enriquecimento por relatorio e historico de execucoes.
+        </p>
+      </div>
+      <div class="au-row-actions">
+        <button class="au-btn au-btn-secondary" id="btn-refresh-automations" type="button">Atualizar</button>
+        <button class="au-btn au-btn-primary" id="btn-new-automation" type="button">Nova automacao</button>
+      </div>
+    </section>
+
+    <section class="au-summary" aria-label="Resumo das automacoes">
+      <article class="au-stat">
+        <span>Total</span>
+        <strong id="stat-total">0</strong>
+      </article>
+      <article class="au-stat">
+        <span>Ativas</span>
+        <strong id="stat-active">0</strong>
+      </article>
+      <article class="au-stat">
+        <span>Pausadas</span>
+        <strong id="stat-paused">0</strong>
+      </article>
+      <article class="au-stat">
+        <span>Limite diario</span>
+        <strong id="stat-limit">2</strong>
+      </article>
+    </section>
+
+    <section class="au-toolbar">
+      <label class="au-search">
+        <span>Buscar automacao</span>
+        <input id="automation-search" type="search" placeholder="Nome, status, enriquecimento ou email" />
+      </label>
+      <p class="au-note">
+        Cada automacao pode incluir somente um enriquecimento. Para Ads e Promocoes, crie dois relatorios separados.
+      </p>
+    </section>
+
+    <section class="au-list-shell">
+      <div class="au-list-head">
+        <div>
+          <h2>Automacoes configuradas</h2>
+          <p id="automations-counter">Carregando automacoes...</p>
+        </div>
+      </div>
+
+      <div class="au-table-wrap">
+        <table class="au-table automations-table">
+          <thead>
+            <tr>
+              <th>Relatorio</th>
+              <th>Base</th>
+              <th>Enriquecimento</th>
+              <th>Agenda</th>
+              <th>Destinatarios</th>
+              <th>Status</th>
+              <th>Acao</th>
+            </tr>
+          </thead>
+          <tbody id="automations-body">
+            <tr>
+              <td colspan="7" class="au-empty">Carregando...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="au-list-shell automation-runs-shell">
+      <div class="au-list-head">
+        <div>
+          <h2>Historico recente</h2>
+          <p id="runs-counter">Selecione uma automacao para ver as execucoes.</p>
+        </div>
+      </div>
+      <div id="runs-list" class="automation-runs-list">
+        <div class="au-empty">Nenhuma automacao selecionada.</div>
+      </div>
+    </section>
+
+    <dialog class="au-dialog automation-dialog" id="automation-dialog">
+      <form method="dialog" class="au-dialog-card">
+        <header class="au-dialog-head">
+          <div>
+            <span class="account-users-kicker">Relatorio automatico</span>
+            <h2 id="dialog-title">Nova automacao</h2>
+            <p>Escolha a base, um enriquecimento e o horario de envio.</p>
+          </div>
+          <button class="au-icon-btn" value="cancel" aria-label="Fechar" type="submit">x</button>
+        </header>
+
+        <div class="au-dialog-body automation-form">
+          <section class="au-edit-block">
+            <div>
+              <h3>Nome</h3>
+              <p>Use um nome que apareca bem no email e no historico.</p>
+            </div>
+            <input id="automation-name" class="au-input" type="text" maxlength="120" placeholder="Ex: Anuncios ativos com Ads" />
+          </section>
+
+          <section class="au-edit-block">
+            <div>
+              <h3>Base do relatorio</h3>
+              <p>Defina quais anuncios entram na consulta.</p>
+            </div>
+            <div class="automation-field-stack">
+              <select id="automation-base" class="au-input">
+                <option value="active">Ativos</option>
+                <option value="paused">Inativos/pausados</option>
+                <option value="all">Todos</option>
+                <option value="mlb_list">Lista especifica de MLBs</option>
+              </select>
+              <textarea id="automation-mlbs" class="au-input" placeholder="Cole MLBs separados por virgula, espaco ou linha" hidden></textarea>
+            </div>
+          </section>
+
+          <section class="au-edit-block">
+            <div>
+              <h3>Enriquecimento</h3>
+              <p>Mostramos todas as opcoes, mas cada relatorio aceita apenas uma.</p>
+            </div>
+            <div class="automation-enrichment-grid" id="enrichment-options">
+              <label><input type="radio" name="enrichment" value="none" checked /> <span>Nenhum</span></label>
+              <label><input type="radio" name="enrichment" value="category" /> <span>Categoria</span></label>
+              <label><input type="radio" name="enrichment" value="visits" /> <span>Visitas</span></label>
+              <label><input type="radio" name="enrichment" value="ads" /> <span>Ads</span></label>
+              <label><input type="radio" name="enrichment" value="promos" /> <span>Promocoes</span></label>
+              <label><input type="radio" name="enrichment" value="variations" /> <span>Variacoes</span></label>
+            </div>
+          </section>
+
+          <section class="au-edit-block">
+            <div>
+              <h3>Periodo comercial</h3>
+              <p>Obrigatorio para Visitas e Ads. Para os demais, pode ficar sem periodo.</p>
+            </div>
+            <select id="automation-period" class="au-input">
+              <option value="none">Sem periodo comercial</option>
+              <option value="last_7_days">Ultimos 7 dias</option>
+              <option value="last_30_days">Ultimos 30 dias</option>
+              <option value="current_month">Mes atual</option>
+              <option value="previous_month">Mes anterior</option>
+            </select>
+          </section>
+
+          <section class="au-edit-block">
+            <div>
+              <h3>Destinatarios</h3>
+              <p>Informe emails separados por virgula, espaco ou linha.</p>
+            </div>
+            <textarea id="automation-recipients" class="au-input" placeholder="email@empresa.com.br"></textarea>
+          </section>
+
+          <section class="au-edit-block">
+            <div>
+              <h3>Agenda</h3>
+              <p>O limite e de ate 2 relatorios por dia para a empresa e conta ML.</p>
+            </div>
+            <div class="automation-schedule-grid">
+              <select id="automation-frequency" class="au-input">
+                <option value="daily">Diario</option>
+                <option value="weekdays">Dias uteis</option>
+                <option value="weekly">Semanal</option>
+              </select>
+              <select id="automation-weekday" class="au-input" hidden>
+                <option value="1">Segunda</option>
+                <option value="2">Terca</option>
+                <option value="3">Quarta</option>
+                <option value="4">Quinta</option>
+                <option value="5">Sexta</option>
+                <option value="6">Sabado</option>
+                <option value="0">Domingo</option>
+              </select>
+              <input id="automation-time" class="au-input" type="time" value="08:00" />
+            </div>
+          </section>
+        </div>
+
+        <footer class="au-dialog-actions">
+          <button class="au-btn au-btn-secondary" value="cancel" type="submit">Cancelar</button>
+          <button class="au-btn au-btn-primary" id="btn-save-automation" type="button">Salvar automacao</button>
+        </footer>
+      </form>
+    </dialog>
+  </main>
+</body>
+</html>

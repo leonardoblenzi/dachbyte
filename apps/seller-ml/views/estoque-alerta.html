@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Estoque | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/anuncios.css?v=2026080802" />
+  <link rel="stylesheet" href="/ml/css/estoque-alerta.css?v=2026080702" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="ads-app inventory-app">
+  <main class="inventory-page">
+    <section class="inventory-shell" aria-labelledby="inventoryTitle">
+      <header class="inventory-header">
+        <div class="inventory-header__copy"><span class="inventory-kicker">Anúncios</span><h1 id="inventoryTitle">Estoque</h1><p>Monitore risco de ruptura, priorize reposições e acompanhe os produtos que exigem atenção operacional.</p></div>
+        <div class="inventory-header__actions"><span id="inventoryUpdatedAt" class="inventory-updated">Aguardando análise</span><button id="btnRefreshStored" class="inventory-btn inventory-btn--ghost" type="button">Atualizar dados</button></div>
+      </header>
+      <section class="inventory-toolbar" aria-label="Configuração da análise">
+        <div class="inventory-period" role="group" aria-label="Período analisado"><button class="is-active" type="button" data-period-days="30">30 dias</button><button type="button" data-period-days="60">60 dias</button><button type="button" data-period-days="90">90 dias</button></div>
+        <div class="inventory-toolbar__spacer"></div>
+        <button id="btnLoadWatchlist" class="inventory-btn inventory-btn--ghost" type="button">Carregar monitorados</button>
+        <button id="btnAnalyzeSold" class="inventory-btn inventory-btn--primary" type="button">Analisar vendidos</button>
+      </section>
+      <nav class="inventory-view-tabs" aria-label="Visões de estoque"><button class="is-active" type="button" data-inventory-tab="overview" aria-selected="true">Visão geral</button><button type="button" data-inventory-tab="restock" aria-selected="false">Reposição</button><button type="button" data-inventory-tab="watchlist" aria-selected="false">Monitorados</button></nav>
+      <section id="inventoryJobStrip" class="inventory-job" hidden aria-live="polite"><div><strong id="inventoryJobTitle">Análise em andamento</strong><span id="inventoryJobText">Preparando leitura de estoque.</span></div><button id="btnRefreshJobs" class="inventory-btn inventory-btn--ghost" type="button">Verificar</button></section>
+
+      <div data-inventory-view="overview">
+        <section class="inventory-metrics" aria-label="Resumo de estoque">
+          <article class="inventory-metric" data-tone="danger"><span>Críticos</span><strong id="metricCritical">0</strong><small id="metricCriticalMeta">sem ruptura imediata</small></article>
+          <article class="inventory-metric" data-tone="warning"><span>Atenção</span><strong id="metricAttention">0</strong><small id="metricAttentionMeta">cobertura entre 8 e 30 dias</small></article>
+          <article class="inventory-metric" data-tone="info"><span>Cobertura média</span><strong id="metricCoverage">-</strong><small id="metricCoverageMeta">rode uma análise</small></article>
+          <article class="inventory-metric" data-tone="neutral"><span>Compra sugerida</span><strong id="metricInvestment">R$ 0,00</strong><small id="metricInvestmentMeta">0 unidades</small></article>
+        </section>
+        <section id="urgentPanel" class="inventory-alert" data-tone="neutral"><div class="inventory-alert__marker" aria-hidden="true"></div><div class="inventory-alert__content"><span id="urgentEyebrow">Status da operação</span><h2 id="urgentTitle">Carregue os dados para ver prioridades</h2><p id="urgentText">A tela destaca produtos críticos, risco elevado e reposição sugerida com base na cobertura atual.</p><div class="inventory-alert__actions"><button id="btnScrollCritical" class="inventory-btn inventory-btn--primary" type="button">Ver reposição</button><button id="btnExportCsv" class="inventory-btn inventory-btn--ghost" type="button" disabled>Exportar CSV</button></div></div></section>
+        <section class="inventory-section" aria-labelledby="actionTitle"><div class="inventory-section__head"><div><span class="inventory-kicker">Prioridades</span><h2 id="actionTitle">Próximas ações</h2></div><span id="inventoryScope" class="inventory-pill">0 produtos</span></div><div id="recommendedActions" class="inventory-action-grid"></div></section>
+      </div>
+
+      <div data-inventory-view="restock" hidden>
+        <section id="criticalSection" class="inventory-section" aria-labelledby="criticalTitle"><div class="inventory-section__head"><div><span class="inventory-kicker">Fila de reposição</span><h2 id="criticalTitle">Produtos com compra sugerida</h2></div><span id="criticalCount" class="inventory-pill">0 itens</span></div><div id="restockOverview" class="inventory-restock-overview"></div><div id="priorityRows" class="inventory-product-list"><article class="inventory-empty">Nenhum produto monitorado carregado ainda.</article></div></section>
+      </div>
+
+      <div data-inventory-view="watchlist" hidden>
+        <section id="watchlistSection" class="inventory-section" aria-labelledby="watchlistTitle"><div class="inventory-section__head"><div><span class="inventory-kicker">Monitoramento</span><h2 id="watchlistTitle">Produtos monitorados</h2></div><div class="inventory-table-tools"><label class="inventory-sr-only" for="watchlistSearchInput">Buscar produto monitorado</label><input id="watchlistSearchInput" type="search" placeholder="Buscar MLB, SKU ou produto" autocomplete="off" /><button id="btnOpenAddWatchlist" class="inventory-btn inventory-btn--primary" type="button">Adicionar MLB</button><span id="watchlistCount" class="inventory-pill">0 monitorados</span></div></div><div id="watchlistRows" class="inventory-watchlist"><article class="inventory-empty">Carregue os dados para visualizar a watchlist.</article></div></section>
+      </div>
+      <p id="inventoryFeedback" class="inventory-feedback" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <div id="purchaseModal" class="inventory-modal" hidden aria-hidden="true"><div class="inventory-modal__backdrop" data-close-purchase></div><section class="inventory-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="purchaseModalTitle"><header class="inventory-modal__header"><div><h2 id="purchaseModalTitle">Compra realizada</h2><p id="purchaseModalSubtitle">Informe a data prevista de chegada do novo estoque.</p></div><button class="inventory-modal__close" type="button" data-close-purchase aria-label="Fechar">×</button></header><label class="inventory-field" for="purchaseArrivalDate"><span>Data prevista de chegada</span><input id="purchaseArrivalDate" type="date" /></label><footer class="inventory-modal__footer"><button class="inventory-btn inventory-btn--ghost" type="button" data-close-purchase>Cancelar</button><button id="btnConfirmPurchase" class="inventory-btn inventory-btn--primary" type="button">Salvar status</button></footer></section></div>
+  <div id="detailModal" class="inventory-modal inventory-modal--detail" hidden aria-hidden="true"><div class="inventory-modal__backdrop" data-close-detail></div><section class="inventory-modal__dialog inventory-modal__dialog--wide" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle"><header class="inventory-modal__header"><div><h2 id="detailModalTitle">Análise detalhada de produto</h2><p>Leitura operacional do MLB selecionado.</p></div><button class="inventory-modal__close" type="button" data-close-detail aria-label="Fechar">×</button></header><div id="detailModalContent" class="inventory-detail"><article class="inventory-empty">Selecione um produto na tabela para detalhar.</article></div></section></div>
+  <div id="addWatchlistModal" class="inventory-modal" hidden aria-hidden="true"><div class="inventory-modal__backdrop" data-close-add-watchlist></div><section class="inventory-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="addWatchlistTitle"><header class="inventory-modal__header"><div><h2 id="addWatchlistTitle">Adicionar ao monitoramento</h2><p>Cole um ou mais MLBs ou SKUs para analisar e incluir na watchlist de estoque.</p></div><button class="inventory-modal__close" type="button" data-close-add-watchlist aria-label="Fechar">×</button></header><form id="addWatchlistForm" class="inventory-modal-form"><label class="inventory-field" for="addWatchlistInput"><span>MLBs ou SKUs</span><textarea id="addWatchlistInput" rows="4" placeholder="Ex.: MLB123456789, MLB987654321 ou SKU-ABC"></textarea></label><footer class="inventory-modal__footer"><button class="inventory-btn inventory-btn--ghost" type="button" data-close-add-watchlist>Cancelar</button><button id="btnConfirmAddWatchlist" class="inventory-btn inventory-btn--primary" type="submit">Analisar e adicionar</button></footer></form></section></div>
+  <script src="/ml/js/estoque-alerta.js?v=11" defer></script>
+</body>
+</html>

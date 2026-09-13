@@ -1,0 +1,217 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=7" />
+  <title>Admin - Automacoes</title>
+  <link rel="stylesheet" href="/ml/css/admin-usuarios.css?v=5" />
+  <link rel="stylesheet" href="/ml/css/admin-jobs.css?v=1" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/ml/css/ml-master-theme.css?v=2026081301" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+  <main class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar__brand">
+        <div class="admin-sidebar__logo">Painel Admin</div>
+        <div class="admin-sidebar__sub">Master Only</div>
+      </div>
+
+      <nav class="admin-menu">
+        <a class="admin-menu__item" href="/ml/admin/usuarios">
+          <span class="ico">U</span><span>Usuarios</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/empresas">
+          <span class="ico">E</span><span>Empresas</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/vinculos">
+          <span class="ico">V</span><span>Vinculos</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/contas-ml">
+          <span class="ico">M</span><span>Contas ML</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/relatorios-ml"><span class="ico">R</span><span>Relatorios ML</span></a>
+        <a class="admin-menu__item" href="/ml/admin/tokens-ml">
+          <span class="ico">T</span><span>Tokens ML</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/oauth-states">
+          <span class="ico">O</span><span>OAuth States</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/migracoes">
+          <span class="ico">G</span><span>Migracoes</span>
+        </a>
+        <a class="admin-menu__item active" href="/ml/admin/jobs">
+          <span class="ico">J</span><span>Automacoes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/patch-notes">
+          <span class="ico">P</span><span>Patch Notes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/backup">
+          <span class="ico">B</span><span>Backup</span>
+        </a>
+      </nav>
+
+      <div class="admin-sidebar__footer">
+        <small>area restrita</small>
+      </div>
+    </aside>
+
+    <section class="admin-content">
+      <div class="admin-content__header">
+        <div>
+          <h1 class="admin-title">Automacoes</h1>
+          <p class="admin-subtitle">
+            Central de configuracao de cron jobs e rotinas internas. O painel esta pronto para novas automacoes do modulo Mercado Livre.
+          </p>
+        </div>
+
+        <div class="admin-actions">
+          <button id="btn-refresh" class="btn-lite" type="button">Atualizar</button>
+          <button id="btn-save" class="btn-primary" type="button">Salvar job</button>
+        </div>
+      </div>
+
+      <div class="job-grid">
+        <article class="job-card">
+          <h3>Job</h3>
+          <p>Selecione a automacao para editar os parametros.</p>
+
+          <div class="job-field">
+            <label for="job-key">Automacao</label>
+            <select id="job-key"></select>
+          </div>
+
+          <div class="job-meta">
+            <strong id="job-name">-</strong>
+            <span id="job-description">-</span>
+          </div>
+        </article>
+
+        <article class="job-card">
+          <h3>Configuracao Geral</h3>
+          <p>Parametros de execucao do job selecionado.</p>
+
+          <div class="job-form-grid">
+            <div class="job-field">
+              <div class="job-check-row">
+                <input id="enabled" type="checkbox" />
+                <label for="enabled">Job habilitado</label>
+              </div>
+            </div>
+
+            <div class="job-field">
+              <div class="job-check-row">
+                <input id="include-inactive" type="checkbox" />
+                <label for="include-inactive">Incluir contas inativas</label>
+              </div>
+            </div>
+
+            <div class="job-field">
+              <label>Periodos</label>
+              <div class="job-periods">
+                <label><input id="period-7d" type="checkbox" value="7d" /> 7d</label>
+                <label><input id="period-14d" type="checkbox" value="14d" /> 14d</label>
+                <label><input id="period-30d" type="checkbox" value="30d" /> 30d</label>
+              </div>
+            </div>
+
+            <div class="job-field">
+              <div class="job-check-row">
+                <input id="fail-on-partial" type="checkbox" />
+                <label for="fail-on-partial">Falhar job se alguma conta falhar</label>
+              </div>
+            </div>
+
+            <div class="job-field">
+              <label for="concurrency">Concorrencia (1 a 6)</label>
+              <input id="concurrency" type="number" min="1" max="6" step="1" value="1" />
+            </div>
+
+            <div class="job-field">
+              <label for="limit">Limite de contas (0 = sem limite)</label>
+              <input id="limit" type="number" min="0" max="5000" step="1" value="0" />
+            </div>
+          </div>
+
+          <div class="job-meta-row">
+            <span id="meta-updated">Sem atualizacoes ainda.</span>
+            <span id="meta-source" class="job-count"></span>
+          </div>
+        </article>
+      </div>
+
+      <div class="job-grid">
+        <article class="job-card">
+          <h3>Escopo por Conta</h3>
+          <p>
+            Prioridade: primeiro usa <strong>Allowlist</strong>, depois remove o que estiver na <strong>Denylist</strong>.
+          </p>
+
+          <div class="job-field">
+            <label for="allowlist">Allowlist (apenas estas contas)</label>
+            <textarea id="allowlist" placeholder="Ex: 101,102,205"></textarea>
+          </div>
+
+          <div class="job-field">
+            <label for="denylist">Denylist (contas a ignorar)</label>
+            <textarea id="denylist" placeholder="Ex: 999,1000"></textarea>
+          </div>
+
+          <div class="job-actions">
+            <button id="btn-clear-allow" class="btn-lite" type="button">Limpar allowlist</button>
+            <button id="btn-clear-deny" class="btn-lite" type="button">Limpar denylist</button>
+            <button id="btn-mode-all" class="btn-lite" type="button">Modo todas ativas</button>
+          </div>
+        </article>
+      </div>
+
+      <article class="job-card" style="margin-top: 16px;">
+        <h3>Contas ML</h3>
+        <p>Selecione contas e adicione na allowlist ou denylist do job atual.</p>
+
+        <div class="admin-toolbar" style="margin-top: 0;">
+          <div class="admin-actions" style="flex: 1; min-width: 240px;">
+            <div class="search-box" style="flex: 1;">
+              <input id="search" type="text" placeholder="Buscar por empresa, apelido, id, meli_user_id..." />
+            </div>
+          </div>
+
+          <div class="job-actions">
+            <button id="btn-select-all-visible" class="btn-lite" type="button">Selecionar visiveis</button>
+            <button id="btn-unselect-all" class="btn-lite" type="button">Limpar selecao</button>
+            <button id="btn-add-allow" class="btn-primary" type="button">Adicionar na allowlist</button>
+            <button id="btn-add-deny" class="btn-lite" type="button">Adicionar na denylist</button>
+          </div>
+        </div>
+
+        <div class="job-count" id="accounts-count">0 contas</div>
+
+        <div class="job-table-wrap" style="margin-top: 8px;">
+          <table class="job-table">
+            <thead>
+              <tr>
+                <th style="width: 42px;">#</th>
+                <th style="width: 80px;">Conta ID</th>
+                <th style="width: 90px;">Empresa ID</th>
+                <th>Empresa</th>
+                <th>Apelido</th>
+                <th style="width: 120px;">ML User</th>
+                <th style="width: 80px;">Status</th>
+                <th style="width: 110px;">Token</th>
+              </tr>
+            </thead>
+            <tbody id="accounts-body">
+              <tr><td colspan="8">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <div id="toast" class="job-toast"></div>
+  <script src="/ml/js/admin-jobs.js?v=1"></script>
+</body>
+</html>

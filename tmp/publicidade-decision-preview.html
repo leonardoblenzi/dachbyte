@@ -1,0 +1,1098 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preview - Publicidade Product Ads</title>
+  <style>
+    :root{
+      --ml-yellow:#ffe600;
+      --ml-blue:#3483fa;
+      --ml-blue-dark:#1d4ed8;
+      --text:#0f172a;
+      --muted:#64748b;
+      --soft:#f3f6fb;
+      --card:#ffffff;
+      --line:#dce4f1;
+      --line-soft:rgba(148,163,184,.22);
+      --green:#16a34a;
+      --green-bg:#ecfdf3;
+      --amber:#d97706;
+      --amber-bg:#fff7ed;
+      --red:#dc2626;
+      --red-bg:#fff1f2;
+      --blue-bg:#eaf2ff;
+      --shadow:0 20px 44px rgba(15,23,42,.08);
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:"Inter","Segoe UI",Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(52,131,250,.10), transparent 30%),
+        linear-gradient(180deg,#f7faff 0%,#f3f6fb 42%,#eef3f8 100%);
+    }
+
+    .page{
+      width:min(1440px,100%);
+      margin:0 auto;
+      padding:22px 28px 34px;
+    }
+
+    .topbar{
+      display:grid;
+      grid-template-columns:minmax(260px,1fr) auto;
+      gap:18px;
+      align-items:center;
+      padding:16px 18px;
+      background:rgba(255,255,255,.92);
+      border:1px solid var(--line);
+      border-radius:22px;
+      box-shadow:0 16px 34px rgba(15,23,42,.07);
+      backdrop-filter:blur(12px);
+      position:sticky;
+      top:12px;
+      z-index:10;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      min-width:0;
+    }
+
+    .brand-mark{
+      width:44px;
+      height:44px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      color:#111827;
+      background:linear-gradient(145deg,var(--ml-yellow),#fff4a3);
+      font-weight:950;
+      letter-spacing:-.04em;
+      box-shadow:inset 0 -1px 0 rgba(0,0,0,.08);
+    }
+
+    h1{
+      margin:0;
+      font-size:1.34rem;
+      line-height:1.04;
+      letter-spacing:-.04em;
+    }
+
+    .brand span{
+      display:block;
+      margin-top:3px;
+      color:var(--muted);
+      font-size:.84rem;
+      font-weight:700;
+    }
+
+    .toolbar{
+      display:flex;
+      align-items:end;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .field{
+      display:grid;
+      gap:5px;
+    }
+
+    .field label{
+      font-size:.68rem;
+      text-transform:uppercase;
+      letter-spacing:.1em;
+      color:#64748b;
+      font-weight:900;
+    }
+
+    .select,.date,.btn{
+      height:42px;
+      border-radius:13px;
+      border:1px solid var(--line);
+      background:#fff;
+      padding:0 13px;
+      color:#111827;
+      font-weight:850;
+      box-shadow:0 8px 18px rgba(15,23,42,.04);
+    }
+
+    .select{min-width:172px}
+    .date{width:142px}
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      min-width:116px;
+    }
+
+    .btn-primary{
+      color:#fff;
+      border-color:#2563eb;
+      background:linear-gradient(135deg,#2563eb,#3483fa);
+      box-shadow:0 16px 28px rgba(37,99,235,.22);
+    }
+
+    .section{
+      margin-top:18px;
+    }
+
+    .section-head{
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:14px;
+      margin:0 0 12px;
+    }
+
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      min-height:27px;
+      padding:0 11px;
+      border-radius:999px;
+      color:var(--ml-blue-dark);
+      background:var(--blue-bg);
+      border:1px solid #cfe0ff;
+      text-transform:uppercase;
+      letter-spacing:.13em;
+      font-size:.68rem;
+      font-weight:950;
+    }
+
+    h2{
+      margin:8px 0 0;
+      font-size:1.18rem;
+      letter-spacing:-.035em;
+    }
+
+    .hint{
+      color:var(--muted);
+      font-weight:700;
+      font-size:.9rem;
+      line-height:1.5;
+    }
+
+    .panel{
+      background:rgba(255,255,255,.96);
+      border:1px solid var(--line);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .kpis{
+      display:grid;
+      grid-template-columns:repeat(12,1fr);
+      gap:14px;
+      padding:16px;
+    }
+
+    .kpi{
+      grid-column:span 3;
+      min-height:118px;
+      padding:16px;
+      border-radius:20px;
+      border:1px solid var(--line-soft);
+      background:linear-gradient(180deg,#fff,#f9fbff);
+      box-shadow:0 14px 28px rgba(15,23,42,.045);
+    }
+
+    .kpi.main{
+      grid-column:span 3;
+      min-height:138px;
+    }
+
+    .kpi.hero{
+      color:#fff;
+      border-color:#1d4ed8;
+      background:linear-gradient(145deg,#0f2c62,#2f77f1);
+    }
+
+    .kpi-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .kpi-label{
+      font-size:.68rem;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      color:#64748b;
+      font-weight:950;
+    }
+
+    .hero .kpi-label,.hero .kpi-foot{color:rgba(255,255,255,.86)}
+
+    .kpi-badge{
+      border-radius:999px;
+      padding:5px 8px;
+      font-size:.65rem;
+      line-height:1;
+      font-weight:950;
+      color:#1d4ed8;
+      background:#eef4ff;
+      border:1px solid #d7e4ff;
+      white-space:nowrap;
+    }
+
+    .kpi-value{
+      margin-top:12px;
+      font-size:1.92rem;
+      line-height:1;
+      font-weight:950;
+      letter-spacing:-.05em;
+    }
+
+    .kpi.main .kpi-value{font-size:2.12rem}
+    .kpi-foot{
+      margin-top:9px;
+      color:var(--muted);
+      font-size:.82rem;
+      font-weight:750;
+    }
+
+    .delta{display:inline-flex;gap:5px;align-items:center;font-weight:950}
+    .up{color:var(--green)}
+    .down{color:var(--red)}
+    .warn{color:var(--amber)}
+
+    .decision-grid{
+      display:grid;
+      grid-template-columns:1.05fr .95fr;
+      gap:16px;
+    }
+
+    .health{
+      display:grid;
+      grid-template-columns:260px repeat(4,1fr);
+      gap:12px;
+      padding:16px;
+    }
+
+    .health-main{
+      padding:18px;
+      border-radius:20px;
+      background:linear-gradient(145deg,#fff7ed,#ffffff);
+      border:1px solid #fed7aa;
+      display:grid;
+      align-content:center;
+      gap:10px;
+    }
+
+    .health-status{
+      display:flex;
+      align-items:center;
+      gap:9px;
+      font-weight:950;
+      font-size:1.35rem;
+      letter-spacing:-.03em;
+    }
+
+    .dot{
+      width:12px;
+      height:12px;
+      border-radius:999px;
+      background:var(--amber);
+      box-shadow:0 0 0 6px rgba(217,119,6,.13);
+    }
+
+    .health-card{
+      min-height:124px;
+      padding:15px;
+      border-radius:18px;
+      border:1px solid var(--line-soft);
+      background:#fff;
+    }
+
+    .health-card strong{
+      display:block;
+      font-size:1.55rem;
+      margin:7px 0 4px;
+      letter-spacing:-.04em;
+    }
+
+    .health-card span,.health-main p{
+      margin:0;
+      color:var(--muted);
+      font-size:.83rem;
+      line-height:1.42;
+      font-weight:720;
+    }
+
+    .priority-row{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:12px;
+      padding:16px;
+    }
+
+    .priority{
+      min-height:122px;
+      padding:15px;
+      border-radius:18px;
+      border:1px solid var(--line-soft);
+      background:#fff;
+      border-left:5px solid var(--ml-blue);
+    }
+
+    .priority.critical{border-left-color:var(--red)}
+    .priority.good{border-left-color:var(--green)}
+    .priority.attention{border-left-color:var(--amber)}
+
+    .priority small{
+      display:inline-flex;
+      margin-bottom:8px;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      font-size:.68rem;
+      font-weight:950;
+      color:var(--muted);
+    }
+
+    .priority h3{
+      margin:0 0 7px;
+      font-size:1rem;
+      letter-spacing:-.02em;
+    }
+
+    .priority p{
+      margin:0;
+      color:#475569;
+      font-size:.84rem;
+      line-height:1.45;
+      font-weight:720;
+    }
+
+    .campaign-panel{
+      padding:16px;
+    }
+
+    .campaign-summary{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+      margin-bottom:12px;
+    }
+
+    .summary-pill{
+      min-height:64px;
+      padding:12px 14px;
+      border-radius:16px;
+      background:#f8fbff;
+      border:1px solid var(--line);
+    }
+
+    .summary-pill b{
+      display:block;
+      font-size:1.15rem;
+      letter-spacing:-.03em;
+    }
+
+    .summary-pill span{
+      display:block;
+      margin-top:3px;
+      color:var(--muted);
+      font-size:.76rem;
+      font-weight:800;
+    }
+
+    .filters{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin:0 0 12px;
+    }
+
+    .filter{
+      height:36px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:#334155;
+      padding:0 12px;
+      font-weight:900;
+    }
+
+    .filter.active{
+      color:#fff;
+      border-color:#2563eb;
+      background:linear-gradient(135deg,#2563eb,#3483fa);
+    }
+
+    .table-wrap{
+      overflow:auto;
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+    }
+
+    table{
+      width:100%;
+      min-width:1120px;
+      border-collapse:separate;
+      border-spacing:0;
+      font-size:.84rem;
+    }
+
+    th,td{
+      padding:13px 12px;
+      border-bottom:1px solid rgba(148,163,184,.22);
+      text-align:left;
+      white-space:nowrap;
+      vertical-align:middle;
+    }
+
+    th{
+      position:sticky;
+      top:0;
+      z-index:2;
+      background:linear-gradient(180deg,#fff,#f8fbff);
+      color:#475569;
+      font-size:.68rem;
+      text-transform:uppercase;
+      letter-spacing:.09em;
+      font-weight:950;
+    }
+
+    td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+    tbody tr:hover td{background:rgba(52,131,250,.045)}
+
+    .campaign-name{
+      display:grid;
+      gap:3px;
+    }
+
+    .campaign-name b{font-size:.9rem}
+    .campaign-name span{color:var(--muted);font-size:.74rem;font-weight:760}
+
+    .status-cell{
+      display:flex;
+      align-items:center;
+      gap:9px;
+    }
+
+    .switch{
+      width:44px;
+      height:26px;
+      border-radius:999px;
+      border:1px solid #cbd5e1;
+      background:#e2e8f0;
+      padding:2px;
+      position:relative;
+      display:inline-flex;
+      align-items:center;
+      cursor:pointer;
+      box-shadow:inset 0 1px 2px rgba(15,23,42,.12);
+    }
+
+    .switch::after{
+      content:"";
+      width:20px;
+      height:20px;
+      border-radius:999px;
+      background:#fff;
+      box-shadow:0 3px 8px rgba(15,23,42,.24);
+      transition:transform .2s ease;
+    }
+
+    .switch.on{
+      border-color:#22c55e;
+      background:#22c55e;
+    }
+
+    .switch.on::after{transform:translateX(18px)}
+
+    .status-label{
+      min-width:48px;
+      color:#64748b;
+      font-size:.75rem;
+      font-weight:950;
+    }
+
+    .status-label.on{color:var(--green)}
+
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      min-height:25px;
+      padding:0 9px;
+      border-radius:999px;
+      font-size:.72rem;
+      font-weight:950;
+      border:1px solid var(--line-soft);
+      background:#f8fafc;
+      color:#334155;
+    }
+
+    .tag.good{color:#166534;background:var(--green-bg);border-color:#bbf7d0}
+    .tag.warn{color:#9a3412;background:var(--amber-bg);border-color:#fed7aa}
+    .tag.bad{color:#9f1239;background:var(--red-bg);border-color:#fecdd3}
+    .risk{color:var(--red);font-weight:950}
+
+    .action{
+      display:grid;
+      gap:2px;
+      color:#0f172a;
+      font-weight:900;
+    }
+
+    .action span{
+      color:var(--muted);
+      font-size:.74rem;
+      font-weight:760;
+    }
+
+    .chart-card,.action-card{
+      padding:16px;
+    }
+
+    .metric-tabs{
+      display:flex;
+      gap:8px;
+      margin:0 0 14px;
+    }
+
+    .tab{
+      height:36px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      padding:0 12px;
+      color:#334155;
+      font-weight:900;
+    }
+
+    .tab.active{
+      color:#fff;
+      border-color:#2563eb;
+      background:linear-gradient(135deg,#2563eb,#3483fa);
+    }
+
+    .chart{
+      height:360px;
+      border-radius:18px;
+      background:linear-gradient(180deg,#f7fbff,#edf4ff);
+      border:1px solid rgba(52,131,250,.14);
+      overflow:hidden;
+    }
+
+    .chart-layout{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 300px;
+      gap:14px;
+      align-items:stretch;
+    }
+
+    .chart-insights{
+      display:grid;
+      gap:10px;
+      align-content:start;
+    }
+
+    .chart-insight{
+      padding:13px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:#fff;
+      border-left:5px solid var(--ml-blue);
+    }
+
+    .chart-insight.warn{border-left-color:var(--amber)}
+    .chart-insight.bad{border-left-color:var(--red)}
+    .chart-insight.good{border-left-color:var(--green)}
+
+    .chart-insight b{
+      display:block;
+      font-size:.86rem;
+      margin-bottom:4px;
+    }
+
+    .chart-insight span{
+      display:block;
+      color:var(--muted);
+      font-size:.78rem;
+      line-height:1.42;
+      font-weight:760;
+    }
+
+    .chart-caption{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:.82rem;
+      font-weight:780;
+    }
+
+    .action-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .action-item{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:12px;
+      align-items:center;
+      padding:13px;
+      border-radius:16px;
+      border:1px solid var(--line);
+      background:#fff;
+    }
+
+    .rank{
+      width:34px;
+      height:34px;
+      border-radius:12px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      background:#334155;
+      font-weight:950;
+    }
+
+    .action-item:first-child .rank{background:var(--red)}
+    .action-item:nth-child(2) .rank{background:var(--amber)}
+    .action-item:nth-child(3) .rank{background:var(--green)}
+
+    .action-item b{display:block}
+    .action-item span{display:block;color:var(--muted);font-size:.8rem;font-weight:760;margin-top:2px}
+
+    .side-btn{
+      height:34px;
+      border-radius:11px;
+      border:1px solid #cfe0ff;
+      color:var(--ml-blue-dark);
+      background:#eef4ff;
+      font-weight:950;
+      padding:0 11px;
+    }
+
+    details{
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+      box-shadow:0 12px 24px rgba(15,23,42,.045);
+      overflow:hidden;
+    }
+
+    summary{
+      cursor:pointer;
+      padding:15px 16px;
+      font-weight:950;
+    }
+
+    details p{
+      margin:0;
+      padding:0 16px 16px;
+      color:var(--muted);
+      line-height:1.6;
+      font-weight:720;
+    }
+
+    .collapsible{
+      display:grid;
+      gap:10px;
+    }
+
+    @media(max-width:1100px){
+      .topbar{grid-template-columns:1fr}
+      .toolbar{justify-content:flex-start}
+      .kpi,.kpi.main{grid-column:span 6}
+      .health{grid-template-columns:1fr 1fr}
+      .health-main{grid-column:1/-1}
+      .priority-row,.campaign-summary,.chart-layout{grid-template-columns:1fr}
+    }
+
+    @media(max-width:640px){
+      .page{padding:14px}
+      .kpi,.kpi.main{grid-column:span 12}
+      .health{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">ML</div>
+        <div>
+          <h1>Central de performance - Product Ads</h1>
+          <span>Mercado Livre | leitura rapida, diagnostico e acao direta</span>
+        </div>
+      </div>
+      <div class="toolbar">
+        <div class="field">
+          <label>Conta</label>
+          <button class="select">Drossi Interiores</button>
+        </div>
+        <div class="field">
+          <label>Inicial</label>
+          <button class="date">28/03/2026</button>
+        </div>
+        <div class="field">
+          <label>Final</label>
+          <button class="date">27/04/2026</button>
+        </div>
+        <button class="btn">Mes atual</button>
+        <button class="btn btn-primary">Atualizar</button>
+      </div>
+    </header>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">Performance do periodo</span>
+          <h2>Resultado primeiro, explicacao depois.</h2>
+        </div>
+        <div class="hint">28/03 a 27/04 | comparativo vs periodo anterior</div>
+      </div>
+      <div class="panel kpis">
+        <article class="kpi main hero">
+          <div class="kpi-top"><span class="kpi-label">Faturamento</span><span class="kpi-badge">Resultado</span></div>
+          <div class="kpi-value">R$ 259,5k</div>
+          <div class="kpi-foot"><span class="delta down">-12,4%</span> vs anterior</div>
+        </article>
+        <article class="kpi main">
+          <div class="kpi-top"><span class="kpi-label">Investimento</span><span class="kpi-badge">Ads</span></div>
+          <div class="kpi-value">R$ 31,9k</div>
+          <div class="kpi-foot"><span class="delta up">+3,1%</span> com queda de receita</div>
+        </article>
+        <article class="kpi main">
+          <div class="kpi-top"><span class="kpi-label">ROAS</span><span class="kpi-badge">Meta 10x</span></div>
+          <div class="kpi-value">8,14x</div>
+          <div class="kpi-foot"><span class="delta warn">abaixo da meta</span></div>
+        </article>
+        <article class="kpi main">
+          <div class="kpi-top"><span class="kpi-label">ACOS</span><span class="kpi-badge">Ideal ate 10%</span></div>
+          <div class="kpi-value">12,28%</div>
+          <div class="kpi-foot"><span class="delta down">acima do ideal</span></div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-top"><span class="kpi-label">Cliques</span><span class="kpi-badge">Volume</span></div>
+          <div class="kpi-value">47.605</div>
+          <div class="kpi-foot"><span class="delta down">-5,2%</span> total</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-top"><span class="kpi-label">Impressoes</span><span class="kpi-badge">Alcance</span></div>
+          <div class="kpi-value">20,9M</div>
+          <div class="kpi-foot"><span class="delta up">+8,0%</span> com CTR baixo</div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-top"><span class="kpi-label">CTR</span><span class="kpi-badge">Meta 0,35%</span></div>
+          <div class="kpi-value">0,23%</div>
+          <div class="kpi-foot"><span class="delta down">criativos pedem revisao</span></div>
+        </article>
+        <article class="kpi">
+          <div class="kpi-top"><span class="kpi-label">CPC medio</span><span class="kpi-badge">Eficiencia</span></div>
+          <div class="kpi-value">R$ 0,67</div>
+          <div class="kpi-foot"><span class="delta up">aceitavel</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">Saude da conta</span>
+          <h2>Diagnostico visual para saber se a operacao pede acao.</h2>
+        </div>
+      </div>
+      <div class="panel health">
+        <article class="health-main">
+          <div class="health-status"><span class="dot"></span>Atenção</div>
+          <p>Performance geral abaixo da meta por ROAS e CTR. O problema esta concentrado em 3 campanhas.</p>
+        </article>
+        <article class="health-card">
+          <span>Campanhas por diagnostico</span>
+          <strong>2 | 2 | 2</strong>
+          <span>criticas, atencao e saudaveis</span>
+        </article>
+        <article class="health-card">
+          <span>Dentro do ROAS objetivo</span>
+          <strong>37%</strong>
+          <span>Apenas 3 de 8 campanhas batem a meta</span>
+        </article>
+        <article class="health-card">
+          <span>Investimento sem retorno</span>
+          <strong class="risk">R$ 1.761</strong>
+          <span>verba em campanhas sem venda</span>
+        </article>
+        <article class="health-card">
+          <span>Potencial de escala</span>
+          <strong class="up">2 campanhas</strong>
+          <span>ROAS alto com baixo investimento</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">Prioridades do periodo</span>
+          <h2>So o que exige atencao agora.</h2>
+        </div>
+        <div class="hint">Limitado a 3 cards para reduzir ruido.</div>
+      </div>
+      <div class="panel priority-row">
+        <article class="priority critical">
+          <small>Maior problema</small>
+          <h3>CMD_LT sem retorno</h3>
+          <p>R$ 561,50 investidos e 0 vendas. Pausar ou revisar anuncios antes de ampliar verba.</p>
+        </article>
+        <article class="priority good">
+          <small>Maior oportunidade</small>
+          <h3>CMD_AJ pronto para escalar</h3>
+          <p>ROAS 27,73x, acima da meta de 25x. Pode receber mais orcamento com seguranca.</p>
+        </article>
+        <article class="priority attention">
+          <small>Principal gargalo</small>
+          <h3>CTR geral em 0,23%</h3>
+          <p>Impressoes cresceram, mas o clique nao acompanhou. Revisar imagem, titulo e posicionamento.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">Ranking de campanhas</span>
+          <h2>Diagnostico, status e acao operacional no mesmo lugar.</h2>
+        </div>
+        <button class="btn">Exportar CSV</button>
+      </div>
+      <div class="panel campaign-panel">
+        <div class="campaign-summary">
+          <div class="summary-pill"><b>8</b><span>campanhas analisadas</span></div>
+          <div class="summary-pill"><b class="risk">2 criticas</b><span>prioridade de revisao</span></div>
+          <div class="summary-pill"><b class="up">3 saudaveis</b><span>sem acao urgente</span></div>
+          <div class="summary-pill"><b class="risk">R$ 1.761,50</b><span>valor em risco sem retorno</span></div>
+        </div>
+        <div class="filters">
+          <button class="filter active">Todas</button>
+          <button class="filter">Criticas</button>
+          <button class="filter">Sem venda</button>
+          <button class="filter">ACOS alto</button>
+          <button class="filter">ROAS abaixo</button>
+          <button class="filter">Escalaveis</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Campanha</th>
+                <th>Status</th>
+                <th>Diagnostico</th>
+                <th class="num">ROAS</th>
+                <th class="num">Meta</th>
+                <th class="num">ACOS</th>
+                <th class="num">Vendas</th>
+                <th class="num">Investimento</th>
+                <th class="num">Inv. sem venda</th>
+                <th>Acao sugerida</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div class="campaign-name"><b>CMD_AJ</b><span>ECF-ADS · 23 adgroups</span></div></td>
+                <td><div class="status-cell"><span class="switch on"></span><span class="status-label on">Ativa</span></div></td>
+                <td><span class="tag good">Escalavel</span></td>
+                <td class="num up">27,73x</td>
+                <td class="num">25,00x</td>
+                <td class="num">3,61%</td>
+                <td class="num">15</td>
+                <td class="num">R$ 418,42</td>
+                <td class="num">-</td>
+                <td><div class="action">Escalar<span>Aumentar verba com limite</span></div></td>
+              </tr>
+              <tr>
+                <td><div class="campaign-name"><b>Margem negativa</b><span>ECF-ADS · 57 adgroups</span></div></td>
+                <td><div class="status-cell"><span class="switch on"></span><span class="status-label on">Ativa</span></div></td>
+                <td><span class="tag good">Saudavel</span></td>
+                <td class="num up">26,48x</td>
+                <td class="num">20,00x</td>
+                <td class="num">3,78%</td>
+                <td class="num">75</td>
+                <td class="num">R$ 1.660,21</td>
+                <td class="num">-</td>
+                <td><div class="action">Manter<span>Monitorar margem real</span></div></td>
+              </tr>
+              <tr>
+                <td><div class="campaign-name"><b>TCKT baixo</b><span>ECF-ADS · 8 adgroups</span></div></td>
+                <td><div class="status-cell"><span class="switch on"></span><span class="status-label on">Ativa</span></div></td>
+                <td><span class="tag good">Bom</span></td>
+                <td class="num up">11,22x</td>
+                <td class="num">8,00x</td>
+                <td class="num">8,91%</td>
+                <td class="num">75</td>
+                <td class="num">R$ 172,14</td>
+                <td class="num">-</td>
+                <td><div class="action">Otimizar<span>CPC baixo, manter ativo</span></div></td>
+              </tr>
+              <tr>
+                <td><div class="campaign-name"><b>CMD_B</b><span>ECF-ADS · 36 adgroups</span></div></td>
+                <td><div class="status-cell"><span class="switch on"></span><span class="status-label on">Ativa</span></div></td>
+                <td><span class="tag warn">Atencao</span></td>
+                <td class="num warn">5,36x</td>
+                <td class="num">9,00x</td>
+                <td class="num">18,66%</td>
+                <td class="num">15</td>
+                <td class="num">R$ 2.337,58</td>
+                <td class="num">-</td>
+                <td><div class="action">Otimizar<span>Reduzir CPC e revisar mix</span></div></td>
+              </tr>
+              <tr>
+                <td><div class="campaign-name"><b>MLB5713148214</b><span>ECF-ADS · 1 adgroup</span></div></td>
+                <td><div class="status-cell"><span class="switch on"></span><span class="status-label on">Ativa</span></div></td>
+                <td><span class="tag bad">Problema</span></td>
+                <td class="num risk">3,49x</td>
+                <td class="num">11,00x</td>
+                <td class="num">28,62%</td>
+                <td class="num">4</td>
+                <td class="num">R$ 1.540,75</td>
+                <td class="num risk">R$ 1.200,00</td>
+                <td><div class="action">Revisar urgente<span>Segmentacao e criativos</span></div></td>
+              </tr>
+              <tr>
+                <td><div class="campaign-name"><b>CMD_LT</b><span>ECF-ADS · 151 adgroups</span></div></td>
+                <td><div class="status-cell"><span class="switch"></span><span class="status-label">Inativa</span></div></td>
+                <td><span class="tag bad">Critico</span></td>
+                <td class="num risk">0,00x</td>
+                <td class="num">6,00x</td>
+                <td class="num risk">100%</td>
+                <td class="num">0</td>
+                <td class="num">R$ 561,50</td>
+                <td class="num risk">R$ 561,50</td>
+                <td><div class="action">Pausada<span>Reativar so apos revisao</span></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">Evolucao diaria</span>
+          <h2>Apoio analitico depois do ranking.</h2>
+        </div>
+        <div class="hint">Linha solida = periodo atual | tracejada = periodo anterior</div>
+      </div>
+      <div class="panel chart-card">
+        <div class="metric-tabs">
+          <button class="tab active">Faturamento</button>
+          <button class="tab">Investimento</button>
+          <button class="tab">ROAS</button>
+          <button class="tab">CTR</button>
+        </div>
+        <div class="chart-layout">
+          <div>
+            <div class="chart">
+              <svg viewBox="0 0 1040 360" width="100%" height="100%" role="img" aria-label="Grafico de evolucao diaria">
+                <defs>
+                  <linearGradient id="lineFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#3483fa" stop-opacity=".24"/>
+                    <stop offset="1" stop-color="#3483fa" stop-opacity=".02"/>
+                  </linearGradient>
+                </defs>
+                <rect x="0" y="0" width="1040" height="360" rx="18" fill="#f7fbff"/>
+                <g stroke="#cbd5e1" stroke-opacity=".55">
+                  <path d="M64 58H985M64 112H985M64 166H985M64 220H985M64 274H985M64 328H985"/>
+                  <path d="M154 42V328M264 42V328M374 42V328M484 42V328M594 42V328M704 42V328M814 42V328M924 42V328"/>
+                </g>
+                <g fill="#64748b" font-family="Segoe UI" font-size="12" font-weight="700">
+                  <text x="18" y="62">20k</text><text x="24" y="116">16k</text><text x="24" y="170">12k</text><text x="31" y="224">8k</text><text x="31" y="278">4k</text><text x="38" y="332">0</text>
+                </g>
+                <path d="M68 244 C112 207 150 219 190 178 C236 134 283 168 328 122 C379 73 430 130 478 98 C530 60 585 146 636 105 C690 62 745 136 792 101 C844 66 884 95 930 68 C956 54 975 62 986 70 L986 328 L68 328 Z" fill="url(#lineFill)"/>
+                <path d="M68 244 C112 207 150 219 190 178 C236 134 283 168 328 122 C379 73 430 130 478 98 C530 60 585 146 636 105 C690 62 745 136 792 101 C844 66 884 95 930 68 C956 54 975 62 986 70" fill="none" stroke="#3483fa" stroke-width="4.5" stroke-linecap="round"/>
+                <path d="M68 258 C112 226 150 232 202 200 C260 162 320 190 380 150 C440 110 506 158 566 130 C620 104 680 154 740 120 C810 72 865 115 930 94" fill="none" stroke="#94a3b8" stroke-width="3" stroke-dasharray="8 8"/>
+                <circle cx="530" cy="60" r="6" fill="#fff" stroke="#3483fa" stroke-width="4"/>
+                <circle cx="236" cy="134" r="5" fill="#fff" stroke="#d97706" stroke-width="4"/>
+                <circle cx="986" cy="70" r="5" fill="#fff" stroke="#16a34a" stroke-width="4"/>
+                <g fill="#0f172a" font-size="13" font-weight="850" font-family="Segoe UI">
+                  <rect x="538" y="38" width="188" height="34" rx="10" fill="#ffffff" stroke="#dce4f1"/>
+                  <text x="552" y="60">pico: CMD_AJ escalavel</text>
+                  <rect x="244" y="112" width="188" height="34" rx="10" fill="#ffffff" stroke="#dce4f1"/>
+                  <text x="258" y="134">queda: CTR baixo</text>
+                </g>
+                <g fill="#64748b" font-size="12" font-family="Segoe UI">
+                  <text x="68" y="350">28/03</text>
+                  <text x="264" y="350">05/04</text>
+                  <text x="484" y="350">13/04</text>
+                  <text x="704" y="350">21/04</text>
+                  <text x="926" y="350">27/04</text>
+                </g>
+              </svg>
+            </div>
+            <div class="chart-caption">O grafico aparece depois do ranking para explicar a tendencia apos o usuario ja saber quais campanhas exigem acao.</div>
+          </div>
+          <aside class="chart-insights">
+            <div class="chart-insight good">
+              <b>Pico positivo</b>
+              <span>10/04 teve alta associada a CMD_AJ, campanha com ROAS 27,73x e potencial de escala.</span>
+            </div>
+            <div class="chart-insight warn">
+              <b>Queda por eficiencia</b>
+              <span>Entre 03/04 e 05/04, faturamento caiu enquanto impressoes seguiram fortes. Indicio de CTR baixo.</span>
+            </div>
+            <div class="chart-insight bad">
+              <b>Fim do periodo exige leitura</b>
+              <span>Ultimos dias mostram queda brusca. Validar se houve pausa, ruptura de estoque ou campanha critica drenando verba.</span>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Plano de acao</span>
+            <h2>Conectado as campanhas.</h2>
+          </div>
+        </div>
+        <div class="panel action-card">
+          <div class="action-list">
+            <div class="action-item">
+              <div class="rank">1</div>
+              <div><b>Revisar MLB5713148214</b><span>ROAS 3,49x vs meta 11x. Alto valor em risco.</span></div>
+              <button class="side-btn">Abrir</button>
+            </div>
+            <div class="action-item">
+              <div class="rank">2</div>
+              <div><b>Otimizar CMD_B</b><span>ACOS 18,66%. Reduzir lance CPC e revisar mix.</span></div>
+              <button class="side-btn">Abrir</button>
+            </div>
+            <div class="action-item">
+              <div class="rank">3</div>
+              <div><b>Escalar CMD_AJ</b><span>ROAS acima da meta com investimento baixo.</span></div>
+              <button class="side-btn">Abrir</button>
+            </div>
+          </div>
+        </div>
+    </section>
+
+    <section class="section collapsible">
+      <details>
+        <summary>Resumo executivo</summary>
+        <p>Suas campanhas geraram R$ 259.507,81 com investimento de R$ 31.872,94, resultando em ROAS medio de 8,14x e ACOS de 12,28%. O principal ponto de atencao e a combinacao de CTR baixo com campanhas abaixo da meta.</p>
+      </details>
+      <details>
+        <summary>Como interpretar esta tela</summary>
+        <p>Comece pela saude da conta, depois leia as prioridades e aja pelo ranking. O grafico serve para explicar tendencia, nao para substituir o diagnostico por campanha.</p>
+      </details>
+    </section>
+  </main>
+</body>
+</html>

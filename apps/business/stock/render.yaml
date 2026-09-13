@@ -1,0 +1,60 @@
+services:
+  - type: web
+    name: voltstock-api
+    env: node
+    rootDir: .
+    buildCommand: npm install && npm --workspace @voltstock/shared run build && npm --workspace @voltstock/api run build
+    startCommand: npm --workspace @voltstock/api run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: QR_HMAC_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+
+  - type: web
+    name: voltstock-web
+    env: node
+    rootDir: .
+    buildCommand: npm install && npm --workspace @voltstock/shared run build && npm --workspace @voltstock/web run build
+    startCommand: npm --workspace @voltstock/web run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  - type: worker
+    name: voltstock-worker
+    env: node
+    rootDir: .
+    buildCommand: npm install && npm --workspace @voltstock/shared run build && npm --workspace @voltstock/api run build
+    startCommand: npm --workspace @voltstock/api run worker
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+
+  - type: cron
+    name: voltstock-cron
+    env: node
+    rootDir: .
+    schedule: "*/15 * * * *"
+    buildCommand: npm install && npm --workspace @voltstock/shared run build && npm --workspace @voltstock/api run build
+    startCommand: npm --workspace @voltstock/api run cron
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false

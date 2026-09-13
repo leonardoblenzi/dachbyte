@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usuários da empresa | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/conta-usuarios.css?v=6" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <script src="/ml/js/conta-usuarios.js?v=4" defer></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="account-app account-access-app">
+  <main class="page-wrap account-users-page">
+    <section class="account-users-hero">
+      <div>
+        <span class="account-users-kicker">Conta / Usuarios</span>
+        <h1>Usuarios da empresa</h1>
+        <p>
+          Defina setores e libere telas para usuarios comuns. O papel na empresa
+          e apenas um rotulo; permissoes de tela ficam no nivel do usuario e nos
+          modulos liberados aqui.
+        </p>
+      </div>
+      <div class="au-hero-actions">
+        <button class="au-btn au-btn-secondary" id="btn-refresh-users" type="button">
+          Atualizar
+        </button>
+        <button class="au-btn au-btn-primary" id="btn-invite-user" type="button">
+          Convidar usuario
+        </button>
+      </div>
+    </section>
+
+    <section class="au-summary" aria-label="Resumo de usuarios">
+      <article class="au-stat">
+        <span>Total</span>
+        <strong id="stat-total">0</strong>
+      </article>
+      <article class="au-stat">
+        <span>Admins</span>
+        <strong id="stat-admins">0</strong>
+      </article>
+      <article class="au-stat">
+        <span>Usuarios comuns</span>
+        <strong id="stat-users">0</strong>
+      </article>
+      <article class="au-stat">
+        <span>Ativos</span>
+        <strong id="stat-active">0</strong>
+      </article>
+    </section>
+
+    <nav class="au-tabs" aria-label="Gestao de usuarios e setores">
+      <button class="au-tab is-active" type="button" data-tab-target="users">Usuarios</button>
+      <button class="au-tab" type="button" data-tab-target="sectors">Setores</button>
+    </nav>
+
+    <section class="au-tab-panel is-active" id="tab-users">
+      <section class="au-toolbar">
+        <label class="au-search">
+          <span>Buscar usuario</span>
+          <input id="user-search" type="search" placeholder="Nome, email, nivel, setor ou modulo" />
+        </label>
+        <p class="au-note">
+          Admins continuam com acesso completo. Em usuarios comuns, libere telas e atribua os setores criados na aba Setores.
+        </p>
+      </section>
+
+      <section class="au-list-shell">
+        <div class="au-list-head">
+          <div>
+            <h2>Equipe da empresa</h2>
+            <p id="users-counter">Carregando usuarios...</p>
+          </div>
+        </div>
+
+        <div class="au-table-wrap">
+          <table class="au-table">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Nivel</th>
+                <th>Papel</th>
+                <th>Setores</th>
+                <th>Modulos</th>
+                <th>Status</th>
+                <th>Acao</th>
+              </tr>
+            </thead>
+            <tbody id="users-body">
+              <tr>
+                <td colspan="7" class="au-empty">Carregando...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section class="au-tab-panel" id="tab-sectors" hidden>
+      <section class="au-sector-manager">
+        <div>
+          <span class="account-users-kicker">Setores</span>
+          <h2>Setores da empresa</h2>
+          <p>Crie e edite os setores internos. Depois, volte em Usuarios para atribuir cada pessoa a uma ou mais areas.</p>
+        </div>
+        <div class="au-sector-form">
+          <input id="new-sector-name" type="text" placeholder="Ex: Conteudo, Catalogo, SAC..." />
+          <button class="au-btn au-btn-secondary" id="btn-cancel-sector-edit" type="button" hidden>Cancelar</button>
+          <button class="au-btn au-btn-primary" id="btn-create-sector" type="button">Criar setor</button>
+        </div>
+        <div class="au-sector-list" id="company-sector-list"></div>
+      </section>
+
+      <div class="au-table-wrap">
+        <table class="au-table au-sector-table">
+          <thead>
+            <tr>
+              <th>Setor</th>
+              <th>Codigo</th>
+              <th>Origem</th>
+              <th>Acao</th>
+            </tr>
+          </thead>
+          <tbody id="sectors-body">
+            <tr>
+              <td colspan="4" class="au-empty">Carregando setores...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <dialog class="au-dialog" id="access-dialog">
+      <form method="dialog" class="au-dialog-card">
+        <header class="au-dialog-head">
+          <div>
+            <span class="account-users-kicker">Acessos do usuario</span>
+            <h2 id="dialog-title">Editar acessos</h2>
+            <p id="dialog-subtitle"></p>
+          </div>
+          <button class="au-icon-btn" value="cancel" aria-label="Fechar" type="submit">x</button>
+        </header>
+
+        <div class="au-dialog-body">
+          <section class="au-edit-block">
+            <div>
+              <h3>Papel na empresa</h3>
+              <p>Usado como rotulo operacional. Nao libera telas sozinho.</p>
+            </div>
+            <select id="edit-role" class="au-input">
+              <option value="owner">Owner</option>
+              <option value="admin">Admin</option>
+              <option value="operador">Operador</option>
+            </select>
+          </section>
+
+          <section class="au-edit-block">
+            <div>
+              <h3>Setores</h3>
+              <p>Ajuda a organizar tarefas e pendencias por area.</p>
+            </div>
+            <div class="au-check-grid" id="sector-options"></div>
+          </section>
+
+          <section class="au-edit-block au-edit-block--wide">
+            <div>
+              <h3>Modulos liberados</h3>
+              <p id="module-help">Usuarios comuns acessam somente os modulos marcados.</p>
+            </div>
+            <div class="au-modules" id="module-options"></div>
+          </section>
+        </div>
+
+        <footer class="au-dialog-actions">
+          <button class="au-btn au-btn-secondary" value="cancel" type="submit">Cancelar</button>
+          <button class="au-btn au-btn-primary" id="btn-save-access" type="button">Salvar acessos</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="au-dialog au-dialog--compact" id="invite-dialog">
+      <form method="dialog" class="au-dialog-card">
+        <header class="au-dialog-head">
+          <div>
+            <span class="account-users-kicker">Novo acesso</span>
+            <h2>Convidar usuario</h2>
+            <p>O usuario recebe um link para definir a senha e entrar apenas nesta empresa.</p>
+          </div>
+          <button class="au-icon-btn" value="cancel" aria-label="Fechar" type="submit">x</button>
+        </header>
+
+        <div class="au-dialog-body">
+          <section class="au-edit-block au-edit-block--wide">
+            <div>
+              <h3>Dados do convite</h3>
+              <p>Use e-mail valido. Depois de criar, ajuste os modulos em Editar acessos.</p>
+            </div>
+            <div class="au-form-stack">
+              <label class="au-field">
+                <span>Nome</span>
+                <input id="invite-name" class="au-input" type="text" placeholder="Nome do usuario" />
+              </label>
+              <label class="au-field">
+                <span>E-mail</span>
+                <input id="invite-email" class="au-input" type="email" placeholder="usuario@empresa.com.br" />
+              </label>
+              <label class="au-field">
+                <span>Nivel</span>
+                <select id="invite-level" class="au-input">
+                  <option value="usuario">Usuario comum</option>
+                  <option value="administrador">Admin da empresa</option>
+                </select>
+              </label>
+              <label class="au-field">
+                <span>Papel</span>
+                <select id="invite-role" class="au-input">
+                  <option value="operador">Operador</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </label>
+            </div>
+          </section>
+        </div>
+
+        <footer class="au-dialog-actions">
+          <button class="au-btn au-btn-secondary" value="cancel" type="submit">Cancelar</button>
+          <button class="au-btn au-btn-primary" id="btn-send-invite" type="button">Enviar convite</button>
+        </footer>
+      </form>
+    </dialog>
+  </main>
+</body>
+</html>

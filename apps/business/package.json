@@ -1,0 +1,28 @@
+{
+  "name": "davantti-business",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "start.js",
+  "scripts": {
+    "postinstall": "node scripts/install-volt-chat-api.js",
+    "build": "node scripts/build.js",
+    "migrate": "npm run migrate:all",
+    "migrate:all": "npm run migrate:core && npm run migrate:volt-price",
+    "migrate:core": "npm --prefix core run migrate",
+    "migrate:volt-price": "node price/db/migrate.js",
+    "start": "node start.js",
+    "test": "npm --prefix core test && node --test lib/voltChatProxy.test.js lib/chatApiSupervisor.test.js lib/startRuntime.test.js",
+    "test:volt-price": "node --test price/tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "http-proxy": "^1.18.1",
+    "pg": "^8.17.1",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7"
+  }
+}

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/visao-geral.css?v=1" />
+  <link rel="stylesheet" href="/ml/css/painel.css?v=28" />
+  <script src="/ml/js/painel.js?v=2026081003" defer></script>
+  <script src="/ml/js/ml-base.js?v=10"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="overview-app overview-app--painel">
+  <main class="page-wrap">
+    <section class="overview-page painel-page">
+      <header class="overview-header">
+        <div class="overview-header__main">
+          <span class="overview-eyebrow">Visão geral</span>
+          <h1>Painel</h1>
+          <p class="overview-subtitle">Acompanhe a saúde comercial da conta e o que merece atenção agora.</p>
+          <div class="overview-meta">
+            <span id="painel-marketplace-label">Mercado Livre</span>
+            <span class="overview-dot" aria-hidden="true"></span>
+            <strong id="painel-account-name">Conta ativa</strong>
+            <span class="overview-dot" aria-hidden="true"></span>
+            <span id="painel-account-status-label">Conta ativa</span>
+            <span class="overview-dot" aria-hidden="true"></span>
+            <span id="painel-summary-period">Últimos 7 dias</span>
+            <span class="overview-dot" aria-hidden="true"></span>
+            <span id="painel-sync">Atualizando...</span>
+          </div>
+        </div>
+        <div class="overview-header__actions">
+          <div class="overview-segmented painel-period-selector" aria-label="Selecionar período do painel">
+            <button class="painel-finance-tab" type="button" data-preset="today">Hoje</button>
+            <button class="painel-finance-tab is-active" type="button" data-preset="7d">7 dias</button>
+            <button class="painel-finance-tab" type="button" data-preset="14d">14 dias</button>
+            <button class="painel-finance-tab" type="button" data-preset="30d">30 dias</button>
+          </div>
+          <button class="overview-icon-btn painel-refresh-btn" id="painel-refresh" type="button" aria-label="Atualizar painel" title="Atualizar painel">↻</button>
+        </div>
+      </header>
+
+      <section class="overview-alert painel-health-banner" id="painel-health-banner" data-tone="neutral" hidden>
+        <span class="overview-alert__icon" aria-hidden="true">!</span>
+        <span class="overview-alert__text painel-health-banner__text" id="painel-health-banner-text">Consolidando saúde da conta...</span>
+        <a class="overview-link painel-health-banner__link" href="/ml/filtro-anuncios">Ver anúncios parados →</a>
+      </section>
+
+      <section class="overview-kpi-grid overview-kpi-grid--4" aria-label="Indicadores principais">
+        <article class="overview-kpi painel-kpi-card painel-kpi-card--revenue">
+          <span class="overview-kpi__label">Faturamento</span>
+          <strong class="overview-kpi__value" id="painel-kpi-revenue-value">R$ 0,00</strong>
+          <span class="overview-kpi__delta" id="painel-kpi-revenue-meta" data-tone="neutral">vs período anterior</span>
+        </article>
+        <article class="overview-kpi painel-kpi-card">
+          <span class="overview-kpi__label">Pedidos</span>
+          <strong class="overview-kpi__value" id="painel-kpi-orders-value">0</strong>
+          <span class="overview-kpi__delta" id="painel-kpi-orders-meta" data-tone="neutral">vs período anterior</span>
+        </article>
+        <article class="overview-kpi painel-kpi-card" id="painel-kpi-margin-card" data-tone="neutral">
+          <span class="overview-kpi__label">Margem de contribuição</span>
+          <strong class="overview-kpi__value" id="painel-kpi-margin-value">0%</strong>
+          <span class="overview-kpi__delta" id="painel-kpi-margin-meta">Contribuição</span>
+        </article>
+        <article class="overview-kpi painel-kpi-card">
+          <span class="overview-kpi__label">Conversão</span>
+          <strong class="overview-kpi__value" id="painel-kpi-conversion-value">0,00%</strong>
+          <span class="overview-kpi__delta" id="painel-kpi-conversion-meta" data-tone="neutral">vs anterior</span>
+        </article>
+      </section>
+
+      <section class="overview-mini-grid overview-mini-grid--4" aria-label="Indicadores complementares">
+        <article class="overview-mini-metric">
+          <span>ROAS</span>
+          <strong id="painel-kpi-ads-value">0,00x</strong>
+          <small id="painel-kpi-ads-meta">vs anterior</small>
+        </article>
+        <article class="overview-mini-metric">
+          <span>Investimento Ads</span>
+          <strong id="painel-kpi-ads-cost-value">R$ 0,00</strong>
+          <small id="painel-kpi-ads-cost-meta">vs anterior</small>
+        </article>
+        <article class="overview-mini-metric" id="painel-kpi-stock-card" data-tone="neutral">
+          <span>Estoque em risco</span>
+          <strong id="painel-kpi-stock-value">0</strong>
+          <small id="painel-kpi-stock-meta">Produtos em risco</small>
+        </article>
+        <article class="overview-mini-metric">
+          <span>Ticket médio</span>
+          <strong id="painel-ticket">R$ 0,00</strong>
+          <small>Valor médio por pedido</small>
+        </article>
+      </section>
+
+      <section class="overview-surface painel-priority-section">
+        <div class="overview-section-head">
+          <div>
+            <span class="overview-section-kicker">Prioridades</span>
+            <h2>O que merece atenção agora</h2>
+          </div>
+        </div>
+        <div class="painel-priority-list" id="painel-priority-list">
+          <div class="overview-empty painel-empty">Carregando prioridades...</div>
+        </div>
+      </section>
+
+      <section class="overview-surface painel-performance-section">
+        <div class="overview-section-head">
+          <div>
+            <span class="overview-section-kicker">Performance</span>
+            <h2>Comercial e resultado</h2>
+          </div>
+        </div>
+
+        <div class="painel-performance-grid painel-performance-grid--modern">
+          <article class="painel-metric-card">
+            <div class="painel-metric-card__head">
+              <div>
+                <span class="painel-metric-tag painel-metric-tag--info">Comercial</span>
+                <strong class="painel-metric-main" id="painel-summary-sales">0</strong>
+                <span class="painel-metric-delta" id="painel-kpi-orders-meta-copy">vs período anterior</span>
+              </div>
+              <span class="painel-metric-caption">pedidos</span>
+            </div>
+            <div class="painel-metric-list painel-metric-list--modern">
+              <div><span>Faturamento</span><strong id="painel-summary-revenue">R$ 0,00</strong></div>
+              <div><span>Cancelamentos</span><strong id="painel-summary-cancelled">0</strong></div>
+              <div><span>Visitas</span><strong id="painel-conversion-visits">0</strong></div>
+              <div><span>Conversão geral</span><strong id="painel-conversion-rate">0,00%</strong></div>
+              <div><span>Conversão orgânica</span><strong id="painel-conversion-organic">0,00%</strong></div>
+              <div><span>Conversão paga</span><strong id="painel-conversion-ads">0,00%</strong></div>
+            </div>
+          </article>
+
+          <article class="painel-metric-card" id="painel-result-card">
+            <div class="painel-metric-card__head">
+              <div>
+                <span class="painel-metric-tag painel-metric-tag--success">Resultado</span>
+                <strong class="painel-metric-main" id="painel-margin-pct">0%</strong>
+                <span class="painel-metric-delta" id="painel-kpi-margin-meta-copy">R$ 0,00 de contribuição</span>
+              </div>
+              <span class="painel-metric-caption">margem</span>
+            </div>
+            <div class="painel-metric-list painel-metric-list--modern">
+              <div><span>Plataforma</span><strong id="painel-plataforma">R$ 0,00</strong></div>
+              <div><span>Plataforma / fat.</span><strong id="painel-plataforma-pct">0%</strong></div>
+              <div><span>Cupons</span><strong id="painel-coupon-costs">R$ 0,00</strong></div>
+              <div><span>Cupons / fat.</span><strong id="painel-coupon-costs-pct">0%</strong></div>
+              <div><span>Produto + impostos</span><strong id="painel-product-taxes">Não informado</strong></div>
+              <div><span>Produto + impostos / fat.</span><strong id="painel-product-taxes-pct">--</strong></div>
+            </div>
+            <p class="painel-inline-warning" id="painel-finance-note">Preencha custo e alíquota nas telas financeiras para completar este indicador.</p>
+          </article>
+        </div>
+
+        <article class="painel-ads-strip">
+          <div class="painel-ads-strip__title">
+            <span class="painel-metric-tag painel-metric-tag--purple">Publicidade</span>
+            <div>
+              <strong id="painel-ads-roas">0,00x</strong>
+              <small id="painel-ads-roas-delta">ROAS médio</small>
+            </div>
+          </div>
+          <div class="painel-ads-strip__metrics">
+            <div><span>Investimento</span><strong id="painel-ads-cost">R$ 0,00</strong></div>
+            <div><span>Receita Ads</span><strong id="painel-ads-revenue">R$ 0,00</strong></div>
+            <div><span>Vendas Ads</span><strong id="painel-ads-units">0</strong></div>
+            <div id="painel-ads-roas-min-cell"><span>Menor ROAS</span><strong id="painel-ads-roas-min">0,00x</strong></div>
+            <div><span>Impressões</span><strong id="painel-ads-prints">0</strong></div>
+            <div><span>CTR</span><strong id="painel-ads-ctr">0,00%</strong></div>
+          </div>
+          <a class="overview-link" href="/ml/publicidade/product-ads">Ver Product Ads →</a>
+        </article>
+      </section>
+
+      <section class="overview-surface painel-risk-section">
+        <div class="overview-section-head">
+          <div>
+            <span class="overview-section-kicker">Operação</span>
+            <h2>Sinais operacionais</h2>
+          </div>
+        </div>
+
+        <div class="painel-risk-grid">
+          <article class="painel-risk-card" id="painel-rhythm-card" data-tone="neutral">
+            <header class="painel-risk-card__head">
+              <h3>Ritmo mensal</h3>
+              <span class="overview-status painel-status-badge" id="painel-rhythm-status" data-tone="neutral">Calculando</span>
+            </header>
+            <div class="painel-rhythm-content active" id="painel-rhythm-revenue" data-rhythm-content="revenue">
+              <div class="overview-empty painel-empty">Carregando ritmo do mês...</div>
+            </div>
+            <div class="painel-screenreader" id="painel-rhythm-sales" data-rhythm-content="sales"></div>
+            <a class="overview-link painel-link-btn" href="/ml/projecao-mensal">Ver projeção →</a>
+          </article>
+
+          <article class="painel-risk-card" id="painel-inactivity-card" data-tone="neutral">
+            <div class="painel-inactivity-loading" id="painel-inactivity-loading" hidden>
+              <span class="painel-inactivity-loading__spinner" aria-hidden="true"></span>
+              <span class="painel-inactivity-loading__text">Atualizando leitura...</span>
+            </div>
+            <header class="painel-risk-card__head">
+              <h3>Anúncios sem venda</h3>
+              <span class="overview-status painel-status-badge" id="painel-inactivity-risk" data-tone="neutral">Calculando</span>
+            </header>
+            <strong class="painel-risk-main" id="painel-inactive-percent">0,0%</strong>
+            <span class="painel-risk-caption">do catálogo sem venda nos últimos 30 dias</span>
+            <div class="painel-metric-list painel-metric-list--compact">
+              <div><span>Sem venda</span><strong><span id="painel-inactive-items">0</span> anúncios</strong></div>
+              <div><span>Venderam</span><strong><span id="painel-active-items">0</span> anúncios</strong></div>
+            </div>
+            <div class="painel-inactivity-score-scale">
+              <div class="painel-inactivity-scale">
+                <div class="painel-inactivity-scale__bar" aria-hidden="true"><span class="painel-inactivity-scale__marker" id="painel-inactivity-marker"></span></div>
+                <div class="painel-inactivity-scale__labels"><span>Crítico</span><span>Atenção</span><span>Saudável</span></div>
+              </div>
+              <strong class="painel-inactivity-score-number"><span id="painel-inactivity-score">0,0</span></strong>
+            </div>
+            <span class="painel-screenreader" id="painel-active-percent">Apenas 0,0% dos anúncios venderam</span>
+            <a class="overview-link painel-link-btn" href="/ml/filtro-anuncios">Revisar anúncios →</a>
+          </article>
+
+          <article class="painel-risk-card" id="painel-reputation-card" data-tone="neutral">
+            <header class="painel-risk-card__head">
+              <h3>Reputação</h3>
+              <span class="overview-status painel-status-badge" id="painel-reputation-status" data-tone="neutral">Estável</span>
+            </header>
+            <strong class="painel-risk-main" id="painel-reputation-total">0</strong>
+            <span class="painel-risk-caption" id="painel-score-helper">Carregando alertas...</span>
+            <div class="painel-reputation-list" id="painel-impact-list"><div class="overview-empty painel-empty">Carregando régua de reputação...</div></div>
+            <a class="overview-link painel-link-btn" href="/ml/reputacao">Ver reputação →</a>
+          </article>
+        </div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

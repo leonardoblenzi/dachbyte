@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <title>Validar Dimensões | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/validar-dimensoes.css?v=2026081001" />
+  <link rel="stylesheet" href="/ml/css/operacoes.css?v=2026080702" />
+  <link rel="stylesheet" href="/ml/css/promo-jobs.css?v=2026081101" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="validar-app ops-app">
+  <main class="page-wrap dim-page ops-page">
+    <section class="tab-page active">
+      <div class="dim-shell">
+        <header class="dim-hero ops-hero">
+          <div class="ops-hero__content">
+            <span class="page-eyebrow">Operações</span>
+            <h1>Validar dimensões</h1>
+            <p>Consulte primeiro o que já existe no anúncio e use a correção apenas quando houver medida ausente ou incorreta.</p>
+          </div>
+        </header>
+
+        <section class="dim-mode-switch" role="tablist" aria-label="Escolher modo da tela">
+          <button type="button" class="dim-mode-switch__btn is-active" id="dim-mode-consulta" role="tab" aria-selected="true" aria-controls="dim-panel-consulta" data-dim-mode="consulta"><strong>Consultar</strong><span>Somente leitura</span></button>
+          <button type="button" class="dim-mode-switch__btn" id="dim-mode-correcao" role="tab" aria-selected="false" aria-controls="dim-panel-correcao" data-dim-mode="correcao"><strong>Corrigir</strong><span>Altera o anúncio</span></button>
+        </section>
+
+        <div id="dim-ml-alert-summary" class="alert-inline" aria-live="polite">Consulte um anúncio, uma lista ou todos os ativos para entender o que já existe antes de corrigir.</div>
+
+        <section class="dim-frame">
+          <div class="dim-main">
+            <section class="dim-workspace dim-workspace--active" id="dim-panel-consulta" data-mode-panel="consulta">
+              <div class="workspace-head">
+                <div><span class="workspace-head__eyebrow">Somente leitura</span><h2>Consultar dimensões</h2><p>Use o modo que melhor representa o tamanho da sua análise.</p></div>
+                <span class="workspace-pill">Não altera o anúncio</span>
+              </div>
+
+              <div class="workspace-grid workspace-grid--consulta">
+                <article class="panel panel--soft">
+                  <div class="panel__head"><div><h3>Um anúncio</h3><p class="muted">Diagnóstico rápido de um MLB específico.</p></div><span class="badge badge-accent">Unitário</span></div>
+                  <div class="form-group"><label for="dim-consulta-mlb-single">MLB do anúncio</label><input id="dim-consulta-mlb-single" type="text" placeholder="Ex.: MLB1234567890" /></div>
+                  <div class="actions"><button class="btn-primary" id="btn-dim-analisar-um">Consultar anúncio</button></div>
+                </article>
+
+                <article class="panel panel--soft">
+                  <div class="panel__head"><div><h3>Lista ou conta inteira</h3><p class="muted">Consulte vários MLBs ou mapeie todos os ativos por job.</p></div><span class="badge badge-neutral">Lote</span></div>
+                  <div class="form-group"><label for="dim-consulta-mlb-bulk">Lista de MLBs</label><textarea id="dim-consulta-mlb-bulk" rows="6" placeholder="MLB1234567890&#10;MLB0987654321"></textarea></div>
+                  <div class="actions"><button class="btn-primary" id="btn-dim-analisar-lote">Consultar lista</button><button class="btn-secondary" id="btn-dim-analisar-ativos">Consultar todos ativos</button></div>
+                </article>
+              </div>
+            </section>
+
+            <section class="dim-workspace" id="dim-panel-correcao" data-mode-panel="correcao" hidden>
+              <div class="workspace-head">
+                <div><span class="workspace-head__eyebrow">Alteração</span><h2>Corrigir ou preencher</h2><p>Selecione os MLBs e escolha entre preenchimento automático ou medidas informadas manualmente.</p></div>
+                <span class="workspace-pill workspace-pill--warn">Altera anúncio no ML</span>
+              </div>
+
+              <div class="workspace-grid workspace-grid--correcao">
+                <article class="panel panel--soft">
+                  <div class="panel__head"><div><h3>Anúncios</h3><p class="muted">Use o campo unitário ou a lista. O sistema aplica a ação correspondente.</p></div><span class="badge badge-accent">Entrada</span></div>
+                  <div class="form-group"><label for="dim-correcao-mlb-single">MLB unitário</label><input id="dim-correcao-mlb-single" type="text" placeholder="Ex.: MLB1234567890" /></div>
+                  <div class="form-group"><label for="dim-correcao-mlb-bulk">Lista de MLBs</label><textarea id="dim-correcao-mlb-bulk" rows="5" placeholder="MLB1234567890&#10;MLB0987654321"></textarea></div>
+                </article>
+
+                <article class="fill-panel">
+                  <div class="fill-panel__head"><div><h3>Medidas manuais</h3><p class="muted">Preencha somente se você conhece as medidas corretas.</p></div><span class="badge badge-neutral">Opcional</span></div>
+                  <div class="fill-grid">
+                    <div class="form-group"><label for="dim-fill-height">Altura (cm)</label><input id="dim-fill-height" type="number" min="1" step="1" placeholder="20" /></div>
+                    <div class="form-group"><label for="dim-fill-width">Largura (cm)</label><input id="dim-fill-width" type="number" min="1" step="1" placeholder="15" /></div>
+                    <div class="form-group"><label for="dim-fill-length">Comprimento (cm)</label><input id="dim-fill-length" type="number" min="1" step="1" placeholder="30" /></div>
+                    <div class="form-group"><label for="dim-fill-weight">Peso (g)</label><input id="dim-fill-weight" type="number" min="1" step="1" placeholder="500" /></div>
+                  </div>
+                  <label class="toggle-card" for="dim-force-overwrite"><input id="dim-force-overwrite" type="checkbox" /><span class="toggle-card__content"><strong>Sobrescrever dimensões existentes</strong><span>Use apenas para corrigir uma medida que já existe, mas está errada.</span></span></label>
+                </article>
+              </div>
+
+              <div class="action-deck">
+                <article class="action-card action-card--auto">
+                  <div class="action-card__head"><div><h3>Completar automaticamente</h3><p>O sistema tenta montar as dimensões a partir dos dados do próprio anúncio.</p></div><span class="action-chip">Automático</span></div>
+                  <div class="actions"><button class="btn-secondary" id="btn-dim-auto-um">Aplicar no MLB unitário</button><button class="btn-secondary" id="btn-dim-auto-lote">Aplicar na lista</button></div>
+                </article>
+                <article class="action-card action-card--manual">
+                  <div class="action-card__head"><div><h3>Usar medidas informadas</h3><p>Aplica exatamente os valores preenchidos acima.</p></div><span class="action-chip action-chip--warn">Manual</span></div>
+                  <div class="actions"><button class="btn-warning" id="btn-dim-preencher-um">Aplicar no MLB unitário</button><button class="btn-warning" id="btn-dim-preencher-lote">Aplicar na lista</button></div>
+                </article>
+              </div>
+            </section>
+
+            <section class="results panel panel--results">
+              <div class="results__header">
+                <div><span class="results__eyebrow">Resultado</span><h2>Dimensões encontradas</h2><p class="muted">MLB, SKU, origem, fonte da medida e status em uma única tabela.</p></div>
+                <div class="results__actions"><button class="btn-secondary" id="btn-dim-download" disabled>Baixar CSV</button></div>
+              </div>
+              <div class="table-wrap">
+                <table class="table" id="dim-results-table">
+                  <thead><tr><th>#</th><th>MLB</th><th>SKU</th><th>Origem</th><th>Fonte da medida</th><th>Medidas</th><th>Status</th><th>Observação</th></tr></thead>
+                  <tbody id="dim-results-body"><tr><td colspan="8" class="table-empty">Sem resultados ainda</td></tr></tbody>
+                </table>
+              </div>
+              <div class="dim-pagination-bar"><button id="dim-page-prev" type="button" class="btn-secondary btn-xs" disabled>&lsaquo;</button><span id="dim-page-label" class="dim-page-label">Página 1 de 1</span><button id="dim-page-next" type="button" class="btn-secondary btn-xs" disabled>&rsaquo;</button></div>
+            </section>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div id="bulkJobsPanel" class="processos-panel"></div>
+  <script src="/ml/js/jobs-panel-adapters.js?v=2026080701" defer></script>
+  <script src="/ml/js/jobs-panel.js?v=2026080701" defer></script>
+  <script src="/ml/js/validar-dimensoes.js?v=2026080702" defer></script>
+</body>
+</html>

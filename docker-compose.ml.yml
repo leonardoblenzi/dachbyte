@@ -1,0 +1,26 @@
+services:
+  ml-postgres:
+    image: postgres:16
+    container_name: davantti-ml-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: davantti_ml
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ml_postgres_data:/var/lib/postgresql/data
+
+  ml-redis:
+    image: redis:7
+    container_name: davantti-ml-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - ml_redis_data:/data
+
+volumes:
+  ml_postgres_data:
+  ml_redis_data:

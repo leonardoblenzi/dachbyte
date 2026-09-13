@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <title>Gestão de Anúncios | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/excluir-anuncio.css?v=20260618" />
+  <link rel="stylesheet" href="/ml/css/operacoes.css?v=2026080702" />
+  <link rel="stylesheet" href="/ml/css/promo-jobs.css?v=2026081101" />
+  <script src="/ml/js/ml-base.js?v=10"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="bulk-ops-app ops-app">
+  <main class="ex-page ops-page">
+    <div class="container-fluid ex-wrap">
+      <header class="ex-page-header ops-hero">
+        <div class="ops-hero__content">
+          <div class="ex-page-header__eyebrow ops-eyebrow">Operações</div>
+          <h1>Gestão de anúncios</h1>
+          <p>Ative, pause, encerre ou exclua vários anúncios em um único fluxo, com validação dos MLBs antes de iniciar o processamento.</p>
+        </div>
+        <div class="ops-hero-actions">
+          <button id="btn-limpar" class="btn btn-secondary" type="button">Limpar lista</button>
+        </div>
+      </header>
+
+      <section class="ex-workbench">
+        <div class="ex-input-panel">
+          <div class="ex-section-head">
+            <div>
+              <span class="ex-section-head__eyebrow">1. Seleção</span>
+              <h3>Anúncios para processar</h3>
+              <p>Cole MLBs separados por linha, vírgula ou diretamente de uma planilha.</p>
+            </div>
+          </div>
+
+          <div class="ex-field">
+            <label for="mlb-list">Lista de MLBs</label>
+            <textarea id="mlb-list" rows="12" placeholder="MLB1234567890&#10;MLB0987654321&#10;MLB1122334455"></textarea>
+            <small id="mlb-list-help">Duplicados são removidos e entradas fora do formato MLB são ignoradas.</small>
+          </div>
+        </div>
+
+        <aside class="ex-operation-panel">
+          <div class="ex-section-head">
+            <div>
+              <span class="ex-section-head__eyebrow">2. Ação</span>
+              <h3>Escolha a operação</h3>
+              <p>A ação selecionada será aplicada somente aos MLBs válidos.</p>
+            </div>
+          </div>
+
+          <div id="operation-options" class="ex-operation-list" role="radiogroup" aria-label="Operação de anúncios"></div>
+
+          <div id="operation-summary" class="ex-operation-summary" aria-live="polite">
+            <span class="ex-operation-summary__label">Resumo</span>
+            <strong>Nenhum MLB válido ainda</strong>
+            <p>Cole a lista e escolha a operação para revisar antes de iniciar.</p>
+          </div>
+
+          <div class="ex-actions">
+            <button id="btn-start-operation" class="btn btn-primary" type="button">Revisar e continuar</button>
+          </div>
+        </aside>
+      </section>
+
+      <section class="ex-result-shell">
+        <div id="result-panel" class="result-panel ex-result-panel hidden" aria-live="polite">
+          <div id="result-friendly"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div id="modal-confirm-exclusao" class="ex-modal ex-modal--confirm" aria-hidden="true">
+    <div class="ex-modal__dialog ex-modal__dialog--compact" role="dialog" aria-modal="true" aria-labelledby="exConfirmTitle">
+      <div class="ex-modal__head">
+        <div>
+          <span id="confirm-operation-eyebrow" class="ex-modal__eyebrow">Confirmação</span>
+          <h3 id="exConfirmTitle">Confirmar operação</h3>
+        </div>
+        <button class="ex-modal__close" id="confirm-excluir-close" type="button" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="ex-modal__body">
+        <p id="confirm-excluir-text" class="ex-confirm-text"></p>
+        <div id="confirm-danger-gate" class="ex-danger-gate" hidden>
+          <label for="confirm-danger-input">Digite EXCLUIR para confirmar</label>
+          <input id="confirm-danger-input" type="text" autocomplete="off" />
+        </div>
+        <div class="ex-modal__actions">
+          <button id="confirm-excluir-sim" class="btn btn-danger" type="button">Confirmar</button>
+          <button id="confirm-excluir-nao" class="btn btn-secondary" type="button">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="bulkJobsPanel" class="processos-panel"></div>
+  <script src="/ml/js/jobs-panel-adapters.js?v=2026080701" defer></script>
+  <script src="/ml/js/jobs-panel.js?v=2026080701" defer></script>
+  <script src="/ml/js/exclusao-bulk.js?v=2026061802" defer></script>
+  <script src="/ml/js/excluir-anuncio.js?v=2026080702" defer></script>
+</body>
+</html>

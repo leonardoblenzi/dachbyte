@@ -1,0 +1,1255 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manual de Usuario - Avantracking</title>
+  <style>
+    :root {
+      --bg: #f6f8fc;
+      --panel: #ffffff;
+      --panel-soft: #f9fbff;
+      --line: #e2e8f0;
+      --line-soft: #edf2f7;
+      --text: #111827;
+      --muted: #64748b;
+      --nav: #0b0c15;
+      --nav-soft: #11131f;
+      --accent: #f05a3d;
+      --accent-soft: #fff1eb;
+      --blue: #3b82f6;
+      --blue-soft: #eff6ff;
+      --good: #10b981;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --radius: 14px;
+      --shadow: 0 18px 46px rgba(15, 23, 42, .09);
+      --sans: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.6;
+      background: var(--bg);
+      color: var(--text);
+      letter-spacing: 0;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .layout {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      background: linear-gradient(180deg, var(--nav) 0%, var(--nav-soft) 100%);
+      color: #e2e8f0;
+      border-right: 1px solid rgba(255,255,255,.08);
+      padding: 20px 16px 22px;
+    }
+
+    .brand {
+      border: 1px solid rgba(255,255,255,.1);
+      background: rgba(255,255,255,.03);
+      border-radius: 14px;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .brand img {
+      width: 148px;
+      max-width: 100%;
+      height: auto;
+    }
+    .brand strong {
+      font-size: 14px;
+      display: block;
+    }
+    .brand span {
+      color: #94a3b8;
+      font-size: 12px;
+    }
+
+    .quick-info {
+      margin: 12px 0 18px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .nav-group { margin: 16px 0; }
+    .nav-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      color: #94a3b8;
+      margin: 0 8px 7px;
+      font-weight: 700;
+    }
+    .nav-link {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 8px;
+      color: #d1d5db;
+      font-size: 13px;
+    }
+    .nav-link:hover {
+      background: rgba(255,255,255,.08);
+      color: #fff;
+    }
+
+    .content {
+      padding: 34px clamp(18px, 4vw, 52px) 80px;
+      max-width: 1380px;
+    }
+
+    .hero {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 22px;
+    }
+    .hero-top {
+      background: linear-gradient(120deg, #0f172a 0%, #1e293b 56%, #334155 100%);
+      padding: 30px;
+      color: #f8fafc;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 20px;
+      align-items: end;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.25);
+      background: rgba(255,255,255,.08);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+    }
+    h1 {
+      margin: 10px 0 0;
+      font-size: clamp(30px, 5vw, 56px);
+      line-height: 1.02;
+    }
+    .lead {
+      margin: 14px 0 0;
+      max-width: 840px;
+      color: #cbd5e1;
+      font-size: 17px;
+    }
+
+    .hero-meta {
+      border: 1px solid rgba(255,255,255,.2);
+      background: rgba(255,255,255,.06);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255,255,255,.14);
+      color: #cbd5e1;
+      font-size: 12px;
+    }
+    .meta-row:last-child { border-bottom: 0; }
+    .meta-row strong {
+      color: #fff;
+      text-align: right;
+      font-size: 12px;
+    }
+
+    .hero-bottom {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      padding: 16px;
+      border-top: 1px solid var(--line-soft);
+      background: #fcfdff;
+    }
+    .hero-kpi {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px 12px;
+    }
+    .hero-kpi b {
+      display: block;
+      color: #0f172a;
+      font-size: 13px;
+      margin-bottom: 3px;
+    }
+    .hero-kpi span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .dash-visual {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fcfdff;
+      padding: 12px;
+    }
+    .dash-visual.compact .dash-value {
+      font-size: 20px;
+    }
+    .dash-visual.compact .dash-card {
+      padding: 9px 10px;
+    }
+    .dash-cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .dash-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px 11px;
+    }
+    .dash-label {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+    .dash-value {
+      font-size: 24px;
+      line-height: 1;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 5px;
+    }
+    .dash-trend {
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .dash-trend.up { color: var(--good); }
+    .dash-trend.down { color: var(--bad); }
+    .dash-trend.flat { color: var(--warn); }
+
+    .dash-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 10px;
+    }
+    .chart-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px 11px;
+    }
+    .chart-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+    .bar-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .bar-row {
+      display: grid;
+      grid-template-columns: 120px 1fr 42px;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #334155;
+    }
+    .bar-track {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: #e8eef8;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #60a5fa, #3b82f6);
+    }
+    .bar-fill.warn { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+    .bar-fill.bad { background: linear-gradient(90deg, #fb7185, #ef4444); }
+
+    .ring-wrap {
+      display: grid;
+      grid-template-columns: 108px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+    .ring {
+      width: 108px;
+      height: 108px;
+      border-radius: 50%;
+      background:
+        conic-gradient(
+          #ef4444 0 24%,
+          #f59e0b 24% 39%,
+          #3b82f6 39% 58%,
+          #10b981 58% 100%
+        );
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+    .ring::after {
+      content: "";
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: inset 0 0 0 1px #e2e8f0;
+    }
+    .ring-center {
+      position: absolute;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: #1e293b;
+      line-height: 1.2;
+    }
+    .legend {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      font-size: 12px;
+      color: #334155;
+    }
+    .legend li {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .dot.good { background: #10b981; }
+    .dot.info { background: #3b82f6; }
+    .dot.warn { background: #f59e0b; }
+    .dot.bad { background: #ef4444; }
+    .legend-label {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .line-chart {
+      width: 100%;
+      height: 132px;
+      border: 1px solid #e5edf8;
+      border-radius: 10px;
+      background:
+        linear-gradient(to bottom, rgba(59,130,246,.08), rgba(59,130,246,.01));
+      padding: 8px;
+    }
+
+    .section {
+      margin-top: 22px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, .05);
+      padding: 24px;
+    }
+    .section h2 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.1;
+    }
+    .section-intro {
+      margin: 0 0 16px;
+      color: var(--muted);
+      max-width: 980px;
+    }
+
+    .flow {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .flow-step {
+      border: 1px solid var(--line);
+      background: var(--panel-soft);
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 118px;
+    }
+    .flow-step b {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 12px;
+      margin-bottom: 7px;
+    }
+    .flow-step strong { display: block; font-size: 14px; margin-bottom: 3px; }
+    .flow-step span { color: var(--muted); font-size: 12px; }
+
+    .module {
+      border-top: 1px solid var(--line-soft);
+      margin-top: 20px;
+      padding-top: 20px;
+    }
+    .module:first-of-type {
+      border-top: 0;
+      margin-top: 0;
+      padding-top: 0;
+    }
+    .module h3 {
+      margin: 0 0 8px;
+      font-size: 23px;
+      line-height: 1.2;
+    }
+    .module-desc {
+      margin: 0 0 12px;
+      color: var(--muted);
+      max-width: 980px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel-soft);
+      padding: 12px;
+    }
+    .card h4 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    ul, ol { margin: 0; padding-left: 20px; }
+    li { margin: 6px 0; }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .chip.good { color: #065f46; background: #ecfdf5; border: 1px solid #a7f3d0; }
+    .chip.warn { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; }
+    .chip.bad { color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; }
+
+    .tip {
+      margin-top: 10px;
+      border: 1px solid #c7ddff;
+      background: var(--blue-soft);
+      color: #1d4ed8;
+      border-radius: 12px;
+      padding: 9px 11px;
+      font-size: 13px;
+    }
+    .warn {
+      margin-top: 10px;
+      border: 1px solid #f6d0c7;
+      background: var(--accent-soft);
+      color: #9f2a0f;
+      border-radius: 12px;
+      padding: 9px 11px;
+      font-size: 13px;
+    }
+
+    .playbook {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 12px;
+      margin-top: 10px;
+    }
+    .playbook h4 {
+      margin: 0 0 7px;
+      font-size: 15px;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: #94a3b8;
+      font-size: 12px;
+    }
+
+    @media (max-width: 1180px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: relative; height: auto; }
+      .hero-top { grid-template-columns: 1fr; }
+      .hero-bottom { grid-template-columns: 1fr 1fr; }
+      .dash-cards { grid-template-columns: 1fr 1fr; }
+      .dash-grid { grid-template-columns: 1fr; }
+      .bar-row { grid-template-columns: 110px 1fr 38px; }
+      .flow { grid-template-columns: 1fr 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="__APP_LOGO_URL__" alt="Avantracking">
+        <div>
+          <strong>Manual de Usuario</strong>
+          <span>Guia operacional completo</span>
+        </div>
+      </div>
+
+      <div class="quick-info">
+        Documento focado em uso pratico da plataforma: funcionalidades, passo a passo e rotina de operacao.
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">Inicio</div>
+        <a class="nav-link" href="#visao-geral">Visao geral</a>
+        <a class="nav-link" href="#fluxo-base">Fluxo base</a>
+        <a class="nav-link" href="#rotina">Rotina recomendada</a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">Operacao</div>
+        <a class="nav-link" href="#dashboard">Dashboard</a>
+        <a class="nav-link" href="#pedidos">Pedidos</a>
+        <a class="nav-link" href="#monitorados">Monitorados</a>
+        <a class="nav-link" href="#sem-movimentacao">Sem movimentacao</a>
+        <a class="nav-link" href="#alertas">Alertas de risco</a>
+        <a class="nav-link" href="#falhas">Falhas na entrega</a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">Suporte operacional</div>
+        <a class="nav-link" href="#importacao">Importar CSV/XLS</a>
+        <a class="nav-link" href="#notificacoes">Notificacoes</a>
+        <a class="nav-link" href="#atualizacoes">Ultimas atualizacoes</a>
+        <a class="nav-link" href="#suporte">Entrar em contato</a>
+        <a class="nav-link" href="#playbooks">Playbooks</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="hero">
+        <div class="hero-top">
+          <div>
+            <img src="__APP_LOGO_URL__" alt="Avantracking" style="width: 172px; max-width: 100%; height: auto; margin-bottom: 10px;">
+            <span class="eyebrow">Avantracking</span>
+            <h1>Manual de Usuario</h1>
+            <p class="lead">
+              Guia completo para usar a plataforma no dia a dia: como navegar, como priorizar filas,
+              como executar cada funcao e como fechar a rotina com controle operacional.
+            </p>
+          </div>
+          <div class="hero-meta">
+            <div class="meta-row"><span>Foco</span><strong>Uso funcional e passo a passo</strong></div>
+            <div class="meta-row"><span>Perfil</span><strong>Operacao logistica</strong></div>
+            <div class="meta-row"><span>Inclui</span><strong>Playbooks de acao</strong></div>
+            <div class="meta-row"><span>Versao</span><strong>06/05/2026</strong></div>
+          </div>
+        </div>
+        <div class="hero-bottom">
+          <div class="hero-kpi"><b>Leitura</b><span>Dashboard e alertas para priorizacao</span></div>
+          <div class="hero-kpi"><b>Execucao</b><span>Pedidos como central de trabalho</span></div>
+          <div class="hero-kpi"><b>Controle</b><span>Monitorados, sem movimentacao e falhas</span></div>
+          <div class="hero-kpi"><b>Fechamento</b><span>CSV/HTML, notificacoes e suporte</span></div>
+        </div>
+      </section>
+
+      <section class="section" id="visao-geral">
+        <h2>Visao Geral</h2>
+        <p class="section-intro">
+          A Avantracking centraliza acompanhamento de pedidos, risco de atraso, falhas na entrega e atualizacao de rastreio.
+          O uso correto da plataforma combina: leitura de cenario, priorizacao e tratativa por filas.
+        </p>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Para que usar</h4>
+            <ul>
+              <li>Reduzir atraso e pedidos sem acao.</li>
+              <li>Responder mais rapido em casos criticos.</li>
+              <li>Organizar tratativa por prioridade real.</li>
+              <li>Melhorar previsibilidade operacional.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>Resultado de uso maduro</h4>
+            <ul>
+              <li>Menos volume em Falhas na Entrega.</li>
+              <li>Menos pedidos em Sem Movimentacao.</li>
+              <li>Maior estabilidade de SLA.</li>
+              <li>Repasse claro para time e gestao.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="fluxo-base">
+        <h2>Fluxo Base do Usuario</h2>
+        <p class="section-intro">Sequencia recomendada para qualquer turno operacional.</p>
+        <div class="flow">
+          <div class="flow-step"><b>1</b><strong>Ler cenario</strong><span>Abrir Dashboard e mapear risco.</span></div>
+          <div class="flow-step"><b>2</b><strong>Priorizar</strong><span>Atacar falhas, atraso e sem sync.</span></div>
+          <div class="flow-step"><b>3</b><strong>Executar</strong><span>Ir para Pedidos com filtros claros.</span></div>
+          <div class="flow-step"><b>4</b><strong>Conferir</strong><span>Validar detalhes e atualizar rastreio.</span></div>
+          <div class="flow-step"><b>5</b><strong>Fechar</strong><span>Exportar e registrar pendencias.</span></div>
+        </div>
+      </section>
+
+      <section class="section" id="rotina">
+        <h2>Rotina Recomendada</h2>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Inicio do turno</h4>
+            <ol>
+              <li>Dashboard para leitura macro.</li>
+              <li>Alertas de risco para separar urgencia.</li>
+              <li>Falhas na entrega para tratativa imediata.</li>
+            </ol>
+          </div>
+          <div class="card">
+            <h4>Meio e fim do turno</h4>
+            <ol>
+              <li>Pedidos para execucao em lote.</li>
+              <li>Sem movimentacao para limpar parados.</li>
+              <li>Monitorados, exportacao e notificacoes.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="dashboard">
+        <h2>Dashboard</h2>
+        <p class="section-intro">
+          Tela de leitura executiva. Mostra volume, status, risco e desempenho. O objetivo e transformar indicadores em filas de acao.
+        </p>
+
+        <div class="dash-visual">
+          <div class="dash-cards">
+            <div class="dash-card">
+              <div class="dash-label">Total de NFs</div>
+              <div class="dash-value">12.480</div>
+              <div class="dash-trend up">+4,2% vs. semana passada</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-label">Entregues</div>
+              <div class="dash-value">8.930</div>
+              <div class="dash-trend up">71,5% do volume total</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-label">Falhas na Entrega</div>
+              <div class="dash-value">186</div>
+              <div class="dash-trend down">-12,8% apos tratativas</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-label">Sem Sync</div>
+              <div class="dash-value">94</div>
+              <div class="dash-trend flat">Atenção para atualização</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-label">Em Trânsito</div>
+              <div class="dash-value">2.164</div>
+              <div class="dash-trend up">+3,1% no dia</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-label">Em Rota</div>
+              <div class="dash-value">874</div>
+              <div class="dash-trend up">Janela de entrega ativa</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-label">Atraso Transportadora</div>
+              <div class="dash-value">327</div>
+              <div class="dash-trend down">2,6% do total em risco</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-label">No Prazo</div>
+              <div class="dash-value">91,4%</div>
+              <div class="dash-trend up">+1,7 p.p. no mes</div>
+            </div>
+          </div>
+
+          <div class="dash-grid">
+            <div class="chart-card">
+              <div class="chart-title">Status operacional atual</div>
+              <ul class="bar-list">
+                <li class="bar-row">
+                  <span>Entregues</span>
+                  <span class="bar-track"><span class="bar-fill" style="width: 72%;"></span></span>
+                  <strong>72%</strong>
+                </li>
+                <li class="bar-row">
+                  <span>Em transito</span>
+                  <span class="bar-track"><span class="bar-fill" style="width: 17%;"></span></span>
+                  <strong>17%</strong>
+                </li>
+                <li class="bar-row">
+                  <span>Em rota</span>
+                  <span class="bar-track"><span class="bar-fill" style="width: 7%;"></span></span>
+                  <strong>7%</strong>
+                </li>
+                <li class="bar-row">
+                  <span>Falha</span>
+                  <span class="bar-track"><span class="bar-fill bad" style="width: 3%;"></span></span>
+                  <strong>3%</strong>
+                </li>
+                <li class="bar-row">
+                  <span>Sem sync</span>
+                  <span class="bar-track"><span class="bar-fill warn" style="width: 1%;"></span></span>
+                  <strong>1%</strong>
+                </li>
+              </ul>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-title">Composicao de alertas</div>
+              <div class="ring-wrap">
+                <div class="ring">
+                  <div class="ring-center">607<br>alertas</div>
+                </div>
+                <ul class="legend">
+                  <li><span class="legend-label"><span class="dot bad"></span>Falha na entrega</span><strong>24%</strong></li>
+                  <li><span class="legend-label"><span class="dot warn"></span>Atraso transportadora</span><strong>15%</strong></li>
+                  <li><span class="legend-label"><span class="dot info"></span>Risco de atraso</span><strong>19%</strong></li>
+                  <li><span class="legend-label"><span class="dot good"></span>Outros monitoramentos</span><strong>42%</strong></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-title">Tendencia de entregas (ultimos 7 dias)</div>
+              <div class="line-chart">
+                <svg viewBox="0 0 520 116" width="100%" height="100%" aria-label="Tendencia de entregas">
+                  <defs>
+                    <linearGradient id="areaBlue" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.28"></stop>
+                      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.02"></stop>
+                    </linearGradient>
+                  </defs>
+                  <line x1="0" y1="95" x2="520" y2="95" stroke="#dbe7f7"></line>
+                  <line x1="0" y1="65" x2="520" y2="65" stroke="#edf2fb"></line>
+                  <line x1="0" y1="35" x2="520" y2="35" stroke="#edf2fb"></line>
+                  <path d="M0,96 L0,78 L74,70 L148,66 L222,58 L296,52 L370,48 L444,43 L520,36 L520,96 Z"
+                        fill="url(#areaBlue)"></path>
+                  <polyline points="0,78 74,70 148,66 222,58 296,52 370,48 444,43 520,36"
+                            fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                  <g fill="#1d4ed8">
+                    <circle cx="0" cy="78" r="3.4"></circle>
+                    <circle cx="74" cy="70" r="3.4"></circle>
+                    <circle cx="148" cy="66" r="3.4"></circle>
+                    <circle cx="222" cy="58" r="3.4"></circle>
+                    <circle cx="296" cy="52" r="3.4"></circle>
+                    <circle cx="370" cy="48" r="3.4"></circle>
+                    <circle cx="444" cy="43" r="3.4"></circle>
+                    <circle cx="520" cy="36" r="3.4"></circle>
+                  </g>
+                </svg>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-title">Top transportadoras (volume rastreado)</div>
+              <ul class="bar-list">
+                <li class="bar-row">
+                  <span>Intelipost</span>
+                  <span class="bar-track"><span class="bar-fill" style="width: 88%;"></span></span>
+                  <strong>88</strong>
+                </li>
+                <li class="bar-row">
+                  <span>SSW</span>
+                  <span class="bar-track"><span class="bar-fill" style="width: 61%;"></span></span>
+                  <strong>61</strong>
+                </li>
+                <li class="bar-row">
+                  <span>Correios</span>
+                  <span class="bar-track"><span class="bar-fill" style="width: 42%;"></span></span>
+                  <strong>42</strong>
+                </li>
+                <li class="bar-row">
+                  <span>Outras</span>
+                  <span class="bar-track"><span class="bar-fill warn" style="width: 27%;"></span></span>
+                  <strong>27</strong>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="module">
+          <h3>Como usar no dia a dia</h3>
+          <ol>
+            <li>Comece pelos cards de risco: Falhas na Entrega, Atraso Transportadora, Risco de Atraso e Sem Sync.</li>
+            <li>Clique no card mais critico para abrir a lista de pedidos filtrada.</li>
+            <li>Trabalhe a fila na aba Pedidos.</li>
+            <li>Volte ao Dashboard e reavalie a queda ou subida de risco.</li>
+          </ol>
+          <div class="tip">Dashboard serve para decisao. A tratativa efetiva acontece nas filas da aba Pedidos.</div>
+        </div>
+      </section>
+
+      <section class="section" id="pedidos">
+        <h2>Pedidos (Central de Execucao)</h2>
+        <p class="section-intro">
+          Aqui voce faz quase tudo: filtra, ordena, investiga, sincroniza, monitora, arquiva e exporta.
+        </p>
+        <div class="dash-visual compact">
+          <div class="dash-cards">
+            <div class="dash-card">
+              <div class="dash-label">Fila filtrada</div>
+              <div class="dash-value">2.412</div>
+              <div class="dash-trend flat">recorte atual</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-label">Sincronizados hoje</div>
+              <div class="dash-value">1.985</div>
+              <div class="dash-trend up">82,3% da fila</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-label">Monitorados ativos</div>
+              <div class="dash-value">126</div>
+              <div class="dash-trend warn">foco diario</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-label">Arquivados</div>
+              <div class="dash-value">438</div>
+              <div class="dash-trend up">higienizacao da fila</div>
+            </div>
+          </div>
+          <div class="dash-grid">
+            <div class="chart-card">
+              <div class="chart-title">Acoes executadas na aba</div>
+              <ul class="bar-list">
+                <li class="bar-row"><span>Sync unitario</span><span class="bar-track"><span class="bar-fill" style="width: 64%;"></span></span><strong>64</strong></li>
+                <li class="bar-row"><span>Detalhes abertos</span><span class="bar-track"><span class="bar-fill" style="width: 88%;"></span></span><strong>88</strong></li>
+                <li class="bar-row"><span>Rastreio aberto</span><span class="bar-track"><span class="bar-fill" style="width: 57%;"></span></span><strong>57</strong></li>
+                <li class="bar-row"><span>Exportacoes</span><span class="bar-track"><span class="bar-fill warn" style="width: 32%;"></span></span><strong>32</strong></li>
+              </ul>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">Qualidade do recorte atual</div>
+              <ul class="legend">
+                <li><span class="legend-label"><span class="dot good"></span>Com previsao valida</span><strong>91%</strong></li>
+                <li><span class="legend-label"><span class="dot info"></span>Com rastreio atualizado</span><strong>83%</strong></li>
+                <li><span class="legend-label"><span class="dot warn"></span>Sem sync recente</span><strong>9%</strong></li>
+                <li><span class="legend-label"><span class="dot bad"></span>Com falha ativa</span><strong>7%</strong></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="module">
+          <h3>1) Montar fila certa com busca e filtros</h3>
+          <ol>
+            <li>Defina o objetivo da rodada (ex.: tratar falhas, reduzir atraso, limpar sem sync).</li>
+            <li>Aplique filtros por status, transportadora, marketplace e periodo.</li>
+            <li>Use busca por pedido, NF, cliente ou codigo de envio para casos pontuais.</li>
+            <li>Ordene por coluna que acelera decisao (previsao, ultima movimentacao, status).</li>
+          </ol>
+        </div>
+
+        <div class="module">
+          <h3>2) Investigar com Detalhes</h3>
+          <ol>
+            <li>Clique em Detalhes no pedido.</li>
+            <li>Revise historico de rastreio e hora da ultima atualizacao.</li>
+            <li>Valide previsao e contexto antes de agir.</li>
+          </ol>
+        </div>
+
+        <div class="module">
+          <h3>3) Validar com Abrir rastreio</h3>
+          <ol>
+            <li>Abra o rastreio do pedido.</li>
+            <li>Compare com a informacao atual da plataforma.</li>
+            <li>Se necessario, rode sync unitario em seguida.</li>
+          </ol>
+        </div>
+
+        <div class="module">
+          <h3>4) Sync unitario por pedido</h3>
+          <ol>
+            <li>Use quando o caso for urgente ou sensivel.</li>
+            <li>Acione atualizacao daquele pedido.</li>
+            <li>Reabra Detalhes e confirme se houve nova movimentacao.</li>
+          </ol>
+          <div class="warn">Se nao houver mudanca, mantenha o pedido em Monitorados para acompanhamento.</div>
+        </div>
+
+        <div class="module">
+          <h3>5) Sync Geral</h3>
+          <ol>
+            <li>Clique em Sync Geral para atualizar em lote.</li>
+            <li>Acompanhe progresso: total, processados, sucessos, falhas e pedido atual.</li>
+            <li>Ao finalizar, execute nova rodada de filtros de risco.</li>
+            <li>Se precisar interromper, use Cancelar.</li>
+          </ol>
+        </div>
+
+        <div class="module">
+          <h3>6) Sync Integradora</h3>
+          <ol>
+            <li>Abra Sync Integradora.</li>
+            <li>Selecione os status desejados para busca.</li>
+            <li>Inicie e acompanhe ate concluir.</li>
+            <li>Valide os pedidos carregados/atualizados na lista.</li>
+          </ol>
+        </div>
+
+        <div class="module">
+          <h3>7) Buscar API (consulta pontual)</h3>
+          <ol>
+            <li>Use para procurar um item especifico rapidamente.</li>
+            <li>Informe identificador solicitado na janela.</li>
+            <li>Confirme retorno e revisite o pedido na lista.</li>
+          </ol>
+        </div>
+
+        <div class="module">
+          <h3>8) Monitorar, Arquivar e Desarquivar</h3>
+          <ul>
+            <li><strong>Monitorar:</strong> para pedidos criticos em observacao continua.</li>
+            <li><strong>Arquivar:</strong> para tirar da fila ativa itens sem acao imediata.</li>
+            <li><strong>Desarquivar:</strong> para devolver ao fluxo quando voltar a exigir tratativa.</li>
+          </ul>
+        </div>
+
+        <div class="module">
+          <h3>9) Exportacoes (HTML e CSV)</h3>
+          <ol>
+            <li>Monte o recorte com filtros.</li>
+            <li>Use Abrir HTML para apresentacao visual.</li>
+            <li>Use Baixar CSV para analise e repasse em planilha.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section" id="monitorados">
+        <h2>Monitorados</h2>
+        <p class="section-intro">
+          Carteira de pedidos sensiveis para acompanhamento diario.
+        </p>
+        <div class="dash-visual compact">
+          <div class="dash-cards">
+            <div class="dash-card"><div class="dash-label">Total monitorados</div><div class="dash-value">126</div><div class="dash-trend flat">carteira critica</div></div>
+            <div class="dash-card"><div class="dash-label">Em atraso</div><div class="dash-value">38</div><div class="dash-trend down">-6 vs ontem</div></div>
+            <div class="dash-card"><div class="dash-label">Com falha</div><div class="dash-value">21</div><div class="dash-trend warn">tratativa imediata</div></div>
+            <div class="dash-card"><div class="dash-label">Resolvidos no dia</div><div class="dash-value">17</div><div class="dash-trend up">+4 vs media</div></div>
+          </div>
+        </div>
+        <div class="module">
+          <h3>Como usar</h3>
+          <ol>
+            <li>Adicione pedidos criticos na aba Pedidos.</li>
+            <li>Acompanhe indicadores de monitorados (total, atraso, falha).</li>
+            <li>Revise os casos ao menos uma vez por turno.</li>
+            <li>Remova da monitoracao quando estabilizar.</li>
+          </ol>
+          <div class="tip">Monitorados enxuto = decisao rapida. Evite colocar itens sem criticidade real.</div>
+        </div>
+      </section>
+
+      <section class="section" id="sem-movimentacao">
+        <h2>Sem Movimentacao</h2>
+        <p class="section-intro">
+          Identifica pedidos parados sem atualizacao recente.
+        </p>
+        <div class="dash-visual compact">
+          <div class="dash-cards">
+            <div class="dash-card"><div class="dash-label">2+ dias</div><div class="dash-value">189</div><div class="dash-trend warn">monitorar</div></div>
+            <div class="dash-card"><div class="dash-label">5+ dias</div><div class="dash-value">74</div><div class="dash-trend bad">prioridade alta</div></div>
+            <div class="dash-card"><div class="dash-label">Sync unitario aplicado</div><div class="dash-value">58</div><div class="dash-trend up">na rodada atual</div></div>
+            <div class="dash-card"><div class="dash-label">Sem resposta</div><div class="dash-value">16</div><div class="dash-trend down">encaminhar cobranca</div></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Tempo sem movimentacao</div>
+            <ul class="bar-list">
+              <li class="bar-row"><span>2 a 3 dias</span><span class="bar-track"><span class="bar-fill" style="width: 71%;"></span></span><strong>71%</strong></li>
+              <li class="bar-row"><span>4 a 5 dias</span><span class="bar-track"><span class="bar-fill warn" style="width: 19%;"></span></span><strong>19%</strong></li>
+              <li class="bar-row"><span>6+ dias</span><span class="bar-track"><span class="bar-fill bad" style="width: 10%;"></span></span><strong>10%</strong></li>
+            </ul>
+          </div>
+        </div>
+        <div class="module">
+          <h3>Como usar</h3>
+          <ol>
+            <li>Escolha janela de dias (ex.: 2+ ou 5+).</li>
+            <li>Ordene pelos mais antigos sem movimentacao.</li>
+            <li>Abra Detalhes e rode sync unitario nos prioritarios.</li>
+            <li>Crie lista de cobranca para transportadora quando necessario.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section" id="alertas">
+        <h2>Alertas de Risco</h2>
+        <p class="section-intro">
+          Dois focos: risco ja instalado e risco preventivo.
+        </p>
+        <div class="dash-visual compact">
+          <div class="dash-cards">
+            <div class="dash-card"><div class="dash-label">Alertas ativos</div><div class="dash-value">327</div><div class="dash-trend bad">exige acao</div></div>
+            <div class="dash-card"><div class="dash-label">Risco de atraso</div><div class="dash-value">214</div><div class="dash-trend warn">prevencao</div></div>
+            <div class="dash-card"><div class="dash-label">Vencem em 1 dia</div><div class="dash-value">118</div><div class="dash-trend warn">janela curta</div></div>
+            <div class="dash-card"><div class="dash-label">Vencem em 2 dias</div><div class="dash-value">96</div><div class="dash-trend flat">acompanhar</div></div>
+          </div>
+        </div>
+        <div class="module">
+          <h3>Aba Alertas Ativos</h3>
+          <ol>
+            <li>Use filtro de dias para calibrar urgencia.</li>
+            <li>Priorize maiores atrasos e ocorrencias criticas.</li>
+            <li>Trate e encaminhe casos recorrentes para monitoramento.</li>
+          </ol>
+          <span class="chip bad">Problema instalado</span>
+        </div>
+        <div class="module">
+          <h3>Aba Risco de atraso</h3>
+          <ol>
+            <li>Comece pelos pedidos que vencem em 1 dia.</li>
+            <li>Depois trate os que vencem em 2 dias.</li>
+            <li>Atualize e acompanhe ate sair da zona de risco.</li>
+          </ol>
+          <span class="chip warn">Prevencao</span>
+        </div>
+      </section>
+
+      <section class="section" id="falhas">
+        <h2>Falhas na Entrega</h2>
+        <p class="section-intro">
+          Fila dedicada para resolucao de insucesso de entrega.
+        </p>
+        <div class="dash-visual compact">
+          <div class="dash-cards">
+            <div class="dash-card"><div class="dash-label">Falhas pendentes</div><div class="dash-value">186</div><div class="dash-trend down">-12,8% no dia</div></div>
+            <div class="dash-card"><div class="dash-label">Reentrega em andamento</div><div class="dash-value">64</div><div class="dash-trend up">processo ativo</div></div>
+            <div class="dash-card"><div class="dash-label">Casos resolvidos hoje</div><div class="dash-value">49</div><div class="dash-trend up">bom ritmo</div></div>
+            <div class="dash-card"><div class="dash-label">Criticos</div><div class="dash-value">23</div><div class="dash-trend bad">tratar primeiro</div></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Motivos de falha mais frequentes</div>
+            <ul class="bar-list">
+              <li class="bar-row"><span>Dest. ausente</span><span class="bar-track"><span class="bar-fill" style="width: 43%;"></span></span><strong>43%</strong></li>
+              <li class="bar-row"><span>Endereco</span><span class="bar-track"><span class="bar-fill warn" style="width: 27%;"></span></span><strong>27%</strong></li>
+              <li class="bar-row"><span>Restricao local</span><span class="bar-track"><span class="bar-fill warn" style="width: 18%;"></span></span><strong>18%</strong></li>
+              <li class="bar-row"><span>Outros</span><span class="bar-track"><span class="bar-fill bad" style="width: 12%;"></span></span><strong>12%</strong></li>
+            </ul>
+          </div>
+        </div>
+        <div class="module">
+          <h3>Como usar</h3>
+          <ol>
+            <li>Pesquise por pedido, NF, cliente ou rastreio.</li>
+            <li>Leia motivo da falha e ultima atualizacao.</li>
+            <li>Abra Detalhes para contexto completo.</li>
+            <li>Execute tratativa por prioridade.</li>
+          </ol>
+        </div>
+        <div class="module">
+          <h3>Exportar fila de falhas</h3>
+          <ol>
+            <li>Aplique o recorte que deseja compartilhar.</li>
+            <li>Clique em Baixar CSV na propria aba.</li>
+            <li>Use o arquivo para acompanhamento de tratativa.</li>
+          </ol>
+          <span class="chip good">Fila pronta para repasse</span>
+        </div>
+      </section>
+
+      <section class="section" id="importacao">
+        <h2>Importar CSV/XLS/XLSX</h2>
+        <p class="section-intro">
+          Entrada de pedidos por planilha para acelerar carga operacional.
+        </p>
+        <div class="dash-visual compact">
+          <div class="dash-cards">
+            <div class="dash-card"><div class="dash-label">Linhas processadas</div><div class="dash-value">4.820</div><div class="dash-trend up">lote atual</div></div>
+            <div class="dash-card"><div class="dash-label">Importados</div><div class="dash-value">4.566</div><div class="dash-trend up">94,7% validos</div></div>
+            <div class="dash-card"><div class="dash-label">Ignorados</div><div class="dash-value">211</div><div class="dash-trend warn">revisar layout</div></div>
+            <div class="dash-card"><div class="dash-label">Com erro</div><div class="dash-value">43</div><div class="dash-trend bad">corrigir arquivo</div></div>
+          </div>
+        </div>
+        <div class="module">
+          <h3>Passo a passo</h3>
+          <ol>
+            <li>Abra Importar CSV.</li>
+            <li>Arraste ou selecione o arquivo.</li>
+            <li>Aguarde processamento e confirmacao.</li>
+            <li>Valide uma amostra dos pedidos na aba Pedidos.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section" id="notificacoes">
+        <h2>Notificacoes</h2>
+        <p class="section-intro">Central para nao perder eventos importantes da operacao.</p>
+        <div class="dash-visual compact">
+          <div class="dash-cards">
+            <div class="dash-card"><div class="dash-label">Nao lidas</div><div class="dash-value">37</div><div class="dash-trend warn">priorizar leitura</div></div>
+            <div class="dash-card"><div class="dash-label">Gerais</div><div class="dash-value">24</div><div class="dash-trend flat">contexto amplo</div></div>
+            <div class="dash-card"><div class="dash-label">Monitorados</div><div class="dash-value">13</div><div class="dash-trend bad">casos sensiveis</div></div>
+            <div class="dash-card"><div class="dash-label">Lidas hoje</div><div class="dash-value">92</div><div class="dash-trend up">ritmo saudavel</div></div>
+          </div>
+        </div>
+        <div class="module">
+          <h3>Como usar</h3>
+          <ol>
+            <li>Abra o painel de notificacoes no topo.</li>
+            <li>Revise abas Geral e Monitorados.</li>
+            <li>Abra os pedidos relacionados quando necessario.</li>
+            <li>Marque como lido apos tratar.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section" id="atualizacoes">
+        <h2>Ultimas Atualizacoes</h2>
+        <p class="section-intro">Historico de melhorias e ajustes publicados na plataforma.</p>
+        <div class="dash-visual compact">
+          <div class="dash-cards">
+            <div class="dash-card"><div class="dash-label">Versao atual</div><div class="dash-value">v3.4.0</div><div class="dash-trend up">publicada</div></div>
+            <div class="dash-card"><div class="dash-label">Novidades</div><div class="dash-value">14</div><div class="dash-trend up">na release</div></div>
+            <div class="dash-card"><div class="dash-label">Ajustes</div><div class="dash-value">22</div><div class="dash-trend flat">incrementais</div></div>
+            <div class="dash-card"><div class="dash-label">Impacto operacional</div><div class="dash-value">Alto</div><div class="dash-trend warn">revisar rotina</div></div>
+          </div>
+        </div>
+        <div class="module">
+          <h3>Como usar</h3>
+          <ol>
+            <li>Abra a aba Ultimas Atualizacoes.</li>
+            <li>Selecione a versao mais recente.</li>
+            <li>Leia novidades e ajustes.</li>
+            <li>Adapte a rotina interna quando houver mudancas relevantes.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section" id="suporte">
+        <h2>Entrar em Contato</h2>
+        <p class="section-intro">
+          Use suporte para duvidas, erros recorrentes e pedidos de melhoria.
+        </p>
+        <div class="dash-visual compact">
+          <div class="dash-cards">
+            <div class="dash-card"><div class="dash-label">Chamados abertos</div><div class="dash-value">12</div><div class="dash-trend flat">janela atual</div></div>
+            <div class="dash-card"><div class="dash-label">Tempo medio resposta</div><div class="dash-value">1h42</div><div class="dash-trend up">dentro da meta</div></div>
+            <div class="dash-card"><div class="dash-label">Resolvidos hoje</div><div class="dash-value">19</div><div class="dash-trend up">+5 vs media</div></div>
+            <div class="dash-card"><div class="dash-label">Com retorno pendente</div><div class="dash-value">4</div><div class="dash-trend warn">acompanhar</div></div>
+          </div>
+        </div>
+        <div class="module">
+          <h3>Como abrir uma solicitacao eficiente</h3>
+          <ol>
+            <li>Descreva o que tentou fazer.</li>
+            <li>Explique o que esperava acontecer.</li>
+            <li>Explique o que aconteceu de fato.</li>
+            <li>Inclua exemplos de pedidos para acelerar analise.</li>
+          </ol>
+          <div class="tip">Mensagem objetiva e contextualizada reduz tempo de retorno.</div>
+        </div>
+      </section>
+
+      <section class="section" id="playbooks">
+        <h2>Playbooks Operacionais</h2>
+        <p class="section-intro">Sequencias prontas para cenarios recorrentes.</p>
+        <div class="dash-visual compact">
+          <div class="dash-cards">
+            <div class="dash-card"><div class="dash-label">Playbooks usados hoje</div><div class="dash-value">36</div><div class="dash-trend up">adoção alta</div></div>
+            <div class="dash-card"><div class="dash-label">Taxa de resolucao</div><div class="dash-value">87%</div><div class="dash-trend up">na 1a tentativa</div></div>
+            <div class="dash-card"><div class="dash-label">Escalonamentos</div><div class="dash-value">9</div><div class="dash-trend warn">revisar causa</div></div>
+            <div class="dash-card"><div class="dash-label">Tempo medio de tratativa</div><div class="dash-value">18m</div><div class="dash-trend up">ganho de eficiencia</div></div>
+          </div>
+        </div>
+
+        <div class="playbook">
+          <h4>Cenario 1 - Cliente cobrando entrega urgente</h4>
+          <ol>
+            <li>Pedidos > buscar pedido/NF.</li>
+            <li>Abrir Detalhes.</li>
+            <li>Rodar sync unitario.</li>
+            <li>Abrir rastreio para validacao.</li>
+            <li>Marcar como monitorado se permanecer critico.</li>
+          </ol>
+        </div>
+
+        <div class="playbook">
+          <h4>Cenario 2 - Aumento de atraso por transportadora</h4>
+          <ol>
+            <li>Dashboard > clicar Atraso Transportadora.</li>
+            <li>Pedidos > filtrar transportadora e periodo.</li>
+            <li>Ordenar por maior atraso.</li>
+            <li>Exportar CSV para plano de acao.</li>
+          </ol>
+        </div>
+
+        <div class="playbook">
+          <h4>Cenario 3 - Falhas na entrega cresceram no dia</h4>
+          <ol>
+            <li>Abrir Falhas na Entrega.</li>
+            <li>Identificar padrao de motivo.</li>
+            <li>Priorizar os casos de maior impacto.</li>
+            <li>Exportar CSV da aba para repasse.</li>
+          </ol>
+        </div>
+
+        <div class="playbook">
+          <h4>Cenario 4 - Dados parecem desatualizados</h4>
+          <ol>
+            <li>Rodar Sync Geral.</li>
+            <li>Revisar Sem Movimentacao e Sem Sync.</li>
+            <li>Executar sync unitario em itens sensiveis.</li>
+            <li>Revalidar Dashboard.</li>
+          </ol>
+        </div>
+      </section>
+
+      <p class="footer-note">
+        Documento focado em uso funcional da plataforma, sem detalhes tecnicos de implementacao.
+      </p>
+    </main>
+  </div>
+</body>
+</html>

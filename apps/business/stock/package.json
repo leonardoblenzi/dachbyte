@@ -1,0 +1,44 @@
+{
+  "name": "voltstock",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Volt Stock - plataforma SaaS multitenant para estoque visual, QR Code, bipagem e mapa 2D/3D.",
+  "packageManager": "npm@11.7.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "prepare:shared": "npm --workspace @voltstock/shared run build",
+    "dev": "npm run prepare:shared && concurrently -n api,web -c cyan,green \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm --workspace @voltstock/api run dev",
+    "dev:web": "npm --workspace @voltstock/web run dev",
+    "build": "npm --workspace @voltstock/shared run build && npm --workspace @voltstock/api run build && npm --workspace @voltstock/web run build",
+    "typecheck": "npm --workspace @voltstock/shared run build && npm --workspace @voltstock/api run typecheck && npm --workspace @voltstock/web run typecheck",
+    "lint": "npm --workspace @voltstock/shared run lint && npm --workspace @voltstock/api run lint && npm --workspace @voltstock/web run lint",
+    "db:migrate": "node scripts/run-sql.mjs migrate",
+    "db:seed": "node scripts/run-sql.mjs seed",
+    "db:reset": "node scripts/run-sql.mjs reset",
+    "security:audit": "npm audit --omit=dev"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.3",
+    "postcss": "8.5.10"
+  },
+  "overrides": {
+    "fast-jwt": "6.2.4",
+    "next": {
+      "postcss": "8.5.10"
+    },
+    "postcss": "8.5.10"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.2",
+    "typescript": "5.8.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

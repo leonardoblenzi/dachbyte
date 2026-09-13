@@ -1,0 +1,885 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Anúncios Estratégicos | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/estrategicos.css?v=39" />
+  <link rel="stylesheet" href="/ml/css/anuncios.css?v=2026080802" />
+  <script src="/ml/js/ml-base.js?v=10"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="strategy-app ads-app">
+  <main class="strategy-page">
+    <header class="strategy-page-header">
+      <div>
+        <div class="strategy-page-header__eyebrow">Anúncios</div>
+        <h1>Anúncios Estratégicos</h1>
+        <p>Organize tarefas, acompanhe o impacto das alterações e mantenha uma watchlist dos anúncios que exigem atenção.</p>
+      </div>
+    </header>
+
+    <section class="strategy-toolbar-card">
+      <div class="strategy-toolbar-card__top">
+        <div class="strategy-toolbar-card__meta">
+          <span class="strategy-toolbar-card__label">Fluxo estrategico</span>
+          <span id="strategyIntegrationBadge" class="strategy-integration-badge strategy-integration-badge--off" data-tooltip="Sem integracao externa ativa nesta empresa." hidden>
+            <span aria-hidden="true">○</span>
+            Integracao
+          </span>
+        </div>
+        <div class="strategy-hero__actions">
+          <button id="btnOpenCreate" class="strategy-btn" type="button"><span aria-hidden="true">+</span> Novo lote</button>
+          <button id="btnExportCsv" class="strategy-btn strategy-btn--outline" type="button"><span aria-hidden="true">↓</span> Exportar</button>
+          <button id="btnReload" class="strategy-btn strategy-btn--outline" type="button"><span aria-hidden="true">↻</span> Atualizar</button>
+          <button id="btnOpenPermissions" class="strategy-btn strategy-btn--outline" type="button" data-admin-only hidden>Configurações</button>
+        </div>
+      </div>
+
+      <nav class="strategy-tabs" aria-label="Fluxo estratégico">
+        <button class="strategy-tab active" type="button" data-tab="tasks">Tarefas</button>
+        <button class="strategy-tab" type="button" data-tab="rounds">Monitoramento</button>
+        <button class="strategy-tab" type="button" data-tab="watchlist">Watchlist</button>
+      </nav>
+    </section>
+
+    <section id="cadastroPanel" class="strategy-tab-panel" hidden>
+      <section class="strategy-grid strategy-grid--tasks">
+        <article class="strategy-card strategy-card--wide">
+          <div class="strategy-step-title">
+            <span>1</span>
+            <strong>Nova lista de tarefas</strong>
+          </div>
+          <p class="strategy-muted">Cole MLBs ou SKUs para criar pendencias operacionais sem planilha. Se ja houver pendencia aberta para o MLB, ela sera ignorada para evitar duplicidade.</p>
+          <div class="strategy-create-tools">
+            <button id="btnOpenTrelloImport" class="strategy-btn strategy-btn--outline strategy-btn--sm" type="button">Importar do Trello</button>
+            <span id="trelloImportStatus" class="strategy-status">Conector Trello nao configurado.</span>
+          </div>
+          <textarea id="taskQuery" class="strategy-textarea" rows="4" placeholder="Ex.: MLB123456789, SKU-ABC, MLB987654321"></textarea>
+          <div class="strategy-task-fields strategy-task-fields--no-group">
+            <label><span>Nome do lote</span><input id="taskBatchName" type="text" maxlength="100" placeholder="Ex.: Sofas parados - maio" /></label>
+            <label><span>Prioridade</span><select id="taskPriority"><option value="medium">Media</option><option value="high">Alta</option><option value="low">Baixa</option></select></label>
+            <label><span>Prazo</span><input id="taskDueDate" type="date" /></label>
+            <label><span>Inicio da analise</span><input id="taskAnalysisStartDate" type="date" /></label>
+          </div>
+          <span class="strategy-field-label">Tags do lote (opcional)</span>
+          <div class="strategy-tag-editor">
+            <input id="taskTagInput" class="strategy-filter-input" type="text" maxlength="40" placeholder="Ex.: Curva A, Sugador, Prioridade semanal" />
+            <input id="taskTagColor" class="strategy-tag-color" type="color" value="#3b82f6" aria-label="Cor da tag" />
+            <button id="btnAddTaskTag" class="strategy-btn strategy-btn--outline strategy-btn--sm" type="button">Adicionar tag</button>
+          </div>
+          <div id="taskTagsWrap" class="strategy-tags"></div>
+          <span class="strategy-field-label">Setores responsaveis</span>
+          <p class="strategy-muted strategy-muted--tight">Escolha quais setores precisam atuar neste lote. Cada setor assume o lote inteiro.</p>
+          <div id="taskRequiredSectors" class="strategy-checks strategy-checks--sectors"></div>
+          <span class="strategy-field-label">O que precisa ser feito?</span>
+          <div id="taskFlags" class="strategy-checks">
+            <label><input type="checkbox" value="photo" /><span class="strategy-chip-icon" aria-hidden="true">▧</span> Foto</label>
+            <label><input type="checkbox" value="title" /><span class="strategy-chip-icon" aria-hidden="true">A</span> Titulo</label>
+            <label><input type="checkbox" value="price" /><span class="strategy-chip-icon" aria-hidden="true">$</span> Preco</label>
+            <label><input type="checkbox" value="stock" /><span class="strategy-chip-icon" aria-hidden="true">E</span> Estoque</label>
+            <label><input type="checkbox" value="description" /><span class="strategy-chip-icon" aria-hidden="true">▤</span> Descricao</label>
+            <label><input type="checkbox" value="attributes" /><span class="strategy-chip-icon" aria-hidden="true">≡</span> Ficha tecnica</label>
+            <label><input type="checkbox" value="model" /><span class="strategy-chip-icon" aria-hidden="true">M</span> Modelo</label>
+            <label><input type="checkbox" value="clips" /><span class="strategy-chip-icon" aria-hidden="true">▶</span> Clips</label>
+            <label><input type="checkbox" value="lead_time" /><span class="strategy-chip-icon" aria-hidden="true">◷</span> Prazo</label>
+            <label><input type="checkbox" value="shipping" /><span class="strategy-chip-icon" aria-hidden="true">▣</span> Frete</label>
+            <label><input type="checkbox" value="promotion" /><span class="strategy-chip-icon" aria-hidden="true">◇</span> Promocao</label>
+            <label><input type="checkbox" value="ads" /><span class="strategy-chip-icon" aria-hidden="true">↗</span> Ads</label>
+            <label><input type="checkbox" value="other" /><span class="strategy-chip-icon" aria-hidden="true">...</span> Outro</label>
+          </div>
+          <textarea id="taskNotes" class="strategy-notes" rows="2" placeholder="Oriente a equipe sobre o ajuste esperado"></textarea>
+          <div class="strategy-actions-row">
+            <span id="taskStatus" class="strategy-status">Aguardando lista.</span>
+            <button id="btnCreateTasks" class="strategy-btn strategy-btn--outline" type="button">Criar pendencias</button>
+          </div>
+          <div id="taskCreateDetails" class="strategy-task-result" hidden></div>
+        </article>
+      </section>
+    </section>
+
+    <section id="tasksPanel" class="strategy-tab-panel">
+      <div id="taskSectorNotice" class="strategy-access-notice" hidden></div>
+      <section class="strategy-kpis strategy-kpis--tasks" id="taskKpis"></section>
+
+      <section class="strategy-card">
+        <div class="strategy-section-head strategy-section-head--tasks">
+          <div class="strategy-tasks-intro">
+            <span class="strategy-eyebrow">Operacao</span>
+            <h2>Lotes de tarefas</h2>
+          </div>
+          <div class="strategy-tasks-actions">
+            <button id="btnReloadTasks" class="strategy-btn strategy-btn--outline strategy-task-action" type="button"><span class="strategy-action-icon" aria-hidden="true">↻</span>Atualizar</button>
+            <details class="strategy-actions-menu">
+              <summary class="strategy-btn strategy-btn--outline">Mais ações</summary>
+              <div class="strategy-actions-menu__panel">
+                <button id="btnRefreshTaskListingStatus" class="strategy-btn strategy-btn--outline strategy-task-action" type="button">Atualizar anúncios</button>
+                <button id="btnOpenTaskReport" class="strategy-btn strategy-btn--outline strategy-task-action" type="button">Gerar relatório</button>
+              </div>
+            </details>
+          </div>
+        </div>
+        <div class="strategy-task-console" aria-label="Filtros de tarefas">
+          <div class="strategy-task-filter-grid">
+            <label class="strategy-task-filter"><select id="taskScopeFilter" class="strategy-filter-select"><option value="mine">Minhas tarefas</option><option value="all">Todos os lotes</option></select></label>
+            <label class="strategy-task-filter"><select id="taskStatusFilter" class="strategy-filter-select"><option value="open">Todas abertas</option><option value="pending">Pendentes</option><option value="in_progress">Em andamento</option><option value="review">Em revisão</option><option value="returned">Devolvidas</option><option value="completed">Concluídas</option><option value="all">Todas</option></select></label>
+            <label class="strategy-task-filter"><select id="taskPriorityFilter" class="strategy-filter-select"><option value="">Todas prioridades</option><option value="high">Alta</option><option value="medium">Média</option><option value="low">Baixa</option></select></label>
+            <label class="strategy-task-search"><input id="taskSearch" class="strategy-filter-input strategy-filter-input--task-search" type="search" placeholder="Buscar produto, MLB ou SKU..." /></label>
+          </div>
+          <details class="ads-disclosure ads-advanced-disclosure strategy-advanced-filters">
+            <summary><span>Mais filtros</span><small>Setor, lote, tags, agrupamento e datas</small></summary>
+            <div class="ads-disclosure-body">
+              <div class="strategy-advanced-filter-grid">
+                <label class="strategy-task-filter"><select id="taskSectorFilter" class="strategy-filter-select"><option value="">Todos os setores</option></select></label>
+                <label class="strategy-task-filter"><select id="taskOrderMode" class="strategy-filter-select"><option value="mine_first">Priorizar minhas pendências</option><option value="default">Ordem padrão</option></select></label>
+                <label class="strategy-task-filter"><select id="taskBatchNameFilter" class="strategy-filter-select"><option value="">Todas as tarefas</option></select></label>
+                <label class="strategy-task-filter"><select id="taskTagFilter" class="strategy-filter-select"><option value="">Todas as tags</option></select></label>
+                <label class="strategy-task-filter"><select id="taskGroupMode" class="strategy-filter-select"><option value="family">Agrupar por família</option><option value="none">Sem agrupamento</option></select></label>
+              </div>
+              <div class="strategy-task-dates">
+                <div class="strategy-task-date-pair"><span>Criada</span><label class="strategy-task-date"><input id="taskCreatedFrom" type="date" aria-label="Criada de" /></label><em>até</em><label class="strategy-task-date"><input id="taskCreatedTo" type="date" aria-label="Criada até" /></label></div>
+                <div class="strategy-task-date-pair"><span>Análise</span><label class="strategy-task-date"><input id="taskAnalysisFrom" type="date" aria-label="Análise de" /></label><em>até</em><label class="strategy-task-date"><input id="taskAnalysisTo" type="date" aria-label="Análise até" /></label></div>
+                <div class="strategy-task-date-pair"><span>Prazo</span><label class="strategy-task-date"><input id="taskDueFrom" type="date" aria-label="Prazo de" /></label><em>até</em><label class="strategy-task-date"><input id="taskDueTo" type="date" aria-label="Prazo até" /></label></div>
+              </div>
+            </div>
+          </details>
+        </div>
+        <div id="taskBatches" class="strategy-task-batches"></div>
+        <div class="strategy-section-head strategy-section-head--items">
+          <div><span class="strategy-eyebrow">Itens do lote</span><h2 id="selectedBatchTitle">Selecione um lote</h2></div>
+          <span id="selectedBatchMeta" class="strategy-pill">0 anuncios</span>
+        </div>
+        <div class="strategy-table-wrap">
+          <table class="strategy-table strategy-table--tasks">
+            <thead><tr><th>Produto</th><th>Tarefa</th><th>Prioridade</th><th>Prazo</th><th>Status</th><th>Acoes</th></tr></thead>
+            <tbody id="tasksBody"><tr><td colspan="6">Nenhuma pendencia cadastrada.</td></tr></tbody>
+          </table>
+        </div>
+        <div id="taskPager" class="strategy-pager"></div>
+      </section>
+    </section>
+
+    <section id="roundsPanel" class="strategy-tab-panel" hidden>
+    <section class="strategy-kpis" id="strategyKpis"></section>
+
+    <section class="strategy-insights">
+      <div><span class="strategy-eyebrow">Sinais do monitoramento</span><h2>O que mudou no período analisado</h2></div>
+      <div id="strategyInsights" class="strategy-insight-list"></div>
+    </section>
+
+    <section class="strategy-card">
+      <div class="strategy-section-head strategy-section-head--monitoring">
+        <div class="strategy-monitoring-intro">
+          <span class="strategy-eyebrow">Linha do tempo</span>
+          <h2>Monitoramento de resultados</h2>
+        </div>
+        <div class="strategy-monitoring-actions">
+          <span id="roundCount" class="strategy-pill strategy-pill--monitoring">0 monitoramento</span>
+          <button id="btnReloadRounds" class="strategy-btn strategy-btn--outline strategy-monitoring-action" type="button" data-tooltip="Recarrega os dados de monitoramento com os filtros selecionados."><span class="strategy-action-icon" aria-hidden="true">↻</span>Atualizar monitoramento</button>
+          <button id="btnReviewVisibleRounds" class="strategy-btn strategy-btn--outline strategy-monitoring-action" type="button" data-tooltip="Executa comparacao de impacto para todos os monitoramentos listados no filtro atual."><span class="strategy-action-icon" aria-hidden="true">▥</span>Comparar impacto</button>
+        </div>
+      </div>
+      <div class="strategy-monitoring-console" aria-label="Filtros de monitoramento">
+        <div class="strategy-monitoring-filters">
+          <label class="strategy-monitoring-filter"><select id="roundImpactFilter" class="strategy-filter-select"><option value="">Impacto: todos</option><option value="improved">Com melhora</option><option value="worse">Caiu</option><option value="stable">Estável</option><option value="inconclusive">Inconclusivo</option></select></label>
+          <label class="strategy-monitoring-filter"><select id="roundBatchFilter" class="strategy-filter-select"><option value="">Todos os lotes</option></select></label>
+        </div>
+        <details class="ads-disclosure ads-advanced-disclosure strategy-monitoring-advanced">
+          <summary><span>Mais filtros</span><small>Métrica, agrupamento, tags e período de análise</small></summary>
+          <div class="ads-disclosure-body">
+            <label class="strategy-monitoring-filter"><select id="metricViewFilter" class="strategy-filter-select"><option value="auto">Métricas automáticas</option><option value="before">Métrica inicial</option><option value="after">Métrica comparada</option></select></label>
+            <label class="strategy-monitoring-filter"><select id="roundGroupMode" class="strategy-filter-select"><option value="family">Agrupar por família</option><option value="none">Sem agrupamento</option></select></label>
+            <label class="strategy-monitoring-filter"><select id="roundTagFilter" class="strategy-filter-select"><option value="">Todas as tags</option></select></label>
+            <label class="strategy-monitoring-date"><span>Análise de</span><input id="roundAnalysisFrom" type="date" /></label>
+            <label class="strategy-monitoring-date"><span>Análise até</span><input id="roundAnalysisTo" type="date" /></label>
+          </div>
+        </details>
+      </div>
+      <div id="roundsEmpty" class="strategy-empty" hidden>
+        <div class="strategy-empty__icon" aria-hidden="true">⌁</div>
+        <strong>Nenhum monitoramento iniciado</strong>
+        <p>Finalize um item em Tarefas com "Finalizar e acompanhar resultado" para iniciar a comparacao automatica de antes e depois.</p>
+      </div>
+      <div id="roundsTableWrap" class="strategy-table-wrap">
+        <table class="strategy-table strategy-table--rounds">
+          <colgroup>
+            <col class="strategy-col-product" />
+            <col class="strategy-col-change" />
+            <col class="strategy-col-status" />
+            <col class="strategy-col-metric" />
+            <col class="strategy-col-metric" />
+            <col class="strategy-col-metric" />
+            <col class="strategy-col-metric" />
+            <col class="strategy-col-metric" />
+            <col class="strategy-col-money" />
+            <col class="strategy-col-impact" />
+            <col class="strategy-col-actions" />
+          </colgroup>
+          <thead><tr><th>Produto</th><th>Alteracao</th><th>Status</th><th>Impressoes</th><th>Visitas</th><th>CTR</th><th>Vendas</th><th>Conversao</th><th>Receita</th><th>Impacto</th><th>Acoes</th></tr></thead>
+          <tbody id="roundsBody"><tr><td colspan="11">Nenhum anuncio estrategico cadastrado.</td></tr></tbody>
+        </table>
+      </div>
+      <div id="strategyPager" class="strategy-pager"></div>
+    </section>
+    </section>
+
+    <section id="watchlistPanel" class="strategy-tab-panel" hidden>
+      <div id="watchlistAccessNotice" class="strategy-access-notice" hidden></div>
+      <section id="watchlistContent">
+        <section class="strategy-kpis strategy-kpis--tasks" id="watchlistKpis"></section>
+        <section class="strategy-card">
+          <div class="strategy-section-head strategy-section-head--watchlist">
+            <div class="strategy-watchlist-intro">
+              <span class="strategy-eyebrow">Watchlist</span>
+              <h2>Anuncios em acompanhamento</h2>
+              <p class="strategy-muted">Acompanhe MLBs importantes, registre acoes estrategicas e mantenha a memoria do que foi testado.</p>
+            </div>
+            <div class="strategy-watchlist-console">
+              <div class="strategy-watchlist-filters">
+                <label class="strategy-watchlist-filter"><select id="watchlistStatusFilter" class="strategy-filter-select"><option value="active">Watchlist ativa</option><option value="removed">Removidos da Watchlist</option><option value="task_open">Com tarefa aberta</option><option value="analysis">Em análise</option><option value="action_registered">Com ação registrada</option><option value="no_action">Sem ação</option></select></label>
+                <label class="strategy-watchlist-search"><input id="watchlistSearch" class="strategy-filter-input" type="search" placeholder="Buscar produto, MLB ou SKU..." /></label>
+                <button id="btnAddWatchlist" class="strategy-btn strategy-watchlist-action strategy-watchlist-action--primary" type="button"><span class="strategy-action-icon" aria-hidden="true">+</span>Adicionar</button>
+                <details class="strategy-actions-menu">
+                  <summary class="strategy-btn strategy-btn--outline">Mais ações</summary>
+                  <div class="strategy-actions-menu__panel">
+                    <button id="btnRefreshWatchlistListingStatus" class="strategy-btn strategy-btn--outline strategy-watchlist-action" type="button">Atualizar anúncios</button>
+                    <button id="btnCompareWatchlistImpact" class="strategy-btn strategy-btn--outline strategy-watchlist-action" type="button">Comparar impacto</button>
+                  </div>
+                </details>
+              </div>
+              <details class="ads-disclosure ads-advanced-disclosure strategy-watchlist-advanced">
+                <summary><span>Mais filtros</span><small>Status do anúncio, agrupamento e impacto</small></summary>
+                <div class="ads-disclosure-body">
+                  <label class="strategy-watchlist-filter"><select id="watchlistListingStatusFilter" class="strategy-filter-select"><option value="all">Anúncio: todos</option><option value="active">Ativo</option><option value="paused">Pausado</option><option value="inactive">Inativo</option></select></label>
+                  <label class="strategy-watchlist-filter"><select id="watchlistGroupMode" class="strategy-filter-select"><option value="family">Agrupar por família</option><option value="none">Sem agrupamento</option></select></label>
+                  <label class="strategy-watchlist-filter"><select id="watchlistImpactFilter" class="strategy-filter-select"><option value="">Impacto: todos</option><option value="improved">Com melhora</option><option value="worse">Caiu</option><option value="stable">Estável</option><option value="inconclusive">Inconclusivo</option></select></label>
+                </div>
+              </details>
+              <div class="strategy-watchlist-listbar">
+                <span id="watchlistListSummary">Carregando Watchlist...</span>
+                <div class="strategy-watchlist-view-actions" aria-label="Visualização da lista">
+                  <button class="strategy-icon-btn strategy-icon-btn--soft" type="button" data-tooltip="Visualização em famílias"><span class="strategy-icon-btn__icon" aria-hidden="true">▣</span></button>
+                  <button class="strategy-icon-btn strategy-icon-btn--soft" type="button" data-tooltip="Visualização em lista"><span class="strategy-icon-btn__icon" aria-hidden="true">☰</span></button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="watchlistBulkBar" class="strategy-bulk-bar" hidden>
+            <strong><span id="watchlistSelectedCount">0</span> anuncio(s) selecionado(s)</strong>
+            <div class="strategy-bulk-bar__actions">
+              <button id="btnWatchlistBulkTask" class="strategy-btn strategy-btn--outline strategy-btn--sm" type="button">Criar tarefa</button>
+              <button id="btnWatchlistBulkAction" class="strategy-btn strategy-btn--outline strategy-btn--sm" type="button">Registrar acao</button>
+              <button id="btnWatchlistBulkTag" class="strategy-btn strategy-btn--outline strategy-btn--sm" type="button">Adicionar tag</button>
+              <button id="btnWatchlistBulkRemove" class="strategy-btn strategy-btn--danger strategy-btn--sm" type="button">Remover selecionados</button>
+              <button id="btnWatchlistClearSelection" class="strategy-btn strategy-btn--outline strategy-btn--sm" type="button">Limpar selecao</button>
+            </div>
+          </div>
+          <div id="watchlistTableWrap" class="strategy-table-wrap">
+            <table class="strategy-table strategy-table--tasks">
+              <thead><tr><th>Produto</th><th>Estoque</th><th>Motivo</th><th>Acoes registradas</th><th>Ultima acao</th><th>Tarefa vinculada</th><th>Impacto</th><th>Acoes</th></tr></thead>
+              <tbody id="watchlistBody"><tr><td colspan="8">Carregando Watchlist...</td></tr></tbody>
+            </table>
+          </div>
+          <div id="watchlistEmpty" class="strategy-empty" hidden>
+            <div class="strategy-empty__icon" aria-hidden="true">W</div>
+            <strong>Nenhum anuncio na Watchlist</strong>
+            <p>Adicione MLBs importantes para acompanhar metricas, registrar acoes estrategicas e manter o historico do que foi alterado.</p>
+          </div>
+          <div id="watchlistPager" class="strategy-pager"></div>
+        </section>
+      </section>
+    </section>
+
+    <section id="permissionsPanel" class="strategy-tab-panel" hidden>
+      <section class="strategy-card strategy-settings-card">
+        <div class="strategy-section-head">
+          <div>
+            <span class="strategy-eyebrow">Configurações</span>
+            <h2>Permissões por setor</h2>
+            <p class="strategy-muted">Defina quais setores podem visualizar e editar cada ação operacional dentro de Estratégicos.</p>
+          </div>
+          <div class="strategy-section-head__actions">
+            <button id="btnClosePermissions" class="strategy-btn strategy-btn--outline" type="button">Voltar</button>
+            <button id="btnSavePermissions" class="strategy-btn" type="button">Salvar permissões</button>
+          </div>
+        </div>
+        <div id="permissionsStatus" class="strategy-status">Somente administradores podem alterar esta configuracao.</div>
+        <div id="permissionsMatrix" class="strategy-permissions"></div>
+      </section>
+    </section>
+    <div id="historyModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-history></div>
+      <section class="strategy-modal__panel strategy-modal__panel--wide" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Historico</span>
+            <h2 id="historyTitle">Alteracoes do anuncio</h2>
+            <p>Veja todas as alteracoes registradas para este MLB e as datas de acompanhamento.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-history><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <div id="historyProduct" class="strategy-history-product"></div>
+        <div id="historyList" class="strategy-history-list"></div>
+      </section>
+    </div>
+    <div id="materialLocationModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-material-location></div>
+      <section class="strategy-modal__panel strategy-modal__panel--small" role="dialog" aria-modal="true" aria-labelledby="materialLocationTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Material entregue</span>
+            <h2 id="materialLocationTitle">Caminho do material</h2>
+            <p>Use este endereco para localizar o arquivo criado pela equipe.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-material-location><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <label class="strategy-status-next">
+          <span id="materialLocationLabel">Endereco</span>
+          <input id="materialLocationValue" type="text" readonly />
+        </label>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--outline" type="button" data-close-material-location>Fechar</button>
+          <button id="btnCopyMaterialLocation" class="strategy-btn" type="button">Copiar endereco</button>
+        </div>
+      </section>
+    </div>
+    <div id="noticeModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-notice></div>
+      <section class="strategy-modal__panel strategy-modal__panel--notice" role="dialog" aria-modal="true" aria-labelledby="noticeTitle">
+        <div id="noticeIcon" class="strategy-notice-icon" aria-hidden="true">!</div>
+        <div class="strategy-notice-content">
+          <span id="noticeEyebrow" class="strategy-eyebrow">Aviso</span>
+          <h2 id="noticeTitle">Atencao</h2>
+          <p id="noticeMessage"></p>
+        </div>
+        <div class="strategy-modal-actions">
+          <button id="btnNoticeClose" class="strategy-btn" type="button" data-close-notice>Entendi</button>
+        </div>
+      </section>
+    </div>
+    <div id="taskReportModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-task-report></div>
+      <section class="strategy-modal__panel strategy-modal__panel--wide strategy-modal__panel--form" role="dialog" aria-modal="true" aria-labelledby="taskReportTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Relatorio</span>
+            <h2 id="taskReportTitle">Exportar tarefas estrategicas</h2>
+            <p>Defina o periodo e os filtros para gerar a planilha com Resumo geral, Resumo por usuario e Detalhamento.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-task-report><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <div class="strategy-task-fields strategy-task-fields--modal">
+          <label>
+            <span>Periodo de</span>
+            <input id="taskReportDateFrom" type="date" />
+          </label>
+          <label>
+            <span>Periodo ate</span>
+            <input id="taskReportDateTo" type="date" />
+          </label>
+          <label>
+            <span>Usuario</span>
+            <select id="taskReportUser">
+              <option value="">Todos os usuarios</option>
+            </select>
+          </label>
+          <label>
+            <span>Setor</span>
+            <select id="taskReportSector">
+              <option value="">Todos os setores</option>
+            </select>
+          </label>
+          <label>
+            <span>Lote/Card</span>
+            <select id="taskReportBatch">
+              <option value="">Todos os lotes</option>
+            </select>
+          </label>
+          <label>
+            <span>Status</span>
+            <select id="taskReportStatus">
+              <option value="all">Todos os status</option>
+              <option value="open">Todas abertas</option>
+              <option value="pending">Pendentes</option>
+              <option value="in_progress">Em andamento</option>
+              <option value="review">Em revisao</option>
+              <option value="returned">Devolvidas</option>
+              <option value="completed">Concluidas</option>
+              <option value="canceled">Canceladas</option>
+            </select>
+          </label>
+        </div>
+        <div class="strategy-task-result">
+          A planilha exporta 3 abas: Resumo geral, Resumo por usuario e Detalhamento das atividades registradas.
+        </div>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--ghost" type="button" data-close-task-report>Cancelar</button>
+          <button id="btnConfirmTaskReport" class="strategy-btn" type="button">Gerar Excel</button>
+        </div>
+      </section>
+    </div>
+    <div id="trelloImportModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-trello-import></div>
+      <section class="strategy-modal__panel strategy-modal__panel--wide strategy-modal__panel--form strategy-modal__panel--trello" role="dialog" aria-modal="true" aria-labelledby="trelloImportTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Estrategicos / Trello</span>
+            <h2 id="trelloImportTitle">Importar cards do Trello</h2>
+            <p>Selecione um board, escolha as listas e adicione os MLBs/SKUs encontrados para montar o lote.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-trello-import><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <div class="strategy-task-fields strategy-task-fields--trello">
+          <label>
+            <span>Board</span>
+            <select id="trelloBoardSelect">
+              <option value="">Selecione um board</option>
+            </select>
+          </label>
+          <label>
+            <span>Filtro</span>
+            <select id="trelloCardFilter">
+              <option value="open">Somente cards abertos</option>
+              <option value="all">Abertos e fechados</option>
+            </select>
+          </label>
+          <label class="strategy-trello-label-action">
+            <span>&nbsp;</span>
+            <button id="btnLoadTrelloLists" class="strategy-btn strategy-btn--outline" type="button">Carregar listas</button>
+          </label>
+        </div>
+        <section class="strategy-trello-lists">
+          <div class="strategy-trello-lists__head">
+            <strong>Listas do board</strong>
+          </div>
+          <div id="trelloListsWrap" class="strategy-checks strategy-checks--compact">
+            <span class="strategy-status">Selecione um board para carregar as listas.</span>
+          </div>
+          <div class="strategy-trello-fetch">
+            <div>
+              <strong>Proximo passo: buscar cards</strong>
+              <span>Depois de selecionar as listas, carregue os cards para conferir quais MLBs ou SKUs serao importados.</span>
+            </div>
+            <button id="btnLoadTrelloCards" class="strategy-btn" type="button">Buscar cards selecionados</button>
+          </div>
+        </section>
+        <section class="strategy-trello-preview">
+          <div class="strategy-trello-preview__head">
+            <strong>Preview da importacao</strong>
+            <div class="strategy-trello-preview__tools">
+              <button id="btnSelectAllTrelloCards" class="strategy-btn strategy-btn--outline" type="button">Selecionar todos</button>
+              <button id="btnUnselectAllTrelloCards" class="strategy-btn strategy-btn--outline" type="button">Desmarcar todos</button>
+            </div>
+          </div>
+          <div id="trelloCardsWrap" class="strategy-table-wrap">
+            <table class="strategy-table strategy-table--trello">
+              <thead>
+                <tr>
+                  <th>Usar</th>
+                  <th>Lista</th>
+                  <th>Card</th>
+                  <th>MLBs / SKUs</th>
+                </tr>
+              </thead>
+              <tbody id="trelloCardsBody">
+                <tr><td colspan="4">Carregue listas para visualizar os cards.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="trelloImportResult" class="strategy-task-result" hidden></div>
+        </section>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--outline" type="button" data-close-trello-import>Cancelar</button>
+          <button id="btnApplyTrelloImport" class="strategy-btn" type="button">Adicionar ao lote</button>
+        </div>
+      </section>
+    </div>
+    <div id="completeTaskModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-complete-task></div>
+      <section class="strategy-modal__panel" role="dialog" aria-modal="true" aria-labelledby="completeTaskTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Editar execucao</span>
+            <h2 id="completeTaskTitle">Editar alteracao feita</h2>
+            <p>Marque o que ja foi entregue pelos setores do lote. Itens verdes ja foram registrados; itens amarelos ainda estao pendentes.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-complete-task><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <input id="completeTaskId" type="hidden" />
+        <div id="completeTaskProduct" class="strategy-history-product"></div>
+        <section class="strategy-change-section" data-complete-section="materials">
+          <div class="strategy-change-section__head">
+            <span class="strategy-field-label">Materiais criados</span>
+            <small>Use quando marketing criou arquivos para o anuncio.</small>
+          </div>
+          <div id="completeMaterialsCreated" class="strategy-checks strategy-checks--compact"></div>
+          <div id="completeMaterialFields" class="strategy-conditional-fields">
+            <label class="strategy-conditional-field" data-material-field="photos" hidden>
+              <span>Local/link das fotos novas</span>
+              <input id="completePhotosLocation" type="text" placeholder="Ex.: Drive, pasta interna ou URL" />
+            </label>
+            <label class="strategy-conditional-field" data-material-field="clips_video" hidden>
+              <span>Local/link dos clips/videos novos</span>
+              <input id="completeClipsLocation" type="text" placeholder="Ex.: Drive, pasta interna ou URL" />
+            </label>
+          </div>
+          <div id="completeMaterialsReturn" class="strategy-material-return" hidden>
+            <div class="strategy-material-return__head">
+              <div>
+                <strong>Devolver materiais</strong>
+                <span>Use apenas quando fotos ou clips precisam voltar para correcao.</span>
+              </div>
+              <button id="btnToggleMaterialReturn" class="strategy-mini-btn" type="button">Devolver</button>
+            </div>
+            <div id="completeMaterialsReturnForm" class="strategy-material-return__form" hidden>
+              <div class="strategy-checks strategy-checks--compact" id="completeMaterialsReturnChecks">
+                <label><input type="checkbox" value="photos" /><span class="strategy-chip-icon" aria-hidden="true">▧</span> Fotos</label>
+                <label><input type="checkbox" value="clips_video" /><span class="strategy-chip-icon" aria-hidden="true">▶</span> Clips/videos</label>
+              </div>
+              <label class="strategy-status-next">
+                <span>Motivo da devolucao</span>
+                <input id="completeMaterialReturnReason" type="text" maxlength="500" placeholder="Ex.: link incorreto, faltou clip, material nao corresponde ao anuncio" />
+              </label>
+              <textarea id="completeMaterialReturnNote" class="strategy-notes" rows="2" placeholder="Observacao opcional para orientar a correcao"></textarea>
+              <div class="strategy-modal-actions strategy-modal-actions--inline">
+                <button id="btnCancelMaterialReturn" class="strategy-btn strategy-btn--outline" type="button">Cancelar devolucao</button>
+                <button id="btnConfirmMaterialReturn" class="strategy-btn strategy-btn--warning" type="button">Confirmar devolucao</button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="strategy-change-section" data-complete-section="listing">
+          <div class="strategy-change-section__head">
+            <span class="strategy-field-label">Alteracoes no anuncio</span>
+            <small>Use quando algo ja foi publicado no Mercado Livre.</small>
+          </div>
+          <div id="completeListingChanges" class="strategy-checks"></div>
+        </section>
+        <label class="strategy-status-next">
+          <span>Proximo passo</span>
+          <select id="completeTaskNextStatus">
+            <option value="in_progress">Salvar progresso</option>
+            <option value="completed">Finalizar e acompanhar resultado</option>
+          </select>
+        </label>
+        <div id="completeTaskMonitorFields" class="strategy-date-row">
+          <label><span>Data da alteracao</span><input id="completeAlterationDate" type="date" /></label>
+          <label><span>Janela</span><select id="completeWindowDays"><option value="7">7 dias</option><option value="14">14 dias</option><option value="30">30 dias</option></select></label>
+        </div>
+        <textarea id="completeTaskNotes" class="strategy-notes" rows="3" placeholder="Descreva o que foi feito"></textarea>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--outline" type="button" data-close-complete-task>Cancelar</button>
+          <button id="btnConfirmCompleteTask" class="strategy-btn" type="button">Salvar registro</button>
+        </div>
+      </section>
+    </div>
+    <div id="cancelTaskModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-cancel-task></div>
+      <section class="strategy-modal__panel" role="dialog" aria-modal="true" aria-labelledby="cancelTaskTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Cancelar pendencia</span>
+            <h2 id="cancelTaskTitle">Confirmar cancelamento</h2>
+            <p>Informe o motivo para manter o historico claro para a equipe.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-cancel-task><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <input id="cancelTaskId" type="hidden" />
+        <div id="cancelTaskProduct" class="strategy-history-product"></div>
+        <label class="strategy-status-next">
+          <span>Motivo do cancelamento</span>
+          <select id="cancelTaskReasonSelect">
+            <option value="">Selecione um motivo</option>
+            <option value="Anuncio inativo">Anuncio inativo</option>
+            <option value="Produto fora da estrategia">Produto fora da estrategia</option>
+            <option value="Tarefa criada em duplicidade">Tarefa criada em duplicidade</option>
+            <option value="Sem necessidade de alteracao">Sem necessidade de alteracao</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </label>
+        <textarea id="cancelTaskReasonDetail" class="strategy-notes" rows="3" placeholder="Detalhe o motivo, se necessario"></textarea>
+        <label class="strategy-confirm-line">
+          <input id="cancelTaskConfirm" type="checkbox" />
+          <span>Confirmo o cancelamento desta pendencia.</span>
+        </label>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--outline" type="button" data-close-cancel-task>Voltar</button>
+          <button id="btnConfirmCancelTask" class="strategy-btn strategy-btn--danger" type="button">Cancelar pendencia</button>
+        </div>
+      </section>
+    </div>
+    <div id="roundReviewModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-round-review></div>
+      <section class="strategy-modal__panel strategy-modal__panel--wide strategy-modal__panel--form" role="dialog" aria-modal="true" aria-labelledby="roundReviewTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Monitoramento</span>
+            <h2 id="roundReviewTitle">Voltar item para revisao</h2>
+            <p>O monitoramento continua salvo. A tarefa volta com apenas os itens selecionados como pendentes.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-round-review><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <input id="roundReviewId" type="hidden" />
+        <div id="roundReviewProduct" class="strategy-history-product"></div>
+        <span class="strategy-field-label">O que precisa corrigir?</span>
+        <div id="roundReviewFlags" class="strategy-checks"></div>
+        <textarea id="roundReviewReason" class="strategy-notes" rows="3" placeholder="Explique o que ficou incorreto ou incompleto"></textarea>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--outline" type="button" data-close-round-review>Cancelar</button>
+          <button id="btnConfirmRoundReview" class="strategy-btn strategy-btn--warning" type="button">Enviar para revisao</button>
+        </div>
+      </section>
+    </div>
+    <div id="watchlistAddModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-watchlist-add></div>
+      <section class="strategy-modal__panel strategy-modal__panel--wide strategy-modal__panel--form" role="dialog" aria-modal="true" aria-labelledby="watchlistAddTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Watchlist</span>
+            <h2 id="watchlistAddTitle">Adicionar anuncios</h2>
+            <p>Informe um ou mais MLBs/SKUs para acompanhar dentro de Estrategicos.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-watchlist-add><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <label class="strategy-status-next">
+          <span>MLBs ou SKUs</span>
+          <textarea id="watchlistAddQuery" class="strategy-textarea strategy-textarea--compact" rows="4" placeholder="Ex.: MLB123456789, SKU-ABC&#10;MLB987654321"></textarea>
+        </label>
+        <label class="strategy-status-next">
+          <span>Motivo</span>
+          <select id="watchlistAddReason">
+            <option value="Produto estrategico">Produto estrategico</option>
+            <option value="Curva A em queda">Curva A em queda</option>
+            <option value="Conversao caiu">Conversao caiu</option>
+            <option value="Ranking caiu">Ranking caiu</option>
+            <option value="Acompanhar apos alteracao">Acompanhar apos alteracao</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </label>
+        <textarea id="watchlistAddNotes" class="strategy-notes" rows="3" placeholder="Observacao opcional"></textarea>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--outline" type="button" data-close-watchlist-add>Cancelar</button>
+          <button id="btnConfirmWatchlistAdd" class="strategy-btn" type="button">Adicionar lista</button>
+        </div>
+      </section>
+    </div>
+    <div id="watchlistActionModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-watchlist-action></div>
+      <section class="strategy-modal__panel strategy-modal__panel--wide strategy-modal__panel--form" role="dialog" aria-modal="true" aria-labelledby="watchlistActionTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Watchlist</span>
+            <h2 id="watchlistActionTitle">Registrar acao estrategica</h2>
+            <p>Marque o que foi alterado e registre a hipotese para comparar depois.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-watchlist-action><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <input id="watchlistActionId" type="hidden" />
+        <div id="watchlistActionProduct" class="strategy-history-product"></div>
+        <span class="strategy-field-label">O que foi alterado?</span>
+        <div id="watchlistActionFlags" class="strategy-checks"></div>
+        <label class="strategy-status-next">
+          <span>Hipotese / motivo</span>
+          <input id="watchlistActionHypothesis" type="text" placeholder="Ex.: prazo alto estava reduzindo conversao" />
+        </label>
+        <div class="strategy-date-row">
+          <label><span>Data da alteracao</span><input id="watchlistActionDate" type="date" /></label>
+          <label><span>Metrica principal</span><select id="watchlistActionMetric"><option value="conversion">Conversao</option><option value="ranking">Ranking</option><option value="sales">Vendas</option><option value="visits">Visitas</option><option value="revenue">Receita</option></select></label>
+          <label><span>Janela</span><select id="watchlistActionWindow"><option value="7">7 dias</option><option value="14">14 dias</option><option value="30">30 dias</option></select></label>
+        </div>
+        <textarea id="watchlistActionNotes" class="strategy-notes" rows="3" placeholder="Descreva a acao realizada"></textarea>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--outline" type="button" data-close-watchlist-action>Cancelar</button>
+          <button id="btnConfirmWatchlistAction" class="strategy-btn" type="button">Salvar acao</button>
+        </div>
+      </section>
+    </div>
+    <div id="watchlistTaskModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-watchlist-task></div>
+      <section class="strategy-modal__panel strategy-modal__panel--wide strategy-modal__panel--form" role="dialog" aria-modal="true" aria-labelledby="watchlistTaskTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Watchlist</span>
+            <h2 id="watchlistTaskTitle">Criar tarefa a partir do anuncio</h2>
+            <p>O item continua na Watchlist e a equipe recebe uma tarefa operacional vinculada.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-watchlist-task><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <input id="watchlistTaskId" type="hidden" />
+        <div id="watchlistTaskProduct" class="strategy-history-product"></div>
+        <span class="strategy-field-label">O que precisa ser feito?</span>
+        <div id="watchlistTaskFlags" class="strategy-checks"></div>
+        <span class="strategy-field-label">Setores responsaveis</span>
+        <div id="watchlistTaskSectors" class="strategy-checks strategy-checks--sectors"></div>
+        <div class="strategy-task-fields strategy-task-fields--modal">
+          <label><span>Prioridade</span><select id="watchlistTaskPriority"><option value="medium">Media</option><option value="high">Alta</option><option value="low">Baixa</option></select></label>
+          <label><span>Prazo</span><input id="watchlistTaskDueDate" type="date" /></label>
+        </div>
+        <textarea id="watchlistTaskNotes" class="strategy-notes" rows="3" placeholder="Oriente a equipe sobre o ajuste esperado"></textarea>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--outline" type="button" data-close-watchlist-task>Cancelar</button>
+          <button id="btnConfirmWatchlistTask" class="strategy-btn" type="button">Criar tarefa</button>
+        </div>
+      </section>
+    </div>
+    <div id="watchlistRemoveModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-watchlist-remove></div>
+      <section class="strategy-modal__panel" role="dialog" aria-modal="true" aria-labelledby="watchlistRemoveTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Watchlist</span>
+            <h2 id="watchlistRemoveTitle">Remover da Watchlist?</h2>
+            <p>Essa acao remove o anuncio da lista de acompanhamento.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-watchlist-remove><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <input id="watchlistRemoveId" type="hidden" />
+        <input id="watchlistRemoveIds" type="hidden" />
+        <div id="watchlistRemoveProduct" class="strategy-history-product"></div>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--outline" type="button" data-close-watchlist-remove>Cancelar</button>
+          <button id="btnConfirmWatchlistRemove" class="strategy-btn strategy-btn--danger" type="button">Remover</button>
+        </div>
+      </section>
+    </div>
+    <div id="watchlistTagModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-watchlist-tag></div>
+      <section class="strategy-modal__panel" role="dialog" aria-modal="true" aria-labelledby="watchlistTagTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Watchlist</span>
+            <h2 id="watchlistTagTitle">Adicionar tag</h2>
+            <p>A tag sera aplicada aos anuncios selecionados.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-watchlist-tag><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <label class="strategy-status-next">
+          <span>Tag</span>
+          <input id="watchlistBulkTagName" type="text" maxlength="40" placeholder="Ex.: Curva A, Revisar preco, Semana 23" />
+        </label>
+        <label class="strategy-status-next">
+          <span>Cor</span>
+          <input id="watchlistBulkTagColor" class="strategy-tag-color" type="color" value="#3b82f6" />
+        </label>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--outline" type="button" data-close-watchlist-tag>Cancelar</button>
+          <button id="btnConfirmWatchlistTag" class="strategy-btn" type="button">Adicionar tag</button>
+        </div>
+      </section>
+    </div>
+    <div id="watchlistDetailModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-watchlist-detail></div>
+      <section class="strategy-modal__panel strategy-modal__panel--wide strategy-modal__panel--form strategy-modal__panel--watchlist-detail" role="dialog" aria-modal="true" aria-labelledby="watchlistDetailTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Watchlist</span>
+            <h2 id="watchlistDetailTitle">Detalhar anuncio</h2>
+            <p>Acompanhe metricas, estoque, prazo e historico das acoes deste item.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-watchlist-detail><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <input id="watchlistDetailId" type="hidden" />
+        <div id="watchlistDetailProduct" class="strategy-history-product"></div>
+        <div class="strategy-watchlist-detail-filters">
+          <label><span>Periodo</span>
+            <select id="watchlistDetailMode">
+              <option value="first_action">Desde 1a acao</option>
+              <option value="last_action">Desde ultima acao</option>
+              <option value="custom">Data personalizada</option>
+            </select>
+          </label>
+          <label><span>De</span><input id="watchlistDetailFrom" type="date" /></label>
+          <label><span>Ate</span><input id="watchlistDetailTo" type="date" /></label>
+          <button id="btnReloadWatchlistDetail" class="strategy-btn strategy-btn--outline" type="button">Atualizar</button>
+          <a id="btnOpenStockFromWatchlist" class="strategy-btn strategy-btn--outline" href="/ml/estoque" target="_blank" rel="noopener noreferrer">Ver no estoque</a>
+        </div>
+        <div id="watchlistDetailRangeHint" class="strategy-table-sub"></div>
+        <div id="watchlistDetailSummary" class="strategy-watchlist-summary"></div>
+        <section id="watchlistDetailKpis" class="strategy-kpis strategy-kpis--tasks"></section>
+        <div id="watchlistDetailInsights" class="strategy-insight-list"></div>
+        <section class="strategy-watchlist-detail-block">
+          <div class="strategy-watchlist-detail-block__head">
+            <h3>Resumo operacional</h3>
+            <p>Estoque e prazo para evitar ruptura e atrasos.</p>
+          </div>
+          <div id="watchlistDetailOps" class="strategy-watchlist-ops"></div>
+        </section>
+        <section class="strategy-watchlist-detail-block">
+          <div class="strategy-watchlist-detail-block__head">
+            <h3>Linha do tempo</h3>
+            <p>Acoes registradas, monitoramentos e ajustes operacionais.</p>
+          </div>
+          <div id="watchlistDetailTimeline" class="strategy-history-list strategy-history-list--watchlist"></div>
+        </section>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--outline" type="button" data-close-watchlist-detail>Fechar</button>
+        </div>
+      </section>
+    </div>
+    <div id="batchModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-batch></div>
+      <section class="strategy-modal__panel strategy-modal__panel--wide strategy-modal__panel--batch" role="dialog" aria-modal="true" aria-labelledby="batchTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Lote</span>
+            <h2 id="batchTitle">Editar lote</h2>
+            <p>Atualize nome, prioridade, prazo e tarefas programadas. As mudancas afetam as pendencias abertas do lote.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-batch><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <input id="batchId" type="hidden" />
+        <div class="strategy-task-fields strategy-task-fields--modal">
+          <label><span>Nome do lote</span><input id="batchName" type="text" maxlength="100" /></label>
+          <label><span>Prioridade</span><select id="batchPriority"><option value="medium">Media</option><option value="high">Alta</option><option value="low">Baixa</option></select></label>
+          <label><span>Prazo</span><input id="batchDueDate" type="date" /></label>
+          <label><span>Inicio da analise</span><input id="batchAnalysisStartDate" type="date" /></label>
+        </div>
+        <span class="strategy-field-label">Tarefas programadas</span>
+        <p class="strategy-muted strategy-muted--tight">Marque o que deve continuar pendente neste lote. Itens ja registrados seguem no historico do anuncio.</p>
+        <p class="strategy-muted strategy-muted--tight">Ao desmarcar uma tarefa, ela sai apenas das pendencias abertas deste lote. O historico registrado permanece no anuncio.</p>
+        <div id="batchTaskFlags" class="strategy-checks"></div>
+        <span class="strategy-field-label">Setores responsaveis</span>
+        <p class="strategy-muted strategy-muted--tight">Defina quais setores continuam responsaveis pelas pendencias abertas deste lote.</p>
+        <div id="batchRequiredSectors" class="strategy-checks strategy-checks--sectors"></div>
+        <span class="strategy-field-label">Tags do lote</span>
+        <div class="strategy-tag-editor strategy-tag-editor--modal">
+          <input id="batchTagInput" class="strategy-filter-input" type="text" maxlength="40" placeholder="Adicionar tag ao lote" />
+          <input id="batchTagColor" class="strategy-tag-color" type="color" value="#3b82f6" aria-label="Cor da tag do lote" />
+          <button id="btnAddBatchTag" class="strategy-btn strategy-btn--outline strategy-btn--sm" type="button">Adicionar tag</button>
+        </div>
+        <div id="batchTagsWrap" class="strategy-tags"></div>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--outline" type="button" data-close-batch>Cancelar</button>
+          <button id="btnSaveBatch" class="strategy-btn" type="button">Salvar lote</button>
+        </div>
+      </section>
+    </div>
+    <div id="batchItemsModal" class="strategy-modal" hidden>
+      <div class="strategy-modal__backdrop" data-close-batch-items></div>
+      <section class="strategy-modal__panel strategy-modal__panel--wide strategy-modal__panel--form" role="dialog" aria-modal="true" aria-labelledby="batchItemsTitle">
+        <div class="strategy-modal__head">
+          <div>
+            <span class="strategy-eyebrow">Adicionar itens</span>
+            <h2 id="batchItemsTitle">Adicionar MLBs ao lote</h2>
+            <p>Inclua novos MLBs ou SKUs no mesmo lote de trabalho.</p>
+          </div>
+          <button class="strategy-icon-btn" type="button" data-close-batch-items><span class="strategy-icon-btn__icon" aria-hidden="true">x</span></button>
+        </div>
+        <input id="batchItemsId" type="hidden" />
+        <div id="batchItemsName" class="strategy-history-product"></div>
+        <div class="strategy-create-tools">
+          <button id="btnImportBatchItemsTrello" class="strategy-btn strategy-btn--outline strategy-btn--sm" type="button">Importar do Trello</button>
+          <span class="strategy-status">Use quando o card/lista ganhou novos MLBs depois que o lote ja foi criado.</span>
+        </div>
+        <textarea id="batchItemsQuery" class="strategy-textarea" rows="5" placeholder="Ex.: MLB123456789, SKU-ABC, MLB987654321"></textarea>
+        <div class="strategy-modal-actions">
+          <button class="strategy-btn strategy-btn--outline" type="button" data-close-batch-items>Cancelar</button>
+          <button id="btnAddBatchItems" class="strategy-btn" type="button">Adicionar ao lote</button>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script src="/ml/js/estrategicos.js?v=50"></script>
+</body>
+</html>

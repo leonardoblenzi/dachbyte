@@ -1,0 +1,314 @@
+name: dachbyte-staging
+x-runtime: &runtime
+  restart: unless-stopped
+  init: true
+  networks: [edge, data]
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+
+services:
+  caddy:
+    <<: *runtime
+    image: caddy:2-alpine
+    networks: [edge]
+    ports: ["${DACHBYTE_BIND_IP:-127.0.0.1}:80:80", "${DACHBYTE_BIND_IP:-127.0.0.1}:443:443"]
+    environment:
+      DACHBYTE_SITE: "${DACHBYTE_SITE:-http://localhost}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  gateway:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/gateway/server.js"]
+    env_file: ["./env/gateway.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  seller-ml-web:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-ml/start.js"]
+    env_file: ["./env/seller-ml.env", "./env/hub.env"]
+    volumes: ["ml_results:/app/apps/seller-ml/results"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/ml/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  seller-ml-worker:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-ml/worker.js"]
+    env_file: ["./env/seller-ml.env", "./env/hub.env"]
+    volumes: ["ml_results:/app/apps/seller-ml/results"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-worker-health.cjs"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+  seller-shopee:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-shopee/start.js"]
+    env_file: ["./env/seller-shopee.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/shopee/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  seller-madeira:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-madeira/start.js"]
+    env_file: ["./env/seller-madeira.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/madeiramadeira/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  seller-tracking:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-tracking/start.js"]
+    env_file: ["./env/seller-tracking.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/avantracking/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  seller-log:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-log/start.js"]
+    env_file: ["./env/seller-log.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/davanttilog/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  seller-leader:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-leader/start.js"]
+    env_file: ["./env/seller-leader.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/skuleader/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  business-portal:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: business}
+    image: dachbyte/business:local
+    command: ["node", "apps/business/product-server.cjs"]
+    env_file: ["./env/business-portal.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DACHBYTE_PRODUCT: portal
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/business/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  business-core:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: core}
+    image: dachbyte/core:local
+    command: ["node", "apps/business/product-server.cjs"]
+    env_file: ["./env/business-core.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DACHBYTE_PRODUCT: core
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/core/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  business-stock:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: stock}
+    image: dachbyte/stock:local
+    command: ["node", "apps/business/product-server.cjs"]
+    env_file: ["./env/business-stock.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DACHBYTE_PRODUCT: stock
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/voltstock/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  business-chat:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: chat}
+    image: dachbyte/chat:local
+    command: ["node", "apps/business/product-server.cjs"]
+    env_file: ["./env/business-chat.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DACHBYTE_PRODUCT: chat
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/chat/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  business-price:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: business}
+    image: dachbyte/business:local
+    command: ["node", "apps/business/product-server.cjs"]
+    env_file: ["./env/business-price.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DACHBYTE_PRODUCT: price
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/volt-price/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  business-chat-api:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/chat-api.Dockerfile}
+    env_file: ["./env/business-chat-api.env", "./env/hub.env"]
+    volumes: ["chat_uploads:/data/uploads"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  postgres:
+    <<: *runtime
+    image: postgres:18-bookworm
+    networks: [data]
+    env_file: ["./env/postgres.env"]
+    volumes: ["postgres_data:/var/lib/postgresql"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  redis:
+    <<: *runtime
+    image: redis:7-alpine
+    networks: [data]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes: ["redis_data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+networks:
+  edge: {}
+  data:
+    internal: true
+volumes:
+  postgres_data: {}
+  redis_data: {}
+  caddy_data: {}
+  caddy_config: {}
+  chat_uploads: {}
+  ml_results: {}

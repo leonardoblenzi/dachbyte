@@ -1,0 +1,9 @@
+BEGIN;
+
+ALTER TABLE "GiftCampaignMainItem"
+  ADD COLUMN IF NOT EXISTS "costCents" INTEGER;
+
+ALTER TABLE "GiftCampaignGiftItem"
+  ADD COLUMN IF NOT EXISTS "costCents" INTEGER;
+
+COMMIT;

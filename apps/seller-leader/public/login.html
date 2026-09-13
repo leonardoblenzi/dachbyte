@@ -1,0 +1,86 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-leader">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | DACHBYTE Leader</title>
+  <link rel="icon" type="image/svg+xml" href="/skuleader/assets/dachbyte-seller-mark.svg?v=1" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=7" />
+  <link rel="stylesheet" href="/skuleader/login.css" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="skuleader-login-body">
+  <main class="skuleader-login-wrap">
+    <section class="skuleader-login-card">
+      <img src="/brand/dachbyte/seller/mark-transparent.png" alt="DACHBYTE Seller" class="skuleader-login-logo" />
+      <p class="eyebrow">Controle e Vendas Estrategicas</p>
+      <h1>Entrar no DACHBYTE Leader</h1>
+      <p>Acesso unico do modulo com tenant global da empresa vinculada ao usuario.</p>
+
+      <form id="login-form" class="skuleader-login-actions" autocomplete="on">
+        <label class="auth-field">
+          <span>E-mail</span>
+          <input id="email" name="email" type="email" placeholder="seu@email.com" required />
+        </label>
+        <label class="auth-field">
+          <span>Senha</span>
+          <input id="senha" name="senha" type="password" placeholder="Sua senha" required />
+        </label>
+        <button id="btn-login" class="btn btn--primary" type="submit">Entrar</button>
+        <a class="btn btn--ghost" href="/selecao-plataforma">Voltar para seleção de plataforma</a>
+        <p id="msg" class="login-msg" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const form = document.getElementById("login-form");
+      const btn = document.getElementById("btn-login");
+      const msg = document.getElementById("msg");
+
+      function show(text, ok) {
+        msg.textContent = text || "";
+        msg.className = ok ? "login-msg ok" : "login-msg err";
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const email = String(document.getElementById("email").value || "").trim();
+        const senha = String(document.getElementById("senha").value || "");
+
+        if (!email || !senha) {
+          show("Preencha email e senha.", false);
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Entrando...";
+        show("", true);
+
+        try {
+          const response = await fetch("/skuleader/api/auth/login", {
+            method: "POST",
+            credentials: "include",
+            headers: { "content-type": "application/json", accept: "application/json" },
+            body: JSON.stringify({ email, senha }),
+          });
+          const data = await response.json().catch(() => ({}));
+
+          if (!response.ok || !data?.ok) {
+            show(data?.error || "Falha ao entrar.", false);
+            return;
+          }
+
+          window.location.href = data.redirect || "/skuleader";
+        } catch (_error) {
+          show("Erro de rede ao autenticar.", false);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Entrar";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Full | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/full.css?v=19" />
+  <link rel="stylesheet" href="/ml/css/anuncios.css?v=2026080802" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="full-app ads-app">
+  <main class="full-page">
+    <header class="full-page-header">
+      <div>
+        <div class="full-page-header__eyebrow">Anúncios</div>
+        <h1>Full</h1>
+        <p>Acompanhe o estoque no Full, planeje reposições e monte cargas com foco em cobertura e necessidade real.</p>
+      </div>
+    </header>
+
+    <section class="full-card full-toolbar-card">
+      <div class="full-toolbar-card__top">
+        <div class="full-toolbar-card__meta">
+          <span class="full-toolbar-card__label">Operação Full</span>
+          <small id="fullSyncLabel" class="full-sync-label">Aguardando atualização</small>
+        </div>
+        <button id="btnSyncFull" class="full-btn full-btn--primary" type="button">Atualizar Full</button>
+      </div>
+      <div class="full-tabs" role="tablist" aria-label="Navegação Full">
+        <button class="is-active" type="button" data-full-tab="products" role="tab" aria-selected="true">Produtos no Full</button>
+        <button type="button" data-full-tab="planner" role="tab" aria-selected="false">Planejador de carga</button>
+        <button type="button" data-full-tab="plans" role="tab" aria-selected="false">Planejamentos salvos</button>
+      </div>
+    </section>
+
+    <section id="fullKpis" class="full-kpi-grid" aria-live="polite"></section>
+
+    <section class="full-tab-panel is-active" data-full-panel="products">
+      <section class="full-card full-filters">
+        <form id="fullProductsFilters" class="full-filter-grid">
+          <label class="full-field">
+            <span>Buscar</span>
+            <input id="fullSearch" type="search" placeholder="SKU, MLB ou título" autocomplete="off" />
+          </label>
+          <label class="full-field">
+            <span>Ordenar</span>
+            <select id="fullSort">
+              <option value="suggested">Maior reposição sugerida</option>
+              <option value="sold">Mais vendidos 30d</option>
+              <option value="coverage">Menor cobertura</option>
+              <option value="stock">Menor estoque</option>
+            </select>
+          </label>
+          <button class="full-btn full-btn--ghost" type="submit">Aplicar filtros</button>
+        </form>
+      </section>
+
+      <section class="full-card">
+        <div class="full-section-head">
+          <div class="full-section-head__title">
+            <span>Produtos no Full</span>
+            <small id="fullProductsMeta">Clique em atualizar para carregar os produtos.</small>
+          </div>
+        </div>
+        <div class="full-table-wrap">
+          <table class="full-table">
+            <thead><tr><th>Produto</th><th>Estoque Full</th><th>Vendas 7/15/30d</th><th>Cobertura</th><th>Reposição 30d</th><th>Status</th></tr></thead>
+            <tbody id="fullProductsBody"><tr><td colspan="6" class="full-empty">Clique em Atualizar Full para iniciar.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section class="full-tab-panel" data-full-panel="planner">
+      <section class="full-card">
+        <div class="full-section-head">
+          <div class="full-section-head__title">
+            <span>Configuração da carga</span>
+            <small>Defina o cenário principal. Limites e filtros menos usados ficam em opções avançadas.</small>
+          </div>
+        </div>
+        <form id="fullPlannerForm" class="full-planner-grid">
+          <div class="full-field full-mode-field">
+            <span>Modo</span>
+            <div class="full-segment" role="group" aria-label="Modo do planejador">
+              <button id="plannerModeReplenishment" class="is-active" type="button" data-planner-mode="replenishment">Reposição</button>
+              <button id="plannerModeSelection" type="button" data-planner-mode="selection">Nova carga</button>
+              <button id="plannerModeManual" type="button" data-planner-mode="manual">Manual</button>
+            </div>
+          </div>
+          <label class="full-field">
+            <span>Período</span>
+            <select id="plannerPeriod">
+              <option value="7d">Últimos 7 dias</option>
+              <option value="15d">Últimos 15 dias</option>
+              <option value="30d" selected>Últimos 30 dias</option>
+              <option value="custom">Data personalizada</option>
+            </select>
+          </label>
+          <label class="full-field">
+            <span>Cobertura alvo</span>
+            <select id="plannerCoverage">
+              <option value="15">15 dias</option>
+              <option value="30" selected>30 dias</option>
+              <option value="45">45 dias</option>
+              <option value="60">60 dias</option>
+            </select>
+          </label>
+          <label class="full-field">
+            <span>Margem de segurança</span>
+            <select id="plannerSafety">
+              <option value="0" selected>0%</option>
+              <option value="0.1">10%</option>
+              <option value="0.2">20%</option>
+              <option value="0.3">30%</option>
+            </select>
+          </label>
+          <button class="full-btn full-btn--primary full-planner-primary-action" type="submit">Calcular carga</button>
+
+          <details class="ads-disclosure ads-advanced-disclosure full-planner-advanced">
+            <summary><span>Opções avançadas</span><small>Datas, limites, capacidade, frete e seleção manual</small></summary>
+            <div class="ads-disclosure-body">
+              <label class="full-field full-custom-date">
+                <span>Data inicial</span>
+                <input id="plannerDateFrom" type="date" />
+              </label>
+              <label class="full-field full-custom-date">
+                <span>Data final</span>
+                <input id="plannerDateTo" type="date" />
+              </label>
+              <label class="full-field">
+                <span>Mínimo sugerido</span>
+                <input id="plannerMinSuggestion" type="number" min="0" value="0" />
+              </label>
+              <label class="full-field">
+                <span>Máximo de itens</span>
+                <input id="plannerMaxItems" type="number" min="1" max="100" value="25" />
+              </label>
+              <label class="full-field">
+                <span>Armazenamento disponível</span>
+                <input id="plannerStorageCapacity" type="number" min="0" value="0" placeholder="Ex.: 100" />
+              </label>
+              <label class="full-field">
+                <span>Frete da carga</span>
+                <input id="plannerFreightValue" type="text" inputmode="decimal" placeholder="Ex.: 5000" />
+              </label>
+              <label class="full-check">
+                <input id="plannerIncludeIdle" type="checkbox" checked />
+                <span>Incluir itens sem venda</span>
+              </label>
+              <div id="plannerSelectionPools" class="full-selection-pools is-hidden">
+                <span class="full-field-label">Grupo de planejamento</span>
+                <div class="full-pool-switch" role="group" aria-label="Grupo de planejamento">
+                  <button type="button" class="is-active" data-selection-group="all">Ver ambos</button>
+                  <button type="button" data-selection-group="small_medium">Pequenos/médios</button>
+                  <button type="button" data-selection-group="large_xlarge">Grandes/extragrandes</button>
+                </div>
+              </div>
+              <label id="plannerManualPanel" class="full-field full-manual-panel is-hidden">
+                <span>MLBs manuais</span>
+                <textarea id="plannerManualMlbs" rows="3" placeholder="Ex.: MLB4309723471"></textarea>
+              </label>
+            </div>
+          </details>
+        </form>
+      </section>
+
+      <section id="fullPlannerTotals" class="full-kpi-grid full-kpi-grid--compact" aria-live="polite"></section>
+
+      <section class="full-card">
+        <div class="full-section-head">
+          <div class="full-section-head__title">
+            <span>Planejamento de carga</span>
+            <small id="fullPlannerMeta">Ajuste os filtros e calcule a sugestão.</small>
+          </div>
+          <div class="full-section-head__actions">
+            <button id="btnRecalculateSuggestion" class="full-btn full-btn--ghost" type="button" disabled>Recalcular sugerido</button>
+            <button id="btnSavePlan" class="full-btn full-btn--ghost" type="button" disabled>Salvar planejamento</button>
+          </div>
+        </div>
+        <div class="full-table-wrap">
+          <table class="full-table">
+            <thead><tr><th>Produto</th><th>Vendidos</th><th>Tendência 7/15/30</th><th>Média/dia</th><th>Estoque</th><th>Cobertura após envio</th><th>M³</th><th>Enviar</th><th>Sugerido</th><th>Diagnóstico</th><th></th></tr></thead>
+            <tbody id="fullPlannerBody"><tr><td colspan="11" class="full-empty">Nenhum planejamento calculado ainda.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section class="full-tab-panel" data-full-panel="plans">
+      <div class="full-plans-layout">
+        <section class="full-card">
+          <div class="full-section-head">
+            <div class="full-section-head__title">
+              <span>Planejamentos salvos</span>
+              <small>Selecione um planejamento para abrir o detalhe.</small>
+            </div>
+            <button id="btnReloadPlans" class="full-btn full-btn--ghost" type="button">Recarregar</button>
+          </div>
+          <div id="fullPlansList" class="full-plans-list"></div>
+        </section>
+
+        <section class="full-card">
+          <div class="full-section-head">
+            <div class="full-section-head__title">
+              <span>Detalhe salvo</span>
+              <small id="fullPlanDetailMeta">Selecione um planejamento salvo.</small>
+            </div>
+          </div>
+          <div class="full-table-wrap">
+            <table class="full-table">
+              <thead><tr><th>Produto</th><th>Vendidos</th><th>Tendência 7/15/30</th><th>Média/dia</th><th>Estoque</th><th>Cobertura após envio</th><th>M³</th><th>Enviar</th><th>Sugerido</th><th>Diagnóstico</th></tr></thead>
+              <tbody id="fullPlanDetailBody"><tr><td colspan="10" class="full-empty">Nenhum planejamento aberto.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div id="fullPlanModal" class="full-modal" hidden>
+    <div class="full-modal__backdrop" data-full-modal-close></div>
+    <section class="full-modal__panel" role="dialog" aria-modal="true" aria-labelledby="fullPlanModalTitle">
+      <div class="full-modal__head">
+        <div><span class="full-modal__eyebrow">Planejamento Full</span><h2 id="fullPlanModalTitle">Salvar planejamento</h2></div>
+        <button class="full-modal__close" type="button" data-full-modal-close aria-label="Fechar">x</button>
+      </div>
+      <label class="full-modal__field"><span>Nome</span><input id="fullPlanName" type="text" maxlength="120" /></label>
+      <label class="full-modal__field"><span>Observação</span><textarea id="fullPlanObservation" rows="3" placeholder="Ex.: carga para envio da próxima semana"></textarea></label>
+      <div class="full-modal__actions">
+        <button class="full-btn full-btn--ghost" type="button" data-full-modal-close>Cancelar</button>
+        <button id="btnConfirmSavePlan" class="full-btn full-btn--primary" type="button">Salvar</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="/ml/js/full.js?v=21"></script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+:root{
+  --ml-loading-overlay:rgba(9,16,30,.14);
+  --ml-loading-panel-bg:rgba(255,255,255,.86);
+  --ml-loading-panel-border:rgba(148,163,184,.18);
+  --ml-loading-track:rgba(191,219,254,.42);
+  --ml-loading-fill-start:#39d3ef;
+  --ml-loading-fill-mid:#4fc7ef;
+  --ml-loading-fill-end:#2563eb;
+  --ml-loading-title:#17203b;
+  --ml-loading-text:#64748b;
+  --ml-loading-percent:#2563eb;
+}
+
+.ml-loading-screen[hidden]{
+  display:none !important;
+}
+
+.ml-loading-screen{
+  position:fixed;
+  inset:0;
+  z-index:12000;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  background:var(--ml-loading-overlay);
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:opacity .2s ease, visibility .2s ease;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+
+.ml-loading-screen.is-visible{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+}
+
+.ml-loading-screen__content{
+  width:min(100%, 440px);
+}
+
+.ml-loading-screen__panel{
+  display:grid;
+  gap:12px;
+  padding:18px 20px;
+  border-radius:22px;
+  border:1px solid var(--ml-loading-panel-border);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.94), rgba(247,250,255,.9)),
+    linear-gradient(135deg, rgba(52,131,250,.04), rgba(255,230,0,.03));
+  box-shadow:0 24px 40px rgba(15,23,42,.08);
+}
+
+.ml-loading-screen__context{
+  display:none !important;
+}
+
+.ml-loading-screen__head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.ml-loading-screen__title-wrap{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+}
+
+.ml-loading-screen__spinner{
+  position:relative;
+  width:28px;
+  height:28px;
+  flex:0 0 28px;
+  border-radius:50%;
+  background:
+    conic-gradient(
+      from -90deg,
+      rgba(57,211,239,.12) 0deg,
+      rgba(57,211,239,.12) 200deg,
+      var(--ml-loading-fill-end) 300deg,
+      var(--ml-loading-fill-start) 360deg
+    );
+  box-shadow:0 8px 18px rgba(37,99,235,.14);
+  animation:mlLoadingSpin .95s linear infinite;
+}
+
+.ml-loading-screen__spinner::after{
+  content:"";
+  position:absolute;
+  inset:5px;
+  border-radius:50%;
+  background:linear-gradient(180deg, #ffffff, #f6f9ff);
+}
+
+.ml-loading-screen__label{
+  color:var(--ml-loading-title);
+  font-size:1.02rem;
+  font-weight:800;
+  letter-spacing:-.02em;
+}
+
+.ml-loading-screen__percent{
+  color:var(--ml-loading-percent);
+  font-size:.88rem;
+  font-weight:800;
+}
+
+.ml-loading-screen__text{
+  color:var(--ml-loading-text);
+  font-size:.94rem;
+  line-height:1.55;
+}
+
+.ml-loading-screen__track{
+  position:relative;
+  height:10px;
+  overflow:hidden;
+  border-radius:999px;
+  background:var(--ml-loading-track);
+}
+
+.ml-loading-screen__bar{
+  display:block;
+  height:100%;
+  width:18%;
+  border-radius:inherit;
+  background:linear-gradient(90deg, var(--ml-loading-fill-start), var(--ml-loading-fill-mid) 52%, var(--ml-loading-fill-end));
+  box-shadow:0 8px 18px rgba(37,99,235,.18);
+  transition:width .22s ease;
+}
+
+@keyframes mlLoadingSpin{
+  to{transform:rotate(360deg);}
+}
+
+@media (max-width: 640px){
+  .ml-loading-screen__panel{
+    padding:16px 16px;
+    border-radius:18px;
+  }
+
+  .ml-loading-screen__head{
+    align-items:flex-start;
+  }
+
+  .ml-loading-screen__title-wrap{
+    gap:10px;
+  }
+
+  .ml-loading-screen__label{
+    font-size:.98rem;
+  }
+}
+
+/* Theme-aware loading overlay */
+body.theme-dark{
+  --ml-loading-overlay:rgba(2,6,23,.46);
+  --ml-loading-panel-bg:#101c30;
+  --ml-loading-panel-border:rgba(148,163,184,.20);
+  --ml-loading-track:rgba(96,165,250,.16);
+  --ml-loading-title:#f1f5f9;
+  --ml-loading-text:#9fb0c7;
+  --ml-loading-percent:#7db3ff;
+}
+body.theme-dark .ml-loading-screen{
+  background:var(--ml-loading-overlay);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+body.theme-dark .ml-loading-screen__panel{
+  background:
+    radial-gradient(circle at 90% 0%,rgba(96,165,250,.10),transparent 32%),
+    linear-gradient(180deg,#13233b,#101c30);
+  border-color:var(--ml-loading-panel-border);
+  box-shadow:0 28px 72px rgba(2,6,23,.42);
+}
+body.theme-dark .ml-loading-screen__spinner::after{
+  background:linear-gradient(180deg,#13233b,#101c30);
+}
+body.theme-dark .ml-loading-screen__track{
+  box-shadow:inset 0 0 0 1px rgba(148,163,184,.08);
+}

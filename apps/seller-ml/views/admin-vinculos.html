@@ -1,0 +1,179 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="stylesheet" href="/ml/css/ml-app.css?v=7" />
+<title>Admin - Vinculos</title>
+
+  <link rel="stylesheet" href="/ml/css/admin-usuarios.css?v=5">
+    <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/ml/css/ml-master-theme.css?v=2026081301" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+<main class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar__brand">
+        <div class="admin-sidebar__logo">DACHBYTE</div>
+        <div class="admin-sidebar__sub">Administracao</div>
+      </div>
+
+      <nav class="admin-menu">
+         <a class="admin-menu__item" href="/ml/admin/usuarios">
+          <span class="ico">U</span>
+          <span>Usuarios</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/empresas">
+          <span class="ico">E</span>
+          <span>Empresas</span>
+        </a>
+
+        <a class="admin-menu__item active" href="/ml/admin/vinculos">
+          <span class="ico">V</span>
+          <span>Vinculos</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/contas-ml">
+          <span class="ico">M</span>
+          <span>Contas ML</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/relatorios-ml"><span class="ico">R</span><span>Relatorios ML</span></a>
+
+        <a class="admin-menu__item" href="/ml/admin/tokens-ml">
+          <span class="ico">T</span>
+          <span>Tokens ML</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/oauth-states">
+          <span class="ico">O</span>
+          <span>OAuth States</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/migracoes">
+          <span class="ico">G</span>
+          <span>Migracoes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/patch-notes">
+            <span class="ico">P</span><span>Patch Notes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/jobs">
+            <span class="ico">J</span><span>Automacoes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/backup">
+            <span class="ico">B</span><span>Backup</span>
+        </a>
+      </nav>
+
+      <div class="admin-sidebar__footer">
+        <small>Area restrita</small>
+      </div>
+    </aside>
+
+    <section class="admin-content">
+      <div class="admin-content__header">
+        <div>
+          <h1 class="admin-title">Listagem de vinculos</h1>
+          <p class="admin-subtitle">
+            Vincule usuarios a empresas e defina o papel (owner/admin/operador).
+          </p>
+        </div>
+
+        <div class="admin-actions">
+          <button id="btn-refresh" class="btn-lite" type="button">Atualizar</button>
+          <button id="btn-create" class="btn-primary" type="button">+ Vincular</button>
+        </div>
+      </div>
+
+      <div class="admin-toolbar">
+        <div class="search-box">
+          <input id="search" type="text" placeholder="Pesquisar por empresa, usuario, email, papel ou ID..." />
+          <button id="btn-clear" type="button" class="search-clear" title="Limpar"></button>
+        </div>
+
+        <div class="toolbar-right">
+          <span class="pill" id="count-pill">0 vinculos</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th style="width:90px;">ID</th>
+                <th>Empresa</th>
+                <th>Usuario</th>
+                <th style="width:140px;">Papel</th>
+                <th style="width:180px;">Criado</th>
+                <th style="width:120px; text-align:right;">Acoes</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr><td colspan="6" class="table-empty">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer">
+          <div class="table-footer__left" id="range-info"></div>
+
+          <div class="table-footer__right">
+            <button class="btn-lite" id="btn-prev" type="button"><</button>
+            <span class="page-info" id="page-info">1 / 1</span>
+            <button class="btn-lite" id="btn-next" type="button">></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="hint">
+        Dica: o vinculo define a relacao do usuario com a empresa. Para liberar telas do Mercado Livre, ajuste tambem o Nivel em Usuarios. Deixe owner apenas para o dono da empresa.
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal Criar/Editar -->
+  <div class="modal" id="modal-link" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">Vincular usuario</h3>
+        <button class="close" id="modal-close" type="button"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label>Empresa *</label>
+            <select id="f-empresa"></select>
+          </div>
+
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label>Usuario *</label>
+            <select id="f-usuario"></select>
+          </div>
+
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label>Papel *</label>
+            <select id="f-papel">
+              <option value="owner">owner</option>
+              <option value="admin">admin</option>
+              <option value="operador" selected>operador</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-error" id="form-error" style="display:none;"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-lite" id="btn-cancel" type="button">Cancelar</button>
+        <button class="btn-primary" id="btn-save" type="button">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" style="display:none;"></div>
+<script src="/ml/js/admin-vinculos.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Curva ABC | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/curva-abc.css?v=7" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="curva-abc" data-default-days="7">
+  <main class="abc-page">
+    <div class="abc-wrap">
+      <section class="abc-card abc-hero">
+        <div class="abc-hero__content">
+          <span class="abc-eyebrow">INTELIGÊNCIA</span>
+          <h1>Curva ABC</h1>
+          <p>Entenda quais anúncios concentram faturamento e unidades no período, compare as curvas A, B e C e aprofunde a leitura com visitas, promoções e publicidade quando necessário.</p>
+        </div>
+        <div class="abc-hero__status" aria-label="Características da análise">
+          <span><i class="abc-status-dot"></i>Conta ativa</span>
+          <span>Tempo real</span>
+        </div>
+      </section>
+
+      <section class="abc-card abc-controls">
+        <div class="abc-section-head">
+          <div>
+            <span class="abc-section-kicker">RECORTE</span>
+            <h2>Filtros da análise</h2>
+            <p>Os dados são consultados usando a conta Mercado Livre selecionada no topo.</p>
+          </div>
+          <button id="btnPesquisar" class="abc-btn abc-btn--primary" type="button">Atualizar análise</button>
+        </div>
+
+        <div class="abc-filter-grid">
+          <label class="abc-field" for="fDateFrom">
+            <span>Data inicial</span>
+            <input id="fDateFrom" type="date" class="input" />
+          </label>
+
+          <label class="abc-field" for="fDateTo">
+            <span>Data final</span>
+            <input id="fDateTo" type="date" class="input" />
+          </label>
+
+          <label class="abc-field" for="fFull">
+            <span>Logística FULL</span>
+            <select id="fFull" class="input">
+              <option value="all">Todos</option>
+              <option value="only">Apenas FULL</option>
+              <option value="skip">Sem FULL</option>
+            </select>
+          </label>
+
+          <div class="abc-filter-hint">
+            <span class="abc-info-icon" aria-hidden="true">i</span>
+            <div>
+              <strong>Período</strong>
+              <span id="dateDefaultHint">Padrão: últimos 7 dias</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="abc-options-grid">
+          <div class="abc-option-block">
+            <span class="abc-option-label">Agrupar por</span>
+            <div class="switch-group" id="switch-groupby">
+              <button class="btn-switch" data-group="mlb_sku" type="button">SKU</button>
+              <button class="btn-switch active" data-group="mlb" type="button">MLB</button>
+            </div>
+          </div>
+
+          <div class="abc-option-block">
+            <span class="abc-option-label">Base da curva</span>
+            <div class="switch-group" id="switch-metric">
+              <button class="btn-switch active" data-metric="revenue" type="button">Faturamento</button>
+              <button class="btn-switch" data-metric="units" type="button">Unidades</button>
+            </div>
+          </div>
+
+          <div class="abc-option-block abc-option-block--wide">
+            <span class="abc-option-label">Dados adicionais</span>
+            <div class="switch-group" id="switch-extras" aria-label="Métricas opcionais">
+              <button id="btnIncludeAds" class="btn-switch" type="button" aria-pressed="false">Ads</button>
+              <button id="btnIncludeVisits" class="btn-switch" type="button" aria-pressed="false">Visitas</button>
+              <button id="btnIncludePromos" class="btn-switch" type="button" aria-pressed="false">Promoções</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="abc-controls-footer">
+          <div class="abc-note">
+            <span class="abc-info-icon" aria-hidden="true">i</span>
+            <p>Cancelamentos não entram na curva. Na visão por SKU, somente vendas com SKU identificado são consideradas. Extras aumentam o tempo de processamento.</p>
+          </div>
+          <div class="abc-export-actions">
+            <button class="abc-btn abc-btn--secondary" id="btnExportCsv" title="Exportar CSV" type="button">Exportar CSV</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="abc-kpi-grid" aria-label="Resumo das curvas">
+        <article class="abc-kpi-card abc-kpi-card--a selected" data-curve="A" tabindex="0">
+          <div class="abc-kpi-head">
+            <div>
+              <span class="abc-curve-label">Curva A</span>
+              <strong>Maior impacto</strong>
+            </div>
+            <span class="abc-curve-dot"></span>
+          </div>
+          <p class="abc-kpi-meta" id="cardAmeta"></p>
+          <div class="abc-kpi-values">
+            <div><span>Valor</span><b id="kA_value">—</b></div>
+            <div><span>Participação</span><b id="kA_share">—</b></div>
+            <div><span>Unidades</span><b id="kA_units">—</b></div>
+            <div><span>Itens</span><b id="kA_items">—</b></div>
+            <div><span>Ticket médio</span><b id="kA_ticket">—</b></div>
+          </div>
+        </article>
+
+        <article class="abc-kpi-card abc-kpi-card--b" data-curve="B" tabindex="0">
+          <div class="abc-kpi-head">
+            <div>
+              <span class="abc-curve-label">Curva B</span>
+              <strong>Impacto intermediário</strong>
+            </div>
+            <span class="abc-curve-dot"></span>
+          </div>
+          <p class="abc-kpi-meta" id="cardBmeta"></p>
+          <div class="abc-kpi-values">
+            <div><span>Valor</span><b id="kB_value">—</b></div>
+            <div><span>Participação</span><b id="kB_share">—</b></div>
+            <div><span>Unidades</span><b id="kB_units">—</b></div>
+            <div><span>Itens</span><b id="kB_items">—</b></div>
+            <div><span>Ticket médio</span><b id="kB_ticket">—</b></div>
+          </div>
+        </article>
+
+        <article class="abc-kpi-card abc-kpi-card--c" data-curve="C" tabindex="0">
+          <div class="abc-kpi-head">
+            <div>
+              <span class="abc-curve-label">Curva C</span>
+              <strong>Cauda do mix</strong>
+            </div>
+            <span class="abc-curve-dot"></span>
+          </div>
+          <p class="abc-kpi-meta" id="cardCmeta"></p>
+          <div class="abc-kpi-values">
+            <div><span>Valor</span><b id="kC_value">—</b></div>
+            <div><span>Participação</span><b id="kC_share">—</b></div>
+            <div><span>Unidades</span><b id="kC_units">—</b></div>
+            <div><span>Itens</span><b id="kC_items">—</b></div>
+            <div><span>Ticket médio</span><b id="kC_ticket">—</b></div>
+          </div>
+        </article>
+
+        <article class="abc-kpi-card abc-kpi-card--total" id="cardTotal" tabindex="0">
+          <div class="abc-kpi-head">
+            <div>
+              <span class="abc-curve-label">Período</span>
+              <strong>Faturamento total</strong>
+            </div>
+            <span class="abc-curve-dot"></span>
+          </div>
+          <p class="abc-kpi-meta">Base consolidada da leitura atual</p>
+          <div class="abc-kpi-values abc-kpi-values--total">
+            <div><span>Valor</span><b id="kT_value">—</b></div>
+            <div><span>Unidades</span><b id="kT_units">—</b></div>
+            <div><span>Itens</span><b id="kT_items">—</b></div>
+            <div><span>Ticket médio</span><b id="kT_ticket">—</b></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="abc-top-grid">
+        <article class="abc-card abc-top-card">
+          <div class="abc-top-card__head">
+            <span class="abc-mini-badge abc-mini-badge--a">A</span>
+            <div><span>CURVA A</span><h3>Top 5 itens</h3></div>
+          </div>
+          <ul id="listA"></ul>
+        </article>
+
+        <article class="abc-card abc-top-card">
+          <div class="abc-top-card__head">
+            <span class="abc-mini-badge abc-mini-badge--b">B</span>
+            <div><span>CURVA B</span><h3>Top 5 itens</h3></div>
+          </div>
+          <ul id="listB"></ul>
+        </article>
+
+        <article class="abc-card abc-top-card">
+          <div class="abc-top-card__head">
+            <span class="abc-mini-badge abc-mini-badge--c">C</span>
+            <div><span>CURVA C</span><h3>Top 5 itens</h3></div>
+          </div>
+          <ul id="listC"></ul>
+        </article>
+      </section>
+
+      <section class="abc-card abc-table-card">
+        <div class="abc-table-head">
+          <div>
+            <span class="abc-section-kicker">DETALHAMENTO</span>
+            <h2>Itens da leitura atual</h2>
+            <p>Selecione uma curva acima ou pesquise diretamente por MLB, SKU ou título.</p>
+          </div>
+          <label class="abc-search-field" for="fSearch">
+            <span>Buscar item</span>
+            <input id="fSearch" placeholder="MLB, SKU ou título" class="input" autocomplete="off" />
+          </label>
+        </div>
+
+        <div class="abc-table-scroll">
+          <table id="grid">
+            <thead>
+              <tr>
+                <th>Curva</th>
+                <th>MLB</th>
+                <th>Título</th>
+                <th>Unidades</th>
+                <th class="percent">Unid. %</th>
+                <th class="num">Valor</th>
+                <th class="percent">Fat. %</th>
+                <th class="promo">Promo</th>
+                <th class="percent">% aplicada</th>
+                <th>Ads</th>
+                <th class="num">Cliques</th>
+                <th class="num">Impr.</th>
+                <th class="num">Visitas</th>
+                <th class="percent">Conv.</th>
+                <th class="num">Invest.</th>
+                <th class="percent">ACOS</th>
+                <th class="num">Receita Ads</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div id="pager" class="abc-pager"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/ml/js/ia-analytics-curva-abc.js?v=7" defer></script>
+</body>
+</html>

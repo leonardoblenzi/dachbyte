@@ -1,0 +1,315 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-leader">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DACHBYTE Leader | Seller</title>
+  <link rel="icon" type="image/svg+xml" href="/skuleader/assets/dachbyte-seller-mark.svg?v=1" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=7" />
+  <link rel="stylesheet" href="/ml/css/ml-shell.css?v=12" />
+  <link rel="stylesheet" href="/skuleader/styles.css?v=4" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="ml-shell-ready skuleader-body">
+  <div class="ml-shell skuleader-shell">
+    <aside class="ml-shell__sidebar">
+      <div class="ml-shell__sidebar-inner">
+        <div class="ml-shell__sidebar-head">
+          <a class="ml-shell__brand" href="/skuleader">
+            <span class="ml-shell__brand-logo">
+              <img src="/brand/dachbyte/seller/mark-transparent.png" alt="DACHBYTE Seller" />
+            </span>
+            <span class="ml-shell__brand-copy">
+              <span class="ml-shell__brand-name">DACHBYTE Leader</span>
+              <span class="ml-shell__brand-sub">Estrategia Multicanal</span>
+            </span>
+          </a>
+        </div>
+
+        <nav class="ml-shell__nav skuleader-nav">
+          <section class="ml-shell__group is-active">
+            <button class="ml-shell__group-button" type="button" aria-expanded="true">
+              <span class="ml-shell__icon">#</span>
+              <span class="ml-shell__label-wrap">
+                <span class="ml-shell__label">DACHBYTE Leader</span>
+              </span>
+            </button>
+            <div class="ml-shell__children">
+              <a class="ml-shell__link ml-shell__child-link is-active" href="/skuleader">Dashboard Geral</a>
+            </div>
+          </section>
+        </nav>
+      </div>
+    </aside>
+
+    <div class="ml-shell__main">
+      <header class="ml-shell__topbar">
+        <div class="ml-shell__topbar-left">
+          <div class="ml-shell__page-context">
+            <div class="ml-shell__breadcrumb">Analytics / Estrategia de Produto</div>
+            <h1 class="ml-shell__page-title">SKU Leader</h1>
+          </div>
+        </div>
+
+        <div class="ml-shell__topbar-right">
+          <div class="ml-shell__account-chip">
+            <span class="ml-shell__account-chip-label">Conta</span>
+            <span class="ml-shell__account-chip-value" id="account-current">Carregando...</span>
+          </div>
+          <button id="btn-export" class="btn btn--ghost" type="button">Exportar CSV</button>
+          <button id="btn-logout" class="btn btn--ghost" type="button">Sair</button>
+        </div>
+      </header>
+
+      <div class="ml-shell__viewport">
+        <main class="skuleader-wrap">
+          <section class="page-brief page-brief--compact tab-scope" data-scope="dash">
+            <span class="page-brief__eyebrow">Protecao de SKU Lider</span>
+            <h2 class="page-brief__title">Cruze MeLi e Shopee por SKU e priorize o canal certo sem canibalizacao.</h2>
+            <p class="page-brief__text">Painel orientado ao ciclo acao -> medicao -> aprendizado -> decisao, com comparativo antes/depois e flags de alteracoes no grafico.</p>
+          </section>
+
+          <section class="filters tab-scope" data-scope="dash">
+            <label>Periodo
+              <select id="period">
+                <option value="3d" selected>3 dias</option>
+                <option value="7d">7 dias</option>
+                <option value="15d">15 dias</option>
+                <option value="30d">30 dias</option>
+                <option value="45d">45 dias</option>
+                <option value="60d">60 dias</option>
+                <option value="custom">Personalizado</option>
+              </select>
+            </label>
+            <label>Comparacao
+              <select id="compare-mode">
+                <option value="previous_period" selected>Periodo anterior</option>
+                <option value="none">Sem comparacao</option>
+              </select>
+            </label>
+            <label>De
+              <input id="from" type="date" disabled />
+            </label>
+            <label>Ate
+              <input id="to" type="date" disabled />
+            </label>
+            <label>Buscar SKU
+              <input id="q" type="search" placeholder="SKU ou titulo" />
+            </label>
+            <label>Janela impacto
+              <select id="impact-window">
+                <option value="3">3 dias</option>
+                <option value="7" selected>7 dias</option>
+                <option value="14">14 dias</option>
+                <option value="15">15 dias</option>
+                <option value="30">30 dias</option>
+                <option value="45">45 dias</option>
+                <option value="60">60 dias</option>
+              </select>
+            </label>
+            <button id="btn-apply" class="btn" type="button">Aplicar filtros</button>
+          </section>
+
+          <nav class="tabs" aria-label="Abas do modulo">
+            <button class="tab is-active" data-tab="geral" type="button">Geral</button>
+            <button class="tab" data-tab="meli" type="button">MeLi</button>
+            <button class="tab" data-tab="shopee" type="button">Shopee</button>
+            <button class="tab" data-tab="controlados" type="button">SKUs Controlados</button>
+            <button class="tab" data-tab="skus" type="button">Controle SKUs</button>
+            <button class="tab" data-tab="config" type="button">Configuracao</button>
+          </nav>
+
+          <section class="kpis tab-scope" data-scope="dash" id="kpis"></section>
+
+          <section class="grid grid--2 tab-scope" data-scope="dash">
+            <article class="card">
+              <header class="card__head">
+                <h2>Top ganhos por SKU</h2>
+                <p class="muted">Maior crescimento no periodo filtrado.</p>
+              </header>
+              <ul id="top-gains" class="actions"></ul>
+            </article>
+            <article class="card">
+              <header class="card__head">
+                <h2>Top quedas por SKU</h2>
+                <p class="muted">Maior queda no periodo filtrado.</p>
+              </header>
+              <ul id="top-losses" class="actions"></ul>
+            </article>
+          </section>
+
+          <section class="grid tab-scope" data-scope="dash">
+            <article class="card card--table">
+              <header class="card__head">
+                <h2>SKUs Cruzados</h2>
+                <p id="table-meta" class="muted">Carregando...</p>
+              </header>
+              <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+                <input id="sku-table-search" type="search" placeholder="Pesquisar na tabela por SKU ou nome" style="max-width:360px;width:100%;" />
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>SKU</th>
+                      <th>Canal Lider</th>
+                      <th>Estrategia</th>
+                      <th>Faturamento Geral</th>
+                      <th>Faturamento MeLi</th>
+                      <th>Faturamento Shopee</th>
+                      <th>Crescimento</th>
+                      <th>Sugestao</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sku-body">
+                    <tr><td colspan="8" class="empty">Carregando...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="card card--timeline">
+              <header class="card__head">
+                <h2 id="timeline-title">Evolucao do SKU</h2>
+                <p class="muted">Flags vermelhas representam acoes marcadas.</p>
+              </header>
+              <canvas id="timeline" width="900" height="300"></canvas>
+            </article>
+          </section>
+
+          <section class="grid grid--2 tab-scope" data-scope="dash">
+            <article class="card">
+              <header class="card__head">
+                <h2>Checklist e Lembretes</h2>
+                <p class="muted">Acoes para o SKU selecionado.</p>
+              </header>
+
+              <form id="action-form" class="action-form">
+                <input id="action-title" type="text" placeholder="Nova acao" required />
+                <select id="action-channel">
+                  <option value="geral">Geral</option>
+                  <option value="meli">MeLi</option>
+                  <option value="shopee">Shopee</option>
+                </select>
+                <select id="action-type">
+                  <option value="checklist">Checklist</option>
+                  <option value="lembrete">Lembrete</option>
+                  <option value="ajuste">Ajuste</option>
+                  <option value="teste">Teste</option>
+                </select>
+                <input id="action-due" type="date" />
+                <label class="inline"><input id="action-red" type="checkbox" /> Flag vermelha</label>
+                <button class="btn" type="submit">Adicionar</button>
+              </form>
+
+              <ul id="actions" class="actions"></ul>
+            </article>
+
+            <article class="card">
+              <header class="card__head">
+                <h2>Ranking de Impacto</h2>
+                <p class="muted" id="impact-meta">Janela antes/depois.</p>
+              </header>
+              <ul id="impact-ranking" class="actions"></ul>
+            </article>
+          </section>
+
+          <section class="grid tab-scope" data-scope="controlados" hidden>
+            <article class="card">
+              <header class="card__head">
+                <h2>SKUs em Controle</h2>
+                <p class="muted">Gerencie quais SKUs entram no comparativo e remova do controle quando necessário.</p>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                  <button id="controlled-sync-btn" class="btn" type="button">Atualizar métricas</button>
+                  <span id="controlled-sync-meta" class="muted">Sincronização automática a cada 4 horas.</span>
+                </div>
+              </header>
+              <ul id="controlled-skus-list" class="actions"></ul>
+            </article>
+          </section>
+
+          <section class="grid grid--2 tab-scope" data-scope="skus" hidden>
+            <article class="card">
+              <header class="card__head">
+                <h2>Controle de SKUs</h2>
+                <p class="muted">Busque SKU referencia ou titulo nos bancos da empresa (tenant) e vincule MeLi + Shopee para comparativo.</p>
+              </header>
+
+              <div class="sku-link-form">
+                <label>SKU referencia interno
+                  <input id="sku-link-ref" type="text" placeholder="Ex.: cadeira-gamer-x" />
+                </label>
+                <label>EAN MeLi (opcional)
+                  <input id="sku-link-ean-meli" type="text" placeholder="Somente numeros" />
+                </label>
+                <label>EAN Shopee (opcional)
+                  <input id="sku-link-ean-shopee" type="text" placeholder="Somente numeros" />
+                </label>
+                <label>Buscar por SKU ref ou titulo
+                  <input id="sku-link-search" type="search" placeholder="Digite SKU, titulo ou MLB/item" />
+                </label>
+                <button id="sku-link-search-btn" class="btn" type="button">Buscar</button>
+              </div>
+
+              <div class="sku-candidates">
+                <article class="card sku-candidate-card">
+                  <header class="card__head">
+                    <h3>MeLi</h3>
+                    <p id="sku-cand-meli-meta" class="muted">0 candidatos</p>
+                  </header>
+                  <ul id="sku-cand-meli" class="actions"></ul>
+                </article>
+                <article class="card sku-candidate-card">
+                  <header class="card__head">
+                    <h3>Shopee</h3>
+                    <p id="sku-cand-shopee-meta" class="muted">0 candidatos</p>
+                  </header>
+                  <ul id="sku-cand-shopee" class="actions"></ul>
+                </article>
+              </div>
+
+              <div class="sku-link-actions">
+                <button id="sku-link-save-btn" class="btn" type="button">Adicionar ao comparativo</button>
+              </div>
+            </article>
+
+            <article class="card">
+              <header class="card__head">
+                <h2>SKUs vinculados</h2>
+                <p class="muted">Use “Analisar” para abrir o SKU no dashboard comparativo com métricas por canal.</p>
+              </header>
+              <ul id="sku-links-list" class="actions"></ul>
+            </article>
+          </section>
+
+          <section class="grid tab-scope" data-scope="config" hidden>
+            <article class="card">
+              <header class="card__head">
+                <h2>Conta MeLi Ativa</h2>
+                <p class="muted">Selecione qual conta Mercado Livre vinculada ao acesso global será usada no módulo.</p>
+              </header>
+              <div class="sku-link-form">
+                <label>Conta MeLi disponível
+                  <select id="meli-account-select"></select>
+                </label>
+                <div></div>
+                <button id="meli-account-apply" class="btn" type="button">Aplicar conta</button>
+              </div>
+              <p id="meli-account-meta" class="muted" style="margin-top:8px;">Carregando contas...</p>
+            </article>
+            <article class="card">
+              <header class="card__head">
+                <h2>Contas Vinculadas</h2>
+                <p class="muted">Lista das contas MeLi detectadas para o seu tenant/acesso global.</p>
+              </header>
+              <ul id="meli-account-list" class="actions"></ul>
+            </article>
+          </section>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <script src="/skuleader/app.js?v=6"></script>
+</body>
+</html>

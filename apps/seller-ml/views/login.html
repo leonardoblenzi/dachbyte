@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | DACHBYTE Seller</title>
+  <meta name="theme-color" content="#090b10" />
+  <link rel="icon" type="image/svg+xml" href="/ml/img/dachbyte-seller-mark.svg?v=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --ink:#090b10;
+      --panel:rgba(255,255,255,.045);
+      --panel-2:rgba(255,255,255,.075);
+      --line:rgba(255,255,255,.10);
+      --line-strong:rgba(255,255,255,.18);
+      --text:#f4f2ec;
+      --muted:#8b8f9e;
+      --signal:#ff8a3f;
+      --signal-2:#ffb37a;
+      --mint:#2dd9a8;
+      --rose:#ff5470;
+      --r-xl:30px;
+      --r-lg:22px;
+      --r-md:16px;
+      --shadow:0 30px 80px rgba(0,0,0,.42);
+      --max:1240px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      min-height:100dvh;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(255,138,63,.14), transparent 18rem),
+        radial-gradient(circle at 82% 14%, rgba(45,217,168,.10), transparent 22rem),
+        linear-gradient(180deg,#090b10 0%,#0d1119 46%,#090b10 100%);
+      font-family:"Inter",ui-sans-serif,system-ui,sans-serif;
+      -webkit-font-smoothing:antialiased;
+      overflow-x:hidden;
+    }
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      z-index:0;
+      pointer-events:none;
+      opacity:.45;
+      background-image:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size:64px 64px;
+      mask-image:radial-gradient(circle at 50% 0%, rgba(0,0,0,.95), rgba(0,0,0,.14) 72%);
+    }
+    a{color:inherit;text-decoration:none}
+    button,input{font:inherit;color:inherit}
+    button{cursor:pointer}
+    img{display:block;max-width:100%}
+    :focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+    .page{
+      position:relative;
+      z-index:1;
+      min-height:100dvh;
+      padding:0;
+    }
+    .topbar{
+      position:fixed;
+      top:24px;
+      left:24px;
+      right:24px;
+      z-index:4;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:16px;
+      pointer-events:none;
+    }
+    .back-btn,.top-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      min-height:46px;
+      padding:0 16px;
+      border-radius:999px;
+      border:1px solid var(--line-strong);
+      background:var(--panel);
+      color:var(--text);
+      backdrop-filter:blur(14px);
+      pointer-events:auto;
+    }
+    .back-btn:hover,.top-pill:hover{transform:translateY(-1px)}
+    .top-pill{
+      font-family:"JetBrains Mono",monospace;
+      font-size:11.5px;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+      color:var(--signal-2);
+    }
+    .top-pill i{
+      width:8px;
+      height:8px;
+      border-radius:999px;
+      background:var(--mint);
+      box-shadow:0 0 0 5px rgba(45,217,168,.10);
+    }
+    .shell{
+      width:100%;
+      min-height:100dvh;
+      display:grid;
+      grid-template-columns:1.05fr .95fr;
+      gap:0;
+      align-items:stretch;
+    }
+    .hero-card{
+      padding:54px 48px 42px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      min-height:100%;
+      background:
+        radial-gradient(circle at 10% 12%, rgba(255,138,63,.12), transparent 18rem),
+        linear-gradient(180deg,#11151f 0%,#121620 100%);
+    }
+    .brand{
+      display:inline-flex;
+      align-items:center;
+      width:max-content;
+    }
+    .brand img{height:34px;width:auto}
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:9px;
+      margin-top:96px;
+      font-family:"JetBrains Mono",monospace;
+      font-size:12px;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      color:var(--signal-2);
+    }
+    .eyebrow i{
+      width:6px;
+      height:6px;
+      border-radius:999px;
+      background:var(--signal);
+      box-shadow:0 0 12px var(--signal);
+    }
+    .hero-title{
+      margin-top:24px;
+      font-family:"Space Grotesk",sans-serif;
+      font-size:clamp(42px,5.2vw,72px);
+      line-height:.95;
+      letter-spacing:-.05em;
+      max-width:9ch;
+    }
+    .hero-copy{
+      margin-top:24px;
+      max-width:32ch;
+      color:var(--muted);
+      font-size:17px;
+      line-height:1.6;
+    }
+    .hero-footer{
+      display:flex;
+      gap:18px;
+      align-items:center;
+      justify-content:space-between;
+      margin-top:28px;
+      padding-top:18px;
+      border-top:1px solid rgba(255,255,255,.08);
+    }
+    .hero-tags{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .hero-tag{
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:var(--panel);
+      color:var(--muted);
+      font-size:12px;
+    }
+    .hero-note{
+      max-width:240px;
+      color:var(--muted);
+      font-size:12.5px;
+      line-height:1.45;
+      text-align:right;
+    }
+    .login-side{
+      min-height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:48px 42px;
+      background:linear-gradient(180deg, rgba(245,242,236,.98), rgba(236,240,245,.98));
+    }
+    .login-card{
+      width:min(440px,100%);
+      padding:0;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      min-height:100%;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      box-shadow:none;
+    }
+    .login-title{
+      margin:0;
+      font-family:"Space Grotesk",sans-serif;
+      font-size:clamp(26px,2.8vw,34px);
+      line-height:1.02;
+      letter-spacing:-.03em;
+      color:#172031;
+    }
+    .login-subtitle{
+      margin-top:8px;
+      color:#617089;
+      line-height:1.55;
+      font-size:14.5px;
+      max-width:32ch;
+    }
+    .login-msg{
+      display:none;
+      margin-top:18px;
+      padding:14px 16px;
+      border-radius:16px;
+      font-size:14px;
+      line-height:1.5;
+      border:1px solid transparent;
+    }
+    .login-msg.is-error{display:block;background:rgba(255,84,112,.10);border-color:rgba(255,84,112,.18);color:#9b3144}
+    .login-msg.is-info{display:block;background:rgba(255,138,63,.10);border-color:rgba(255,138,63,.18);color:#8e4e1b}
+    .login-msg.is-success{display:block;background:rgba(45,217,168,.10);border-color:rgba(45,217,168,.18);color:#13624a}
+    .auth-form{
+      display:grid;
+      gap:11px;
+      margin-top:20px;
+    }
+    .field{
+      display:grid;
+      gap:8px;
+    }
+    .field label{
+      color:#243146;
+      font-size:13px;
+      font-weight:700;
+    }
+    .input-shell{
+      position:relative;
+    }
+    .field-icon{
+      position:absolute;
+      left:18px;
+      top:50%;
+      transform:translateY(-50%);
+      width:18px;
+      height:18px;
+      color:#8191ab;
+    }
+    .field-icon svg,
+    .toggle-pass svg{
+      width:100%;
+      height:100%;
+      fill:none;
+      stroke:currentColor;
+      stroke-width:1.9;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+    .auth-field__input{
+      width:100%;
+      min-height:52px;
+      padding:0 52px 0 52px;
+      border-radius:14px;
+      border:1px solid rgba(34,49,70,.10);
+      background:#eef3fb;
+      color:#172031;
+      outline:none;
+      transition:border-color .2s ease, background .2s ease, box-shadow .2s ease;
+    }
+    .auth-field__input::placeholder{color:#8191ab}
+    .auth-field__input:focus{
+      border-color:var(--signal);
+      background:#f4f7fc;
+      box-shadow:0 0 0 4px rgba(255,138,63,.10);
+    }
+    .toggle-pass{
+      position:absolute;
+      right:14px;
+      top:50%;
+      transform:translateY(-50%);
+      width:34px;
+      height:34px;
+      display:grid;
+      place-items:center;
+      border:0;
+      border-radius:10px;
+      background:transparent;
+      color:#7d8797;
+    }
+    .toggle-pass:hover,.toggle-pass.is-visible{color:var(--signal);background:rgba(17,21,31,.04)}
+    .form-row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:16px;
+      margin-top:4px;
+      flex-wrap:wrap;
+    }
+    .forgot{
+      color:#b85f22;
+      font-size:13.5px;
+      font-weight:700;
+    }
+    .forgot:hover{color:#172031}
+    .auth-btn{
+      width:100%;
+      min-height:54px;
+      border:0;
+      border-radius:14px;
+      background:var(--signal);
+      color:#1a0e02;
+      font-weight:800;
+      font-size:16px;
+      box-shadow:0 18px 32px rgba(255,138,63,.20);
+      transition:transform .2s ease, background .2s ease, opacity .2s ease;
+    }
+    .auth-btn:hover,.auth-btn:focus-visible{transform:translateY(-1px);background:var(--signal-2)}
+    .auth-btn:disabled{opacity:.72;cursor:wait}
+    .login-wait{
+      display:none;
+      margin-top:8px;
+      color:#b85f22;
+      font-size:13px;
+      font-weight:700;
+    }
+    .login-wait.is-visible{display:block}
+    .legal{
+      margin-top:12px;
+      color:#7b8596;
+      font-size:12px;
+      line-height:1.55;
+    }
+    @media (max-width:1080px){
+      .topbar{
+        position:static;
+        padding:18px 18px 0;
+        pointer-events:auto;
+      }
+      .shell{grid-template-columns:1fr;min-height:auto}
+      .hero-card,.login-side,.login-card{min-height:auto}
+      .login-side{border:1px solid var(--line);border-radius:0 0 var(--r-xl) var(--r-xl);background:rgba(255,255,255,.04)}
+      .hero-card{border-radius:var(--r-xl) var(--r-xl) 0 0}
+      .hero-card{padding:32px 28px 24px}
+      .hero-title{font-size:clamp(34px,7vw,54px);max-width:none}
+      .hero-copy{max-width:none}
+      .hero-footer{flex-direction:column;align-items:flex-start}
+      .hero-note{text-align:left;max-width:none}
+      .login-side{padding:24px}
+    }
+    @media (max-width:720px){
+      .topbar{justify-content:flex-start}
+      .top-pill{display:none}
+      .hero-card,.login-side{padding:24px}
+      .login-card{padding:0}
+      .hero-title{max-width:none;font-size:42px}
+      .hero-copy{font-size:16px}
+      .form-row{align-items:flex-start}
+    }
+  </style>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <button class="back-btn" id="btn-back" type="button" title="Voltar para a landing">
+        <span>&larr;</span>
+        <strong>Voltar</strong>
+      </button>
+      <span class="top-pill"><i></i> acesso DACHBYTE Seller</span>
+    </header>
+
+    <section class="shell" aria-label="Tela de login DACHBYTE Seller">
+      <aside class="hero-card">
+        <div>
+          <a class="brand" href="/landing" aria-label="DACHBYTE Seller">
+            <span class="dachbyte-signature"><span class="dachbyte-signature__wordmark"><span>DACH</span><span>BYTE</span></span><span class="dachbyte-signature__label">Seller</span></span>
+          </a>
+          <div class="eyebrow"><i></i> operação centralizada</div>
+          <h1 class="hero-title">Entre e siga com clareza na sua operação.</h1>
+          <p class="hero-copy">Acesse seus módulos ativos, valide seu ambiente e continue sua rotina comercial em um fluxo direto.</p>
+        </div>
+
+        <div class="hero-footer">
+          <div class="hero-tags">
+            <span class="hero-tag">Área do cliente</span>
+            <span class="hero-tag">Operação multicanal</span>
+          </div>
+          <div class="hero-note">
+            Se sua conta ainda não foi ativada, fale com o time DACHBYTE ou use a recuperação de senha para retomar o acesso.
+          </div>
+        </div>
+      </aside>
+
+      <section class="login-side">
+        <div class="login-card">
+          <h2 class="login-title">Entrar</h2>
+          <p class="login-subtitle">Use seu acesso para abrir os módulos disponíveis da sua conta.</p>
+
+          <div class="login-msg" id="login-msg" aria-live="polite" role="status"></div>
+
+          <form class="auth-form" id="login-form" method="post" autocomplete="on">
+            <div class="field">
+              <label for="email">E-mail de acesso</label>
+              <div class="input-shell">
+                <span class="field-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"></path><path d="M4 7l8 6 8-6"></path></svg>
+                </span>
+                <input class="auth-field__input" id="email" name="email" type="email" autocomplete="email" placeholder="seuemail@empresa.com" required />
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="senha">Senha</label>
+              <div class="input-shell">
+                <span class="field-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+                </span>
+                <input class="auth-field__input" id="senha" name="senha" type="password" autocomplete="current-password" placeholder="Digite sua senha" required />
+                <button class="toggle-pass" id="toggle-pass" type="button" aria-label="Mostrar senha" aria-pressed="false">
+                  <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle><path d="M4 4l16 16"></path></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <a class="forgot" href="/ml/esqueci-senha">Esqueci minha senha</a>
+            </div>
+
+            <button class="auth-btn" id="btn-entrar" type="submit">Entrar na DACHBYTE</button>
+            <div class="login-wait" id="login-wait" aria-live="polite">Validando módulos liberados no Hub...</div>
+          </form>
+
+          <p class="legal">Acesso liberado somente para contas ativas da DACHBYTE Seller.</p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const form = document.getElementById("login-form");
+      const msg = document.getElementById("login-msg");
+      const btn = document.getElementById("btn-entrar");
+      const wait = document.getElementById("login-wait");
+      const btnBack = document.getElementById("btn-back");
+      const togglePass = document.getElementById("toggle-pass");
+      const passwordInput = document.getElementById("senha");
+      const AUTH_BASE = "";
+      const MIN_LOGIN_LOADING_MS = 650;
+
+      if (btnBack) {
+        btnBack.addEventListener("click", function () {
+          window.location.href = "/landing";
+        });
+      }
+
+      if (togglePass && passwordInput) {
+        togglePass.addEventListener("click", function () {
+          const isPassword = passwordInput.type === "password";
+          passwordInput.type = isPassword ? "text" : "password";
+          togglePass.classList.toggle("is-visible", isPassword);
+          togglePass.setAttribute("aria-pressed", isPassword ? "true" : "false");
+          togglePass.setAttribute("aria-label", isPassword ? "Ocultar senha" : "Mostrar senha");
+        });
+      }
+
+      function showMsg(text, type) {
+        msg.style.display = "block";
+        msg.textContent = text;
+        msg.className = "login-msg";
+        if (type === "ok") msg.classList.add("is-success");
+        else if (type === "info") msg.classList.add("is-info");
+        else msg.classList.add("is-error");
+      }
+
+      function setLoading(isLoading) {
+        btn.disabled = isLoading;
+        btn.textContent = isLoading ? "Validando..." : "Entrar";
+        if (wait) wait.classList.toggle("is-visible", isLoading);
+      }
+
+      function rememberSessionBootstrap(data) {
+        try {
+          window.sessionStorage.setItem("suite_session_bootstrap", JSON.stringify({
+            user: data && data.user ? data.user : null,
+            entitlements: data && data.entitlements ? data.entitlements : null,
+            savedAt: Date.now(),
+          }));
+        } catch (_error) {}
+      }
+
+      function waitLoginMinimum(startedAt) {
+        const elapsed = Date.now() - startedAt;
+        const remaining = Math.max(0, MIN_LOGIN_LOADING_MS - elapsed);
+        return new Promise((resolve) => window.setTimeout(resolve, remaining));
+      }
+
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        const email = document.getElementById("email").value.trim();
+        const senha = document.getElementById("senha").value;
+        const startedAt = Date.now();
+        let redirecting = false;
+        msg.style.display = "none";
+
+        if (!email || !senha) {
+          showMsg("Preencha e-mail e senha.", "err");
+          return;
+        }
+
+        try {
+          window.sessionStorage.removeItem("suite_session_bootstrap");
+        } catch (_error) {}
+
+        setLoading(true);
+        try {
+          const resp = await fetch(AUTH_BASE + "/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ email: email, senha: senha }),
+          });
+
+          let data = null;
+          try { data = await resp.json(); } catch (_error) {}
+
+          if (!resp.ok || !data || data.ok !== true) {
+            const baseMessage = data && (data.message || data.error) ? (data.message || data.error) : "Falha no login.";
+            const reason = data && data.reason ? String(data.reason) : "";
+            const message = reason ? (baseMessage + " (" + reason + ")") : baseMessage;
+            showMsg(message, "err");
+            return;
+          }
+
+          rememberSessionBootstrap(data);
+          await waitLoginMinimum(startedAt);
+          redirecting = true;
+          window.location.href = data.redirect || "/selecao-plataforma";
+        } catch (_error) {
+          showMsg("Erro de rede ao tentar logar. Verifique o servidor e tente novamente.", "err");
+        } finally {
+          if (!redirecting) setLoading(false);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

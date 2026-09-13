@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="pt-br" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="utf-8" />
+  <title>Consulta de anúncios | Davantti</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/filtro-anuncios.css?v=6" />
+  <link rel="stylesheet" href="/ml/css/anuncios.css?v=2026080802" />
+  <link rel="stylesheet" href="/ml/css/promo-jobs.css?v=2026080701" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="filtro-anuncios ads-app">
+  <main class="ads-page">
+    <header class="ads-page-header">
+      <div class="ads-page-header__copy">
+        <span class="ads-eyebrow">Anúncios</span>
+        <h1>Consulta de anúncios</h1>
+        <p>Localize anúncios da conta, aplique filtros comerciais e carregue apenas os enriquecimentos necessários para a análise.</p>
+      </div>
+    </header>
+
+    <section class="card filter-card ads-card" aria-label="Filtros da consulta">
+      <div class="ads-query-search">
+        <div class="filter-block">
+          <div class="filter-block__title">Busca</div>
+          <div class="filter-block__desc muted">Informe SKU, EAN ou MLB quando quiser reduzir o universo da consulta. Sem termo, a busca percorre a conta conforme os filtros abaixo.</div>
+        </div>
+        <div class="filters form-grid lookup-grid">
+          <div class="form-group">
+            <label for="fLookupType">Tipo de busca</label>
+            <select id="fLookupType" class="input">
+              <option value="sku">SKU</option>
+              <option value="ean">EAN / GTIN</option>
+              <option value="mlb">MLB para localizar SKU</option>
+            </select>
+            <small class="muted help">Escolha como a base deve ser localizada.</small>
+          </div>
+          <div class="form-group span-lookup">
+            <label id="fLookupLabel" for="fSkuSearch">Pesquisa por SKU</label>
+            <input id="fSkuSearch" type="text" class="input" placeholder="Informe 1 SKU ou uma lista separada por vírgula" />
+            <small id="fLookupHelp" class="muted help">Busca por família de SKU. Ex.: 100598 também localiza 100598-134 e 100598-136.</small>
+          </div>
+        </div>
+      </div>
+
+      <details class="ads-disclosure" open>
+        <summary><span class="ads-disclosure-title"><strong>Filtros da conta</strong><small>Status, envio, tipo, catálogo e estoque.</small></span></summary>
+        <div class="ads-disclosure-body">
+          <div class="filters form-grid account-grid">
+            <div class="form-group">
+              <label for="fStatus">Status</label>
+              <select id="fStatus" class="input"><option value="all">Todos</option><option value="active" selected>Ativo</option><option value="paused">Inativo/Pausado</option></select>
+              <small class="muted help">Ex.: todos ativos ou todos pausados.</small>
+            </div>
+            <div class="form-group">
+              <label for="fEnvio">Envio</label>
+              <select id="fEnvio" class="input"><option value="all">Todos</option><option value="buyer">Por conta do comprador</option><option value="free">Frete grátis</option></select>
+              <small class="muted help">Ex.: apenas anúncios com frete grátis.</small>
+            </div>
+            <div class="form-group">
+              <label for="fTipo">Tipo</label>
+              <select id="fTipo" class="input"><option value="all">Todos</option><option value="classic">Clássico</option><option value="premium">Premium</option></select>
+              <small class="muted help">Ex.: apenas anúncios Premium.</small>
+            </div>
+            <div class="form-group">
+              <label for="fDetalhes">Detalhes do anúncio</label>
+              <select id="fDetalhes" class="input"><option value="all">Todos</option><option value="catalog">Catálogo</option><option value="normal">Normal</option></select>
+              <small class="muted help">Ex.: apenas anúncios de catálogo.</small>
+            </div>
+            <div class="form-group stock-filter-group">
+              <label for="fStockOp">Estoque</label>
+              <div class="inline-pair stock-filter">
+                <select id="fStockOp" class="input"><option value="all">Todos</option><option value="gt">Maior que</option><option value="lt">Menor que</option><option value="eq">Igual a</option><option value="zero">Zerado</option></select>
+                <input id="fStockVal" type="number" class="input" placeholder="Qtd." min="0" step="1" inputmode="numeric" style="display:none;" />
+              </div>
+              <small id="fStockHelp" class="muted help">Considera o estoque disponível atual retornado pelo Mercado Livre.</small>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="ads-disclosure">
+        <summary><span class="ads-disclosure-title"><strong>Análise comercial</strong><small>Período e volume de vendas. Abra somente quando precisar analisar desempenho.</small></span></summary>
+        <div class="ads-disclosure-body">
+          <div class="commercial-period-rules" aria-live="polite">
+            <div id="commercialPeriodPolicy" class="commercial-period-rules__text"><strong>Regra de período:</strong> sem MLB/SKU/EAN, consulte até 90 dias. Com MLB/SKU/EAN informado, consulte até 180 dias. Para até 1 ano, use o modo avançado/exportação assíncrona.</div>
+            <label id="fAllowLongPeriodWrap" class="commercial-period-rules__advanced" for="fAllowLongPeriod">
+              <input id="fAllowLongPeriod" type="checkbox" />
+              <span><b>Modo avançado: permitir até 1 ano</b><small id="commercialPeriodMode">Use apenas quando precisar gerar uma consulta pesada/exportação assíncrona.</small></span>
+            </label>
+          </div>
+          <div class="filters form-grid commercial-grid" id="commercialBlock">
+            <div class="form-group"><label for="fDateFrom">Período: de</label><input id="fDateFrom" type="text" class="input" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off" /><small id="fDateFromHelp" class="muted help">Máximo padrão conforme a regra acima.</small></div>
+            <div class="form-group"><label for="fDateTo">Período: até</label><input id="fDateTo" type="text" class="input" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="off" /><small id="fDateToHelp" class="muted help">Preencha início e fim para ativar dados de período.</small></div>
+            <div class="form-group span-2">
+              <label for="fSalesOp">Vendas no período</label>
+              <div class="inline-pair"><select id="fSalesOp" class="input"><option value="all">Todos</option><option value="gt">Maior que</option><option value="lt">Menor que</option></select><input id="fSalesVal" type="number" class="input" placeholder="Qtd." min="0" step="1" /></div>
+              <small id="commercialHelp" class="muted help">O filtro de vendas só é aplicado quando o período estiver preenchido.</small>
+              <div id="fSalesNoSalesAfterWrap" class="sales-extra" style="display:none;"><input id="fSalesNoSalesAfter" type="checkbox" /><label for="fSalesNoSalesAfter"><b>Também sem vendas após o período até hoje</b><span class="muted">Remove anúncios que venderam depois do período, mesmo que tenham 0 vendas dentro dele.</span></label></div>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="ads-disclosure">
+        <summary><span class="ads-disclosure-title"><strong>Dados adicionais</strong><small>Categoria, visitas, Ads, promoções e variações. Quanto mais enriquecimento, maior o tempo de processamento.</small></span></summary>
+        <div class="ads-disclosure-body">
+          <div class="extras-row">
+            <div class="extras-copy"><div class="extras-title">Enriquecimentos sob demanda</div><div class="muted extras-sub">Visitas e Ads dependem do período comercial. Categoria e Promo continuam disponíveis sem período.</div></div>
+            <div class="switch-group" id="switch-extras" aria-label="Dados opcionais">
+              <button id="btnIncludeCategory" class="btn-switch" type="button" aria-pressed="false">Categoria</button>
+              <button id="btnIncludeVisits" class="btn-switch" type="button" aria-pressed="false">Visitas · mais lento</button>
+              <button id="btnIncludeAds" class="btn-switch" type="button" aria-pressed="false">Ads · mais lento</button>
+              <button id="btnIncludePromos" class="btn-switch" type="button" aria-pressed="false">Promoções</button>
+              <button id="btnDetailVariations" class="btn-switch" type="button" aria-pressed="false" title="Detalha as variações dos anúncios. Em buscas específicas, esse modo pode ser ativado automaticamente.">Variações</button>
+            </div>
+          </div>
+          <div id="variationsAutoNotice" class="query-notice" style="display:none;">Busca específica com SKU, EAN ou MLB detalha variações automaticamente. A consulta pode demorar mais em contas grandes.</div>
+          <div id="heavyExtrasNotice" class="query-notice" style="display:none;">Conta grande + vários enriquecimentos pode aumentar o tempo da consulta. Marque apenas os blocos necessários.</div>
+        </div>
+      </details>
+
+      <div class="ads-action-bar">
+        <div class="ads-action-bar__copy">
+          <strong>Pronto para consultar</strong>
+          <small>Sem período, a consulta usa os filtros estruturais da conta. Com período, libera vendas, visitas e Ads.</small>
+          <div id="job-status" class="muted" style="display:none;"><span id="job-status-text" aria-live="polite">Processando consulta...</span></div>
+        </div>
+        <button id="btnPesquisar" class="btn primary" type="button">Consultar base</button>
+      </div>
+    </section>
+
+    <section class="card ads-results-card" aria-label="Resultados da consulta">
+      <div class="table-head">
+        <div class="table-head__copy"><strong>Resultados</strong><small id="queryResultSummary">Aguardando consulta.</small></div>
+        <input id="fSearch" placeholder="Buscar por MLB, SKU ou título" class="input" style="max-width:360px" />
+      </div>
+      <div class="table-scroll"><table id="grid"><thead></thead><tbody></tbody></table></div>
+      <div id="pager" class="pager-wrap muted" style="margin-top:8px"></div>
+    </section>
+  </main>
+  <div id="bulkJobsPanel" class="processos-panel"></div>
+  <script src="/ml/js/jobs-panel-adapters.js?v=2026080701" defer></script>
+  <script src="/ml/js/jobs-panel.js?v=2026080701" defer></script>
+  <script src="/ml/js/filtro-anuncios.js?v=16" defer></script>
+</body>
+</html>

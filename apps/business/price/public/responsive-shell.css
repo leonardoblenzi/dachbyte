@@ -1,0 +1,14 @@
+@media(max-width:1200px){
+  .sidebar .brand strong,
+  .sidebar .nav-btn span{display:inline}
+}
+
+@media(max-width:650px){
+  .sidebar{position:static;height:auto;display:block;padding:10px 12px}
+  .sidebar .brand{padding:0 2px 8px}
+  .sidebar .brand strong,
+  .sidebar .nav-btn span{display:inline}
+  .sidebar nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+  .sidebar .nav-btn{flex:0 0 auto;font-size:10px;padding:8px 11px;text-align:left}
+  .sidebar .side-foot{display:flex}
+}

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-shopee">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/shopee/" />
+    <link rel="icon" type="image/svg+xml" href="img/dachbyte-seller-mark.svg?v=1" />
+    <link rel="apple-touch-icon" href="img/dachbyte-seller-mark.svg?v=1" />
+    <title>DACHBYTE Seller | Shopee</title>
+    <link rel="stylesheet" href="login.css" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+  </head>
+
+  <body>
+    <a href="/selecao-plataforma" class="back-btn">
+      <span>&larr;</span>
+      <span>Voltar</span>
+    </a>
+
+    <main class="auth-stage">
+      <div class="auth-shell">
+        <section class="auth-panel">
+          <div class="auth-kicker">
+            <span class="auth-kicker__dot"></span>
+            <span>DACHBYTE Seller · Shopee</span>
+          </div>
+
+          <h1 class="auth-title">Entrar no workspace Shopee</h1>
+          <p class="auth-subtitle">
+            Acesse o ambiente da loja para acompanhar pedidos, produtos, campanhas e o fluxo de
+            autenticacao da integracao Shopee.
+          </p>
+
+          <div id="login-msg" class="login-msg"></div>
+
+          <form id="login-form" class="form" autocomplete="on">
+            <label class="auth-field">
+              <span class="auth-field__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 6h16v12H4z"></path>
+                  <path d="M4 7l8 6 8-6"></path>
+                </svg>
+              </span>
+              <input
+                id="email"
+                type="email"
+                placeholder="E-mail"
+                class="auth-field__input"
+                autocomplete="email"
+              />
+            </label>
+
+            <label class="auth-field">
+              <span class="auth-field__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="5" y="11" width="14" height="9" rx="2"></rect>
+                  <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+                </svg>
+              </span>
+              <input
+                id="password"
+                type="password"
+                placeholder="Senha"
+                class="auth-field__input"
+                autocomplete="current-password"
+              />
+            </label>
+
+            <div class="auth-actions">
+              <button class="btn" type="submit">Entrar</button>
+            </div>
+          </form>
+
+          <div class="auth-links">
+            <div>Acesso liberado somente por convite ou contratacao do servico.</div>
+            <a id="forgot" href="#">Esqueci minha senha</a>
+          </div>
+
+          <div class="auth-meta-row">
+            <div class="auth-meta-card">
+              <strong>2 lojas</strong>
+              <span>Estrutura preparada para adicionar e alternar lojas vinculadas.</span>
+            </div>
+            <div class="auth-meta-card">
+              <strong>OAuth</strong>
+              <span>Depois do cadastro, o proprio fluxo abre a autorizacao oficial da Shopee.</span>
+            </div>
+          </div>
+        </section>
+
+        <aside class="auth-visual">
+          <div class="auth-visual__card">
+            <span class="auth-visual__badge">Operacao conectada</span>
+            <h2 class="auth-visual__title">Sua loja entra com identidade propria</h2>
+            <p class="auth-visual__text">
+              Um acesso mais caloroso e orientado a marketplace para pedidos, campanhas,
+              autenticacao e gestao comercial da Shopee.
+            </p>
+
+            <div class="auth-visual__stack">
+              <div class="auth-feature">
+                <div class="auth-feature__icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 3h12l1 4H5l1-4z"></path>
+                    <path d="M5 7h14v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7z"></path>
+                  </svg>
+                </div>
+                <div>
+                  <span class="auth-feature__title">Pedidos e loja ativa</span>
+                  <span class="auth-feature__meta">Acompanhe operacao, loja selecionada e status da conta a partir do primeiro acesso.</span>
+                </div>
+              </div>
+
+              <div class="auth-feature">
+                <div class="auth-feature__icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 15l4-4 3 3 6-6"></path>
+                    <path d="M18 8h-5v5"></path>
+                  </svg>
+                </div>
+                <div>
+                  <span class="auth-feature__title">Campanhas e crescimento</span>
+                  <span class="auth-feature__meta">Traga a leitura de vendas, anuncios e performance para um mesmo ambiente.</span>
+                </div>
+              </div>
+
+              <div class="auth-feature">
+                <div class="auth-feature__icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="8" r="3"></circle>
+                    <path d="M5 20c1.8-3.8 4.2-5.7 7-5.7S17.2 16.2 19 20"></path>
+                  </svg>
+                </div>
+                <div>
+                  <span class="auth-feature__title">Cadastro e vinculacao guiados</span>
+                  <span class="auth-feature__meta">Registre a conta, gere o link OAuth e finalize a conexao com poucos passos.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="auth-visual__pulse"></div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script defer src="login.js"></script>
+  </body>
+</html>

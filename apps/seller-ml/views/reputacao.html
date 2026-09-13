@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reputação | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/visao-geral.css?v=1" />
+  <link rel="stylesheet" href="/ml/css/reputacao.css?v=12" />
+  <script src="/ml/js/reputacao.js?v=9" defer></script>
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="overview-app overview-app--reputation">
+  <main class="page-wrap reputacao-page">
+    <section class="overview-page reputacao-shell">
+      <header class="overview-header rep-command-header">
+        <div class="overview-header__main">
+          <span class="overview-eyebrow">Visão geral</span>
+          <div class="rep-title-row">
+            <h1>Reputação</h1>
+            <span class="overview-status rep-status-pill" id="rep-status-pill" data-tone="healthy">Dentro dos limites</span>
+          </div>
+          <p class="overview-subtitle">Acompanhe nível, metas e indicadores que podem afetar a saúde da conta.</p>
+          <div class="overview-meta rep-account-meta">
+            <span id="seller-nickname">Conta ativa</span>
+            <span class="overview-dot" aria-hidden="true"></span>
+            <span>Seller <strong id="seller-id">-</strong></span>
+            <span class="overview-dot" aria-hidden="true"></span>
+            <span>Atualizado <strong id="rep-updated-at">-</strong></span>
+          </div>
+        </div>
+        <div class="overview-header__actions rep-header-actions">
+          <button class="overview-secondary-btn" id="btn-refresh" type="button">Atualizar</button>
+        </div>
+      </header>
+
+      <div id="rep-alert" class="overview-alert rep-alert" style="display:none" aria-live="polite"></div>
+
+      <section class="overview-surface rep-sales-window" aria-label="Meta de Mercado Líder">
+        <div class="overview-section-head rep-sales-window__head">
+          <div>
+            <span class="overview-section-kicker">Meta de reputação</span>
+            <h2 id="rep-goal-title">Mercado Líder</h2>
+            <p id="rep-sales-range">Janela móvel de 60 dias</p>
+          </div>
+          <div class="overview-segmented rep-goal-tabs" role="tablist" aria-label="Alternar meta">
+            <button type="button" data-goal-tab="revenue">Faturamento</button>
+            <button type="button" class="is-active" data-goal-tab="sales">Quantidade</button>
+          </div>
+        </div>
+
+        <div class="rep-sales-window__grid rep-sales-window__grid--modern">
+          <article class="rep-goal-stat rep-goal-stat--primary">
+            <span id="rep-goal-current-label">Atual 60d</span>
+            <strong id="rep-goal-current">-</strong>
+            <small id="rep-sales-read-detail">-</small>
+          </article>
+          <article class="rep-goal-stat">
+            <span id="rep-goal-target-label">Meta</span>
+            <strong id="rep-goal-target">-</strong>
+            <small id="rep-goal-medal">-</small>
+          </article>
+          <article class="rep-goal-stat">
+            <span>Folga atual</span>
+            <strong id="rep-goal-gap">-</strong>
+            <small id="rep-goal-gap-detail">-</small>
+          </article>
+          <article class="rep-goal-stat">
+            <span>Ritmo necessário</span>
+            <strong id="rep-goal-pace">-</strong>
+            <div class="rep-goal-pace-note">
+              <div class="rank-tooltip rep-goal-pace-tooltip" tabindex="0">
+                <small id="rep-goal-pace-detail">-</small>
+                <div class="rank-tooltip__box">
+                  <div class="rank-tooltip__title">Média diária necessária</div>
+                  <div class="rank-tooltip__row"><span>Medalha</span><strong id="rep-goal-tooltip-medal">-</strong></div>
+                  <div class="rank-tooltip__row"><span>Meta 60d</span><strong id="rep-goal-tooltip-target">-</strong></div>
+                  <div class="rank-tooltip__row"><span>Atual 60d</span><strong id="rep-goal-tooltip-current">-</strong></div>
+                  <div class="rank-tooltip__row"><span>Necessário/dia</span><strong id="rep-goal-tooltip-required">-</strong></div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="rep-goal-meta"><span id="rep-sales-source">orders/search - paid</span></div>
+        <div class="rep-sales-forecast" id="rep-sales-forecast"><div class="overview-empty rep-empty">Carregando previsão da janela...</div></div>
+        <div class="rep-goal-tiers" id="rep-goal-tiers"></div>
+      </section>
+
+      <section class="rep-smart-alert" id="rep-smart-alert" data-tone="healthy">
+        <span class="rep-smart-alert__dot" aria-hidden="true"></span>
+        <div class="rep-smart-alert__content">
+          <span class="overview-section-kicker">Situação atual</span>
+          <h2 id="rep-alert-title">Carregando diagnóstico...</h2>
+          <p id="rep-alert-summary">Aguarde enquanto consolidamos os indicadores da conta.</p>
+          <p id="rep-alert-detail"></p>
+        </div>
+        <div class="rep-alert-actions"><button type="button" class="overview-secondary-btn rep-alert-btn" data-alert-action="claims">Ver reclamações</button></div>
+      </section>
+
+      <section class="overview-surface rep-metrics-section">
+        <div class="overview-section-head">
+          <div>
+            <span class="overview-section-kicker">Indicadores</span>
+            <h2>Saúde da reputação</h2>
+            <p>Clique em uma métrica para ver as vendas que ainda impactam a janela atual.</p>
+          </div>
+        </div>
+        <div class="rep-metric-grid" aria-label="Métricas de reputação">
+          <article class="rep-metric-card" id="impact-claims-card" data-tone="healthy" data-impact-filter="claims" role="button" tabindex="0" aria-pressed="false">
+            <div class="rep-metric-head"><div><span class="rep-metric-label">Reclamações</span><small>Casos abertos pelo comprador</small></div></div>
+            <div class="rep-metric-value-line"><strong id="impact-claims-value">-</strong><span class="rep-metric-delta" id="impact-claims-count">-</span></div>
+            <div class="rep-metric-meta"><span><b id="impact-claims-total">-</b><small>vendas afetadas</small></span><span><b id="impact-claims-limit">-</b><small>limite ML</small></span></div>
+            <p id="impact-claims-helper">Clique para ver as vendas afetadas.</p>
+          </article>
+          <article class="rep-metric-card" id="impact-mediations-card" data-tone="healthy" data-impact-filter="mediations" role="button" tabindex="0" aria-pressed="false">
+            <div class="rep-metric-head"><div><span class="rep-metric-label">Mediações</span><small>Disputas e mediações abertas</small></div></div>
+            <div class="rep-metric-value-line"><strong id="impact-mediations-value">-</strong><span class="rep-metric-delta" id="impact-mediations-count">-</span></div>
+            <div class="rep-metric-meta"><span><b id="impact-mediations-total">-</b><small>vendas afetadas</small></span><span><b id="impact-mediations-limit">-</b><small>limite ML</small></span></div>
+            <p id="impact-mediations-helper">Clique para abrir os casos desta métrica.</p>
+          </article>
+          <article class="rep-metric-card" id="impact-cancellations-card" data-tone="healthy" data-impact-filter="cancellations" role="button" tabindex="0" aria-pressed="false">
+            <div class="rep-metric-head"><div><span class="rep-metric-label">Cancelamentos</span><small>Pedidos cancelados que pesam</small></div></div>
+            <div class="rep-metric-value-line"><strong id="impact-cancellations-value">-</strong><span class="rep-metric-delta" id="impact-cancellations-count">-</span></div>
+            <div class="rep-metric-meta"><span><b id="impact-cancellations-total">-</b><small>vendas afetadas</small></span><span><b id="impact-cancellations-limit">-</b><small>limite ML</small></span></div>
+            <p id="impact-cancellations-helper">Monitore cancelamentos operacionais.</p>
+          </article>
+          <article class="rep-metric-card" id="impact-delayed-card" data-tone="healthy" data-impact-filter="delayed" role="button" tabindex="0" aria-pressed="false">
+            <div class="rep-metric-head"><div><span class="rep-metric-label">Atrasos no envio</span><small>Despachos fora do prazo</small></div></div>
+            <div class="rep-metric-value-line"><strong id="impact-delayed-value">-</strong><span class="rep-metric-delta" id="impact-delayed-count">-</span></div>
+            <div class="rep-metric-meta"><span><b id="impact-delayed-total">-</b><small>vendas afetadas</small></span><span><b id="impact-delayed-limit">-</b><small>limite ML</small></span></div>
+            <p id="impact-delayed-helper">Acompanhe atrasos antes de virarem reclamação.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="overview-surface rep-trends-section">
+        <div class="overview-section-head rep-section-head">
+          <div>
+            <span class="overview-section-kicker">Evolução</span>
+            <h2>Evolução semanal</h2>
+            <p>Selecione um indicador para comparar as últimas leituras.</p>
+          </div>
+          <div class="overview-segmented rep-trend-tabs" id="rep-trend-tabs" aria-label="Selecionar indicador da evolução"></div>
+        </div>
+        <div class="rep-trend-grid" id="rep-trend-grid"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="metric-cases-modal" class="rep-cases-modal" aria-hidden="true">
+    <div class="rep-cases-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="metric-cases-title">
+      <header class="rep-cases-modal__header">
+        <div>
+          <span id="metric-cases-kicker">Vendas impactadas</span>
+          <h2 id="metric-cases-title">Casos da reputação</h2>
+          <p id="metric-cases-summary">Consulte as vendas que ainda fazem parte da janela atual.</p>
+        </div>
+        <button type="button" class="rep-cases-modal__close" id="metric-cases-close" aria-label="Fechar modal">&times;</button>
+      </header>
+      <div class="rep-cases-modal__body">
+        <div class="rep-cases-modal__toolbar">
+          <span id="metric-cases-count">0 vendas impactadas</span>
+          <span>Saída estimada conforme a janela atual da reputação</span>
+        </div>
+        <div class="rep-cases-list__head" aria-hidden="true"><span>Venda</span><span>Data da venda</span><span>Ocorrência</span><span>Saída da janela</span><span></span></div>
+        <div class="rep-cases-list" id="metric-cases-list"><div class="overview-empty rep-empty">Selecione uma métrica para ver os casos.</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

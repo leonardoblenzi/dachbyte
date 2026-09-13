@@ -1,0 +1,3 @@
+-- This is a baseline migration that marks the initial state of the database
+-- All previous migrations are already applied at this point
+-- No actual SQL changes are needed here

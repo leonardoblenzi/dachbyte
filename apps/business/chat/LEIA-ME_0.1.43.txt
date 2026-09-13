@@ -1,0 +1,33 @@
+VoltChat 0.1.43 - Estabilidade de WebSocket
+
+Correcoes aplicadas na versao atual 0.1.42 recebida em duas partes:
+
+1. Frontend / Electron renderer
+- trava de conexao unica: nao abre outro socket se houver OPEN, CONNECTING ou CLOSING;
+- connectionGeneration: eventos atrasados de sockets antigos nao podem limpar ou reconectar o socket novo;
+- apenas um timer de reconexao pode existir;
+- onerror nao cria reconnect; somente onclose agenda a nova tentativa;
+- backoff 1s, 2s, 4s, 8s e ate 15s, com jitter;
+- heartbeat continua em 25s e timeout em 90s;
+- listeners online/offline sem criar conexoes paralelas;
+- cada renderer gera client_id unico em sessionStorage e envia no WebSocket.
+
+2. Backend FastAPI
+- recebe client_id no WebSocket;
+- garante no servidor uma unica conexao por usuario + client_id;
+- quando o mesmo desktop reconecta, a conexao antiga e aposentada sem marcar o usuario offline;
+- broadcast/send pessoal usa envio protegido com timeout para socket morto nao travar as demais conexoes;
+- endpoint GET /admin/websocket-health para diagnosticar conexoes, clientes legacy e duplicidades;
+- logs de desconexao agora incluem client_id.
+
+3. Banco
+- nenhuma migration nova;
+- nenhuma mudanca de schema.
+
+4. Proxy Node da suite
+O proxy WebSocket real roda em business/app.js da raiz do davanttiSuite. Esse arquivo NAO esta dentro das partes do projeto VoltChat enviadas nesta conversa. Por seguranca, ele nao foi inventado nem sobrescrito. Os logs mostraram ECONNRESET nessa camada, mas para alterar o tratamento de ECONNRESET/EPIPE no proxy e necessario aplicar o patch sobre o business/app.js real da raiz.
+
+Validacoes executadas:
+- python -m py_compile backend/sordchat_fixed.py: OK
+- npm run build com CI=false: OK
+- permanece somente o warning antigo de CompanyAdminPanel.js sobre loadCompanies/useEffect.

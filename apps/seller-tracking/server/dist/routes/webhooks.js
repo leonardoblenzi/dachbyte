@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const webhookController_1 = require("../controllers/webhookController");
+const router = (0, express_1.Router)();
+router.post('/intelipost', webhookController_1.receiveIntelipostWebhook);
+router.post('/anymarket', webhookController_1.receiveAnymarketWebhook);
+router.get('/monitoring/failure-acks', auth_1.authenticateToken, webhookController_1.listMonitoringFailureAcks);
+router.post('/monitoring/failure-acks', auth_1.authenticateToken, webhookController_1.acknowledgeMonitoringFailureAlert);
+router.get('/anymarket/logs', auth_1.authenticateToken, webhookController_1.listAnymarketWebhookLogs);
+router.get('/intelipost/logs', auth_1.authenticateToken, webhookController_1.listIntelipostWebhookLogs);
+router.post('/:provider/failures/reprocess', auth_1.authenticateToken, webhookController_1.reprocessWebhookFailureLogs);
+router.delete('/:provider/failures', auth_1.authenticateToken, webhookController_1.clearWebhookFailureLogs);
+exports.default = router;

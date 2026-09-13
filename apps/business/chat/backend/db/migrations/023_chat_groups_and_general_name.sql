@@ -1,0 +1,10 @@
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS general_chat_name VARCHAR(120);
+ALTER TABLE chat_groups ADD COLUMN IF NOT EXISTS image_data TEXT;
+
+CREATE TABLE IF NOT EXISTS chat_group_members (
+  id VARCHAR(36) PRIMARY KEY,
+  group_id INTEGER NOT NULL REFERENCES chat_groups(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (group_id, user_id)
+);

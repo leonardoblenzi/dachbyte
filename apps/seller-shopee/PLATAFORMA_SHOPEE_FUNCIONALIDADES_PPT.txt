@@ -1,0 +1,102 @@
+PLATAFORMA DAVANTTI SUITE (MÓDULO SHOPEE) - FUNCIONALIDADES PARA APRESENTAÇÃO
+
+1) VISÃO GERAL
+- Plataforma SaaS para operação completa de lojas Shopee com integração via API oficial.
+- Foco em gestão comercial, operacional, logística, anúncios, catálogo e automações.
+- Estrutura multiempresa/multiloja com autenticação por sessão e permissões por perfil.
+
+2) DASHBOARD E PAINEL DE CONTROLE
+- KPIs de faturamento, ticket médio, pedidos, taxa de pagamento e desempenho de catálogo.
+- Comparativos de período e visão de evolução diária.
+- Blocos executivos para leitura rápida da saúde da operação.
+- Painel com dados de mês atual para acompanhamento comercial mensal.
+
+3) GESTÃO DE PEDIDOS
+- Listagem e detalhamento completo de pedidos com filtros operacionais.
+- Sincronização de pedidos sob demanda por loja ativa.
+- Consolidação de informações financeiras e de pagamento no pedido.
+- Monitoramento de alertas de endereço com fluxo de resolução.
+- Abertura de pedido no canal (Seller Center) para ação rápida da equipe.
+
+4) GESTÃO DE PRODUTOS
+- Listagem, filtros por status, busca por SKU e exportação de relatório.
+- Edição de produto (atributos, preço, estoque, imagens, descrição).
+- Edição de variações/modelos com dados por SKU.
+- Ações rápidas: abrir produto no canal, abrir edição no canal e edição interna no módulo.
+- Sincronização de catálogo e performance por produto.
+
+5) CLONAGEM DE ANÚNCIOS (SHOPEE E MERCADO LIVRE)
+- Clonagem via URL pública com pré-visualização e mapeamento para formato Shopee.
+- Extração e edição completa: título, descrição, preço, imagens, características e variações.
+- Sub-aba de rascunhos com fluxo: salvar rascunho, retomar, excluir, seguir com lançamento.
+- Regras de publicação: mínimo de imagens, marca obrigatória e atributos obrigatórios.
+- Upload de clip MP4 com validações (tamanho, duração e resolução) sem persistir arquivo no banco.
+- Reordenação de imagens por arrastar e soltar e suporte a slots de imagem no editor.
+
+6) ADS SHOPEE E IMPULSIONAMENTO (BOOST)
+- Métricas de Ads por campanha, item, período e granularidade diária/horária.
+- Módulo de Boost com fila de impulsionamento e histórico por lotes.
+- Limite operacional respeitado (até 5 IDs por janela de 4 horas).
+- Auto boost com seleção de IDs, retentativa automática e notificações.
+- Controle de fila: próxima vaga, fila usada, vagas livres e cooldown.
+- Correlação de vendas e tráfego durante janelas de boost (KPIs e ranking).
+
+7) PROMOÇÕES E FLASH SALE
+- Criação e sincronização de campanhas de desconto.
+- Gestão de itens promocionais, preço promocional, estoque promocional e limites.
+- Operação de Flash Sale com criação, duplicação, ativação e gestão de itens.
+- Sincronização de status entre plataforma e Shopee.
+
+8) LOGÍSTICA E SPX
+- Central logística com validação de canais por produto.
+- Rotinas para habilitar Shopee Xpress (SPX) com regras de elegibilidade.
+- Validação de dimensões e impacto em logística disponível.
+- Suporte a decisões operacionais de ativar/desativar logística do vendedor conforme estratégia.
+- Monitoramento de métricas de saúde de conta relacionadas a SPX Listings (% SPX Listings).
+
+9) QUALIDADE DE CATÁLOGO
+- Índice de qualidade por item com diagnóstico de atributos obrigatórios.
+- Enriquecimento de ficha técnica com dados de categoria e atributos sugeridos.
+- Edição assistida para elevar score de catálogo e consistência de dados.
+- Visão de gaps para ação em massa.
+
+10) CUSTOS E MARGEM
+- Gestão de custos por item/SKU e importação/exportação de custos.
+- Dashboard de margem de contribuição por pedido/produto.
+- Consolidação de receita, comissões, frete, devoluções, descontos e impostos.
+- Apoio à decisão comercial com visão de rentabilidade real.
+
+11) SEO E INTELIGÊNCIA COMERCIAL
+- Sugestão e comparação de palavras-chave.
+- Apoio a estratégia de tráfego orgânico e posicionamento de anúncios.
+- Módulos analíticos para curva ABC, relançamento e participação de vendas.
+
+12) ALERTAS, NOTIFICAÇÕES E SUPORTE
+- Notificações in-app para eventos críticos (boost, fila, sincronização e operação).
+- Popups operacionais e central de notificações com marcação de leitura.
+- Central de suporte para abertura de solicitações.
+
+13) AUTOMAÇÕES OPERACIONAIS
+- Sincronizações periódicas e gatilhos de atualização de dados.
+- Execução automática de boost com agendamento inteligente por disponibilidade da fila.
+- Fluxos para reduzir esforço manual em catálogo, anúncios e pedidos.
+
+14) DIFERENCIAIS PARA APRESENTAÇÃO EXECUTIVA
+- Plataforma única para operação Shopee ponta a ponta.
+- Redução de tempo operacional com automações e ações em massa.
+- Maior controle gerencial com KPIs financeiros/comerciais em tempo real.
+- Escalabilidade multiempresa e multiusuário com governança.
+- Integração profunda com APIs oficiais da Shopee.
+
+17) SUGESTÃO DE ROTEIRO PARA PPT (10-12 SLIDES)
+- Slide 1: Problema de operação em marketplaces.
+- Slide 2: Visão geral da Davantti Suite Shopee.
+- Slide 4: Dashboard e gestão financeira mensal.
+- Slide 5: Gestão de pedidos e produtividade do time.
+- Slide 6: Gestão de produtos e catálogo.
+- Slide 7: Clonar anúncio + rascunhos + lançamento assistido.
+- Slide 8: Ads, Boost e automação de fila.
+- Slide 9: Promoções, Flash Sale e logística SPX.
+- Slide 10: Qualidade de catálogo, margem e inteligência.
+- Slide 11: Segurança, governança e multiempresa.
+- Slide 12: Resultados esperados e próximos passos.

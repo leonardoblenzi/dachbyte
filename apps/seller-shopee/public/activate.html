@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-shopee">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/shopee/" />
+    <link rel="icon" type="image/svg+xml" href="img/dachbyte-seller-mark.svg?v=1" />
+    <link rel="apple-touch-icon" href="img/dachbyte-seller-mark.svg?v=1" />
+    <title>Ativar Conta Shopee</title>
+    <link rel="stylesheet" href="login.css" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+  </head>
+
+  <body>
+    <a href="/selecao-plataforma" class="back-btn">
+      <span>&larr;</span>
+      <span>Voltar</span>
+    </a>
+
+    <main class="auth-stage">
+      <div class="auth-shell">
+        <section class="auth-panel">
+          <div class="auth-kicker">
+            <span class="auth-kicker__dot"></span>
+            <span>Convite de ativacao</span>
+          </div>
+
+          <h1 class="auth-title">Definir senha</h1>
+          <p class="auth-subtitle">
+            Finalize o acesso ao workspace Shopee, crie sua senha e siga direto para a vinculacao OAuth da loja.
+          </p>
+
+          <div id="login-msg" class="login-msg"></div>
+          <div id="invite-meta" class="auth-bodycopy" style="display:none;"></div>
+
+          <form id="activate-form" class="form" autocomplete="on">
+            <label class="auth-field">
+              <span class="auth-field__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="5" y="11" width="14" height="9" rx="2"></rect>
+                  <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+                </svg>
+              </span>
+              <input
+                id="password"
+                type="password"
+                placeholder="Nova senha"
+                class="auth-field__input"
+                autocomplete="new-password"
+                required
+              />
+            </label>
+
+            <label class="auth-field">
+              <span class="auth-field__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 12l2 2 4-4"></path>
+                  <rect x="5" y="11" width="14" height="9" rx="2"></rect>
+                  <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+                </svg>
+              </span>
+              <input
+                id="confirm-password"
+                type="password"
+                placeholder="Confirmar senha"
+                class="auth-field__input"
+                autocomplete="new-password"
+                required
+              />
+            </label>
+
+            <div class="auth-actions">
+              <button class="btn" id="btn-activate" type="submit">Ativar acesso</button>
+            </div>
+          </form>
+
+          <div class="auth-links">
+            <a href="/shopee/login">Voltar para login</a>
+          </div>
+        </section>
+
+        <aside class="auth-visual">
+          <div class="auth-visual__card">
+            <span class="auth-visual__badge">Onboarding por convite</span>
+            <h2 class="auth-visual__title">Seu acesso nasce seguro e ja segue para o OAuth</h2>
+            <p class="auth-visual__text">
+              Depois da ativacao, a conta entra no fluxo da Shopee para conectar a loja e iniciar a operacao.
+            </p>
+
+            <div class="auth-visual__stack">
+              <div class="auth-feature">
+                <div class="auth-feature__icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 12h16"></path>
+                    <path d="M12 4v16"></path>
+                  </svg>
+                </div>
+                <div>
+                  <span class="auth-feature__title">Convite individual</span>
+                  <span class="auth-feature__meta">Cada cliente recebe um link unico com validade limitada.</span>
+                </div>
+              </div>
+
+              <div class="auth-feature">
+                <div class="auth-feature__icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 15l4-4 3 3 6-6"></path>
+                    <path d="M18 8h-5v5"></path>
+                  </svg>
+                </div>
+                <div>
+                  <span class="auth-feature__title">OAuth na sequencia</span>
+                  <span class="auth-feature__meta">Apos ativar a senha, o sistema leva o usuario direto para vincular a loja.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="auth-visual__pulse"></div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script defer src="activate.js"></script>
+  </body>
+</html>

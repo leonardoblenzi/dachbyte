@@ -1,0 +1,80 @@
+DAVANTTI ML — ANÚNCIOS > CADASTRO
+
+Este pacote contém somente os arquivos NOVOS ou ALTERADOS da implementação.
+O novo módulo não reutiliza nem altera os arquivos do clonador legado.
+
+INSTALAÇÃO
+1. Faça backup do projeto atual.
+2. Extraia o conteúdo deste ZIP na raiz da pasta ml, preservando as pastas.
+3. Execute as migrations do projeto:
+     npm run migrate
+   Em uma instalação nova serão aplicadas 058 e 059. Se a 058 já tiver sido
+   aplicada, a 059 adicionará publication_target e fará o backfill dos rascunhos.
+4. Reinicie o serviço web.
+5. Acesse Anúncios > Cadastro.
+
+PERMISSÃO
+O módulo novo usa a chave:
+  ml.anuncios.cadastro
+
+CORREÇÕES USER PRODUCTS DESTA REVISÃO
+- Novo campo publication_target separa explicitamente:
+    new_item       -> POST /items
+    sale_condition -> POST /user-products/{USER_PRODUCT_ID}/items
+- Rascunhos gerados por importação de família são marcados como sale_condition.
+- Cópia normal de um MLB próprio continua como new_item por padrão, mesmo que o
+  anúncio de origem possua user_product_id. Assim não misturamos "novo produto"
+  com "nova condição de venda".
+- Payload de sale_condition usa apenas os campos aceitos pelo endpoint do UP.
+  Fotos, atributos, estoque, family_name, title e condição são herdados do UP.
+- Família informada manualmente só é aceita quando family.user_id é exatamente o
+  seller_id da conta atual. Família externa ou sem proprietário confirmado é bloqueada.
+- Antes de publicar sale_condition, o backend confirma novamente a propriedade do UP.
+- O hash de validação agora inclui destino de publicação + user_product_id + payload.
+- Lock atômico de publicação foi mantido e ganhou teste concorrente.
+- O campo legado condition deixou de ser enviado no payload de novos itens. A condição
+  é convertida para o atributo ITEM_CONDITION, conforme orientação atual do ML.
+
+VALIDAÇÃO
+- new_item: usa o dry-run oficial POST /items/validate.
+- sale_condition: a documentação pública atual não expõe um dry-run equivalente para
+  POST /user-products/{id}/items. Para não publicar durante a validação, fazemos um
+  preflight seguro no próprio User Product: ownership + limite de condições existentes
+  + validação local do payload reduzido. A publicação real continua podendo retornar
+  uma regra comercial específica do ML; nesse caso o rascunho fica em publish_error.
+
+ENTREGUE NO MÓDULO
+- Cadastro do zero via Davantti.
+- Importação/duplicação de anúncio próprio por MLB ou link.
+- Consulta prévia do anúncio próprio e detecção de família User Products.
+- Importação de família conhecida ou detectada a partir do MLB.
+- Referência de anúncio de outro vendedor por MLB/link, sem copiar automaticamente
+  fotos e descrição de terceiros para a publicação final.
+- Rascunhos novos e independentes do clonador legado.
+- Autosave, edição, duplicação de rascunho, lixeira/restauração, validação e publicação.
+- Categoria, atributos, garantia e sale_terms por categoria.
+- Upload de imagens para o Mercado Livre.
+- Descrição enviada após a criação do item.
+- Proteção contra publicação duplicada e invalidação da validação após edição.
+- Visual baseado em Margem de Venda, com Inter, mesma linguagem de cards/abas e
+  suporte aos modos white e dark.
+- Editor sinaliza quando o rascunho é uma nova condição de venda e bloqueia campos
+  herdados do User Product para não induzir o usuário a editar algo que não será enviado.
+
+LIMITES DESTA ENTREGA
+- Não recria o antigo array variations[] em anúncios Legacy multivariação. O novo
+  módulo nasce User Products-first; Legacy nesta V1 é publicação simples.
+- Duplicação genérica em série por lista de tamanhos/modelos ainda não foi incluída.
+- Não executamos migrations contra o banco do usuário neste ambiente.
+
+TESTES EXECUTADOS NESTA REVISÃO
+- tests/anuncio-cadastro.test.js: 16/16 aprovados.
+- Cobertura adicionada para:
+  * payload reduzido de condição de venda;
+  * rota /user-products/{id}/items;
+  * bloqueio de família externa/sem owner;
+  * preflight de validação de condição de venda;
+  * ITEM_CONDITION;
+  * hash por destino/UP;
+  * concorrência/lock de publicação.
+- node --check nos JS alterados: aprovado.

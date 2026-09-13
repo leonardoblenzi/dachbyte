@@ -1,0 +1,2730 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="business" data-dachbyte-app="stock">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DACHBYTE Stock — Inteligência de Estoque em Tempo Real</title>
+  <meta name="description" content="DACHBYTE Stock: plataforma com mapa 3D interativo, bipagem QR Code, inventário cíclico, auditoria total e relatórios inteligentes para operações de alta performance."/>
+  <link rel="icon" type="image/svg+xml" href="/brand/dachbyte/business/mark.svg"/>
+  <link rel="alternate icon" href="/voltstock/favicon.ico"/>
+  <link rel="apple-touch-icon" href="/brand/dachbyte/business/mark.svg"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+    /* ============================================================
+       TOKENS
+    ============================================================ */
+    :root {
+      --bg0: #020509;
+      --bg1: #050d18;
+      --bg2: #081525;
+      --panel: rgba(8,18,34,.82);
+      --panel2: rgba(5,12,24,.90);
+      --stroke: rgba(67,200,255,.14);
+      --stroke2: rgba(34,240,120,.20);
+      --stroke3: rgba(255,255,255,.07);
+      --text: #eef4ff;
+      --muted: #7a9ab8;
+      --muted2: #4a6480;
+      --blue: #0b82ff;
+      --blue2: #00c3ff;
+      --cyan: #43eaff;
+      --green: #22f078;
+      --green2: #00c98e;
+      --amber: #ffc96e;
+      --red: #ff5f7a;
+      --grad: linear-gradient(135deg,#0b82ff,#43eaff 52%,#22f078);
+      --grad2: linear-gradient(135deg,#22f078,#43eaff 52%,#0b82ff);
+      --glow-blue: 0 0 40px rgba(11,130,255,.35);
+      --glow-green: 0 0 40px rgba(34,240,120,.35);
+      --r-xl: 28px;
+      --r-lg: 20px;
+      --r-md: 14px;
+      --r-sm: 8px;
+      --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+      --ease-spring: cubic-bezier(.22,1.2,.36,1);
+      --ease-out: cubic-bezier(.22,1,.36,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-display);
+      background: var(--bg0);
+      color: var(--text);
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+    ::selection { background: rgba(67,234,255,.25); }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg0); }
+    ::-webkit-scrollbar-thumb { background: var(--blue); border-radius: 99px; }
+
+    /* ---- canvas background ---- */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ---- noise overlay ---- */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      opacity: .028;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 256px;
+    }
+
+    .wrap { width: min(1280px, calc(100% - 48px)); margin: 0 auto; position: relative; z-index: 2; }
+    .grad-text { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .grad-text-r { background: var(--grad2); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+    /* ============================================================
+       NAVBAR
+    ============================================================ */
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      transition: background .4s, border-color .4s;
+    }
+    .navbar.scrolled {
+      background: rgba(2,5,9,.88);
+      border-bottom: 1px solid var(--stroke);
+      backdrop-filter: blur(24px);
+    }
+    .nav-inner {
+      height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .logo-svg {
+      width: 44px;
+      height: 44px;
+      filter: drop-shadow(0 0 16px rgba(67,234,255,.45));
+      transition: filter .3s;
+    }
+    .brand:hover .logo-svg { filter: drop-shadow(0 0 28px rgba(67,234,255,.8)); }
+    .brand-name {
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: .04em;
+    }
+    .brand-name span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-links a {
+      padding: 8px 14px;
+      border-radius: var(--r-sm);
+      font-size: .9rem;
+      color: var(--muted);
+      font-weight: 500;
+      transition: color .2s, background .2s;
+    }
+    .nav-links a:hover { color: var(--text); background: rgba(255,255,255,.05); }
+    .nav-cta { display: flex; align-items: center; gap: 10px; }
+
+    /* ============================================================
+       BUTTONS
+    ============================================================ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 22px;
+      height: 46px;
+      border-radius: var(--r-md);
+      font-weight: 600;
+      font-size: .9rem;
+      transition: transform .2s var(--ease-spring), box-shadow .2s, opacity .2s;
+      white-space: nowrap;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      background: rgba(255,255,255,.12);
+      transition: opacity .2s;
+    }
+    .btn:hover::before { opacity: 1; }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary {
+      background: var(--grad);
+      color: #fff;
+      box-shadow: 0 8px 32px rgba(11,130,255,.3), 0 8px 32px rgba(34,240,120,.15);
+    }
+    .btn-primary:hover { box-shadow: 0 14px 48px rgba(11,130,255,.45), 0 14px 48px rgba(34,240,120,.25); }
+    .btn-outline {
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--stroke);
+      color: var(--text);
+    }
+    .btn-outline:hover { border-color: rgba(67,234,255,.38); background: rgba(67,234,255,.06); }
+    .btn-ghost {
+      color: var(--muted);
+      background: transparent;
+    }
+    .btn-ghost:hover { color: var(--text); }
+
+    /* ============================================================
+       HERO
+    ============================================================ */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 100px 0 60px;
+      position: relative;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.1fr;
+      gap: 60px;
+      align-items: center;
+    }
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--stroke2);
+      background: rgba(34,240,120,.06);
+      font-size: .78rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 24px;
+    }
+    .hero-eyebrow span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 14px rgba(34,240,120,.9);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100% { box-shadow: 0 0 8px rgba(34,240,120,.6); }
+      50% { box-shadow: 0 0 22px rgba(34,240,120,1); }
+    }
+    h1 {
+      font-size: clamp(2.8rem, 5vw, 5.2rem);
+      line-height: .96;
+      letter-spacing: -.04em;
+      font-weight: 700;
+      margin-bottom: 24px;
+    }
+    .hero-sub {
+      color: var(--muted);
+      font-size: 1.1rem;
+      line-height: 1.75;
+      max-width: 520px;
+      margin-bottom: 36px;
+    }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 40px; }
+    .trust-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 18px;
+      border-radius: var(--r-lg);
+      border: 1px solid var(--stroke3);
+      background: rgba(255,255,255,.025);
+      font-size: .85rem;
+    }
+    .trust-bar-sep { width: 1px; height: 24px; background: var(--stroke3); }
+    .trust-stat { display: flex; flex-direction: column; gap: 2px; }
+    .trust-stat strong { color: #fff; font-weight: 700; font-size: .95rem; }
+    .trust-stat span { color: var(--muted); font-size: .75rem; }
+
+    /* ---- hero visual ---- */
+    .hero-visual {
+      position: relative;
+    }
+    .hero-map-card {
+      border-radius: var(--r-xl);
+      border: 1px solid var(--stroke);
+      background: var(--panel);
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 40px 120px rgba(0,0,0,.6), var(--glow-blue);
+    }
+    .map-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--stroke3);
+      background: rgba(255,255,255,.02);
+    }
+    .topbar-dots { display: flex; gap: 7px; }
+    .topbar-dots span {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+    .topbar-dots span:nth-child(1) { background: #ff6058; }
+    .topbar-dots span:nth-child(2) { background: #ffc130; }
+    .topbar-dots span:nth-child(3) { background: #27c840; }
+    .topbar-label {
+      font-family: var(--font-mono);
+      font-size: .74rem;
+      color: var(--muted);
+    }
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: .72rem;
+      font-weight: 600;
+      color: var(--green);
+      letter-spacing: .06em;
+    }
+    .live-badge i {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 10px rgba(34,240,120,.9);
+      animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+    .hero-map-body { position: relative; }
+    .hero-map-svg { display: block; width: 100%; }
+    /* floating HUD cards on hero map */
+    .hud-card {
+      position: absolute;
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(67,234,255,.22);
+      background: rgba(4,12,24,.85);
+      backdrop-filter: blur(16px);
+      font-size: .75rem;
+      pointer-events: none;
+    }
+    .hud-card strong { display: block; color: #fff; font-size: .85rem; margin-top: 2px; }
+    .hud-start { bottom: 24px; left: 18px; border-color: rgba(34,240,120,.3); }
+    .hud-dest { top: 18px; right: 14px; border-color: rgba(11,130,255,.35); }
+    .hero-stats-row {
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 1px;
+      background: var(--stroke3);
+      border-top: 1px solid var(--stroke3);
+    }
+    .hero-stat {
+      padding: 16px 18px;
+      background: rgba(5,12,24,.96);
+      text-align: center;
+    }
+    .hero-stat strong {
+      display: block;
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: -.04em;
+      background: var(--grad);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero-stat span { font-size: .78rem; color: var(--muted); }
+
+    /* floating side hud */
+    .hero-hud-side {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      left: -180px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .mini-hud {
+      width: 160px;
+      padding: 12px;
+      border-radius: var(--r-md);
+      border: 1px solid var(--stroke);
+      background: var(--panel2);
+      backdrop-filter: blur(20px);
+      font-size: .75rem;
+      box-shadow: 0 14px 40px rgba(0,0,0,.4);
+    }
+    .mini-hud-label { color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; }
+    .mini-hud strong { font-size: 1.25rem; font-weight: 700; color: var(--cyan); display: block; }
+    .mini-hud span { color: var(--muted); font-size: .72rem; }
+
+    /* ============================================================
+       MARQUEE
+    ============================================================ */
+    .marquee-strip {
+      overflow: hidden;
+      border-top: 1px solid var(--stroke3);
+      border-bottom: 1px solid var(--stroke3);
+      padding: 14px 0;
+      background: rgba(255,255,255,.015);
+      position: relative;
+      z-index: 2;
+    }
+    .marquee-track {
+      display: flex;
+      gap: 0;
+      animation: marquee 28s linear infinite;
+      width: max-content;
+    }
+    .marquee-track:hover { animation-play-state: paused; }
+    @keyframes marquee { to { transform: translateX(-50%); } }
+    .marquee-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 36px;
+      font-size: .82rem;
+      color: var(--muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .marquee-item .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--cyan);
+      opacity: .6;
+    }
+
+    /* ============================================================
+       SECTION SHARED
+    ============================================================ */
+    section { padding: 100px 0; position: relative; z-index: 2; }
+    .section-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 16px;
+    }
+    .section-tag::before {
+      content: '';
+      width: 24px;
+      height: 1px;
+      background: var(--cyan);
+    }
+    .section-title {
+      font-size: clamp(2rem, 3.5vw, 3.4rem);
+      line-height: 1.05;
+      letter-spacing: -.04em;
+      font-weight: 700;
+      max-width: 700px;
+      margin-bottom: 16px;
+    }
+    .section-sub {
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.75;
+      max-width: 600px;
+    }
+    .section-header { margin-bottom: 56px; }
+    .section-header.center { text-align: center; }
+    .section-header.center .section-tag { justify-content: center; }
+    .section-header.center .section-title { margin: 0 auto 16px; }
+    .section-header.center .section-sub { margin: 0 auto; }
+
+    /* ============================================================
+       METRICS ROW
+    ============================================================ */
+    .metrics-band {
+      background: linear-gradient(135deg, rgba(11,130,255,.05), rgba(34,240,120,.05));
+      border-top: 1px solid var(--stroke3);
+      border-bottom: 1px solid var(--stroke3);
+    }
+    .metrics-band .wrap {
+      display: grid;
+      grid-template-columns: repeat(5,1fr);
+      gap: 0;
+    }
+    .metric-cell {
+      padding: 40px 24px;
+      border-right: 1px solid var(--stroke3);
+      position: relative;
+      overflow: hidden;
+      transition: background .3s;
+    }
+    .metric-cell:last-child { border-right: none; }
+    .metric-cell:hover { background: rgba(67,234,255,.04); }
+    .metric-cell::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--grad);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform .4s var(--ease-out);
+    }
+    .metric-cell:hover::before { transform: scaleX(1); }
+    .metric-num {
+      font-size: clamp(2rem, 3vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -.05em;
+      line-height: 1;
+      background: var(--grad);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .metric-label { color: var(--muted); font-size: .85rem; line-height: 1.45; }
+    .metric-sub { color: var(--green); font-size: .78rem; font-weight: 600; margin-top: 5px; display: block; }
+
+    /* ============================================================
+       INTERACTIVE DEMO — MAIN
+    ============================================================ */
+    .demo-section { padding: 100px 0 80px; }
+    .demo-shell {
+      border-radius: var(--r-xl);
+      border: 1px solid var(--stroke);
+      background: var(--panel);
+      overflow: hidden;
+      box-shadow: 0 60px 140px rgba(0,0,0,.6), 0 0 0 1px rgba(67,234,255,.06);
+    }
+    .app-chrome {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      height: 56px;
+      border-bottom: 1px solid var(--stroke3);
+      background: rgba(255,255,255,.02);
+      gap: 16px;
+    }
+    .chrome-left { display: flex; align-items: center; gap: 14px; }
+    .chrome-dots { display: flex; gap: 6px; }
+    .chrome-dots span { width: 10px; height: 10px; border-radius: 50%; }
+    .chrome-dots span:nth-child(1) { background: #ff6058; }
+    .chrome-dots span:nth-child(2) { background: #ffc130; }
+    .chrome-dots span:nth-child(3) { background: #27c840; }
+    .chrome-url {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 32px;
+      padding: 0 14px;
+      border-radius: var(--r-sm);
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--stroke3);
+      font-family: var(--font-mono);
+      font-size: .74rem;
+      color: var(--muted);
+      min-width: 220px;
+    }
+    .url-lock { color: var(--green); font-size: .65rem; }
+    .tab-nav {
+      display: flex;
+      gap: 4px;
+    }
+    .tab-btn {
+      height: 36px;
+      padding: 0 16px;
+      border-radius: var(--r-sm);
+      font-size: .84rem;
+      font-weight: 500;
+      color: var(--muted);
+      background: transparent;
+      border: 1px solid transparent;
+      transition: all .2s;
+    }
+    .tab-btn:hover { color: var(--text); background: rgba(255,255,255,.04); }
+    .tab-btn.active {
+      color: var(--text);
+      background: rgba(67,234,255,.08);
+      border-color: rgba(67,234,255,.2);
+    }
+    .chrome-right { display: flex; align-items: center; gap: 10px; }
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(34,240,120,.08);
+      border: 1px solid rgba(34,240,120,.2);
+      font-size: .74rem;
+      font-weight: 600;
+      color: var(--green);
+    }
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+
+    /* ============================================================
+       PANEL CONTENT
+    ============================================================ */
+    .panel-body { padding: 0; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* MAP TAB */
+    .map-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 0;
+      min-height: 560px;
+    }
+    .map-viewport {
+      position: relative;
+      overflow: hidden;
+      background: radial-gradient(circle at 65% 25%, rgba(0,199,255,.12), transparent 40%), linear-gradient(160deg,#050f1f,#020508);
+      border-right: 1px solid var(--stroke3);
+    }
+    .warehouse-svg { display: block; width: 100%; height: 100%; min-height: 560px; }
+    /* map elements */
+    .grid-line { stroke: rgba(67,200,255,.08); stroke-width: .8; }
+    .floor-main { fill: rgba(18,45,72,.5); stroke: rgba(67,200,255,.18); stroke-width: 1.5; }
+    .floor-shadow { fill: rgba(1,3,8,.65); }
+    .zone-a { fill: rgba(11,130,255,.06); stroke: rgba(11,130,255,.14); stroke-width: 1; }
+    .zone-b { fill: rgba(34,240,120,.05); stroke: rgba(34,240,120,.12); stroke-width: 1; }
+    .zone-c { fill: rgba(255,201,110,.05); stroke: rgba(255,201,110,.10); stroke-width: 1; }
+    .zone-d { fill: rgba(67,234,255,.04); stroke: rgba(67,234,255,.10); stroke-width: 1; }
+    .aisle { stroke: rgba(255,209,80,.22); stroke-width: 1.5; stroke-dasharray: 10 10; }
+    .rack-top { fill: #2d4a64; }
+    .rack-left { fill: #1a2e42; }
+    .rack-right { fill: #4a6480; }
+    .rack-box { fill: #b8834a; opacity: .88; }
+    /* destination rack glows */
+    .dest .rack-top { fill: #0b4caf; }
+    .dest .rack-left { fill: #062d6e; }
+    .dest .rack-right { fill: #1a8cee; }
+    .is-found .dest { animation: dest-glow 1.2s ease-in-out infinite alternate; }
+    @keyframes dest-glow {
+      from { filter: drop-shadow(0 0 10px rgba(11,130,255,.5)); }
+      to { filter: drop-shadow(0 0 28px rgba(67,234,255,.9)); }
+    }
+    .dock-area { fill: rgba(34,240,120,.1); stroke: rgba(34,240,120,.3); stroke-width: 1.5; }
+    .dock-truck { fill: #7090b0; }
+    .dock-window { fill: #c8dff5; }
+    .dock-wheel { fill: #0a1420; }
+    .route-ghost { fill: none; stroke: rgba(255,255,255,.06); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 7 16; }
+    .route-line {
+      fill: none;
+      stroke: url(#rGrad);
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 0 12px rgba(34,240,120,.7));
+      stroke-dasharray: 900;
+      stroke-dashoffset: 900;
+      opacity: 0;
+      transition: opacity .1s;
+    }
+    .is-routing .route-line { animation: draw-route 2.4s var(--ease-out) forwards; opacity: 1; }
+    @keyframes draw-route { to { stroke-dashoffset: 0; } }
+    .origin-dot { fill: var(--green); filter: drop-shadow(0 0 14px rgba(34,240,120,.9)); }
+    .origin-ring { fill: none; stroke: rgba(34,240,120,.35); stroke-width: 3; animation: ring-pulse 2s ease-in-out infinite; }
+    @keyframes ring-pulse {
+      0%,100% { r: 18; opacity: .35; }
+      50% { r: 26; opacity: .1; }
+    }
+    .dest-pin { opacity: 0; transform-origin: 0 60px; }
+    .is-found .dest-pin { opacity: 1; animation: pin-pop .5s var(--ease-spring) forwards; }
+    @keyframes pin-pop {
+      from { transform: scale(.3) translateY(20px); opacity: 0; }
+      to { transform: scale(1) translateY(0); opacity: 1; }
+    }
+    /* map overlays */
+    .map-overlay-label {
+      position: absolute;
+      font-size: .65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: rgba(67,200,255,.6);
+      pointer-events: none;
+    }
+    .map-callout-card {
+      position: absolute;
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(67,234,255,.2);
+      background: rgba(4,11,24,.88);
+      backdrop-filter: blur(20px);
+      pointer-events: none;
+      font-size: .75rem;
+      color: var(--muted);
+      z-index: 3;
+      transition: opacity .35s, transform .35s;
+    }
+    .map-callout-card strong { display: block; color: #fff; font-size: .88rem; margin-top: 3px; }
+    .callout-origin { bottom: 18px; left: 16px; border-color: rgba(34,240,120,.3); }
+    .callout-dest { top: 14px; right: 14px; border-color: rgba(11,130,255,.35); opacity: 0; transform: translateY(8px); }
+    .is-found .callout-dest { opacity: 1; transform: translateY(0); }
+
+    /* map toolbox */
+    .map-toolbox {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 4;
+    }
+    .tool-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid var(--stroke3);
+      background: rgba(5,12,24,.88);
+      display: grid;
+      place-items: center;
+      font-size: .8rem;
+      color: var(--muted);
+      backdrop-filter: blur(12px);
+      transition: color .2s, border-color .2s, background .2s;
+    }
+    .tool-btn:hover { color: var(--cyan); border-color: rgba(67,234,255,.3); background: rgba(67,234,255,.06); }
+
+    /* zone labels */
+    .zone-label {
+      position: absolute;
+      padding: 4px 9px;
+      border-radius: 6px;
+      background: rgba(5,12,24,.72);
+      border: 1px solid rgba(255,255,255,.06);
+      font-size: .65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    /* RIGHT SIDEBAR of map */
+    .map-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      background: rgba(4,10,20,.6);
+    }
+    .sidebar-block {
+      padding: 18px;
+      border-bottom: 1px solid var(--stroke3);
+    }
+    .sidebar-block:last-child { border-bottom: none; flex: 1; }
+    .sb-kicker {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin-bottom: 13px;
+    }
+    .sb-kicker::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 12px rgba(67,234,255,.7);
+    }
+    /* scanner */
+    .qr-wrapper {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+    .qr-box {
+      width: 120px;
+      height: 120px;
+      border-radius: 16px;
+      background: #f2f4f8;
+      display: grid;
+      place-items: center;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(67,234,255,.2);
+    }
+    .qr-box::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg,transparent,rgba(34,240,120,.9),transparent);
+      top: -3px;
+      opacity: 0;
+    }
+    .is-scanning .qr-box::after { animation: qr-scan 1.6s linear infinite; opacity: 1; }
+    @keyframes qr-scan { to { top: 123px; } }
+    .qr-svg { width: 88px; height: 88px; }
+    .qr-status { text-align: center; font-size: .8rem; color: var(--muted); margin-bottom: 10px; }
+    .qr-status strong { color: var(--green); display: block; font-size: .75rem; margin-top: 4px; }
+    /* steps */
+    .step-list { display: flex; flex-direction: column; gap: 7px; }
+    .step-item {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 9px;
+      align-items: start;
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: rgba(255,255,255,.02);
+      font-size: .8rem;
+      transition: all .25s;
+    }
+    .step-item.is-active { border-color: rgba(67,234,255,.28); background: rgba(67,234,255,.06); }
+    .step-item.is-done { border-color: rgba(34,240,120,.22); background: rgba(34,240,120,.05); }
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 7px;
+      display: grid;
+      place-items: center;
+      background: rgba(255,255,255,.05);
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .step-item.is-active .step-num { background: rgba(67,234,255,.15); color: var(--cyan); }
+    .step-item.is-done .step-num { background: rgba(34,240,120,.15); color: var(--green); }
+    .step-txt { display: flex; flex-direction: column; }
+    .step-txt span { color: var(--text); font-weight: 500; }
+    .step-txt small { color: var(--muted); font-size: .7rem; margin-top: 2px; }
+    .step-item.is-done .step-txt small { color: var(--green); }
+    /* route info */
+    .route-big { font-size: 2.2rem; font-weight: 700; letter-spacing: -.05em; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .route-details { color: var(--muted); font-size: .8rem; line-height: 1.7; margin-top: 6px; }
+    .route-mini-viz {
+      margin-top: 12px;
+      height: 48px;
+      border-radius: 12px;
+      border: 1px solid var(--stroke3);
+      background: rgba(255,255,255,.02);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .route-mini-viz svg { width: 90%; overflow: visible; }
+    /* scan trigger */
+    .scan-trigger-area { margin-top: 10px; display: flex; justify-content: center; }
+
+    /* flow timer pill */
+    .flow-timer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .timer-val {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    /* ============================================================
+       STOCK TABLE TAB
+    ============================================================ */
+    .stock-layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 0;
+      min-height: 560px;
+    }
+    .stock-table-wrap {
+      padding: 20px;
+      overflow-x: auto;
+      border-right: 1px solid var(--stroke3);
+    }
+    .data-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    .data-table th {
+      padding: 10px 12px;
+      text-align: left;
+      font-size: .72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--stroke3);
+    }
+    .data-table td {
+      padding: 12px;
+      font-size: .88rem;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      color: rgba(238,244,255,.9);
+    }
+    .data-table tbody tr {
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .data-table tbody tr:hover { background: rgba(67,234,255,.04); }
+    .data-table tbody tr.selected { background: rgba(11,130,255,.08); border-left: 2px solid var(--blue); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: .72rem;
+      font-weight: 600;
+    }
+    .badge-ok { background: rgba(34,240,120,.1); border: 1px solid rgba(34,240,120,.2); color: var(--green); }
+    .badge-warn { background: rgba(255,201,110,.1); border: 1px solid rgba(255,201,110,.2); color: var(--amber); }
+    .badge-info { background: rgba(67,234,255,.1); border: 1px solid rgba(67,234,255,.2); color: var(--cyan); }
+    .stock-sidebar { padding: 20px; }
+    .sku-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .sku-tile {
+      padding: 14px;
+      border-radius: var(--r-md);
+      border: 1px solid var(--stroke3);
+      background: rgba(255,255,255,.025);
+    }
+    .sku-tile span { display: block; color: var(--muted); font-size: .72rem; margin-bottom: 5px; }
+    .sku-tile strong { font-size: 1.6rem; font-weight: 700; letter-spacing: -.04em; display: block; }
+
+    /* ============================================================
+       INVENTORY TAB
+    ============================================================ */
+    .inv-layout { display: grid; grid-template-columns: 1fr 300px; min-height: 560px; }
+    .inv-main { padding: 20px; border-right: 1px solid var(--stroke3); }
+    .prog-list { display: flex; flex-direction: column; gap: 14px; }
+    .prog-item {
+      padding: 16px;
+      border-radius: var(--r-md);
+      border: 1px solid var(--stroke3);
+      background: rgba(255,255,255,.02);
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    .prog-item:hover { border-color: rgba(67,234,255,.2); background: rgba(67,234,255,.03); }
+    .prog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .prog-header span { font-weight: 500; font-size: .9rem; }
+    .prog-header strong { font-size: .9rem; font-weight: 700; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .prog-bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,.06); overflow: hidden; }
+    .prog-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--grad);
+      box-shadow: 0 0 12px rgba(67,234,255,.3);
+      transition: width 1.5s var(--ease-out);
+    }
+    .prog-meta { display: flex; gap: 16px; margin-top: 8px; font-size: .75rem; color: var(--muted); }
+    .inv-sidebar { padding: 20px; }
+
+    /* ============================================================
+       AUDIT TAB
+    ============================================================ */
+    .audit-layout { display: grid; grid-template-columns: 1fr 300px; min-height: 560px; }
+    .audit-main { padding: 20px; border-right: 1px solid var(--stroke3); }
+    .timeline { display: flex; flex-direction: column; gap: 0; }
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 14px;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--stroke3);
+      position: relative;
+    }
+    .timeline-item:first-child { padding-top: 0; }
+    .timeline-item:last-child { border-bottom: none; }
+    .tl-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      border: 1px solid var(--stroke3);
+      background: rgba(255,255,255,.03);
+    }
+    .tl-icon.success { background: rgba(34,240,120,.1); border-color: rgba(34,240,120,.2); }
+    .tl-icon.info { background: rgba(67,234,255,.1); border-color: rgba(67,234,255,.2); }
+    .tl-icon.lock { background: rgba(11,130,255,.1); border-color: rgba(11,130,255,.2); }
+    .tl-content h4 { font-size: .9rem; font-weight: 600; margin-bottom: 4px; }
+    .tl-content p { color: var(--muted); font-size: .82rem; line-height: 1.6; }
+    .tl-time { font-family: var(--font-mono); font-size: .7rem; color: var(--muted); margin-top: 6px; display: block; }
+    .audit-sidebar { padding: 20px; }
+
+    /* ============================================================
+       REPORTS TAB
+    ============================================================ */
+    .reports-layout { padding: 20px; }
+    .chart-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 20px; }
+    .chart-card {
+      padding: 18px;
+      border-radius: var(--r-md);
+      border: 1px solid var(--stroke3);
+      background: rgba(255,255,255,.02);
+    }
+    .chart-kicker { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 14px; }
+    .bar-chart { height: 180px; display: flex; align-items: flex-end; gap: 10px; }
+    .bar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      height: 100%;
+      justify-content: flex-end;
+    }
+    .bar-fill {
+      width: 100%;
+      border-radius: 6px 6px 3px 3px;
+      background: var(--grad);
+      box-shadow: 0 0 18px rgba(67,234,255,.2);
+      transition: height 1.2s var(--ease-out);
+      min-height: 4px;
+    }
+    .bar-lbl { font-size: .72rem; color: var(--muted); }
+    .line-chart-wrap { height: 180px; }
+    .line-chart-wrap svg { width: 100%; height: 100%; overflow: visible; }
+    .reports-kpis { display: grid; grid-template-columns: repeat(5,1fr); gap: 12px; }
+    .report-kpi {
+      padding: 16px;
+      border-radius: var(--r-md);
+      border: 1px solid var(--stroke3);
+      background: rgba(255,255,255,.02);
+      text-align: center;
+    }
+    .report-kpi .icon { font-size: 1.2rem; margin-bottom: 8px; }
+    .report-kpi strong { display: block; font-size: 1.4rem; font-weight: 700; letter-spacing: -.04em; }
+    .report-kpi span { color: var(--muted); font-size: .75rem; }
+    .report-kpi small { display: block; color: var(--green); font-size: .72rem; margin-top: 4px; font-weight: 600; }
+
+    /* ============================================================
+       FEATURES GRID
+    ============================================================ */
+    .features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
+    .feat-card {
+      padding: 28px;
+      border-radius: var(--r-xl);
+      border: 1px solid var(--stroke3);
+      background: rgba(8,18,34,.7);
+      position: relative;
+      overflow: hidden;
+      transition: border-color .3s, box-shadow .3s, transform .3s;
+      cursor: default;
+    }
+    .feat-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 80% 0%, rgba(67,234,255,.08), transparent 55%);
+      opacity: 0;
+      transition: opacity .3s;
+    }
+    .feat-card:hover { border-color: rgba(67,234,255,.24); box-shadow: 0 20px 60px rgba(0,0,0,.4), 0 0 0 1px rgba(67,234,255,.06); transform: translateY(-4px); }
+    .feat-card:hover::before { opacity: 1; }
+    .feat-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      font-size: 1.6rem;
+      background: rgba(67,234,255,.07);
+      border: 1px solid rgba(67,234,255,.15);
+      margin-bottom: 20px;
+      position: relative;
+      z-index: 1;
+    }
+    .feat-card h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 10px; position: relative; z-index: 1; }
+    .feat-card p { color: var(--muted); font-size: .88rem; line-height: 1.7; margin-bottom: 16px; position: relative; z-index: 1; }
+    .feat-link {
+      font-size: .84rem;
+      font-weight: 600;
+      color: var(--cyan);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      z-index: 1;
+      transition: gap .2s;
+    }
+    .feat-card:hover .feat-link { gap: 10px; }
+
+    /* ============================================================
+       WORKFLOW STEPS
+    ============================================================ */
+    .workflow-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 20px; position: relative; }
+    .workflow-grid::before {
+      content: '';
+      position: absolute;
+      top: 42px;
+      left: 12%;
+      right: 12%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--stroke), transparent);
+      z-index: 0;
+    }
+    .wf-card {
+      padding: 28px 22px;
+      border-radius: var(--r-xl);
+      border: 1px solid var(--stroke3);
+      background: rgba(8,18,34,.7);
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      transition: border-color .3s, transform .3s;
+    }
+    .wf-card:hover { border-color: rgba(67,234,255,.2); transform: translateY(-4px); }
+    .wf-num {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      font-family: var(--font-mono);
+      font-size: .88rem;
+      font-weight: 700;
+      background: var(--grad);
+      color: #fff;
+      margin: 0 auto 20px;
+      box-shadow: 0 8px 24px rgba(11,130,255,.35);
+    }
+    .wf-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 10px; }
+    .wf-card p { color: var(--muted); font-size: .86rem; line-height: 1.65; }
+
+    /* ============================================================
+       CTA SECTION
+    ============================================================ */
+    .cta-section {
+      padding: 100px 0 120px;
+    }
+    .cta-box {
+      border-radius: var(--r-xl);
+      border: 1px solid var(--stroke);
+      background:
+        radial-gradient(circle at 10% 50%, rgba(11,130,255,.18), transparent 40%),
+        radial-gradient(circle at 90% 50%, rgba(34,240,120,.14), transparent 40%),
+        rgba(8,18,34,.85);
+      padding: 64px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 60px 120px rgba(0,0,0,.5);
+    }
+    .cta-box::before {
+      content: '';
+      position: absolute;
+      top: -1px;
+      left: 20%;
+      right: 20%;
+      height: 1px;
+      background: var(--grad);
+      opacity: .6;
+    }
+    .cta-box h2 { font-size: clamp(2rem, 4vw, 3.4rem); letter-spacing: -.04em; line-height: 1.1; margin-bottom: 16px; }
+    .cta-box p { color: var(--muted); font-size: 1.05rem; line-height: 1.75; max-width: 540px; margin: 0 auto 40px; }
+    .cta-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .cta-note { color: var(--muted); font-size: .82rem; margin-top: 18px; }
+
+    /* ============================================================
+       FOOTER
+    ============================================================ */
+    .footer {
+      border-top: 1px solid var(--stroke3);
+      padding: 40px 0;
+      position: relative;
+      z-index: 2;
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .footer-copy { color: var(--muted); font-size: .82rem; }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { color: var(--muted); font-size: .82rem; transition: color .2s; }
+    .footer-links a:hover { color: var(--cyan); }
+
+    /* ============================================================
+       FLOATING PARTICLES
+    ============================================================ */
+    .particle {
+      position: fixed;
+      pointer-events: none;
+      z-index: 0;
+      border-radius: 50%;
+      animation: float-particle var(--dur,20s) ease-in-out var(--delay,0s) infinite;
+    }
+    @keyframes float-particle {
+      0%,100% { transform: translateY(0) translateX(0) scale(1); opacity: var(--op,.5); }
+      33% { transform: translateY(-40px) translateX(20px) scale(1.1); opacity: calc(var(--op,.5)*.6); }
+      66% { transform: translateY(20px) translateX(-15px) scale(.9); opacity: calc(var(--op,.5)*.8); }
+    }
+
+    /* ============================================================
+       TOOLTIP
+    ============================================================ */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%) translateY(4px);
+      background: rgba(5,12,24,.95);
+      border: 1px solid var(--stroke);
+      color: var(--text);
+      font-size: .74rem;
+      padding: 6px 10px;
+      border-radius: var(--r-sm);
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s, transform .2s;
+    }
+    [data-tooltip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ============================================================
+       PRODUCT INFO CARD  
+    ============================================================ */
+    .product-found-card {
+      padding: 14px 18px;
+      border-top: 1px solid var(--stroke3);
+      display: none;
+      animation: slide-up .4s var(--ease-out) forwards;
+    }
+    @keyframes slide-up {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .is-found ~ .product-found-card,
+    .show-product .product-found-card { display: block; }
+    .prod-card-inner { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; }
+    .prod-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: linear-gradient(135deg,#d4a96a,#8a5c28);
+      position: relative;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.25), 0 8px 20px rgba(0,0,0,.3);
+    }
+    .prod-icon::before { content: ''; position: absolute; inset: 11px; border-top: 2px solid rgba(255,255,255,.4); transform: skewY(-16deg); }
+    .prod-name { font-weight: 600; font-size: .9rem; margin-bottom: 2px; }
+    .prod-meta { color: var(--muted); font-size: .78rem; }
+    .prod-addr { font-family: var(--font-mono); font-size: .78rem; padding: 8px 12px; border-radius: 8px; background: rgba(67,234,255,.06); border: 1px solid rgba(67,234,255,.14); color: var(--cyan); white-space: nowrap; }
+
+    /* ============================================================
+       RESPONSIVE
+    ============================================================ */
+    @media (max-width:1100px) {
+      .hero-grid { grid-template-columns: 1fr; gap: 50px; }
+      .hero-hud-side { display: none; }
+      .map-layout { grid-template-columns: 1fr; }
+      .map-sidebar { flex-direction: row; flex-wrap: wrap; }
+      .sidebar-block { flex: 1; min-width: 180px; border-right: 1px solid var(--stroke3); border-bottom: none; }
+      .features-grid { grid-template-columns: repeat(2,1fr); }
+      .workflow-grid { grid-template-columns: repeat(2,1fr); }
+      .metrics-band .wrap { grid-template-columns: repeat(3,1fr); }
+      .stock-layout, .inv-layout, .audit-layout { grid-template-columns: 1fr; }
+      .chart-duo { grid-template-columns: 1fr; }
+      .reports-kpis { grid-template-columns: repeat(3,1fr); }
+      .quotes-grid { grid-template-columns: 1fr 1fr !important; }
+      .pricing-grid { grid-template-columns: 1fr !important; }
+      #terminal-section > .wrap > div:first-of-type + div { grid-template-columns: 1fr !important; }
+    }
+    @media (max-width:768px) {
+      .nav-links { display: none; }
+      .hero { padding: 90px 0 60px; }
+      h1 { letter-spacing: -.03em; }
+      .features-grid { grid-template-columns: 1fr; }
+      .workflow-grid { grid-template-columns: 1fr 1fr; }
+      .metrics-band .wrap { grid-template-columns: repeat(2,1fr); }
+      .reports-kpis { grid-template-columns: repeat(2,1fr); }
+      .cta-box { padding: 40px 24px; }
+      .quotes-grid { grid-template-columns: 1fr !important; }
+      #planos > .wrap > div[style*="grid-template-columns:repeat(6"] { grid-template-columns: repeat(3,1fr) !important; }
+    }
+
+    /* ============================================================
+       SCROLL REVEAL
+    ============================================================ */
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity .7s var(--ease-out), transform .7s var(--ease-out);
+    }
+    .reveal.in-view { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: .1s; }
+    .reveal-delay-2 { transition-delay: .2s; }
+    .reveal-delay-3 { transition-delay: .3s; }
+    .reveal-delay-4 { transition-delay: .4s; }
+    .reveal-delay-5 { transition-delay: .5s; }
+
+    /* ============================================================
+       CURSOR GLOW
+    ============================================================ */
+    .cursor-glow {
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      position: fixed;
+      pointer-events: none;
+      z-index: 999;
+      background: radial-gradient(circle, rgba(67,234,255,.06), transparent 65%);
+      transform: translate(-50%,-50%);
+      transition: transform .08s linear, opacity .4s;
+      mix-blend-mode: screen;
+    }
+  </style>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+
+<!-- cursor glow -->
+<div class="cursor-glow" id="cursorGlow"></div>
+
+<!-- canvas background -->
+<canvas id="bg-canvas"></canvas>
+
+<!-- particles -->
+<div class="particle" style="width:3px;height:3px;background:rgba(67,234,255,.5);top:15%;left:12%;--dur:18s;--delay:0s;--op:.5;"></div>
+<div class="particle" style="width:2px;height:2px;background:rgba(34,240,120,.6);top:35%;left:80%;--dur:24s;--delay:3s;--op:.4;"></div>
+<div class="particle" style="width:4px;height:4px;background:rgba(11,130,255,.5);top:60%;left:22%;--dur:20s;--delay:6s;--op:.35;"></div>
+<div class="particle" style="width:2px;height:2px;background:rgba(255,201,110,.5);top:78%;left:68%;--dur:16s;--delay:2s;--op:.45;"></div>
+<div class="particle" style="width:3px;height:3px;background:rgba(67,234,255,.4);top:45%;left:55%;--dur:22s;--delay:8s;--op:.3;"></div>
+
+<!-- ============================================================
+     NAVBAR
+============================================================ -->
+<nav class="navbar" id="navbar">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top" aria-label="DACHBYTE Stock">
+      <img class="logo-svg" src="/brand/dachbyte/business/mark-transparent.png" alt="" aria-hidden="true"/>
+      <span class="brand-name">DACHBYTE <span>STOCK</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Navegação principal">
+      <a href="#demo">Produto</a>
+      <a href="#modulos">Soluções</a>
+      <a href="#fluxo">Fluxo</a>
+      <a href="#relatorios">Relatórios</a>
+      <a href="#cta">Contato</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="/voltstock/login">Entrar</a>
+      <a class="btn btn-primary" href="#cta">Agendar demo →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ============================================================
+     HERO
+============================================================ -->
+<section class="hero" id="top">
+  <div class="wrap hero-grid">
+    <!-- left -->
+    <div>
+      <div class="hero-eyebrow reveal"><span></span>Plataforma SaaS para Estoque Inteligente</div>
+      <h1 class="reveal reveal-delay-1">
+        Estoque<br>com <span class="grad-text">mapa 3D</span>,<br>QR Code e rota.
+      </h1>
+      <p class="hero-sub reveal reveal-delay-2">
+        A DACHBYTE Stock transforma seu armazém em um mapa visual, rastreável e auditável. Bipe um QR Code, veja a localização exata e siga a rota até o produto — em menos de 3 segundos.
+      </p>
+      <div class="hero-actions reveal reveal-delay-3">
+        <a class="btn btn-primary" href="#demo">Ver simulação ao vivo ↗</a>
+        <a class="btn btn-outline" href="#modulos">Conhecer módulos</a>
+      </div>
+      <div class="trust-bar reveal reveal-delay-4">
+        <div class="trust-stat">
+          <strong>99,6%</strong>
+          <span>Acuracidade</span>
+        </div>
+        <div class="trust-bar-sep"></div>
+        <div class="trust-stat">
+          <strong>2,4M+</strong>
+          <span>Itens rastreáveis</span>
+        </div>
+        <div class="trust-bar-sep"></div>
+        <div class="trust-stat">
+          <strong>-62%</strong>
+          <span>Tempo de busca</span>
+        </div>
+        <div class="trust-bar-sep"></div>
+        <div class="trust-stat">
+          <strong>100%</strong>
+          <span>Auditável</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- right: hero map card -->
+    <div class="hero-visual reveal reveal-delay-2">
+      <div class="hero-map-card" id="heroMap">
+        <div class="map-topbar">
+          <div class="topbar-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <span class="topbar-label">volt-stock.app / mapa</span>
+          <div class="live-badge"><i></i>AO VIVO</div>
+        </div>
+        <div class="hero-map-body">
+          <svg class="hero-map-svg" viewBox="0 0 960 480" aria-label="Mapa 3D do armazém" role="img">
+            <defs>
+              <linearGradient id="rGradH" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#22F078"/><stop offset=".48" stop-color="#43EAFF"/><stop offset="1" stop-color="#0B82FF"/></linearGradient>
+              <filter id="ss"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity=".4"/></filter>
+            </defs>
+            <!-- floor -->
+            <polygon class="floor-shadow" points="110,148 800,42 900,360 210,490"/>
+            <polygon class="floor-main" points="100,126 808,28 910,338 205,460"/>
+            <!-- grid -->
+            <g opacity=".7">
+              <path class="grid-line" d="M175 118 285 452"/><path class="grid-line" d="M305 100 414 434"/><path class="grid-line" d="M435 80 542 412"/><path class="grid-line" d="M565 62 668 394"/><path class="grid-line" d="M685 46 788 370"/>
+              <path class="grid-line" d="M128 188 840 82"/><path class="grid-line" d="M160 278 870 168"/><path class="grid-line" d="M192 368 900 258"/>
+            </g>
+            <!-- zones -->
+            <polygon class="zone-a" points="160,122 380,100 412,248 188,280"/>
+            <polygon class="zone-b" points="448,76 792,46 832,200 482,238"/>
+            <polygon class="zone-c" points="238,322 542,278 576,428 268,480"/>
+            <polygon class="zone-d" points="606,264 878,218 900,352 632,408"/>
+            <!-- aisles -->
+            <path class="aisle" d="M208 440 318 370 466 338 580 258 714 218"/>
+            <path class="aisle" d="M158 288 848 178"/>
+            <!-- racks -->
+            <g filter="url(#ss)">
+              <g transform="translate(186,155)"><polygon class="rack-top" points="0,0 94,-15 128,5 34,21"/><polygon class="rack-left" points="0,0 34,21 34,66 0,48"/><polygon class="rack-right" points="34,21 128,5 128,51 34,66"/><rect class="rack-box" x="46" y="12" width="18" height="11" transform="rotate(-8 46 12)"/></g>
+              <g transform="translate(318,138)"><polygon class="rack-top" points="0,0 90,-14 124,5 34,20"/><polygon class="rack-left" points="0,0 34,20 34,64 0,46"/><polygon class="rack-right" points="34,20 124,5 124,50 34,64"/><rect class="rack-box" x="68" y="8" width="18" height="11" transform="rotate(-8 68 8)"/></g>
+              <g transform="translate(510,105)"><polygon class="rack-top" points="0,0 112,-16 150,5 38,22"/><polygon class="rack-left" points="0,0 38,22 38,72 0,52"/><polygon class="rack-right" points="38,22 150,5 150,58 38,72"/><rect class="rack-box" x="54" y="12" width="19" height="12" transform="rotate(-8 54 12)"/><rect class="rack-box" x="88" y="7" width="19" height="12" transform="rotate(-8 88 7)"/></g>
+              <g transform="translate(668,88)"><polygon class="rack-top" points="0,0 102,-16 138,5 36,22"/><polygon class="rack-left" points="0,0 36,22 36,66 0,48"/><polygon class="rack-right" points="36,22 138,5 138,52 36,66"/></g>
+              <g transform="translate(253,268)"><polygon class="rack-top" points="0,0 116,-17 154,5 38,23"/><polygon class="rack-left" points="0,0 38,23 38,72 0,52"/><polygon class="rack-right" points="38,23 154,5 154,57 38,72"/><rect class="rack-box" x="60" y="11" width="19" height="12" transform="rotate(-8 60 11)"/></g>
+              <g transform="translate(424,242)"><polygon class="rack-top" points="0,0 120,-18 160,5 40,24"/><polygon class="rack-left" points="0,0 40,24 40,74 0,54"/><polygon class="rack-right" points="40,24 160,5 160,58 40,74"/></g>
+              <g transform="translate(614,298)"><polygon class="rack-top" points="0,0 110,-17 148,4 38,22"/><polygon class="rack-left" points="0,0 38,22 38,68 0,50"/><polygon class="rack-right" points="38,22 148,4 148,52 38,68"/></g>
+              <g transform="translate(730,276)" class="dest"><polygon class="rack-top" points="0,0 116,-18 154,5 38,23"/><polygon class="rack-left" points="0,0 38,23 38,80 0,58"/><polygon class="rack-right" points="38,23 154,5 154,63 38,80"/><rect class="rack-box" x="68" y="9" width="21" height="13" transform="rotate(-8 68 9)" fill="#D4A94A"/></g>
+              <g transform="translate(298,368)"><polygon class="rack-top" points="0,0 106,-16 142,4 36,21"/><polygon class="rack-left" points="0,0 36,21 36,64 0,46"/><polygon class="rack-right" points="36,21 142,4 142,50 36,64"/></g>
+              <g transform="translate(548,348)"><polygon class="rack-top" points="0,0 110,-17 148,4 38,22"/><polygon class="rack-left" points="0,0 38,22 38,68 0,50"/><polygon class="rack-right" points="38,22 148,4 148,52 38,68"/></g>
+            </g>
+            <!-- dock -->
+            <polygon class="dock-area" points="156,418 234,404 256,452 178,468"/>
+            <rect x="96" y="432" width="80" height="30" rx="5" class="dock-truck" transform="rotate(-7 96 432)"/>
+            <rect x="80" y="441" width="27" height="21" rx="4" class="dock-window" transform="rotate(-7 80 441)"/>
+            <circle cx="116" cy="471" r="5" class="dock-wheel"/><circle cx="160" cy="464" r="5" class="dock-wheel"/>
+            <!-- route ghost -->
+            <path class="route-ghost" d="M208 440 C262 406 296 378 336 368 L465 344 C516 330 552 296 585 272 C636 244 670 230 714 218"/>
+            <!-- route animated -->
+            <path class="route-line" stroke="url(#rGradH)" d="M208 440 C262 406 296 378 336 368 L465 344 C516 330 552 296 585 272 C636 244 670 230 714 218"/>
+            <!-- origin -->
+            <circle cx="208" cy="440" r="8" class="origin-dot"/>
+            <circle cx="208" cy="440" r="18" class="origin-ring"/>
+            <!-- destination pin -->
+            <g class="dest-pin" transform="translate(714,178)">
+              <path d="M0 0c-16 0-28 12-28 28 0 21 28 52 28 52s28-31 28-52C28 12 16 0 0 0Z" fill="url(#lgBolt)" filter="url(#ss)"/>
+              <circle cx="0" cy="28" r="9" fill="#fff"/>
+            </g>
+          </svg>
+          <!-- callout cards on hero -->
+          <div class="hud-card hud-start">
+            <span style="color:var(--muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">Ponto de partida</span>
+            <strong>Doca 02</strong>
+          </div>
+          <div class="hud-card hud-dest">
+            <span style="color:var(--muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">Destino</span>
+            <strong>Rua 12 • Est. 04</strong>
+          </div>
+        </div>
+        <div class="hero-stats-row">
+          <div class="hero-stat"><strong id="heroCounter1">99,6%</strong><span>Acuracidade</span></div>
+          <div class="hero-stat"><strong id="heroCounter2">2,4M+</strong><span>Itens rastreados</span></div>
+          <div class="hero-stat"><strong id="heroCounter3">18.742</strong><span>Endereços mapeados</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     MARQUEE
+============================================================ -->
+<div class="marquee-strip">
+  <div class="marquee-track" id="marqueeTrack">
+    <!-- items duplicated in JS -->
+  </div>
+</div>
+
+<!-- ============================================================
+     METRICS
+============================================================ -->
+<section class="metrics-band" id="metricas">
+  <div class="wrap">
+    <div class="metric-cell reveal">
+      <span class="metric-num" data-counter="99.6" data-suffix="%">0%</span>
+      <span class="metric-label">Acuracidade de estoque</span>
+      <span class="metric-sub">+2,3% vs mês anterior</span>
+    </div>
+    <div class="metric-cell reveal reveal-delay-1">
+      <span class="metric-num" data-counter="-62" data-suffix="%">0%</span>
+      <span class="metric-label">Redução no tempo de busca</span>
+      <span class="metric-sub">com rota guiada no mapa</span>
+    </div>
+    <div class="metric-cell reveal reveal-delay-2">
+      <span class="metric-num">2,4M+</span>
+      <span class="metric-label">Itens rastreáveis em tempo real</span>
+      <span class="metric-sub">sincronizado com o mapa</span>
+    </div>
+    <div class="metric-cell reveal reveal-delay-3">
+      <span class="metric-num" data-counter="18742" data-suffix="">0</span>
+      <span class="metric-label">Endereços mapeados</span>
+      <span class="metric-sub">setor, rua, estante, nível</span>
+    </div>
+    <div class="metric-cell reveal reveal-delay-4">
+      <span class="metric-num" data-counter="100" data-suffix="%">0%</span>
+      <span class="metric-label">Operação auditável</span>
+      <span class="metric-sub">histórico por usuário</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     INTERACTIVE DEMO
+============================================================ -->
+<section class="demo-section" id="demo">
+  <div class="wrap">
+    <div class="section-header reveal">
+      <div class="section-tag">Demo interativa</div>
+      <h2 class="section-title">Demonstração ao vivo da <span class="grad-text">DACHBYTE Stock</span>.</h2>
+      <p class="section-sub">Todas as abas são interativas e simulam dados reais de operação. Clique, explore e veja como a plataforma funciona.</p>
+    </div>
+    <div class="demo-shell reveal reveal-delay-1" data-demo>
+      <!-- chrome bar -->
+      <div class="app-chrome">
+        <div class="chrome-left">
+          <div class="chrome-dots"><span></span><span></span><span></span></div>
+          <div class="chrome-url"><span class="url-lock">🔒</span>app.voltstock.com</div>
+        </div>
+        <div class="tab-nav" role="tablist" aria-label="Abas da demonstração">
+          <button class="tab-btn active" data-tab="mapa" role="tab" aria-selected="true">Mapa 3D</button>
+          <button class="tab-btn" data-tab="estoque" role="tab" aria-selected="false">Estoque</button>
+          <button class="tab-btn" data-tab="inventario" role="tab" aria-selected="false">Inventário</button>
+          <button class="tab-btn" data-tab="auditoria" role="tab" aria-selected="false">Auditoria</button>
+          <button class="tab-btn" data-tab="relatorios" role="tab" aria-selected="false">Relatórios</button>
+        </div>
+        <div class="chrome-right">
+          <div class="live-indicator"><div class="live-dot"></div><span data-active-label>Mapa 3D online</span></div>
+        </div>
+      </div>
+
+      <!-- panel body -->
+      <div class="panel-body">
+
+        <!-- ===== MAPA TAB ===== -->
+        <div class="tab-panel active" data-panel="mapa">
+          <div class="map-layout" data-map-layout>
+            <!-- map viewport -->
+            <div class="map-viewport" data-map>
+              <svg class="warehouse-svg" viewBox="0 0 960 620" aria-label="Mapa 3D interativo do armazém" role="img">
+                <defs>
+                  <linearGradient id="rGrad" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#22F078"/><stop offset=".48" stop-color="#43EAFF"/><stop offset="1" stop-color="#0B82FF"/></linearGradient>
+                  <linearGradient id="pinGrd" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0B82FF"/><stop offset="1" stop-color="#22F078"/></linearGradient>
+                  <filter id="softShadow"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity=".38"/></filter>
+                </defs>
+                <!-- floor -->
+                <polygon class="floor-shadow" points="108,162 792,50 912,406 212,556"/>
+                <polygon class="floor-main" points="98,134 800,36 914,374 206,526"/>
+                <!-- grid -->
+                <g opacity=".8">
+                  <path class="grid-line" d="M172 124 283 508"/><path class="grid-line" d="M295 105 409 482"/><path class="grid-line" d="M423 86 534 454"/><path class="grid-line" d="M550 68 658 428"/><path class="grid-line" d="M678 50 784 402"/>
+                  <path class="grid-line" d="M124 203 836 92"/><path class="grid-line" d="M158 303 869 183"/><path class="grid-line" d="M192 402 900 280"/>
+                </g>
+                <!-- zones -->
+                <polygon class="zone-a" points="157,126 386,104 416,268 180,302"/>
+                <polygon class="zone-b" points="446,80 788,50 826,212 478,254"/>
+                <polygon class="zone-c" points="233,346 542,294 576,454 262,514"/>
+                <polygon class="zone-d" points="602,280 873,234 898,362 630,422"/>
+                <!-- aisles -->
+                <path class="aisle" d="M206 478 316 400 464 368 578 290 711 242"/>
+                <path class="aisle" d="M153 314 846 205"/>
+                <path class="aisle" d="M348 93 418 508"/>
+                <!-- racks -->
+                <g filter="url(#softShadow)">
+                  <g transform="translate(182,162)"><polygon class="rack-top" points="0,0 93,-14 127,5 34,20"/><polygon class="rack-left" points="0,0 34,20 34,68 0,50"/><polygon class="rack-right" points="34,20 127,5 127,53 34,68"/><rect class="rack-box" x="47" y="12" width="18" height="11" transform="rotate(-9 47 12)"/></g>
+                  <g transform="translate(312,142)"><polygon class="rack-top" points="0,0 89,-14 123,5 34,20"/><polygon class="rack-left" points="0,0 34,20 34,68 0,50"/><polygon class="rack-right" points="34,20 123,5 123,52 34,68"/><rect class="rack-box" x="69" y="8" width="18" height="11" transform="rotate(-9 69 8)"/></g>
+                  <g transform="translate(507,110)"><polygon class="rack-top" points="0,0 113,-17 151,5 38,23"/><polygon class="rack-left" points="0,0 38,23 38,75 0,54"/><polygon class="rack-right" points="38,23 151,5 151,59 38,75"/><rect class="rack-box" x="55" y="13" width="20" height="12" transform="rotate(-9 55 13)"/><rect class="rack-box" x="90" y="8" width="20" height="12" transform="rotate(-9 90 8)"/></g>
+                  <g transform="translate(663,92)"><polygon class="rack-top" points="0,0 101,-16 137,5 36,22"/><polygon class="rack-left" points="0,0 36,22 36,68 0,50"/><polygon class="rack-right" points="36,22 137,5 137,53 36,68"/></g>
+                  <g transform="translate(250,288)"><polygon class="rack-top" points="0,0 119,-18 157,5 38,24"/><polygon class="rack-left" points="0,0 38,24 38,76 0,54"/><polygon class="rack-right" points="38,24 157,5 157,59 38,76"/><rect class="rack-box" x="63" y="12" width="20" height="12" transform="rotate(-9 63 12)"/></g>
+                  <g transform="translate(417,260)"><polygon class="rack-top" points="0,0 125,-19 165,5 40,25"/><polygon class="rack-left" points="0,0 40,25 40,78 0,56"/><polygon class="rack-right" points="40,25 165,5 165,59 40,78"/><rect class="rack-box" x="73" y="12" width="20" height="12" transform="rotate(-9 73 12)"/></g>
+                  <g transform="translate(602,316)"><polygon class="rack-top" points="0,0 109,-18 146,4 37,23"/><polygon class="rack-left" points="0,0 37,23 37,71 0,51"/><polygon class="rack-right" points="37,23 146,4 146,53 37,71"/></g>
+                  <g transform="translate(722,295)"><polygon class="rack-top" points="0,0 97,-16 131,4 34,21"/><polygon class="rack-left" points="0,0 34,21 34,66 0,48"/><polygon class="rack-right" points="34,21 131,4 131,50 34,66"/></g>
+                  <g transform="translate(543,362)"><polygon class="rack-top" points="0,0 109,-18 146,4 37,23"/><polygon class="rack-left" points="0,0 37,23 37,71 0,51"/><polygon class="rack-right" points="37,23 146,4 146,53 37,71"/></g>
+                  <g transform="translate(298,406)"><polygon class="rack-top" points="0,0 105,-17 141,4 36,22"/><polygon class="rack-left" points="0,0 36,22 36,68 0,50"/><polygon class="rack-right" points="36,22 141,4 141,51 36,68"/></g>
+                  <!-- DESTINATION RACK -->
+                  <g class="dest" transform="translate(703,207)"><polygon class="rack-top" points="0,0 119,-18 157,5 38,24"/><polygon class="rack-left" points="0,0 38,24 38,83 0,60"/><polygon class="rack-right" points="38,24 157,5 157,64 38,83"/><rect class="rack-box" x="71" y="10" width="22" height="14" transform="rotate(-9 71 10)" fill="#E8B15E"/></g>
+                </g>
+                <!-- dock -->
+                <polygon class="dock-area" points="154,455 233,440 256,492 176,510"/>
+                <rect x="98" y="473" width="82" height="31" rx="5" class="dock-truck" transform="rotate(-8 98 473)"/>
+                <rect x="82" y="482" width="28" height="22" rx="4" class="dock-window" transform="rotate(-8 82 482)"/>
+                <circle cx="117" cy="511" r="5" class="dock-wheel"/><circle cx="162" cy="504" r="5" class="dock-wheel"/>
+                <!-- route ghost -->
+                <path class="route-ghost" d="M206 478 C260 442 293 414 333 404 L462 380 C512 370 548 332 581 310 C634 278 667 263 711 242"/>
+                <!-- route line animated -->
+                <path class="route-line" d="M206 478 C260 442 293 414 333 404 L462 380 C512 370 548 332 581 310 C634 278 667 263 711 242"/>
+                <!-- origin -->
+                <circle cx="206" cy="478" r="10" class="origin-dot"/>
+                <circle cx="206" cy="478" r="20" class="origin-ring"/>
+                <!-- destination pin -->
+                <g class="dest-pin" transform="translate(711 180)">
+                  <path d="M0 0c-18 0-32 14-32 32 0 24 32 60 32 60s32-36 32-60C32 14 18 0 0 0Z" fill="url(#pinGrd)" filter="url(#softShadow)"/>
+                  <circle cx="0" cy="32" r="11" fill="#fff"/>
+                </g>
+              </svg>
+              <!-- map overlays -->
+              <div class="map-callout-card callout-origin">
+                <span style="color:var(--muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">Ponto de Partida</span>
+                <strong>Doca 02</strong>
+              </div>
+              <div class="map-callout-card callout-dest">
+                <span style="color:var(--muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">Destino</span>
+                <strong>Rua 12 • Est. 04<br>Prat. 02 • Nível 01</strong>
+              </div>
+              <!-- zone labels -->
+              <div class="zone-label" style="top:22%;left:16%">Setor A</div>
+              <div class="zone-label" style="top:14%;left:60%">Setor B</div>
+              <div class="zone-label" style="top:58%;left:28%">Setor C</div>
+              <div class="zone-label" style="top:52%;left:72%">Setor D</div>
+              <!-- toolbox -->
+              <div class="map-toolbox" aria-label="Ferramentas do mapa">
+                <button class="tool-btn" data-tooltip="Camadas" title="Camadas">▣</button>
+                <button class="tool-btn" data-tooltip="Filtros" title="Filtros">⌁</button>
+                <button class="tool-btn" data-tooltip="Buscar" title="Buscar">⌕</button>
+                <button class="tool-btn" data-tooltip="Aproximar" title="Aproximar">+</button>
+                <button class="tool-btn" data-tooltip="Afastar" title="Afastar">−</button>
+                <button class="tool-btn" data-tooltip="Modo 3D" title="Modo 3D">3D</button>
+              </div>
+            </div>
+
+            <!-- sidebar -->
+            <aside class="map-sidebar" aria-label="Painel de bipagem">
+              <!-- scanner -->
+              <div class="sidebar-block">
+                <div class="sb-kicker">Bipagem QR Code</div>
+                <div class="qr-wrapper">
+                  <div class="qr-box" aria-label="QR Code simulado">
+                    <svg class="qr-svg" viewBox="0 0 120 120" aria-hidden="true">
+                      <rect width="120" height="120" fill="#fff"/>
+                      <g fill="#101827">
+                        <rect x="8" y="8" width="30" height="30"/><rect x="14" y="14" width="18" height="18" fill="#fff"/><rect x="19" y="19" width="8" height="8"/>
+                        <rect x="82" y="8" width="30" height="30"/><rect x="88" y="14" width="18" height="18" fill="#fff"/><rect x="93" y="19" width="8" height="8"/>
+                        <rect x="8" y="82" width="30" height="30"/><rect x="14" y="88" width="18" height="18" fill="#fff"/><rect x="19" y="93" width="8" height="8"/>
+                        <rect x="48" y="10" width="8" height="8"/><rect x="60" y="10" width="8" height="16"/><rect x="70" y="22" width="8" height="8"/>
+                        <rect x="46" y="30" width="22" height="8"/><rect x="48" y="48" width="8" height="8"/><rect x="60" y="48" width="18" height="8"/>
+                        <rect x="88" y="48" width="8" height="8"/><rect x="100" y="48" width="8" height="18"/>
+                        <rect x="46" y="62" width="10" height="22"/><rect x="62" y="66" width="8" height="8"/>
+                        <rect x="76" y="62" width="20" height="8"/><rect x="86" y="76" width="8" height="20"/>
+                        <rect x="46" y="96" width="10" height="10"/><rect x="62" y="88" width="10" height="22"/>
+                        <rect x="78" y="102" width="34" height="8"/><rect x="104" y="82" width="8" height="16"/>
+                        <rect x="8" y="48" width="8" height="8"/><rect x="20" y="52" width="20" height="8"/>
+                        <rect x="32" y="66" width="8" height="8"/><rect x="8" y="66" width="14" height="8"/>
+                      </g>
+                    </svg>
+                  </div>
+                </div>
+                <p class="qr-status">Status: <strong data-scan-status>Aguardando bipagem</strong></p>
+              </div>
+
+              <!-- flow steps -->
+              <div class="sidebar-block">
+                <div class="flow-timer">
+                  <div class="sb-kicker" style="margin:0">Fluxo</div>
+                  <span class="timer-val" data-flow-time>0,0s</span>
+                </div>
+                <div class="step-list">
+                  <div class="step-item" data-step="0">
+                    <div class="step-num">1</div>
+                    <div class="step-txt"><span>Bipar QR Code</span><small data-step-txt="0">Aguardando</small></div>
+                  </div>
+                  <div class="step-item" data-step="1">
+                    <div class="step-num">2</div>
+                    <div class="step-txt"><span>Identificar produto</span><small data-step-txt="1">Aguardando</small></div>
+                  </div>
+                  <div class="step-item" data-step="2">
+                    <div class="step-num">3</div>
+                    <div class="step-txt"><span>Exibir posição exata</span><small data-step-txt="2">Aguardando</small></div>
+                  </div>
+                  <div class="step-item" data-step="3">
+                    <div class="step-num">4</div>
+                    <div class="step-txt"><span>Traçar rota no mapa</span><small data-step-txt="3">Aguardando</small></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- route info -->
+              <div class="sidebar-block" style="flex:1">
+                <div class="sb-kicker">Rota recomendada</div>
+                <div class="route-big">48 m</div>
+                <div class="route-details">
+                  Tempo estimado: <strong style="color:#fff">1 min 12 s</strong><br>
+                  Doca 02 → Setor A, Rua 12
+                </div>
+                <div class="route-mini-viz">
+                  <svg viewBox="0 0 260 50"><defs><linearGradient id="mG" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#22F078"/><stop offset=".5" stop-color="#43EAFF"/><stop offset="1" stop-color="#0B82FF"/></linearGradient></defs><path d="M16 40 C52 26 76 18 110 28 S168 44 205 22 240 10" fill="none" stroke="url(#mG)" stroke-width="3.5" stroke-linecap="round" filter="drop-shadow(0 0 8px rgba(67,234,255,.6))"/><circle cx="16" cy="40" r="5" fill="#22F078"/><circle cx="240" cy="10" r="5" fill="#0B82FF"/></svg>
+                </div>
+                <div class="scan-trigger-area" style="margin-top:16px">
+                  <button class="btn btn-primary" data-scan-trigger style="width:100%;justify-content:center">
+                    ↗ Iniciar Bipagem
+                  </button>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <!-- product found card -->
+          <div class="product-found-card" id="productCard" style="display:none">
+            <div class="prod-card-inner">
+              <div class="prod-icon"></div>
+              <div>
+                <div class="prod-name">Parafuso Sextavado M8x25</div>
+                <div class="prod-meta">Aço zincado • Fixadores • SKU: PAR-HEX-M8X25-ZN • VS-0009281</div>
+              </div>
+              <div class="prod-addr">Setor A • Rua 12 • Est. 04 • Prat. 02 • N1 • Pos. B</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== ESTOQUE TAB ===== -->
+        <div class="tab-panel" data-panel="estoque">
+          <div class="stock-layout">
+            <div class="stock-table-wrap">
+              <div class="sb-kicker" style="margin-bottom:14px">Itens em estoque</div>
+              <table class="data-table" aria-label="Tabela de estoque">
+                <thead>
+                  <tr>
+                    <th>Produto</th>
+                    <th>SKU</th>
+                    <th>Qtd.</th>
+                    <th>Localização</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="selected">
+                    <td>Parafuso Sextavado M8x25</td>
+                    <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--muted)">PAR-HEX-M8X25-ZN</td>
+                    <td><strong>8.420</strong></td>
+                    <td style="font-size:.82rem">Setor A • Rua 12 • Est. 04</td>
+                    <td><span class="badge badge-ok">● Disponível</span></td>
+                  </tr>
+                  <tr>
+                    <td>Embalagem Papelão 30x20</td>
+                    <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--muted)">EMB-PAP-3020</td>
+                    <td><strong>1.180</strong></td>
+                    <td style="font-size:.82rem">Setor B • Rua 07 • Est. 02</td>
+                    <td><span class="badge badge-warn">▲ Estoque baixo</span></td>
+                  </tr>
+                  <tr>
+                    <td>Motor DC 12V Industrial</td>
+                    <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--muted)">MOT-DC12-IND</td>
+                    <td><strong>346</strong></td>
+                    <td style="font-size:.82rem">Setor C • Rua 03 • Est. 08</td>
+                    <td><span class="badge badge-info">◑ Reservado parcial</span></td>
+                  </tr>
+                  <tr>
+                    <td>Etiqueta QR Code 50x30</td>
+                    <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--muted)">ETQ-QR-5030</td>
+                    <td><strong>24.600</strong></td>
+                    <td style="font-size:.82rem">Setor A • Rua 01 • Est. 01</td>
+                    <td><span class="badge badge-ok">● Disponível</span></td>
+                  </tr>
+                  <tr>
+                    <td>Cabo USB-C Industrial 3m</td>
+                    <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--muted)">CAB-USBC-3M-IND</td>
+                    <td><strong>2.180</strong></td>
+                    <td style="font-size:.82rem">Setor D • Rua 05 • Est. 03</td>
+                    <td><span class="badge badge-ok">● Disponível</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="stock-sidebar">
+              <div class="sb-kicker">Resumo operacional</div>
+              <div class="sku-grid">
+                <div class="sku-tile"><span>Total de SKUs</span><strong>12.840</strong></div>
+                <div class="sku-tile"><span>Endereços ativos</span><strong>18.742</strong></div>
+                <div class="sku-tile"><span>Reservas abertas</span><strong>326</strong></div>
+                <div class="sku-tile"><span>Alertas críticos</span><strong style="color:var(--red)">14</strong></div>
+              </div>
+              <div style="height:8px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden;margin-bottom:8px">
+                <div style="height:100%;width:82%;border-radius:999px;background:var(--grad);box-shadow:0 0 12px rgba(67,234,255,.3);"></div>
+              </div>
+              <p style="font-size:.78rem;color:var(--muted)">82% de capacidade ocupada — 18% disponível</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== INVENTÁRIO TAB ===== -->
+        <div class="tab-panel" data-panel="inventario">
+          <div class="inv-layout">
+            <div class="inv-main">
+              <div class="sb-kicker">Inventário cíclico em andamento</div>
+              <div class="prog-list">
+                <div class="prog-item">
+                  <div class="prog-header"><span>Setor A • Fixadores</span><strong>82%</strong></div>
+                  <div class="prog-bar"><div class="prog-fill" style="width:82%"></div></div>
+                  <div class="prog-meta"><span>4.108 / 5.012 itens</span><span>Responsável: Lucas M.</span><span>Prazo: hoje</span></div>
+                </div>
+                <div class="prog-item">
+                  <div class="prog-header"><span>Setor B • Embalagens</span><strong>64%</strong></div>
+                  <div class="prog-bar"><div class="prog-fill" style="width:64%"></div></div>
+                  <div class="prog-meta"><span>1.894 / 2.960 itens</span><span>Responsável: Ana P.</span><span>Prazo: amanhã</span></div>
+                </div>
+                <div class="prog-item">
+                  <div class="prog-header"><span>Setor C • Peças técnicas</span><strong>47%</strong></div>
+                  <div class="prog-bar"><div class="prog-fill" style="width:47%"></div></div>
+                  <div class="prog-meta"><span>642 / 1.365 itens</span><span>Responsável: Carlos T.</span><span>Prazo: 3 dias</span></div>
+                </div>
+                <div class="prog-item">
+                  <div class="prog-header"><span>Área de expedição</span><strong>91%</strong></div>
+                  <div class="prog-bar"><div class="prog-fill" style="width:91%"></div></div>
+                  <div class="prog-meta"><span>268 / 295 itens</span><span>Responsável: equipe B</span><span>Concluindo</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="inv-sidebar">
+              <div class="sb-kicker">Divergências simuladas</div>
+              <div class="sku-grid">
+                <div class="sku-tile"><span>Contagens feitas</span><strong>4.912</strong></div>
+                <div class="sku-tile"><span>Divergências</span><strong style="color:var(--amber)">37</strong></div>
+                <div class="sku-tile"><span>Acuracidade</span><strong style="background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent">99,6%</strong></div>
+                <div class="sku-tile"><span>Ag. ajuste</span><strong>8</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== AUDITORIA TAB ===== -->
+        <div class="tab-panel" data-panel="auditoria">
+          <div class="audit-layout">
+            <div class="audit-main">
+              <div class="sb-kicker">Linha do tempo auditável</div>
+              <div class="timeline">
+                <div class="timeline-item">
+                  <div class="tl-icon success">✓</div>
+                  <div class="tl-content">
+                    <h4>Produto bipado</h4>
+                    <p>Operador Lucas leu QR Code do SKU PAR-HEX-M8X25-ZN na Doca 02. Dispositivo: Zebra TC52x.</p>
+                    <span class="tl-time">09:42:07 — hoje</span>
+                  </div>
+                </div>
+                <div class="timeline-item">
+                  <div class="tl-icon info">⌖</div>
+                  <div class="tl-content">
+                    <h4>Localização exibida</h4>
+                    <p>Sistema indicou Setor A, Rua 12, Estante 04, Prateleira 02, Nível 01, Posição B.</p>
+                    <span class="tl-time">09:42:09 — hoje</span>
+                  </div>
+                </div>
+                <div class="timeline-item">
+                  <div class="tl-icon success">→</div>
+                  <div class="tl-content">
+                    <h4>Rota seguida e concluída</h4>
+                    <p>Rota de 48 m percorrida em 1 min 09 s sem divergência de endereço. Movimentação confirmada.</p>
+                    <span class="tl-time">09:44:18 — hoje</span>
+                  </div>
+                </div>
+                <div class="timeline-item">
+                  <div class="tl-icon lock">🔒</div>
+                  <div class="tl-content">
+                    <h4>Registro protegido</h4>
+                    <p>Movimentação imutável registrada: usuário, horário, dispositivo, IP e origem da operação.</p>
+                    <span class="tl-time">09:46:22 — hoje</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="audit-sidebar">
+              <div class="sb-kicker">Controles</div>
+              <div class="sku-grid">
+                <div class="sku-tile"><span>Eventos hoje</span><strong>2.481</strong></div>
+                <div class="sku-tile"><span>Usuários ativos</span><strong>87</strong></div>
+                <div class="sku-tile"><span>Erros bloqueados</span><strong style="color:var(--red)">19</strong></div>
+                <div class="sku-tile"><span>Rastreabilidade</span><strong style="color:var(--green)">100%</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== RELATÓRIOS TAB ===== -->
+        <div class="tab-panel" data-panel="relatorios" id="relatorios">
+          <div class="reports-layout">
+            <div class="chart-duo">
+              <div class="chart-card">
+                <div class="chart-kicker">Performance semanal</div>
+                <div class="bar-chart">
+                  <div class="bar-col"><div class="bar-fill" style="height:46%"></div><span class="bar-lbl">Seg</span></div>
+                  <div class="bar-col"><div class="bar-fill" style="height:62%"></div><span class="bar-lbl">Ter</span></div>
+                  <div class="bar-col"><div class="bar-fill" style="height:54%"></div><span class="bar-lbl">Qua</span></div>
+                  <div class="bar-col"><div class="bar-fill" style="height:78%"></div><span class="bar-lbl">Qui</span></div>
+                  <div class="bar-col"><div class="bar-fill" style="height:88%"></div><span class="bar-lbl">Sex</span></div>
+                </div>
+              </div>
+              <div class="chart-card">
+                <div class="chart-kicker">Tempo médio de localização (últimas 8 semanas)</div>
+                <div class="line-chart-wrap">
+                  <svg viewBox="0 0 520 160" aria-label="Gráfico de linha de melhoria no tempo de localização">
+                    <defs><linearGradient id="lG" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#22F078"/><stop offset=".5" stop-color="#43EAFF"/><stop offset="1" stop-color="#0B82FF"/></linearGradient></defs>
+                    <path d="M20 130 C70 115 90 96 140 101 S210 125 260 76 340 65 400 48 470 39 500 24" fill="none" stroke="url(#lG)" stroke-width="4" stroke-linecap="round" filter="drop-shadow(0 0 10px rgba(67,234,255,.5))"/>
+                    <path d="M20 130 C70 115 90 96 140 101 S210 125 260 76 340 65 400 48 470 39 500 24 L500 160 L20 160Z" fill="rgba(67,234,255,.06)"/>
+                    <circle cx="20" cy="130" r="4" fill="#22F078"/><circle cx="140" cy="101" r="4" fill="#43EAFF"/><circle cx="260" cy="76" r="4" fill="#43EAFF"/><circle cx="400" cy="48" r="4" fill="#43EAFF"/><circle cx="500" cy="24" r="5" fill="#0B82FF"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="reports-kpis">
+              <div class="report-kpi"><div class="icon">📈</div><strong style="background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent">99,6%</strong><span>Acuracidade</span><small>+2,3% no mês</small></div>
+              <div class="report-kpi"><div class="icon">⏱</div><strong style="background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent">-62%</strong><span>Tempo de busca</span><small>com rota guiada</small></div>
+              <div class="report-kpi"><div class="icon">📦</div><strong style="background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent">18.742</strong><span>Expedições/dia</span><small>+28% no mês</small></div>
+              <div class="report-kpi"><div class="icon">⌖</div><strong style="background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent">2,4M+</strong><span>Itens rastreados</span><small>em tempo real</small></div>
+              <div class="report-kpi"><div class="icon">🛡</div><strong style="background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent">100%</strong><span>Auditoria</span><small>todos os eventos</small></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /panel-body -->
+    </div><!-- /demo-shell -->
+  </div>
+</section>
+
+<!-- ============================================================
+     FEATURES
+============================================================ -->
+<section id="modulos">
+  <div class="wrap">
+    <div class="section-header center reveal">
+      <div class="section-tag">Módulos</div>
+      <h2 class="section-title">Uma plataforma completa para <span class="grad-text">alta performance</span>.</h2>
+      <p class="section-sub">Da entrada do produto à expedição, a DACHBYTE Stock conecta QR Code, identificação interna, mapa 3D e rastreabilidade em um só lugar.</p>
+    </div>
+    <div class="features-grid">
+      <article class="feat-card reveal">
+        <div class="feat-icon">🧊</div>
+        <h3>Mapa 3D interativo</h3>
+        <p>Visualize docas, ruas, estantes, prateleiras, níveis e zonas do estoque com uma visão clara e navegável do armazém inteiro.</p>
+        <a class="feat-link" href="#demo" data-open-tab="mapa">Ver no mapa →</a>
+      </article>
+      <article class="feat-card reveal reveal-delay-1">
+        <div class="feat-icon">▦</div>
+        <h3>Bipagem QR Code</h3>
+        <p>Bipe um QR Code, código de barras ou etiqueta existente para conectar produto e endereço em tempo real — sem redigitação.</p>
+        <a class="feat-link" href="#demo" data-open-tab="mapa">Simular bipagem →</a>
+      </article>
+      <article class="feat-card reveal reveal-delay-2">
+        <div class="feat-icon">📦</div>
+        <h3>Gestão de estoque</h3>
+        <p>Acompanhe saldos, reservas, endereços, lote, validade e status de cada SKU com filtros inteligentes e alertas automáticos.</p>
+        <a class="feat-link" href="#demo" data-open-tab="estoque">Abrir estoque →</a>
+      </article>
+      <article class="feat-card reveal reveal-delay-1">
+        <div class="feat-icon">🧾</div>
+        <h3>Inventário em tempo real</h3>
+        <p>Organize contagens cíclicas, divergências, ajustes e aprovações por setor ou rua sem pausar a operação.</p>
+        <a class="feat-link" href="#demo" data-open-tab="inventario">Ver inventário →</a>
+      </article>
+      <article class="feat-card reveal reveal-delay-2">
+        <div class="feat-icon">🛡</div>
+        <h3>Auditoria total</h3>
+        <p>Registre quem bipou, quando movimentou, de onde saiu, para onde foi e qual dispositivo foi utilizado — imutável.</p>
+        <a class="feat-link" href="#demo" data-open-tab="auditoria">Ver auditoria →</a>
+      </article>
+      <article class="feat-card reveal reveal-delay-3">
+        <div class="feat-icon">📊</div>
+        <h3>Relatórios gerenciais</h3>
+        <p>Acompanhe acuracidade, produtividade, tempo de busca, rupturas, reservas e expedições em dashboards dinâmicos.</p>
+        <a class="feat-link" href="#demo" data-open-tab="relatorios">Abrir relatórios →</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     WORKFLOW
+============================================================ -->
+<section id="fluxo">
+  <div class="wrap">
+    <div class="section-header center reveal">
+      <div class="section-tag">Fluxo de operação</div>
+      <h2 class="section-title">Simples, rápido e <span class="grad-text">100% visual</span>.</h2>
+      <p class="section-sub">O operador não precisa memorizar ruas, estantes ou posições. Ele bipa, o sistema identifica e o mapa guia até o local certo.</p>
+    </div>
+    <div class="workflow-grid">
+      <div class="wf-card reveal">
+        <div class="wf-num">01</div>
+        <h3>Bipar código</h3>
+        <p>O operador lê QR Code, código de barras ou etiqueta existente do produto com qualquer dispositivo.</p>
+      </div>
+      <div class="wf-card reveal reveal-delay-1">
+        <div class="wf-num">02</div>
+        <h3>Identificar item</h3>
+        <p>A plataforma reconhece o produto e vincula ou gera o código interno automaticamente em milissegundos.</p>
+      </div>
+      <div class="wf-card reveal reveal-delay-2">
+        <div class="wf-num">03</div>
+        <h3>Exibir localização</h3>
+        <p>Mostra setor, rua, estante, prateleira, nível e posição com destaque visual no mapa 3D interativo.</p>
+      </div>
+      <div class="wf-card reveal reveal-delay-3">
+        <div class="wf-num">04</div>
+        <h3>Guiar até o produto</h3>
+        <p>Desenha a rota recomendada do ponto atual até o item, com distância e tempo estimado de chegada.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     LIVE TERMINAL / DATA FEED
+============================================================ -->
+<section id="terminal-section" style="padding:80px 0 0">
+  <div class="wrap">
+    <div class="section-header reveal">
+      <div class="section-tag">Dados em tempo real</div>
+      <h2 class="section-title">Operação <span class="grad-text">pulsando ao vivo</span>.</h2>
+      <p class="section-sub">Cada bipagem, movimentação e ajuste é registrado instantaneamente. Veja o stream de eventos da plataforma.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;align-items:start" class="reveal reveal-delay-1">
+      <!-- terminal -->
+      <div class="demo-shell" style="overflow:hidden">
+        <div class="app-chrome" style="justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="chrome-dots"><span></span><span></span><span></span></div>
+            <span style="font-family:var(--font-mono);font-size:.74rem;color:var(--muted)">volt-stock / event-stream</span>
+          </div>
+          <div class="live-indicator"><div class="live-dot"></div>Stream ativo</div>
+        </div>
+        <div id="terminal" style="padding:16px 20px;height:340px;overflow:hidden;font-family:var(--font-mono);font-size:.78rem;line-height:1.8;background:rgba(2,5,9,.95);position:relative">
+          <div id="termLines" style="display:flex;flex-direction:column;gap:2px"></div>
+          <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,rgba(2,5,9,.98));pointer-events:none"></div>
+        </div>
+      </div>
+      <!-- live KPI counters -->
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="feat-card" style="padding:22px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <span style="color:var(--muted);font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em">Bipagens hoje</span>
+            <span style="font-size:.7rem;color:var(--green);font-weight:600">▲ +14%</span>
+          </div>
+          <div style="font-size:2.8rem;font-weight:700;letter-spacing:-.05em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent" id="kpi-bips">18.742</div>
+          <div style="height:4px;border-radius:999px;background:rgba(255,255,255,.06);margin-top:12px;overflow:hidden"><div id="kpi-bips-bar" style="height:100%;width:74%;background:var(--grad);border-radius:999px;transition:width 1s"></div></div>
+        </div>
+        <div class="feat-card" style="padding:22px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <span style="color:var(--muted);font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em">Usuários online</span>
+            <span style="font-size:.7rem;color:var(--cyan);font-weight:600">● ao vivo</span>
+          </div>
+          <div style="font-size:2.8rem;font-weight:700;letter-spacing:-.05em;color:var(--cyan)" id="kpi-users">87</div>
+          <div style="display:flex;gap:5px;margin-top:10px;flex-wrap:wrap" id="kpi-user-dots"></div>
+        </div>
+        <div class="feat-card" style="padding:22px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <span style="color:var(--muted);font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em">Acuracidade agora</span>
+            <span style="font-size:.7rem;color:var(--green);font-weight:600">Meta: 99%</span>
+          </div>
+          <div style="font-size:2.8rem;font-weight:700;letter-spacing:-.05em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent" id="kpi-acc">99,6%</div>
+          <div style="height:8px;border-radius:999px;background:rgba(255,255,255,.06);margin-top:12px;overflow:hidden"><div style="height:100%;width:99.6%;background:var(--grad);border-radius:999px;box-shadow:0 0 14px rgba(34,240,120,.4)"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SOCIAL PROOF / QUOTES
+============================================================ -->
+<section id="depoimentos" style="padding:100px 0 80px">
+  <div class="wrap">
+    <div class="section-header center reveal">
+      <div class="section-tag">Resultados reais</div>
+      <h2 class="section-title">Operações que <span class="grad-text">transformamos</span>.</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px" class="quotes-grid">
+      <div class="feat-card reveal" style="padding:30px">
+        <div style="font-size:2rem;color:var(--cyan);opacity:.5;margin-bottom:12px;line-height:1">"</div>
+        <p style="color:var(--text);font-size:.95rem;line-height:1.75;margin-bottom:20px">Reduzimos o tempo de localização de produtos de 8 minutos para menos de 2. O mapa 3D mudou completamente a rotina dos operadores.</p>
+        <div style="display:flex;align-items:center;gap:12px;border-top:1px solid var(--stroke3);padding-top:16px">
+          <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#0B82FF,#43EAFF);display:grid;place-items:center;font-weight:700;font-size:.9rem;flex-shrink:0">M</div>
+          <div><strong style="display:block;font-size:.9rem">Marcos Silva</strong><span style="color:var(--muted);font-size:.78rem">Supervisor de Logística</span></div>
+        </div>
+      </div>
+      <div class="feat-card reveal reveal-delay-1" style="padding:30px">
+        <div style="font-size:2rem;color:var(--green);opacity:.5;margin-bottom:12px;line-height:1">"</div>
+        <p style="color:var(--text);font-size:.95rem;line-height:1.75;margin-bottom:20px">A auditoria em tempo real nos deu visibilidade total. Agora sei exatamente quem movimentou cada item, quando e de onde. Confiança total.</p>
+        <div style="display:flex;align-items:center;gap:12px;border-top:1px solid var(--stroke3);padding-top:16px">
+          <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#22F078,#43EAFF);display:grid;place-items:center;font-weight:700;font-size:.9rem;flex-shrink:0">A</div>
+          <div><strong style="display:block;font-size:.9rem">Ana Carvalho</strong><span style="color:var(--muted);font-size:.78rem">Gerente de Operações</span></div>
+        </div>
+      </div>
+      <div class="feat-card reveal reveal-delay-2" style="padding:30px">
+        <div style="font-size:2rem;color:var(--amber);opacity:.5;margin-bottom:12px;line-height:1">"</div>
+        <p style="color:var(--text);font-size:.95rem;line-height:1.75;margin-bottom:20px">Integramos em 48 horas. O inventário cíclico acabou com as divergências que nos davam dor de cabeça há anos. Vale cada centavo.</p>
+        <div style="display:flex;align-items:center;gap:12px;border-top:1px solid var(--stroke3);padding-top:16px">
+          <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#FFC96E,#FF5F7A);display:grid;place-items:center;font-weight:700;font-size:.9rem;flex-shrink:0">R</div>
+          <div><strong style="display:block;font-size:.9rem">Ricardo Nunes</strong><span style="color:var(--muted);font-size:.78rem">Diretor Industrial</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PRICING
+============================================================ -->
+<section id="planos" style="padding:80px 0">
+  <div class="wrap">
+    <div class="section-header center reveal">
+      <div class="section-tag">Planos</div>
+      <h2 class="section-title">Escolha o plano <span class="grad-text">ideal para sua operação</span>.</h2>
+      <p class="section-sub">Sem taxa de setup. Sem fidelidade mínima. Cancele quando quiser.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:start" class="pricing-grid reveal reveal-delay-1">
+
+      <!-- STARTER -->
+      <div class="feat-card" style="padding:32px">
+        <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:20px">Starter</div>
+        <div style="margin-bottom:8px">
+          <span style="font-size:3rem;font-weight:700;letter-spacing:-.05em;color:#fff">R$490</span>
+          <span style="color:var(--muted);font-size:.85rem">/mês</span>
+        </div>
+        <p style="color:var(--muted);font-size:.85rem;margin-bottom:24px;line-height:1.65">Para armazéns de pequeno porte que querem começar a controlar com precisão.</p>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px">
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> Até 5.000 SKUs ativos</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> Mapa 3D (1 armazém)</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> Bipagem QR Code</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> 3 usuários simultâneos</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem;color:var(--muted)"><span>—</span> Inventário cíclico</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem;color:var(--muted)"><span>—</span> API aberta</div>
+        </div>
+        <a class="btn btn-outline" href="#cta" style="width:100%;justify-content:center">Começar grátis por 14 dias</a>
+      </div>
+
+      <!-- PRO — highlighted -->
+      <div class="feat-card" style="padding:32px;border-color:rgba(67,234,255,.35);background:linear-gradient(160deg,rgba(11,130,255,.1),rgba(34,240,120,.07));position:relative;transform:translateY(-8px);box-shadow:0 40px 100px rgba(11,130,255,.2),0 0 0 1px rgba(67,234,255,.18)">
+        <div style="position:absolute;top:-1px;left:20%;right:20%;height:2px;background:var(--grad);border-radius:999px"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan)">Pro</span>
+          <span style="padding:4px 10px;border-radius:999px;background:rgba(34,240,120,.12);border:1px solid rgba(34,240,120,.25);font-size:.7rem;font-weight:700;color:var(--green)">Mais popular</span>
+        </div>
+        <div style="margin-bottom:8px">
+          <span style="font-size:3rem;font-weight:700;letter-spacing:-.05em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent">R$990</span>
+          <span style="color:var(--muted);font-size:.85rem">/mês</span>
+        </div>
+        <p style="color:var(--muted);font-size:.85rem;margin-bottom:24px;line-height:1.65">Para operações em crescimento que exigem rastreabilidade e automação completa.</p>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px">
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> SKUs ilimitados</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> Mapa 3D (armazéns ilimitados)</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> Bipagem QR + código de barras</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> Usuários ilimitados</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> Inventário cíclico completo</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> API aberta + Webhooks</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> Auditoria total + relatórios</div>
+        </div>
+        <a class="btn btn-primary" href="#cta" style="width:100%;justify-content:center;height:50px">Agendar demo Pro →</a>
+      </div>
+
+      <!-- ENTERPRISE -->
+      <div class="feat-card" style="padding:32px">
+        <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:20px">Enterprise</div>
+        <div style="margin-bottom:8px">
+          <span style="font-size:3rem;font-weight:700;letter-spacing:-.05em;color:#fff">Sob consulta</span>
+        </div>
+        <p style="color:var(--muted);font-size:.85rem;margin-bottom:24px;line-height:1.65">Para grandes operações com múltiplos sites, integração ERP e SLA dedicado.</p>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px">
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> Tudo do Pro</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> Integração ERP/WMS</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> Multi-site / Multi-empresa</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> SSO / LDAP / Active Directory</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> SLA 99,9% com suporte 24/7</div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:.86rem"><span style="color:var(--green);font-weight:700">✓</span> Onboarding dedicado in-loco</div>
+        </div>
+        <a class="btn btn-outline" href="mailto:enterprise@voltstock.com?subject=Quero%20Enterprise" style="width:100%;justify-content:center">Falar com vendas</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     FAQ
+============================================================ -->
+<section id="faq" style="padding:80px 0">
+  <div class="wrap">
+    <div class="section-header center reveal">
+      <div class="section-tag">FAQ</div>
+      <h2 class="section-title" style="font-size:clamp(1.8rem,3vw,2.8rem)">Dúvidas <span class="grad-text">frequentes</span>.</h2>
+    </div>
+    <div style="max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:10px" class="reveal reveal-delay-1" id="faqList">
+      <!-- items injected by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CTA
+============================================================ -->
+<section class="cta-section" id="cta">
+  <div class="wrap">
+    <div class="cta-box reveal">
+      <div class="section-tag" style="justify-content:center;margin-bottom:20px">Pronto para começar?</div>
+      <h2>Transforme seu estoque em um <span class="grad-text">mapa inteligente</span>.</h2>
+      <p>Agende uma demonstração e veja como a DACHBYTE Stock pode reduzir tempo de busca, aumentar acuracidade e profissionalizar toda a operação.</p>
+      <div class="cta-actions">
+        <a class="btn btn-primary" href="mailto:comercial@voltstock.com?subject=Quero%20uma%20demonstra%C3%A7%C3%A3o%20da%20Volt%20Stock" style="height:54px;padding:0 32px;font-size:1rem">
+          Agendar demo gratuita →
+        </a>
+        <a class="btn btn-outline" href="#demo" style="height:54px;padding:0 32px;font-size:1rem">
+          Ver demonstração
+        </a>
+      </div>
+      <p class="cta-note">Sem cartão de crédito • Configuração em 48h • Suporte dedicado</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     FOOTER
+============================================================ -->
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <a class="brand" href="#top" aria-label="DACHBYTE Stock">
+      <img class="logo-svg" src="/brand/dachbyte/business/mark-transparent.png" alt="" aria-hidden="true" style="width:30px;height:30px"/>
+      <span class="brand-name" style="font-size:1rem">DACHBYTE <span>STOCK</span></span>
+    </a>
+    <p class="footer-copy">© 2026 DACHBYTE Stock. Todos os direitos reservados.</p>
+    <div class="footer-links">
+      <a href="#">Privacidade</a>
+      <a href="#">Termos</a>
+      <a href="mailto:comercial@voltstock.com">Contato</a>
+    </div>
+  </div>
+</footer>
+
+<!-- ============================================================
+     SCRIPTS
+============================================================ -->
+<script>
+/* ============================================================
+   CANVAS BACKGROUND — particle field + grid
+============================================================ */
+(function() {
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [];
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function makeParticle() {
+    return {
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - .5) * .3,
+      vy: (Math.random() - .5) * .3,
+      r: Math.random() * 1.5 + .5,
+      a: Math.random() * .6 + .1,
+      color: ['rgba(67,234,255,','rgba(34,240,120,','rgba(11,130,255,'][Math.floor(Math.random()*3)]
+    };
+  }
+
+  function init() {
+    resize();
+    particles = Array.from({length: 80}, makeParticle);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // grid
+    ctx.strokeStyle = 'rgba(67,200,255,.04)';
+    ctx.lineWidth = .6;
+    for (let x = 0; x < W; x += 80) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let y = 0; y < H; y += 80) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    // connect nearby particles
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i+1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 120) {
+          ctx.strokeStyle = `rgba(67,200,255,${.06 * (1 - dist/120)})`;
+          ctx.lineWidth = .6;
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // particles
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0) p.x = W;
+      if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H;
+      if (p.y > H) p.y = 0;
+      ctx.fillStyle = p.color + p.a + ')';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fill();
+    });
+
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', init);
+  init();
+  draw();
+})();
+
+/* ============================================================
+   CURSOR GLOW
+============================================================ */
+(function() {
+  const glow = document.getElementById('cursorGlow');
+  document.addEventListener('mousemove', e => {
+    glow.style.left = e.clientX + 'px';
+    glow.style.top = e.clientY + 'px';
+    glow.style.opacity = '1';
+  });
+  document.addEventListener('mouseleave', () => {
+    glow.style.opacity = '0';
+  });
+})();
+
+/* ============================================================
+   NAVBAR SCROLL
+============================================================ */
+(function() {
+  const nav = document.getElementById('navbar');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 30);
+  }, {passive: true});
+})();
+
+/* ============================================================
+   SCROLL REVEAL
+============================================================ */
+(function() {
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('in-view');
+        observer.unobserve(e.target);
+      }
+    });
+  }, {threshold: .1, rootMargin: '0px 0px -40px 0px'});
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+})();
+
+/* ============================================================
+   COUNTER ANIMATION
+============================================================ */
+(function() {
+  const counters = document.querySelectorAll('[data-counter]');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const el = e.target;
+      const target = parseFloat(el.dataset.counter);
+      const suffix = el.dataset.suffix || '';
+      const negative = target < 0;
+      const abs = Math.abs(target);
+      const duration = 1800;
+      const start = performance.now();
+      function tick(now) {
+        const t = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1-t, 3);
+        const val = ease * abs;
+        const display = abs >= 100 ? Math.round(val).toLocaleString('pt-BR') : val.toFixed(1).replace('.',',');
+        el.textContent = (negative ? '-' : '') + display + suffix;
+        if (t < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+      observer.unobserve(el);
+    });
+  }, {threshold: .3});
+  counters.forEach(el => observer.observe(el));
+})();
+
+/* ============================================================
+   MARQUEE
+============================================================ */
+(function() {
+  const items = [
+    'Mapa 3D interativo','Bipagem QR Code','Inventário cíclico','Auditoria total','Relatórios em tempo real',
+    'Gestão de SKUs','Rota guiada','Controle de estoque','Rastreabilidade 100%','Acuracidade 99,6%',
+    'Endereçamento inteligente','Expedição rastreada','Alertas automáticos','Multi-usuário','API aberta'
+  ];
+  const track = document.getElementById('marqueeTrack');
+  const doubled = [...items, ...items];
+  doubled.forEach(text => {
+    const div = document.createElement('div');
+    div.className = 'marquee-item';
+    div.innerHTML = `<span class="dot"></span>${text}`;
+    track.appendChild(div);
+  });
+})();
+
+/* ============================================================
+   HERO MAP — start animated immediately
+============================================================ */
+(function() {
+  const heroMap = document.getElementById('heroMap');
+  if (!heroMap) return;
+  setTimeout(() => {
+    heroMap.querySelector('svg').classList.add('is-found');
+    setTimeout(() => heroMap.querySelector('svg').classList.add('is-routing'), 600);
+  }, 800);
+})();
+
+/* ============================================================
+   TABS
+============================================================ */
+const tabLabels = {
+  mapa: 'Mapa 3D online', estoque: 'Estoque sincronizado',
+  inventario: 'Inventário em execução', auditoria: 'Auditoria rastreável',
+  relatorios: 'Relatórios atualizados'
+};
+
+function openTab(name, scroll) {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const active = btn.dataset.tab === name;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active);
+  });
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.dataset.panel === name);
+  });
+  const lbl = document.querySelector('[data-active-label]');
+  if (lbl) lbl.textContent = tabLabels[name] || 'Demo';
+  if (scroll) document.querySelector('#demo')?.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => openTab(btn.dataset.tab));
+});
+document.querySelectorAll('[data-open-tab]').forEach(link => {
+  link.addEventListener('click', e => {
+    const tab = link.getAttribute('data-open-tab');
+    if (tab) { e.preventDefault(); openTab(tab, true); }
+  });
+});
+
+/* ============================================================
+   SCAN SIMULATION
+============================================================ */
+(function() {
+  const mapEl = document.querySelector('[data-map]');
+  const demoEl = document.querySelector('[data-demo]');
+  const steps = Array.from(document.querySelectorAll('.step-item[data-step]'));
+  const stepTxts = Array.from(document.querySelectorAll('[data-step-txt]'));
+  const statusEl = document.querySelector('[data-scan-status]');
+  const flowTimeEl = document.querySelector('[data-flow-time]');
+  const productCard = document.getElementById('productCard');
+  let timers = [];
+
+  function clearAll() {
+    timers.forEach(clearTimeout);
+    timers = [];
+  }
+
+  function setStep(i, state, txt) {
+    const s = steps[i];
+    if (!s) return;
+    s.classList.remove('is-active','is-done');
+    if (state) s.classList.add(state);
+    const t = stepTxts[i];
+    if (t) t.textContent = txt || 'Aguardando';
+  }
+
+  function resetScan() {
+    clearAll();
+    if (demoEl) demoEl.classList.remove('is-scanning');
+    if (mapEl) { mapEl.classList.remove('is-found','is-routing'); }
+    steps.forEach((_,i) => setStep(i,'','Aguardando'));
+    if (statusEl) statusEl.textContent = 'Aguardando bipagem';
+    if (flowTimeEl) flowTimeEl.textContent = '0,0s';
+    if (productCard) productCard.style.display = 'none';
+  }
+
+  function runScan() {
+    openTab('mapa', false);
+    resetScan();
+    demoEl?.classList.add('is-scanning');
+    if (statusEl) statusEl.textContent = 'Escaneando...';
+    setStep(0,'is-active','Lendo código...');
+    if (flowTimeEl) flowTimeEl.textContent = '0,3s';
+
+    timers.push(setTimeout(() => {
+      setStep(0,'is-done','Código lido ✓');
+      setStep(1,'is-active','Consultando base...');
+      if (statusEl) statusEl.textContent = 'Código lido';
+      if (flowTimeEl) flowTimeEl.textContent = '0,8s';
+    }, 900));
+
+    timers.push(setTimeout(() => {
+      setStep(1,'is-done','SKU identificado ✓');
+      setStep(2,'is-active','Localizando posição...');
+      if (statusEl) statusEl.textContent = 'Produto identificado';
+      mapEl?.classList.add('is-found');
+      if (flowTimeEl) flowTimeEl.textContent = '1,4s';
+    }, 1800));
+
+    timers.push(setTimeout(() => {
+      setStep(2,'is-done','Rua 12 • Est. 04 ✓');
+      setStep(3,'is-active','Calculando rota...');
+      if (statusEl) statusEl.textContent = 'Local encontrado';
+      if (flowTimeEl) flowTimeEl.textContent = '2,1s';
+    }, 2700));
+
+    timers.push(setTimeout(() => {
+      setStep(3,'is-done','48m • 1min 12s ✓');
+      if (statusEl) statusEl.textContent = 'Rota traçada ✓';
+      demoEl?.classList.remove('is-scanning');
+      mapEl?.classList.add('is-routing');
+      if (flowTimeEl) flowTimeEl.textContent = '2,8s';
+      if (productCard) productCard.style.display = 'block';
+    }, 3600));
+  }
+
+  document.querySelectorAll('[data-scan-trigger]').forEach(btn => btn.addEventListener('click', runScan));
+
+  // auto run on load
+  window.addEventListener('load', () => { timers.push(setTimeout(runScan, 900)); });
+})();
+
+/* ============================================================
+   TABLE ROW CLICK
+============================================================ */
+document.querySelectorAll('.data-table tbody tr').forEach(row => {
+  row.addEventListener('click', () => {
+    document.querySelectorAll('.data-table tbody tr').forEach(r => r.classList.remove('selected'));
+    row.classList.add('selected');
+  });
+});
+
+/* ============================================================
+   LIVE TERMINAL FEED
+============================================================ */
+(function() {
+  const container = document.getElementById('termLines');
+  if (!container) return;
+
+  const events = [
+    { color: '#22F078', label: 'SCAN',  msgs: ['Zebra TC52x · Doca 02 · SKU PAR-HEX-M8X25-ZN → OK','Honeywell CK65 · Setor B · SKU EMB-PAP-3020 → OK','Zebra MC9300 · Expedição · SKU MOT-DC12-IND → OK','Zebra TC52x · Setor C · SKU ETQ-QR-5030 → OK'] },
+    { color: '#43EAFF', label: 'MOVE',  msgs: ['A12-04-02 → A12-04-03 · qty 200 · op: lucas.m','B07-02-01 → Expedição-03 · qty 40 · op: ana.p','C03-08-01 → C03-08-02 · qty 12 · op: carlos.t'] },
+    { color: '#0B82FF', label: 'AUDIT', msgs: ['Registro imutável #2481 criado · hash: a9f3c2…','Assinatura digital verificada · usuário: lucas.m','Exportação de relatório · admin@voltstock.com'] },
+    { color: '#FFC96E', label: 'ALERT', msgs: ['Estoque baixo: EMB-PAP-3020 < 1.200 unid.','Prazo de inventário Setor C em 3 dias','Divergência detectada: SKU PAR-HEX — +2 unid.'] },
+    { color: '#FF5F7A', label: 'BLOCK', msgs: ['Endereço incorreto bloqueado: D09-11-05 inativo','Usuário sem permissão bloqueado: operador02','Bipagem duplicada ignorada · SKU CAB-USBC-3M-IND'] },
+  ];
+
+  let count = 0;
+  const MAX = 22;
+
+  function addLine() {
+    const ev = events[Math.floor(Math.random() * events.length)];
+    const msg = ev.msgs[Math.floor(Math.random() * ev.msgs.length)];
+    const now = new Date();
+    const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+
+    const line = document.createElement('div');
+    line.style.cssText = 'display:flex;gap:10px;align-items:baseline;opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s';
+    line.innerHTML = `
+      <span style="color:rgba(122,154,184,.5);flex-shrink:0">${ts}</span>
+      <span style="padding:1px 7px;border-radius:5px;font-size:.68rem;font-weight:700;background:${ev.color}18;color:${ev.color};border:1px solid ${ev.color}30;flex-shrink:0;letter-spacing:.04em">${ev.label}</span>
+      <span style="color:rgba(238,244,255,.8)">${msg}</span>
+    `;
+    container.appendChild(line);
+    requestAnimationFrame(() => {
+      line.style.opacity = '1';
+      line.style.transform = 'translateY(0)';
+    });
+
+    count++;
+    if (count > MAX) {
+      const first = container.firstElementChild;
+      if (first) {
+        first.style.opacity = '0';
+        first.style.transform = 'translateY(-6px)';
+        setTimeout(() => first.remove(), 350);
+      }
+      count--;
+    }
+  }
+
+  // seed with initial lines
+  for (let i = 0; i < 8; i++) { addLine(); }
+  setInterval(addLine, 1100);
+})();
+
+/* ============================================================
+   KPI USER DOTS (live users)
+============================================================ */
+(function() {
+  const dotsEl = document.getElementById('kpi-user-dots');
+  if (!dotsEl) return;
+  const colors = ['#22F078','#43EAFF','#0B82FF','#FFC96E','#FF5F7A'];
+  let count = 87;
+  function render() {
+    dotsEl.innerHTML = '';
+    for (let i = 0; i < Math.min(count, 28); i++) {
+      const d = document.createElement('div');
+      const c = colors[i % colors.length];
+      d.style.cssText = `width:10px;height:10px;border-radius:50%;background:${c};opacity:${.5 + Math.random()*.5};box-shadow:0 0 8px ${c}60`;
+      dotsEl.appendChild(d);
+    }
+    if (count > 28) {
+      const more = document.createElement('span');
+      more.style.cssText = 'font-size:.72rem;color:var(--muted);align-self:center';
+      more.textContent = `+${count - 28}`;
+      dotsEl.appendChild(more);
+    }
+    document.getElementById('kpi-users').textContent = count;
+  }
+  render();
+  setInterval(() => {
+    count += Math.floor(Math.random() * 3) - 1;
+    count = Math.max(72, Math.min(120, count));
+    render();
+  }, 3200);
+})();
+
+/* ============================================================
+   KPI BIPS COUNTER (live increment)
+============================================================ */
+(function() {
+  const el = document.getElementById('kpi-bips');
+  const bar = document.getElementById('kpi-bips-bar');
+  if (!el) return;
+  let count = 18742;
+  const max = 25000;
+  setInterval(() => {
+    count += Math.floor(Math.random() * 4) + 1;
+    el.textContent = count.toLocaleString('pt-BR');
+    if (bar) bar.style.width = Math.min((count / max * 100), 96) + '%';
+  }, 1800);
+})();
+
+/* ============================================================
+   FAQ ACCORDION
+============================================================ */
+(function() {
+  const list = document.getElementById('faqList');
+  if (!list) return;
+
+  const items = [
+    { q: 'Preciso substituir meus QR Codes e etiquetas existentes?', a: 'Não. A DACHBYTE Stock lê QR Codes, códigos de barras (EAN/GS1/Code39/Code128) e etiquetas já existentes na operação. Se quiser, geramos e imprimimos os nossos, mas não é obrigatório.' },
+    { q: 'Em quanto tempo a plataforma é configurada?', a: 'Para operações padrão, entregamos ambiente configurado em até 48 horas. Isso inclui importação do layout do armazém, cadastro de endereços, criação de usuários e treinamento inicial da equipe.' },
+    { q: 'A DACHBYTE Stock funciona offline?', a: 'Sim. Os dispositivos coletores (scanners e celulares) operam em modo offline e sincronizam automaticamente quando a conexão é restabelecida. Nenhuma bipagem é perdida.' },
+    { q: 'Quais dispositivos são suportados para bipagem?', a: 'Scanners Zebra (TC52x, TC57, MC9300), Honeywell (CK65, CT40), navegadores mobile modernos (iOS/Android) e qualquer dispositivo com câmera para QR Code. Nossa web app funciona em qualquer hardware.' },
+    { q: 'É possível integrar com meu ERP (SAP, TOTVS, Sankhya...)?', a: 'Sim. Disponibilizamos API REST documentada, webhooks em tempo real e conectores nativos para SAP e TOTVS. Para outros ERPs, nossa equipe faz a integração customizada no plano Enterprise.' },
+    { q: 'Os dados ficam onde? Tenho controle sobre eles?', a: 'Seus dados são hospedados em servidores AWS no Brasil (região sa-east-1), criptografados em repouso e em trânsito. Você pode exportar tudo a qualquer momento. No plano Enterprise, oferecemos também instalação on-premise.' },
+  ];
+
+  items.forEach((item, i) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'feat-card';
+    wrapper.style.cssText = 'padding:0;overflow:hidden;cursor:pointer;transition:border-color .25s,box-shadow .25s';
+
+    const btn = document.createElement('button');
+    btn.style.cssText = 'width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 22px;background:none;border:none;text-align:left;font:inherit;color:var(--text);font-size:.92rem;font-weight:600';
+    btn.innerHTML = `<span>${item.q}</span><span class="faq-arrow" style="font-size:1.2rem;color:var(--cyan);transition:transform .3s;flex-shrink:0">⌄</span>`;
+
+    const body = document.createElement('div');
+    body.style.cssText = 'max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.22,1,.36,1)';
+    body.innerHTML = `<p style="padding:0 22px 20px;color:var(--muted);font-size:.88rem;line-height:1.75">${item.a}</p>`;
+
+    btn.addEventListener('click', () => {
+      const isOpen = body.style.maxHeight !== '0px' && body.style.maxHeight !== '';
+      // close all
+      list.querySelectorAll('[data-faq-body]').forEach(b => { b.style.maxHeight = '0'; });
+      list.querySelectorAll('.faq-arrow').forEach(a => { a.style.transform = 'rotate(0deg)'; });
+      list.querySelectorAll('[data-faq-wrap]').forEach(w => { w.style.borderColor = ''; });
+      if (!isOpen) {
+        body.style.maxHeight = body.scrollHeight + 'px';
+        btn.querySelector('.faq-arrow').style.transform = 'rotate(180deg)';
+        wrapper.style.borderColor = 'rgba(67,234,255,.3)';
+      }
+    });
+
+    body.setAttribute('data-faq-body', '');
+    wrapper.setAttribute('data-faq-wrap', '');
+    wrapper.appendChild(btn);
+    wrapper.appendChild(body);
+    list.appendChild(wrapper);
+  });
+})();
+
+/* ============================================================
+   PROGRESS BARS ANIMATE ON VIEW
+============================================================ */
+(function() {
+  const fills = document.querySelectorAll('.prog-fill');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const fill = e.target;
+        const target = fill.style.width;
+        fill.style.width = '0';
+        requestAnimationFrame(() => {
+          setTimeout(() => { fill.style.width = target; }, 100);
+        });
+        observer.unobserve(fill);
+      }
+    });
+  }, {threshold: .3});
+  fills.forEach(f => observer.observe(f));
+})();
+</script>
+</body>
+</html>

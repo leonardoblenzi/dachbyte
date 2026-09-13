@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <title>Remover promoções | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/promo-jobs.css?v=2026080701" />
+  <link rel="stylesheet" href="/ml/css/promocoes.css?v=2026080701" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="promo-app promo-remove-page-body">
+  <main class="promo-remove-page">
+    <div class="promo-remove-shell">
+      <section class="promo-module-header">
+        <div class="promo-module-header__copy">
+          <span class="promo-module-eyebrow">Promoções</span>
+          <h1>Remover promoções</h1>
+          <p>Remova a promoção de um anúncio ou processe uma lista de MLBs em lote, com confirmação antes da ação em massa.</p>
+        </div>
+      </section>
+
+      <nav class="promo-module-nav" aria-label="Navegação de promoções">
+        <a href="criar-promocao">Criar promoções</a>
+        <a class="is-active" href="remover-promocao" aria-current="page">Remover promoções</a>
+      </nav>
+
+      <section class="promo-remove-card">
+        <div class="promo-remove-card__head">
+          <div>
+            <span class="promo-remove-kicker">Forma de remoção</span>
+            <h2>Escolha o escopo</h2>
+            <p>Use o modo unitário para um caso isolado ou o lote para uma limpeza operacional maior.</p>
+          </div>
+        </div>
+
+        <div class="promo-remove-mode" role="tablist" aria-label="Modo de remoção">
+          <button id="removeModeSingle" class="is-active" type="button" role="tab" aria-selected="true" data-remove-mode="single">Unitário</button>
+          <button id="removeModeBulk" type="button" role="tab" aria-selected="false" data-remove-mode="bulk">Em lote</button>
+        </div>
+
+        <div id="removeSinglePanel" class="promo-remove-panel is-active" role="tabpanel">
+          <div class="promo-remove-panel__grid">
+            <div>
+              <div class="promo-remove-field">
+                <label for="mlbId">MLB do anúncio</label>
+                <input id="mlbId" placeholder="Ex: MLB1234567890" type="text" autocomplete="off" />
+                <small>Informe um MLB válido. A remoção é executada imediatamente após a confirmação da API.</small>
+              </div>
+              <div class="promo-remove-actions">
+                <button id="btnRemoveSingle" class="promo-danger-btn" type="button">Remover promoção</button>
+              </div>
+            </div>
+            <aside class="promo-remove-side">
+              <strong>Quando usar</strong>
+              <p>Ideal para testar um anúncio, corrigir um caso específico ou conferir o retorno da integração antes de um lote maior.</p>
+            </aside>
+          </div>
+        </div>
+
+        <div id="removeBulkPanel" class="promo-remove-panel" role="tabpanel" hidden>
+          <div class="promo-remove-panel__grid">
+            <div>
+              <div class="promo-remove-field">
+                <label for="mlbIds">Lista de MLBs</label>
+                <textarea id="mlbIds" placeholder="MLB1234567890&#10;MLB0987654321&#10;MLB1122334455" rows="8"></textarea>
+                <small>Você pode colar um por linha, separados por espaço, vírgula ou ponto e vírgula. Duplicados são consolidados.</small>
+              </div>
+              <div class="promo-remove-stats" aria-live="polite">
+                <div class="promo-remove-stat"><span>Identificados</span><strong id="bulkIdentifiedCount">0</strong></div>
+                <div class="promo-remove-stat"><span>Válidos</span><strong id="bulkValidCount">0</strong></div>
+                <div class="promo-remove-stat"><span>Ignorados</span><strong id="bulkInvalidCount">0</strong></div>
+              </div>
+              <div class="promo-remove-actions">
+                <button id="btnRemoveBulk" class="promo-danger-btn" type="button" disabled>Remover promoções</button>
+              </div>
+            </div>
+            <aside class="promo-remove-side">
+              <strong>Processamento em lote</strong>
+              <p>Após confirmar, o job é enviado para a fila e o andamento passa a ser acompanhado pelo Painel de Processos.</p>
+              <div class="promo-remove-warning">A ação remove as promoções atualmente associadas aos MLBs válidos da lista.</div>
+            </aside>
+          </div>
+        </div>
+
+        <div id="resultado" class="promo-remove-result" hidden aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="bulkJobsPanel" class="processos-panel"></div>
+
+  <div id="bulkConfirmModal" class="promo-confirm-backdrop" hidden aria-hidden="true">
+    <div class="promo-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="bulkConfirmTitle">
+      <div class="promo-confirm-dialog__icon">!</div>
+      <h3 id="bulkConfirmTitle">Confirmar remoção em lote</h3>
+      <p>Confira o tamanho da lista antes de iniciar. O processamento será enviado para a fila de promoções.</p>
+      <div id="bulkConfirmSummary" class="promo-confirm-dialog__summary">Nenhum MLB selecionado.</div>
+      <div class="promo-confirm-dialog__actions">
+        <button id="btnCancelBulkRemove" class="promo-secondary-btn" type="button">Cancelar</button>
+        <button id="btnConfirmBulkRemove" class="promo-danger-btn" type="button">Remover promoções</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/ml/js/jobs-panel-adapters.js?v=2026080701" defer></script>
+  <script src="/ml/js/jobs-panel.js?v=2026080701" defer></script>
+  <script src="/ml/js/remocao-bulk.js?v=2026061803" defer></script>
+  <script src="/ml/js/remover-promocao.js?v=2026080701" defer></script>
+</body>
+</html>

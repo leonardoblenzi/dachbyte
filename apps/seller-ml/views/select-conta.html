@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DACHBYTE Seller | Contas Mercado Livre</title>
+  <meta name="theme-color" content="#090b10" />
+  <link rel="icon" type="image/svg+xml" href="/ml/img/dachbyte-seller-mark.svg?v=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/select-conta.css?v=9" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/ml/css/ml-master-theme.css?v=2026081301" />
+  <script src="/ml/js/select-conta.js?v=9" defer></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="ml-oauth-page" data-master-page="global-selection">
+  <main class="oauth-page">
+    <section class="oauth-shell">
+      <header class="oauth-topbar" aria-label="Navegacao de contas Mercado Livre">
+        <a class="oauth-brand" href="selecao-plataforma" aria-label="DACHBYTE Seller">
+          <span class="oauth-brand__word">DACHBYTE<span>ML</span></span>
+          <small>Commerce operations</small>
+        </a>
+        <nav class="oauth-topbar__actions" aria-label="Acoes">
+          <a class="oauth-link" href="selecao-plataforma">Plataformas</a>
+          <button class="oauth-btn oauth-btn--primary" id="btn-link-account" type="button">
+            Vincular nova conta
+          </button>
+        </nav>
+      </header>
+
+      <section class="oauth-hero">
+        <div class="oauth-hero__copy">
+          <span class="oauth-kicker"><i></i> Conexao Mercado Livre</span>
+          <h1>Escolha a conta que vai operar agora.</h1>
+          <p>
+            Vincule novas lojas via OAuth oficial, selecione o contexto ativo e entre no painel
+            com assinatura, tokens e status de cobranca conferidos antes da operacao.
+          </p>
+        </div>
+        <aside class="oauth-status-grid" aria-label="Resumo da selecao">
+          <article class="oauth-status-card">
+            <span>Contas encontradas</span>
+            <strong id="stat-total">-</strong>
+            <small>na lista atual</small>
+          </article>
+          <article class="oauth-status-card oauth-status-card--current">
+            <span>Conta atual</span>
+            <strong id="stat-current">Nenhuma</strong>
+            <small>contexto da sessao</small>
+          </article>
+        </aside>
+      </section>
+
+      <div id="alert" class="master-alert" hidden></div>
+
+      <section class="master-panel oauth-accounts-panel" aria-label="Selecionar conta">
+        <div class="master-panel__head">
+          <div>
+            <span class="master-kicker">Contas conectadas</span>
+            <h2>Workspace Mercado Livre</h2>
+          </div>
+          <div class="master-panel__meta" id="cards-meta">Carregando contas...</div>
+        </div>
+
+        <div class="master-toolbar">
+          <label class="master-search">
+            <span>Buscar</span>
+            <input id="master-search" type="search" placeholder="Empresa, apelido ou meli_user_id" autocomplete="off" />
+          </label>
+          <label class="master-check">
+            <input id="master-only-active" type="checkbox" checked />
+            <span>Somente ativas</span>
+          </label>
+          <button class="master-btn master-btn--ghost" id="btn-clear" type="button">Limpar selecao</button>
+        </div>
+
+        <div class="global-account-grid" id="accounts-body">
+          <article class="global-account-card is-loading">Carregando contas...</article>
+        </div>
+
+        <footer class="master-pagination">
+          <span id="page-info">-</span>
+          <div>
+            <button class="master-btn master-btn--ghost" id="page-prev" type="button">Anterior</button>
+            <button class="master-btn master-btn--ghost" id="page-next" type="button">Proxima</button>
+          </div>
+        </footer>
+      </section>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-madeira">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/madeiramadeira/" />
+    <title>MadeiraMadeira | Ativar Convite</title>
+    <link rel="icon" type="image/svg+xml" href="dachbyte-seller-mark.svg?v=1" />
+    <link rel="stylesheet" href="css/login.css" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+  </head>
+  <body class="auth-page">
+    <a class="auth-back" href="login">
+      <span>&larr;</span>
+      <span>Voltar ao login</span>
+    </a>
+
+    <main class="auth-stage">
+      <div class="auth-shell">
+        <section class="auth-panel">
+          <div class="auth-brand">
+            <img src="logo.png" alt="DACHBYTE Seller MadeiraMadeira" />
+            <div>
+              <span class="auth-brand__eyebrow">DACHBYTE Seller</span>
+              <strong>Ativacao de convite</strong>
+            </div>
+          </div>
+
+          <div class="auth-kicker">
+            <span class="auth-kicker__dot"></span>
+            <span>Registro por convite</span>
+          </div>
+
+          <h1 class="auth-title">Finalize o cadastro do seu acesso</h1>
+          <p class="auth-subtitle">
+            Defina sua senha para concluir a ativacao da conta MadeiraMadeira.
+          </p>
+
+          <div class="login-msg" id="activate-msg">
+            Carregando os dados do convite...
+          </div>
+
+          <form class="auth-form" id="activate-form" autocomplete="on">
+            <label class="auth-field">
+              <span class="auth-field__label">Nome</span>
+              <input class="auth-field__input" id="activate-name" name="name" type="text" required />
+            </label>
+
+            <label class="auth-field">
+              <span class="auth-field__label">E-mail</span>
+              <input class="auth-field__input" id="activate-email" name="email" type="email" disabled />
+            </label>
+
+            <label class="auth-field">
+              <span class="auth-field__label">Senha</span>
+              <input
+                class="auth-field__input"
+                id="activate-password"
+                name="password"
+                type="password"
+                placeholder="Minimo de 6 caracteres"
+                required
+              />
+            </label>
+
+            <label class="auth-field">
+              <span class="auth-field__label">Confirmar senha</span>
+              <input
+                class="auth-field__input"
+                id="activate-password-confirm"
+                name="passwordConfirm"
+                type="password"
+                placeholder="Repita a senha"
+                required
+              />
+            </label>
+
+            <div class="auth-actions">
+              <button class="auth-btn auth-btn--primary" type="submit">Ativar acesso</button>
+              <a class="auth-btn auth-btn--ghost" href="login">Voltar ao login</a>
+            </div>
+          </form>
+        </section>
+
+        <aside class="auth-visual">
+          <div class="auth-visual__card">
+            <span class="auth-visual__badge">Convite seguro</span>
+            <h2 class="auth-visual__title">O acesso nasce vinculado ao workspace correto</h2>
+            <p class="auth-visual__text">
+              Assim que a ativacao for concluida, o usuario ja entra com o perfil liberado pela
+              administracao do canal.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script src="js/activate.js"></script>
+  </body>
+</html>

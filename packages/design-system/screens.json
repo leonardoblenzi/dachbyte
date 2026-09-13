@@ -1,0 +1,298 @@
+[
+  {
+    "path": "apps/seller-ml/views/admin-auditoria.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/admin-backup.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/admin-dashboard.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/admin-empresas.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/admin-jobs.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/admin-meli-account-reports.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/admin-meli-contas.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/admin-meli-tokens.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/admin-migracoes.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/admin-oauth-states.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/admin-patch-notes.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/admin-usuarios.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/admin-vinculos.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/ajuda.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/analise-mercado.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/anuncio-cadastro.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/atacado.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/ativar.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/cadastro.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/caracteristicas.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/clonar-anuncio.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/conta-automacoes.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/conta-contas.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/conta-creditos.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/conta-integracoes.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/conta-regularizar.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/conta-usuarios.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/criar-promocao.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/em-desenvolvimento.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/esqueci-senha.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/estoque-alerta.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/estrategicos.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/excluir-anuncio.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/filtro-anuncios.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/financeiro-ml-custos.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/financeiro-ml-margem.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/fiscal-vendas.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/full.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/landing.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/login-suite.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/login.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/modelo-massa.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/nao-autorizado.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/painel.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/prazo.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/privacy-davantti-cloner.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/projecao-mensal.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/publicidade.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/ranking-anuncios.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/redefinir-senha.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/remover-promocao.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/reputacao.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/selecao-plataforma.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/select-conta.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/validar-dimensoes.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/vincular-conta.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-ml/views/ia-analytics/curva-abc.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-shopee/public/activate.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-shopee/public/forgot-password.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-shopee/public/index.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-shopee/public/login.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-shopee/public/reset-password.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-madeira/public/activate.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-madeira/public/painel.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-log/public/index.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-leader/public/index.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/seller-leader/public/login.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/business/public/landing.html",
+    "line": "business"
+  },
+  {
+    "path": "apps/business/core/public/landing.html",
+    "line": "business"
+  },
+  {
+    "path": "apps/business/price/public/index.html",
+    "line": "business"
+  },
+  {
+    "path": "apps/business/stock/apps/web/public/landing.html",
+    "line": "business"
+  },
+  {
+    "path": "apps/business/chat/sordchat-frontend/public/index.html",
+    "line": "business"
+  },
+  {
+    "path": "apps/seller-tracking/index.html",
+    "line": "seller"
+  },
+  {
+    "path": "apps/business/core/index.html",
+    "line": "business"
+  }
+]

@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.shouldRunAutomaticProcesses = exports.isSandboxMode = exports.getModSituation = void 0;
+const normalizeMode = (value) => String(value || '').trim().toUpperCase();
+const getModSituation = () => normalizeMode(process.env.MOD_SITUATION) || 'PRODUCTION';
+exports.getModSituation = getModSituation;
+const isSandboxMode = () => (0, exports.getModSituation)() === 'SANDBOX';
+exports.isSandboxMode = isSandboxMode;
+const shouldRunAutomaticProcesses = () => !(0, exports.isSandboxMode)();
+exports.shouldRunAutomaticProcesses = shouldRunAutomaticProcesses;

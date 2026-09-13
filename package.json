@@ -1,0 +1,42 @@
+{
+  "name": "davantti-suite",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "apps/gateway/server.js",
+  "workspaces": [
+    "apps/seller-ml",
+    "apps/seller-shopee"
+  ],
+  "scripts": {
+    "start": "node apps/gateway/server.js",
+    "dev": "node apps/gateway/server.js",
+    "business:build": "npm --prefix apps/business run build",
+    "shopee:migrate:deploy": "npm --workspace apps/seller-shopee run db:migrate:deploy",
+    "sac:migrate:deploy": "node scripts/migrate-sac-support.js",
+    "suite:migrate:deploy": "npm run sac:migrate:deploy && npm run ml:migrate",
+    "worker:seller-ml": "node --max-old-space-size=384 apps/seller-ml/worker.js",
+    "worker:ml": "node --max-old-space-size=384 apps/seller-ml/worker.js",
+    "dev:ml": "npm --workspace apps/seller-ml run dev",
+    "ml:worker": "npm --workspace apps/seller-ml run worker",
+    "seller-ml:migrate": "npm --workspace apps/seller-ml run migrate",
+    "ml:migrate": "npm --workspace apps/seller-ml run migrate",
+    "ml:hub-accounts:backfill": "npm --workspace apps/seller-ml run hub:ml-accounts:backfill",
+    "ml:reputation:daily": "npm --workspace apps/seller-ml run reputation:daily",
+    "ml:sku-price-history:weekly": "npm --workspace apps/seller-ml run sku-price-history:weekly",
+    "ml:infra:up": "docker compose -f docker-compose.ml.yml up -d",
+    "ml:infra:down": "docker compose -f docker-compose.ml.yml down",
+    "hub:shopee-resources:migrate": "node scripts/migrate-shopee-resources-to-hub.js",
+    "test:architecture": "node --test tests/app-layout-contract.test.js tests/gateway-product-boundary.test.js tests/runtime-start-express-app.test.js tests/vps-compose-contract.test.js tests/vps-session-forwarding.test.js",
+    "vps:config": "docker compose --env-file infra/env/compose.env -f infra/compose.vps.yml config --quiet"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.18.0"
+  },
+  "devDependencies": {
+    "yaml": "^2.8.1"
+  }
+}

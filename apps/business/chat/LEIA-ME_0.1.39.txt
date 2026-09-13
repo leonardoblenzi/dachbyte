@@ -1,0 +1,10 @@
+VoltChat 0.1.39
+
+Correcao: conteudo de mensagens longas dentro do balao agora quebra linha corretamente e nao ultrapassa horizontalmente o card. Ajustado tanto no estado recolhido (Mostrar mais) quanto expandido.
+
+Arquivos incluidos:
+- sordchat-frontend/src/pages/Chat.js
+- sordchat-frontend/src/index.css
+- sordchat-frontend/package.json
+- sordchat-frontend/package-lock.json
+- sordchat-frontend/public/version.json

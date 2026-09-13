@@ -1,0 +1,44 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && npm run build:frontend",
+    "build:frontend": "cd .. && npm ci && npm run build",
+    "start": "node dist/index.js",
+    "db:migrate:create": "node scripts/db-migrate.js create",
+    "db:migrate:deploy": "node scripts/db-migrate.js deploy",
+    "db:migrate:status": "node scripts/db-migrate.js status",
+    "db:migrate:baseline": "node scripts/db-migrate.js baseline",
+    "db:execute": "node scripts/db-migrate.js execute",
+    "backfill:shipping-deadline": "node dist/scripts/backfillOrderShippingDeadlineFromProductAvailability.js",
+    "backfill:shipping-deadline:open-orders": "node dist/scripts/backfillOpenOrdersShippingDeadlineFromProductAvailability.js",
+    "revisit:anymarket:pending": "node dist/scripts/revisitAnymarketPendingOrdersStatusAndXml.js",
+    "resync:mpozenato:pending:anymarket-xml:intelipost": "node dist/scripts/resyncMpozenatoPendingAnymarketXmlIntelipost.js",
+    "revisit:mpozenato:missing-xml:sync-intelipost": "node dist/scripts/revisitMpozenatoMissingXmlAndSyncIntelipost.js",
+    "delete:company": "node dist/scripts/deleteCompanyAndAllData.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/express": "^5.0.6",
+    "avantracking": "file:..",
+    "axios": "^1.13.5",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.3.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.9.3"
+  }
+}

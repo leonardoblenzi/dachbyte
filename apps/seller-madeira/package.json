@@ -1,0 +1,20 @@
+{
+  "name": "davantti-madeiramadeira",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node start.js",
+    "db:migrate:create": "node scripts/db-migrate.js create",
+    "db:migrate:deploy": "node scripts/db-migrate.js deploy",
+    "db:migrate:status": "node scripts/db-migrate.js status",
+    "db:migrate:baseline": "node scripts/db-migrate.js baseline-prisma",
+    "db:execute": "node scripts/db-migrate.js execute",
+    "seed:admin": "node scripts/seed-admin.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "pg": "^8.16.3"
+  }
+}

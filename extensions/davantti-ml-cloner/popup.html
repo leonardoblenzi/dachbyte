@@ -1,0 +1,74 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DACHBYTE Seller Cloner</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main class="popup-shell">
+    <header class="popup-header">
+      <div class="brand-mark"><img src="icons/icone.png" alt="" aria-hidden="true" /></div>
+      <div>
+        <h1>DACHBYTE Seller</h1>
+        <p>Analise ML e Shopee em tempo real.</p>
+      </div>
+    </header>
+
+    <section id="loginView" class="panel">
+      <div class="step-note">
+        Entre para usar acoes conectadas. A analise aparece automaticamente no Mercado Livre e na Shopee.
+      </div>
+
+      <label>
+        E-mail DACHBYTE
+        <input id="email" type="email" autocomplete="email" placeholder="voce@empresa.com" />
+      </label>
+
+      <label>
+        Senha
+        <input id="password" type="password" autocomplete="current-password" placeholder="Sua senha" />
+      </label>
+
+      <button id="btnLogin" type="button" class="primary-action">Entrar na DACHBYTE</button>
+
+      <div class="login-links">
+        <p>Ainda nao tem cadastro? <a id="openLanding" href="#" target="_blank" rel="noopener noreferrer">Clique aqui!</a></p>
+        <p>Esta com algum problema? <a id="openSupport" href="#" target="_blank" rel="noopener noreferrer">Fale com suporte.</a></p>
+      </div>
+    </section>
+
+    <section id="appView" class="panel hidden">
+      <div class="session-row">
+        <div>
+          <span class="eyebrow">Logado como</span>
+          <strong id="userLabel">-</strong>
+        </div>
+        <button id="btnLogout" type="button" class="ghost-action">Sair</button>
+      </div>
+
+      <label>
+        Conta Mercado Livre para este rascunho
+        <select id="accountSelect"></select>
+      </label>
+      <div class="account-meta" id="accountMeta"></div>
+      <button id="btnRefreshAccounts" type="button" class="secondary-action">Atualizar contas</button>
+
+      <button id="btnClone" type="button" class="primary-action">Clonar anuncio atual</button>
+
+      <div class="hint-card">
+        Abra um anuncio do Mercado Livre, selecione a conta correta e envie para rascunhos.
+      </div>
+
+      <a id="openDrafts" class="draft-link" href="#" target="_blank" rel="noopener noreferrer">
+        Abrir rascunhos na DACHBYTE
+      </a>
+    </section>
+
+    <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

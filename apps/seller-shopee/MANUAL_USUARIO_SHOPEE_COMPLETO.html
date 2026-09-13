@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manual de Usuario - Davantti Shopee</title>
+    <link rel="stylesheet" href="public/styles.css" />
+    <style>
+      .manual-topbar {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+      }
+
+      .manual-wrap {
+        width: min(1300px, 96vw);
+        margin: 0 auto;
+        padding: 20px 0 48px;
+      }
+
+      .manual-hero {
+        margin-bottom: 14px;
+        padding: 22px;
+        border-radius: 24px;
+        border: 1px solid var(--border);
+        background:
+          radial-gradient(circle at top right, rgba(255, 255, 255, 0.1), transparent 30%),
+          linear-gradient(135deg, rgba(59, 130, 246, 0.24), rgba(168, 85, 247, 0.2));
+        box-shadow: var(--shadow);
+      }
+
+      .manual-eyebrow {
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 12px;
+        font-weight: 800;
+        margin-bottom: 8px;
+      }
+
+      .manual-hero h1 {
+        margin: 0;
+        font-size: clamp(28px, 4vw, 40px);
+        letter-spacing: -0.03em;
+      }
+
+      .manual-hero p {
+        margin: 10px 0 0;
+        color: var(--muted);
+        max-width: 960px;
+      }
+
+      .manual-nav {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      .manual-nav a {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        color: var(--text);
+        border: 1px solid var(--border);
+        background: var(--card);
+        border-radius: 14px;
+        padding: 10px 12px;
+        font-weight: 700;
+        transition: transform var(--t200), border-color var(--t200), background var(--t200);
+      }
+
+      .manual-nav a:hover {
+        transform: translateY(-1px);
+        border-color: rgba(59, 130, 246, 0.35);
+        background: var(--card-strong);
+      }
+
+      .manual-section {
+        border: 1px solid var(--border);
+        background: var(--card);
+        border-radius: 18px;
+        padding: 16px;
+        margin-bottom: 14px;
+        box-shadow: var(--shadow-soft);
+      }
+
+      .manual-section h2 {
+        margin: 0 0 10px;
+        font-size: 24px;
+        letter-spacing: -0.02em;
+      }
+
+      .manual-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+        gap: 12px;
+      }
+
+      .manual-card {
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .manual-card h3 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+
+      .manual-card p {
+        margin: 0 0 8px;
+        color: var(--text);
+      }
+
+      .manual-card ol,
+      .manual-card ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+
+      .manual-card li + li {
+        margin-top: 4px;
+      }
+
+      .manual-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 9px;
+        margin-left: 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(245, 158, 11, 0.45);
+        background: rgba(245, 158, 11, 0.14);
+        color: rgba(255, 244, 220, 0.96);
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .manual-highlight {
+        color: #9ef5ca;
+        font-weight: 700;
+      }
+
+      .manual-footer {
+        text-align: center;
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 22px;
+      }
+
+      .manual-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .manual-kpi-card {
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+        border-radius: 16px;
+        padding: 14px;
+      }
+
+      .manual-kpi-label {
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 800;
+      }
+
+      .manual-kpi-value {
+        margin-top: 8px;
+        font-size: 27px;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+      }
+
+      .manual-kpi-note {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .manual-trend-up {
+        color: #9ef5ca;
+      }
+
+      .manual-trend-down {
+        color: #ffb4bf;
+      }
+
+      .manual-visual-grid {
+        display: grid;
+        grid-template-columns: 1.6fr 1fr;
+        gap: 12px;
+      }
+
+      .manual-chart-card {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .manual-chart-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .manual-chart-title {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 800;
+      }
+
+      .manual-chart-chip {
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+        padding: 4px 8px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .manual-line-wrap {
+        position: relative;
+        width: 100%;
+        height: 220px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+      }
+
+      .manual-line-wrap svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .manual-line-axis {
+        display: flex;
+        justify-content: space-between;
+        color: var(--muted2);
+        font-size: 11px;
+        margin-top: 7px;
+      }
+
+      .manual-progress-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 8px;
+      }
+
+      .manual-progress-row {
+        display: grid;
+        gap: 5px;
+      }
+
+      .manual-progress-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 12px;
+      }
+
+      .manual-progress-track {
+        width: 100%;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+      }
+
+      .manual-progress-fill {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, rgba(34, 211, 238, 0.85), rgba(59, 130, 246, 0.95));
+      }
+
+      .manual-donut-row {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .manual-donut {
+        --value: 0;
+        width: 104px;
+        height: 104px;
+        border-radius: 50%;
+        background: conic-gradient(#22c55e calc(var(--value) * 1%), rgba(255, 255, 255, 0.12) 0);
+        position: relative;
+      }
+
+      .manual-donut::after {
+        content: "";
+        position: absolute;
+        inset: 14px;
+        border-radius: 50%;
+        background: rgba(18, 18, 22, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .manual-donut-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .manual-mini-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .manual-mini-card {
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 10px;
+      }
+
+      .manual-mini-card .label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .manual-mini-card .value {
+        margin-top: 4px;
+        font-size: 18px;
+        font-weight: 800;
+      }
+
+      .manual-module-dashboard {
+        margin-bottom: 12px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.03);
+        padding: 12px;
+      }
+
+      .manual-module-kpi-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+      }
+
+      .manual-module-kpi {
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 12px;
+        padding: 10px;
+      }
+
+      .manual-module-kpi .kpi-label {
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-weight: 700;
+      }
+
+      .manual-module-kpi .kpi-value {
+        margin-top: 4px;
+        font-size: 21px;
+        font-weight: 900;
+      }
+
+      .manual-module-kpi .kpi-note {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .manual-module-bars {
+        margin-top: 10px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .manual-module-bars .bar-row {
+        display: grid;
+        gap: 4px;
+      }
+
+      .manual-module-bars .bar-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 12px;
+      }
+
+      .manual-module-bars .bar-track {
+        height: 7px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+      }
+
+      .manual-module-bars .bar-fill {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, rgba(168, 85, 247, 0.9), rgba(59, 130, 246, 0.9));
+      }
+
+      @media (max-width: 980px) {
+        .manual-visual-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body class="neo theme-dark">
+    <header class="ml-topbar manual-topbar">
+      <div class="ml-topbar__left">
+        <div class="brand">
+          <img class="logo" src="public/img/shopee-logo.png?v=2" alt="Shopee" />
+          <div class="brand-text">
+            <div class="title">DAVANTTI</div>
+            <div class="subtitle">Shopee - Manual do Usuario</div>
+          </div>
+        </div>
+      </div>
+      <div class="ml-topbar__right">
+        <span class="header-pill">
+          <span class="dot"></span>
+          Material de treinamento
+        </span>
+      </div>
+    </header>
+
+    <main class="manual-wrap">
+      <section class="manual-hero">
+        <div class="manual-eyebrow">Manual operacional</div>
+        <h1>Davantti Shopee</h1>
+        <p>
+          Guia completo das funcoes da plataforma com foco em uso pratico.
+          Este material nao expoe rotas, API nem estrutura interna do projeto.
+        </p>
+      </section>
+
+      <nav class="manual-nav">
+        <a href="#visao-geral">Visao Geral</a>
+        <a href="#dashboard-visual">Dashboard Visual</a>
+        <a href="#fluxo-base">Fluxo Base do Usuario</a>
+        <a href="#rotina">Rotina Recomendada</a>
+        <a href="#operacao">Operacao Diaria</a>
+        <a href="#catalogo-massa">Catalogo e Massa</a>
+        <a href="#ads-performance">Ads e Performance</a>
+        <a href="#logistica">Logistica</a>
+        <a href="#analises">Analises</a>
+        <a href="#boas-praticas">Boas Praticas</a>
+      </nav>
+
+      <section id="dashboard-visual" class="manual-section">
+        <h2>Dashboard Visual</h2>
+        <p class="muted">Exemplo visual com KPIs e graficos no formato usado na plataforma (dados ilustrativos para treinamento).</p>
+
+        <div class="manual-kpi-grid">
+          <article class="manual-kpi-card">
+            <div class="manual-kpi-label">Faturamento do mes</div>
+            <div class="manual-kpi-value">R$ 42.946,63</div>
+            <div class="manual-kpi-note manual-trend-up">+18,7% vs mes anterior</div>
+          </article>
+          <article class="manual-kpi-card">
+            <div class="manual-kpi-label">Pedidos criados</div>
+            <div class="manual-kpi-value">203</div>
+            <div class="manual-kpi-note">Ticket medio: R$ 894,72</div>
+          </article>
+          <article class="manual-kpi-card">
+            <div class="manual-kpi-label">Unidades vendidas</div>
+            <div class="manual-kpi-value">192</div>
+            <div class="manual-kpi-note manual-trend-up">+11,2% em 30 dias</div>
+          </article>
+          <article class="manual-kpi-card">
+            <div class="manual-kpi-label">Taxa criado > pago</div>
+            <div class="manual-kpi-value">74,9%</div>
+            <div class="manual-kpi-note">92,3% de pedidos com pagamento confirmado</div>
+          </article>
+        </div>
+
+        <div class="manual-visual-grid">
+          <article class="manual-chart-card">
+            <div class="manual-chart-head">
+              <h3 class="manual-chart-title">Tendencia de faturamento (ultimos 30 dias)</h3>
+              <span class="manual-chart-chip">Dashboard</span>
+            </div>
+            <div class="manual-line-wrap">
+              <svg viewBox="0 0 700 220" preserveAspectRatio="none" aria-label="Grafico de tendencia de faturamento">
+                <defs>
+                  <linearGradient id="lineFillRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="rgba(59,130,246,0.45)"></stop>
+                    <stop offset="100%" stop-color="rgba(59,130,246,0.04)"></stop>
+                  </linearGradient>
+                </defs>
+                <line x1="0" y1="190" x2="700" y2="190" stroke="rgba(255,255,255,0.12)"></line>
+                <line x1="0" y1="145" x2="700" y2="145" stroke="rgba(255,255,255,0.08)"></line>
+                <line x1="0" y1="100" x2="700" y2="100" stroke="rgba(255,255,255,0.08)"></line>
+                <line x1="0" y1="55" x2="700" y2="55" stroke="rgba(255,255,255,0.08)"></line>
+                <polygon points="0,178 70,166 140,172 210,148 280,134 350,142 420,118 490,102 560,112 630,88 700,75 700,220 0,220" fill="url(#lineFillRevenue)"></polygon>
+                <polyline points="0,178 70,166 140,172 210,148 280,134 350,142 420,118 490,102 560,112 630,88 700,75" fill="none" stroke="#3b82f6" stroke-width="4"></polyline>
+                <polyline points="0,184 70,175 140,178 210,165 280,156 350,160 420,148 490,140 560,146 630,132 700,126" fill="none" stroke="#a855f7" stroke-width="2" stroke-dasharray="5 5"></polyline>
+              </svg>
+            </div>
+            <div class="manual-line-axis">
+              <span>Dia 01</span>
+              <span>Dia 07</span>
+              <span>Dia 14</span>
+              <span>Dia 21</span>
+              <span>Dia 30</span>
+            </div>
+          </article>
+
+          <article class="manual-chart-card">
+            <div class="manual-chart-head">
+              <h3 class="manual-chart-title">Saude dos pedidos</h3>
+              <span class="manual-chart-chip">Pedidos</span>
+            </div>
+            <div class="manual-donut-row">
+              <div class="manual-donut" style="--value:92.3">
+                <div class="manual-donut-center">92,3%</div>
+              </div>
+              <div>
+                <p><strong>Pagos no mes atual</strong></p>
+                <p class="muted">Indicador principal para qualidade da conversao e estabilidade do caixa.</p>
+              </div>
+            </div>
+
+            <div class="manual-progress-list">
+              <div class="manual-progress-row">
+                <div class="manual-progress-meta"><span>Criados</span><strong>203</strong></div>
+                <div class="manual-progress-track"><div class="manual-progress-fill" style="width:100%"></div></div>
+              </div>
+              <div class="manual-progress-row">
+                <div class="manual-progress-meta"><span>Pagos</span><strong>187</strong></div>
+                <div class="manual-progress-track"><div class="manual-progress-fill" style="width:92.3%"></div></div>
+              </div>
+              <div class="manual-progress-row">
+                <div class="manual-progress-meta"><span>Em separacao</span><strong>38</strong></div>
+                <div class="manual-progress-track"><div class="manual-progress-fill" style="width:18.7%"></div></div>
+              </div>
+              <div class="manual-progress-row">
+                <div class="manual-progress-meta"><span>Entregues</span><strong>121</strong></div>
+                <div class="manual-progress-track"><div class="manual-progress-fill" style="width:59.6%"></div></div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="manual-mini-grid">
+          <article class="manual-mini-card">
+            <div class="label">Ads - ROAS medio</div>
+            <div class="value">12,4</div>
+          </article>
+          <article class="manual-mini-card">
+            <div class="label">Ads - CTR medio</div>
+            <div class="value">1,38%</div>
+          </article>
+          <article class="manual-mini-card">
+            <div class="label">Boosts no periodo</div>
+            <div class="value">15</div>
+          </article>
+          <article class="manual-mini-card">
+            <div class="label">Fila de boost usada</div>
+            <div class="value">5 / 5</div>
+          </article>
+        </div>
+      </section>
+
+      <section id="visao-geral" class="manual-section">
+        <h2>Visao Geral</h2>
+        <p class="muted">
+          A plataforma centraliza a operacao completa da Shopee em um unico ambiente: gestao comercial, produtos,
+          pedidos, anuncios, logistica, margem, promocoes e automacoes.
+        </p>
+        <div class="manual-grid">
+          <article class="manual-card">
+            <h3>Objetivo principal</h3>
+            <p>Ganhar produtividade operacional e qualidade de decisao com dados em tempo real.</p>
+          </article>
+          <article class="manual-card">
+            <h3>Como navegar</h3>
+            <p>Cada aba representa um modulo de trabalho. O uso ideal e por rotina diaria, semanal e mensal.</p>
+          </article>
+          <article class="manual-card">
+            <h3>Resultado esperado</h3>
+            <p>Mais controle de vendas, menos retrabalho e maior previsibilidade de crescimento.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="fluxo-base" class="manual-section">
+        <h2>Fluxo Base do Usuario</h2>
+        <div class="manual-card">
+          <ol>
+            <li>Selecionar a loja ativa para garantir que toda acao sera feita no canal correto.</li>
+            <li>Validar o Painel de Controle para entender a situacao do mes atual.</li>
+            <li>Entrar em Pedidos para tratar excecoes e acompanhar status criticos.</li>
+            <li>Entrar em Produtos para ajustes de preco, estoque, ficha e midia.</li>
+            <li>Entrar em Ads/Impulsionar para evoluir trafego e vendas.</li>
+            <li>Fechar o dia com Margem, Qualidade de Catalogo e Logistica.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section id="rotina" class="manual-section">
+        <h2>Rotina Recomendada</h2>
+        <div class="manual-grid">
+          <article class="manual-card">
+            <h3>Diaria</h3>
+            <ul>
+              <li>Painel de Controle (mes atual)</li>
+              <li>Pedidos e alertas</li>
+              <li>Ads + Impulsionar</li>
+              <li>Produtos com queda de venda</li>
+            </ul>
+          </article>
+          <article class="manual-card">
+            <h3>Semanal</h3>
+            <ul>
+              <li>Curva ABC e Sales Share</li>
+              <li>Qualidade de Catalogo</li>
+              <li>Relancamento de itens parados</li>
+              <li>Revisao de custos e margem</li>
+            </ul>
+          </article>
+          <article class="manual-card">
+            <h3>Mensal</h3>
+            <ul>
+              <li>Fechamento de KPIs comerciais</li>
+              <li>Revisao de estrategia de Ads</li>
+              <li>Planejamento de promocoes e Flash Sale</li>
+              <li>Plano de SPX e logistica</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="operacao" class="manual-section">
+        <h2>Operacao Diaria</h2>
+        <div class="manual-module-dashboard">
+          <div class="manual-module-kpi-row">
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Pedidos do dia</div>
+              <div class="kpi-value">37</div>
+              <div class="kpi-note">31 pagos</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">SLA operacional</div>
+              <div class="kpi-value">96,4%</div>
+              <div class="kpi-note">atendimento no prazo</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Pendencias criticas</div>
+              <div class="kpi-value">5</div>
+              <div class="kpi-note">2 com prioridade alta</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Produtividade</div>
+              <div class="kpi-value">+12%</div>
+              <div class="kpi-note">vs ultima semana</div>
+            </div>
+          </div>
+          <div class="manual-module-bars">
+            <div class="bar-row">
+              <div class="bar-meta"><span>Pedidos pagos</span><strong>83%</strong></div>
+              <div class="bar-track"><div class="bar-fill" style="width: 83%"></div></div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-meta"><span>Pedidos enviados</span><strong>71%</strong></div>
+              <div class="bar-track"><div class="bar-fill" style="width: 71%"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="manual-grid">
+          <article class="manual-card">
+            <h3>Painel de Controle</h3>
+            <p><strong>O que faz:</strong> Cockpit principal da operacao com leitura de saude da loja.</p>
+            <ol>
+              <li>Abra o modulo no inicio do dia.</li>
+              <li>Leia faturamento, ticket, pedidos, unidades e taxa de pagamento do mes atual.</li>
+              <li>Priorize acoes com base nos gargalos do painel.</li>
+            </ol>
+          </article>
+          <article class="manual-card">
+            <h3>Dashboard</h3>
+            <p><strong>O que faz:</strong> Mostra tendencia de desempenho e evolucao temporal.</p>
+            <ol>
+              <li>Selecione o recorte de tempo.</li>
+              <li>Compare crescimento/queda com periodo anterior.</li>
+              <li>Valide impacto de campanhas, estoque e preco.</li>
+            </ol>
+          </article>
+          <article class="manual-card">
+            <h3>Pedidos</h3>
+            <p><strong>O que faz:</strong> Central completa de acompanhamento de pedidos.</p>
+            <ol>
+              <li>Filtre por status e periodo.</li>
+              <li>Abra o pedido para ver itens, pagamento e observacoes.</li>
+              <li>Use "Abrir pedido no canal" para agir direto no painel da Shopee quando necessario.</li>
+            </ol>
+          </article>
+          <article class="manual-card">
+            <h3>Produtos</h3>
+            <p><strong>O que faz:</strong> Gerencia catalogo, variacoes e dados de venda por item.</p>
+            <ol>
+              <li>Busque por nome, ID ou SKUs separados por virgula.</li>
+              <li>Edite titulo, descricao, imagens, preco, estoque e atributos.</li>
+              <li>Revise variacoes com foco em SKU, estoque e vendas.</li>
+              <li>Use exportacao para relatorios operacionais.</li>
+            </ol>
+          </article>
+        </div>
+      </section>
+
+      <section id="catalogo-massa" class="manual-section">
+        <h2>Catalogo e Massa</h2>
+        <div class="manual-module-dashboard">
+          <div class="manual-module-kpi-row">
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Anuncios ativos</div>
+              <div class="kpi-value">1.248</div>
+              <div class="kpi-note">catalogo total</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Qualidade media</div>
+              <div class="kpi-value">86,9%</div>
+              <div class="kpi-note">indice de catalogo</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Rascunhos</div>
+              <div class="kpi-value">43</div>
+              <div class="kpi-note">aguardando revisao</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Clips aplicados</div>
+              <div class="kpi-value">92</div>
+              <div class="kpi-note">ultimos 30 dias</div>
+            </div>
+          </div>
+          <div class="manual-module-bars">
+            <div class="bar-row">
+              <div class="bar-meta"><span>Produtos completos</span><strong>78%</strong></div>
+              <div class="bar-track"><div class="bar-fill" style="width: 78%"></div></div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-meta"><span>Com 3+ imagens</span><strong>94%</strong></div>
+              <div class="bar-track"><div class="bar-fill" style="width: 94%"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="manual-grid">
+          <article class="manual-card">
+            <h3>Clonar Anuncio <span class="manual-badge">BETA</span></h3>
+            <p><strong>O que faz:</strong> Clona anuncio de Shopee ou Mercado Livre para acelerar novos lancamentos.</p>
+            <ol>
+              <li>Informe a URL do anuncio origem.</li>
+              <li>Revise os dados extraidos na tela de edicao.</li>
+              <li>Ajuste imagens, titulo, descricao, preco, variacoes e caracteristicas.</li>
+              <li>Escolha: confirmar lancamento, salvar rascunho ou cancelar.</li>
+            </ol>
+            <p class="muted">
+              Validacoes antes do envio: minimo de imagens, marca obrigatoria, atributos obrigatorios e logistica valida.
+            </p>
+          </article>
+          <article class="manual-card">
+            <h3>Rascunhos da Clonagem</h3>
+            <p><strong>O que faz:</strong> Guarda anuncios clonados para continuar depois.</p>
+            <ol>
+              <li>Ao final da clonagem, clique em "Salvar como rascunho".</li>
+              <li>Abra a lista de rascunhos e escolha "Seguir com lancamento".</li>
+              <li>Finalize a revisao e publique quando estiver pronto.</li>
+            </ol>
+          </article>
+          <article class="manual-card">
+            <h3>Clips <span class="manual-badge">BETA</span></h3>
+            <p><strong>O que faz:</strong> Aplica o mesmo video em massa para varios IDs.</p>
+            <ol>
+              <li>Selecione os produtos por lista de IDs.</li>
+              <li>Envie o arquivo MP4.</li>
+              <li>Confirme o envio em massa.</li>
+            </ol>
+            <p class="muted">Requisitos: max 30MB, duracao 10s-60s, resolucao minima 1x1, formato MP4.</p>
+          </article>
+          <article class="manual-card">
+            <h3>Preenchimento Massivo de Ficha <span class="manual-badge">BETA</span></h3>
+            <p><strong>O que faz:</strong> Preenche atributos tecnicos em lote para itens compativeis.</p>
+            <ol>
+              <li>Selecione IDs/SKUs em massa.</li>
+              <li>Escolha o atributo alvo.</li>
+              <li>Defina o valor padrao.</li>
+              <li>Aplique e revise o resultado.</li>
+            </ol>
+          </article>
+          <article class="manual-card">
+            <h3>Qualidade de Catalogo</h3>
+            <p><strong>O que faz:</strong> Mostra indice de qualidade e pendencias de atributos.</p>
+            <ol>
+              <li>Filtre anuncios com score baixo.</li>
+              <li>Abra o item e complete os campos pendentes.</li>
+              <li>Reavalie score apos salvar.</li>
+            </ol>
+          </article>
+        </div>
+      </section>
+
+      <section id="ads-performance" class="manual-section">
+        <h2>Ads e Performance</h2>
+        <div class="manual-module-dashboard">
+          <div class="manual-module-kpi-row">
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Investimento ads</div>
+              <div class="kpi-value">R$ 8.420</div>
+              <div class="kpi-note">mes atual</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">ROAS medio</div>
+              <div class="kpi-value">12,4</div>
+              <div class="kpi-note">acima da meta</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">CTR medio</div>
+              <div class="kpi-value">1,38%</div>
+              <div class="kpi-note">+0,22 p.p.</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Boosts no periodo</div>
+              <div class="kpi-value">15</div>
+              <div class="kpi-note">fila 5/5 utilizada</div>
+            </div>
+          </div>
+          <div class="manual-module-bars">
+            <div class="bar-row">
+              <div class="bar-meta"><span>Campanhas saudaveis</span><strong>68%</strong></div>
+              <div class="bar-track"><div class="bar-fill" style="width: 68%"></div></div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-meta"><span>Campanhas com alerta</span><strong>32%</strong></div>
+              <div class="bar-track"><div class="bar-fill" style="width: 32%"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="manual-grid">
+          <article class="manual-card">
+            <h3>Ads</h3>
+            <p><strong>O que faz:</strong> Acompanha campanhas e desempenho por produto.</p>
+            <ol>
+              <li>Defina periodo.</li>
+              <li>Analise impressao, clique, investimento, vendas e retorno.</li>
+              <li>Abra campanhas com baixa eficiencia para ajuste.</li>
+            </ol>
+          </article>
+          <article class="manual-card">
+            <h3>Impulsionar (Boost)</h3>
+            <p><strong>O que faz:</strong> Impulsiona itens em janelas da Shopee, manual ou automatico.</p>
+            <ol>
+              <li>Selecione ate 5 IDs por ciclo.</li>
+              <li>Execute boost manual ou ative boost automatico.</li>
+              <li>Acompanhe cards de fila usada, proxima vaga e historico.</li>
+              <li>Use "ultimo boost" para repetir estrategia vencedora.</li>
+            </ol>
+            <p class="muted">Quando fila estiver ocupada, o sistema agenda nova tentativa conforme liberacao da vaga.</p>
+          </article>
+          <article class="manual-card">
+            <h3>Curva ABC</h3>
+            <p><strong>O que faz:</strong> Classifica itens por relevancia de receita/volume.</p>
+            <p><strong>Como usar:</strong> Priorize itens da Curva A para investimento e protecao de estoque.</p>
+          </article>
+          <article class="manual-card">
+            <h3>Relancamento</h3>
+            <p><strong>O que faz:</strong> Apoia retomada de anuncios com baixa tracao.</p>
+            <p><strong>Como usar:</strong> Ajuste preco, titulo, midia e atributos; depois reative e monitore.</p>
+          </article>
+          <article class="manual-card">
+            <h3>Lancamentos</h3>
+            <p><strong>O que faz:</strong> Acompanha performance inicial de novos itens.</p>
+            <p><strong>Como usar:</strong> Avalie os primeiros dias e corrija rapido os itens abaixo da media.</p>
+          </article>
+          <article class="manual-card">
+            <h3>Sales Share</h3>
+            <p><strong>O que faz:</strong> Mostra participacao de cada produto no total vendido.</p>
+            <p><strong>Como usar:</strong> Equilibre carteira para reduzir dependencia de poucos itens.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="logistica" class="manual-section">
+        <h2>Logistica</h2>
+        <div class="manual-module-dashboard">
+          <div class="manual-module-kpi-row">
+            <div class="manual-module-kpi">
+              <div class="kpi-label">% SPX Listings</div>
+              <div class="kpi-value">74,6%</div>
+              <div class="kpi-note">card fixo de elegibilidade</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">SPX elegiveis</div>
+              <div class="kpi-value">931</div>
+              <div class="kpi-note">de 1.248 anuncios</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Retire perto ativo</div>
+              <div class="kpi-value">412</div>
+              <div class="kpi-note">itens com cobertura</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Alertas de dimensao</div>
+              <div class="kpi-value">27</div>
+              <div class="kpi-note">revisao recomendada</div>
+            </div>
+          </div>
+          <div class="manual-module-bars">
+            <div class="bar-row">
+              <div class="bar-meta"><span>Taxa de elegibilidade SPX</span><strong>74,6%</strong></div>
+              <div class="bar-track"><div class="bar-fill" style="width: 74.6%"></div></div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-meta"><span>Itens com logistica validada</span><strong>89%</strong></div>
+              <div class="bar-track"><div class="bar-fill" style="width: 89%"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="manual-grid">
+          <article class="manual-card">
+            <h3>Central Logistica (SPX e Fulfillment)</h3>
+            <p><strong>O que faz:</strong> Gerencia canais logisticos e elegibilidade de envio.</p>
+            <ol>
+              <li>Selecione os produtos alvo.</li>
+              <li>Rode validacao de dimensoes e canais disponiveis.</li>
+              <li>Aplique estrategia de habilitacao de SPX conforme regra da operacao.</li>
+              <li>Revise impacto no frete e disponibilidade por anuncio.</li>
+            </ol>
+          </article>
+          <article class="manual-card">
+            <h3>Geo Vendas</h3>
+            <p><strong>O que faz:</strong> Mostra distribuicao de vendas por estado e cidade.</p>
+            <p><strong>Como usar:</strong> Use para priorizar estoque regional e ajustes logisticos.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="analises" class="manual-section">
+        <h2>Analises</h2>
+        <div class="manual-module-dashboard">
+          <div class="manual-module-kpi-row">
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Margem media</div>
+              <div class="kpi-value">18,2%</div>
+              <div class="kpi-note">analise em elaboracao</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Top 10 SKUs</div>
+              <div class="kpi-value">46,7%</div>
+              <div class="kpi-note">participacao na receita</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Produtos com queda</div>
+              <div class="kpi-value">39</div>
+              <div class="kpi-note">acao sugerida por IA</div>
+            </div>
+            <div class="manual-module-kpi">
+              <div class="kpi-label">Indice SEO medio</div>
+              <div class="kpi-value">81</div>
+              <div class="kpi-note">escala 0-100</div>
+            </div>
+          </div>
+          <div class="manual-module-bars">
+            <div class="bar-row">
+              <div class="bar-meta"><span>SKU com margem positiva</span><strong>88%</strong></div>
+              <div class="bar-track"><div class="bar-fill" style="width: 88%"></div></div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-meta"><span>Oportunidades mapeadas</span><strong>57%</strong></div>
+              <div class="bar-track"><div class="bar-fill" style="width: 57%"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="manual-grid">
+          <article class="manual-card">
+            <h3>SEO</h3>
+            <p>Compara termos e apoia melhoria de titulo/descricao para aumentar descoberta.</p>
+          </article>
+          <article class="manual-card">
+            <h3>Analytics IA</h3>
+            <p>Leitura assistida de desempenho com sugestoes de otimizacao de anuncio e operacao.</p>
+          </article>
+          <article class="manual-card">
+            <h3>Margem de Venda <span class="manual-badge">BETA</span></h3>
+            <p>Consolida margem por pedido/produto para decisao de preco, custo e investimento.</p>
+          </article>
+          <article class="manual-card">
+            <h3>Custos</h3>
+            <p>Cadastro e manutencao de custos para manter a analise de margem confiavel.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="boas-praticas" class="manual-section">
+        <h2>Boas Praticas de Uso</h2>
+        <div class="manual-card">
+          <ul>
+            <li>Comece o dia pelo Painel de Controle e termine com revisao de Margem e Custos.</li>
+            <li>Antes de investir em Ads, garanta anuncio bem preenchido e com midia forte.</li>
+            <li>Use Clonar Anuncio + Rascunhos para padronizar lancamentos.</li>
+            <li>Mantenha auto boost ligado somente com carteira de IDs realmente estrategica.</li>
+            <li>Revise logistica sempre que houver mudanca de dimensao/embalagem do produto.</li>
+            <li>Padronize uma rotina semanal de Curva ABC e Sales Share para priorizacao.</li>
+          </ul>
+          <p class="manual-highlight">Resultado: operacao mais previsivel, menos retrabalho e maior eficiencia comercial.</p>
+        </div>
+      </section>
+
+      <p class="manual-footer">Manual funcional da plataforma Shopee - versao para treinamento e apresentacao.</p>
+    </main>
+  </body>
+</html>

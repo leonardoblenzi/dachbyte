@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=7" />
+  <link rel="stylesheet" href="/ml/css/admin-usuarios.css?v=5" />
+  <title>Admin - Relatorios ML</title>
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/ml/css/ml-master-theme.css?v=2026081301" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+  <main class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar__brand">
+        <div class="admin-sidebar__logo">Painel Admin</div>
+        <div class="admin-sidebar__sub">Master Only</div>
+      </div>
+      <nav class="admin-menu">
+        <a class="admin-menu__item" href="/ml/admin/usuarios"><span class="ico">U</span><span>Usuarios</span></a>
+        <a class="admin-menu__item" href="/ml/admin/empresas"><span class="ico">E</span><span>Empresas</span></a>
+        <a class="admin-menu__item" href="/ml/admin/vinculos"><span class="ico">V</span><span>Vinculos</span></a>
+        <a class="admin-menu__item" href="/ml/admin/contas-ml"><span class="ico">M</span><span>Contas ML</span></a>
+        <a class="admin-menu__item active" href="/ml/admin/relatorios-ml"><span class="ico">R</span><span>Relatorios ML</span></a>
+        <a class="admin-menu__item" href="/ml/admin/tokens-ml"><span class="ico">T</span><span>Tokens ML</span></a>
+        <a class="admin-menu__item" href="/ml/admin/oauth-states"><span class="ico">O</span><span>OAuth States</span></a>
+        <a class="admin-menu__item" href="/ml/admin/migracoes"><span class="ico">G</span><span>Migracoes</span></a>
+        <a class="admin-menu__item" href="/ml/admin/jobs"><span class="ico">J</span><span>Automacoes</span></a>
+        <a class="admin-menu__item" href="/ml/admin/patch-notes"><span class="ico">P</span><span>Patch Notes</span></a>
+        <a class="admin-menu__item" href="/ml/admin/backup"><span class="ico">B</span><span>Backup</span></a>
+      </nav>
+      <div class="admin-sidebar__footer"><small>Area restrita</small></div>
+    </aside>
+
+    <section class="admin-content">
+      <div class="admin-content__header">
+        <div>
+          <h1 class="admin-title">Relatorios de Conta ML</h1>
+          <p class="admin-subtitle">Gere um relatorio executivo por conta Mercado Livre com vendas, Curva ABC e reputacao.</p>
+        </div>
+        <div class="admin-actions">
+          <button id="btn-refresh" class="btn-lite" type="button">Atualizar</button>
+          <button id="btn-generate" class="btn-primary" type="button">Gerar relatorio</button>
+        </div>
+      </div>
+
+      <div class="card" style="padding:16px;margin-bottom:14px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
+          <label style="display:grid;gap:6px;min-width:320px;flex:1;">
+            <span class="muted">Conta ML</span>
+            <select id="account-select" class="input">
+              <option value="">Carregando contas...</option>
+            </select>
+          </label>
+          <label style="display:grid;gap:6px;min-width:170px;">
+            <span class="muted">Periodo</span>
+            <select id="period-days" class="input">
+              <option value="90">Ultimos 90 dias</option>
+              <option value="60">Ultimos 60 dias</option>
+              <option value="30">Ultimos 30 dias</option>
+              <option value="180">Ultimos 180 dias</option>
+            </select>
+          </label>
+        </div>
+        <div id="account-card" class="muted" style="margin-top:12px;">Selecione uma conta para iniciar.</div>
+      </div>
+
+      <div class="card report-retention-notice" style="padding:16px;margin-bottom:14px;">
+        <strong>Retencao de 24h</strong>
+        <div class="muted" style="margin-top:4px;">O XLSX/PDF fica disponivel por 24h apos a geracao. Depois disso, o registro e os arquivos sao removidos automaticamente.</div>
+      </div>
+
+      <div class="card" style="padding:16px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+          <div>
+            <h3 id="status-title" style="margin:0;">Processamento</h3>
+            <p id="status-meta" class="muted" style="margin:4px 0 0;">Nenhum relatorio em andamento.</p>
+          </div>
+          <span id="status-badge" class="badge">Aguardando</span>
+        </div>
+        <div class="report-progress">
+          <div id="progress-bar" class="report-progress__bar"></div>
+        </div>
+        <pre id="logs" class="report-log">Sem logs ainda.</pre>
+      </div>
+
+      <div class="card" style="padding:16px;">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px;">
+          <h3 style="margin:0;">Historico</h3>
+          <span id="history-count" class="muted">0 relatorios</span>
+        </div>
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Conta</th>
+                <th>Periodo</th>
+                <th>Status</th>
+                <th>Progresso</th>
+                <th>Gerado em</th>
+                <th>Expira em</th>
+                <th>Arquivos</th>
+              </tr>
+            </thead>
+            <tbody id="history-body">
+              <tr><td colspan="8">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div id="toast" class="toast" style="display:none;"></div>
+  <script src="/ml/js/admin-meli-account-reports.js?v=1"></script>
+</body>
+</html>

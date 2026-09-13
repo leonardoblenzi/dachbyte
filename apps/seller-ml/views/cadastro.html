@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastro Mercado Livre</title>
+
+  <link rel="stylesheet" href="./css/login.css" />
+  <script src="./js/ml-base.js?v=7"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+
+<body class="auth-page theme-ml">
+  <a class="auth-back" href="login">
+    <span>&larr;</span>
+    <span>Voltar</span>
+  </a>
+
+  <main class="auth-stage">
+    <div class="auth-shell">
+      <section class="auth-panel">
+        <div class="auth-kicker">
+          <span class="auth-kicker__dot"></span>
+          <span>Novo ambiente Mercado Livre</span>
+        </div>
+
+        <h1 class="auth-title">Criar conta</h1>
+        <p class="auth-subtitle">
+          Registre sua empresa e prepare o ambiente para conectar contas, autenticar usuarios
+          e iniciar a operacao no painel Mercado Livre.
+        </p>
+
+        <div id="cad-msg" class="login-msg"></div>
+
+        <form class="auth-form" id="cad-form" method="post" autocomplete="on">
+          <label class="auth-field">
+            <span class="auth-field__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 21h18"></path>
+                <path d="M5 21V7l7-4 7 4v14"></path>
+                <path d="M9 11h6"></path>
+              </svg>
+            </span>
+            <input
+              id="empresa_nome"
+              name="empresa_nome"
+              type="text"
+              placeholder="Nome da empresa"
+              class="auth-field__input"
+              autocomplete="organization"
+              required
+            />
+          </label>
+
+          <label class="auth-field">
+            <span class="auth-field__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="8" r="4"></circle>
+                <path d="M4 20c2-4 5-6 8-6s6 2 8 6"></path>
+              </svg>
+            </span>
+            <input
+              id="nome"
+              name="nome"
+              type="text"
+              placeholder="Seu nome (opcional)"
+              class="auth-field__input"
+              autocomplete="name"
+            />
+          </label>
+
+          <label class="auth-field">
+            <span class="auth-field__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 6h16v12H4z"></path>
+                <path d="M4 7l8 6 8-6"></path>
+              </svg>
+            </span>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="E-mail"
+              class="auth-field__input"
+              autocomplete="email"
+              required
+            />
+          </label>
+
+          <label class="auth-field">
+            <span class="auth-field__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="5" y="11" width="14" height="9" rx="2"></rect>
+                <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+              </svg>
+            </span>
+            <input
+              id="senha"
+              name="senha"
+              type="password"
+              placeholder="Senha (min. 6 caracteres)"
+              class="auth-field__input"
+              autocomplete="new-password"
+              required
+            />
+          </label>
+
+          <div class="auth-actions">
+            <button class="auth-btn auth-btn--primary" id="btn-cadastrar" type="submit">Criar conta</button>
+            <button class="auth-btn auth-btn--secondary" type="button" id="btn-voltar">Ja tenho conta</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="auth-visual">
+        <div class="auth-visual__card">
+          <span class="auth-visual__badge">Setup inicial</span>
+          <h2 class="auth-visual__title">Estruture o ambiente antes de operar</h2>
+          <p class="auth-visual__text">
+            Cadastre a empresa, defina o usuario principal e avance para o fluxo de vinculacao
+            da conta Mercado Livre.
+          </p>
+
+          <div class="auth-visual__stack">
+            <div class="auth-feature">
+              <div class="auth-feature__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 3h12v18H6z"></path>
+                  <path d="M9 8h6"></path>
+                  <path d="M9 12h6"></path>
+                </svg>
+              </div>
+              <div>
+                <span class="auth-feature__title">Estrutura administrativa</span>
+                <span class="auth-feature__meta">Crie a base da empresa e centralize o acesso da operacao.</span>
+              </div>
+            </div>
+
+            <div class="auth-feature">
+              <div class="auth-feature__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 12h16"></path>
+                  <path d="M12 4v16"></path>
+                </svg>
+              </div>
+              <div>
+                <span class="auth-feature__title">Conexao com o marketplace</span>
+                <span class="auth-feature__meta">Depois do cadastro, vincule a conta e siga para o fluxo de autorizacao.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="auth-visual__pulse"></div>
+        </div>
+      </aside>
+    </div>
+  </main>
+<script>
+    (function () {
+      const form = document.getElementById("cad-form");
+      const msg = document.getElementById("cad-msg");
+      const btn = document.getElementById("btn-cadastrar");
+      const btnVoltar = document.getElementById("btn-voltar");
+      const BASE = (window.ML && window.ML.base) || window.__ML_BASE__ || "";
+
+      function withBase(path) {
+        if (!path || typeof path !== "string") return path;
+        if (/^https?:\/\//i.test(path)) return path;
+        if (!BASE) return path;
+        if (path === BASE || path.startsWith(BASE + "/")) return path;
+        if (path.startsWith("/")) return BASE + path;
+        return BASE + "/" + path;
+      }
+
+      function showMsg(text, type) {
+        msg.style.display = "block";
+        msg.textContent = text;
+        msg.className = "login-msg";
+        if (type === "ok") msg.classList.add("is-success");
+        else if (type === "info") msg.classList.add("is-info");
+        else msg.classList.add("is-error");
+      }
+
+      function setLoading(isLoading) {
+        btn.disabled = isLoading;
+        btn.textContent = isLoading ? "Criando..." : "Criar conta";
+      }
+
+      btnVoltar.addEventListener("click", () => {
+        window.location.href = withBase("/login");
+      });
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const empresa_nome = document.getElementById("empresa_nome").value.trim();
+        const nome = document.getElementById("nome").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const senha = document.getElementById("senha").value;
+
+        msg.style.display = "none";
+
+        if (!empresa_nome || !email || !senha) {
+          showMsg("Preencha nome da empresa, e-mail e senha.", "err");
+          return;
+        }
+
+        if (senha.length < 6) {
+          showMsg("A senha deve ter no minimo 6 caracteres.", "err");
+          return;
+        }
+
+        setLoading(true);
+
+        try {
+          const resp = await fetch(withBase("/api/auth/register"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ empresa_nome, nome, email, senha }),
+          });
+
+          let data = null;
+          try {
+            data = await resp.json();
+          } catch (_) {}
+
+          if (!resp.ok || !data || data.ok !== true) {
+            const m =
+              data && (data.error || data.message)
+                ? data.error || data.message
+                : "Falha no cadastro.";
+            showMsg(m, "err");
+            return;
+          }
+
+          const redirect = data.redirect || "/vincular-conta";
+          window.location.href = withBase(redirect);
+        } catch (err) {
+          showMsg("Erro de rede ao cadastrar. Verifique o servidor e tente novamente.", "err");
+        } finally {
+          setLoading(false);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

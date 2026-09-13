@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="business" data-dachbyte-app="business">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="DACHBYTE Business conecta gestão, estoque, comunicação e inteligência de preço em uma operação integrada.">
+<link rel="icon" type="image/svg+xml" href="/brand/dachbyte/business/mark.svg">
+<link rel="alternate icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/brand/dachbyte/business/mark.svg">
+<title>DACHBYTE Business — Ecossistema de operação</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Exo+2:ital,wght@0,100..900;1,100..900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --volt-blue: #00A8FF;
+  --volt-green: #00FF88;
+  --volt-deep: #060A14;
+  --volt-navy: #0A1020;
+  --volt-panel: #0D1628;
+  --volt-border: rgba(0,168,255,0.18);
+  --volt-glow-b: rgba(0,168,255,0.45);
+  --volt-glow-g: rgba(0,255,136,0.45);
+  --white: #E8F4FF;
+  --muted: #5A7A9A;
+  --font-display: 'Exo 2', sans-serif;
+  --font-body: 'Rajdhani', sans-serif;
+  --font-mono: 'Share Tech Mono', monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--volt-deep);color:var(--white);font-family:var(--font-body);font-size:18px;line-height:1.6;overflow-x:hidden}
+
+/* ══ PARTICLE CANVAS ══ */
+#particles{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* ══ NEURAL GRID ══ */
+#neural{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.5}
+
+/* ══ CURSOR GLOW ══ */
+#cursor-glow{
+  position:fixed;width:400px;height:400px;pointer-events:none;z-index:1;
+  background:radial-gradient(circle,rgba(0,168,255,0.07) 0%,transparent 65%);
+  transform:translate(-50%,-50%);transition:opacity 0.3s;border-radius:50%;
+}
+
+/* ══ SCANLINE OVERLAY ══ */
+body::after{
+  content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);
+}
+
+/* ══ NOISE TEXTURE ══ */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity:0.4;
+}
+
+/* ══ NAV ══ */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:1000;
+  padding:0 5%;height:72px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(6,10,20,0.88);backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--volt-border);
+}
+.nav-logo{display:flex;align-items:center;gap:12px;font-family:var(--font-display);font-weight:800;font-size:1.4rem;letter-spacing:0.05em;text-decoration:none;color:inherit}
+.nav-logo img{width:36px;height:36px;object-fit:contain;filter:drop-shadow(0 0 16px rgba(0,168,255,0.35))}
+.nav-logo .volt{color:var(--volt-blue)}.nav-logo .corp{color:var(--volt-green)}
+.nav-links{display:flex;gap:36px;list-style:none}
+.nav-links a{text-decoration:none;color:var(--muted);font-family:var(--font-body);font-weight:600;font-size:0.88rem;letter-spacing:0.1em;text-transform:uppercase;transition:color 0.3s;position:relative}
+.nav-links a::after{content:'';position:absolute;bottom:-4px;left:0;right:100%;height:2px;background:linear-gradient(90deg,var(--volt-blue),var(--volt-green));transition:right 0.3s}
+.nav-links a:hover{color:var(--white)}.nav-links a:hover::after{right:0}
+
+/* ══ TICKER ══ */
+.ticker-wrap{overflow:hidden;background:rgba(0,168,255,0.05);border-bottom:1px solid var(--volt-border);padding:9px 0;white-space:nowrap;position:relative;z-index:1}
+.ticker-inner{display:inline-flex;animation:ticker 35s linear infinite;gap:0}
+.ticker-item{display:inline-flex;align-items:center;gap:8px;padding:0 36px;font-family:var(--font-mono);font-size:0.64rem;color:var(--muted);letter-spacing:0.1em}
+.ticker-item span{color:var(--volt-blue)}.ticker-item.pos span{color:var(--volt-green)}
+@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* ══ HERO ══ */
+#hero{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:120px 5% 80px;overflow:hidden;z-index:1}
+.hero-inner{position:relative;z-index:2;text-align:center;max-width:960px}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:10px;font-family:var(--font-mono);font-size:0.75rem;color:var(--volt-blue);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:28px;padding:8px 20px;border:1px solid var(--volt-border);border-radius:2px;background:rgba(0,168,255,0.06);animation:eyebrow-in 1s ease both}
+@keyframes eyebrow-in{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.eyebrow-dot{width:6px;height:6px;background:var(--volt-green);border-radius:50%;animation:blink 1.5s step-end infinite;box-shadow:0 0 6px var(--volt-green)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.hero-title{font-family:var(--font-display);font-size:clamp(3rem,7vw,6rem);font-weight:900;line-height:1.02;letter-spacing:-0.03em;margin-bottom:28px}
+.hero-title .l1{display:block;color:var(--white);animation:title-in 1s ease 0.2s both}
+.hero-title .l2{display:block;background:linear-gradient(135deg,var(--volt-blue) 0%,var(--volt-green) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:title-in 1s ease 0.4s both}
+@keyframes title-in{from{opacity:0;transform:translateY(20px) skewX(-3deg)}to{opacity:1;transform:translateY(0) skewX(0)}}
+.hero-sub{font-size:1.15rem;color:var(--muted);max-width:640px;margin:0 auto 48px;font-weight:400;line-height:1.75;animation:title-in 1s ease 0.6s both}
+.hero-actions{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;animation:title-in 1s ease 0.8s both}
+.btn-primary{padding:16px 40px;background:linear-gradient(135deg,var(--volt-blue),var(--volt-green));border:none;border-radius:4px;color:var(--volt-deep);font-family:var(--font-display);font-weight:700;font-size:0.9rem;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;transition:all 0.3s;text-decoration:none;display:inline-flex;align-items:center;gap:8px;position:relative;overflow:hidden}
+.btn-primary::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent,rgba(255,255,255,0.2),transparent);transform:translateX(-100%);transition:transform 0.4s}
+.btn-primary:hover::before{transform:translateX(100%)}
+.btn-primary:hover{box-shadow:0 0 50px var(--volt-glow-b),0 0 100px var(--volt-glow-g);transform:translateY(-2px)}
+.btn-secondary{padding:15px 40px;background:transparent;border:1px solid var(--volt-border);border-radius:4px;color:var(--volt-blue);font-family:var(--font-display);font-weight:600;font-size:0.9rem;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;transition:all 0.3s;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+.btn-secondary:hover{border-color:var(--volt-blue);background:rgba(0,168,255,0.08);box-shadow:0 0 20px var(--volt-glow-b)}
+
+/* floating hexagons in hero */
+.hex-float{position:absolute;pointer-events:none;z-index:1;opacity:0.12}
+.hex-float svg{animation:hex-drift linear infinite}
+@keyframes hex-drift{0%{transform:translateY(0) rotate(0deg)}100%{transform:translateY(-120px) rotate(360deg)}}
+
+/* ══ STATS ══ */
+.stats-strip{position:relative;z-index:1;padding:44px 5%;background:var(--volt-panel);border-top:1px solid var(--volt-border);border-bottom:1px solid var(--volt-border)}
+.stats-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;text-align:center}
+.stat-item{padding:20px;position:relative}
+.stat-item::after{content:'';position:absolute;right:0;top:20%;bottom:20%;width:1px;background:var(--volt-border)}
+.stat-item:last-child::after{display:none}
+.stat-value{display:block;font-family:var(--font-display);font-size:2.8rem;font-weight:800;background:linear-gradient(135deg,var(--volt-blue),var(--volt-green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:8px}
+.stat-label{font-size:0.82rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.15em;font-weight:600}
+
+/* ══ SECTION ══ */
+.section{position:relative;z-index:1;padding:120px 5%}
+.section-tag{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:0.68rem;color:var(--volt-green);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px}
+.section-tag::before{content:'//';color:var(--muted)}
+.section-title{font-family:var(--font-display);font-size:clamp(2rem,4vw,3.2rem);font-weight:800;line-height:1.1;margin-bottom:20px}
+.section-title em{font-style:normal;background:linear-gradient(135deg,var(--volt-blue),var(--volt-green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.section-lead{font-size:1.05rem;color:var(--muted);max-width:560px;line-height:1.75;margin-bottom:56px}
+
+/* ══ MODULES ══ */
+#modules{background:var(--volt-deep)}
+.modules-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;max-width:1600px;margin:0 auto;background:var(--volt-border)}
+.module-card{background:var(--volt-deep);padding:60px 48px;position:relative;overflow:hidden;cursor:pointer;transition:all 0.4s}
+.module-card::before{content:'';position:absolute;top:0;left:0;right:100%;height:3px;transition:right 0.5s}
+.module-card.mc-blue::before{background:linear-gradient(90deg,var(--volt-blue),transparent)}
+.module-card.mc-green::before{background:linear-gradient(90deg,var(--volt-green),transparent)}
+.module-card.mc-mix::before{background:linear-gradient(90deg,var(--volt-blue),var(--volt-green))}
+.module-card.mc-price::before{background:linear-gradient(90deg,#8b5cf6,var(--volt-blue))}
+.module-card:hover::before{right:0}
+.module-card:hover{background:var(--volt-panel)}
+/* circuit lines on hover */
+.module-card::after{content:'';position:absolute;inset:0;background:
+  repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(0,168,255,0.025) 40px,rgba(0,168,255,0.025) 41px),
+  repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(0,168,255,0.025) 40px,rgba(0,168,255,0.025) 41px);
+  opacity:0;transition:opacity 0.4s;pointer-events:none}
+.module-card:hover::after{opacity:1}
+.module-icon-wrap{width:100px;height:100px;margin-bottom:32px;position:relative}
+.module-icon-wrap img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 20px rgba(0,168,255,0.5));transition:all 0.5s}
+.module-card:hover .module-icon-wrap img{filter:drop-shadow(0 0 30px rgba(0,168,255,0.9)) drop-shadow(0 0 70px rgba(0,255,136,0.5));transform:scale(1.08) translateY(-6px)}
+.module-name{font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px}
+.mc-blue .module-name{color:var(--volt-blue)}.mc-green .module-name{color:var(--volt-green)}.mc-mix .module-name{color:var(--volt-blue)}
+.module-title{font-family:var(--font-display);font-size:1.7rem;font-weight:700;margin-bottom:16px;color:var(--white)}
+.module-desc{color:var(--muted);font-size:1rem;line-height:1.65;margin-bottom:32px}
+.module-features{list-style:none;display:flex;flex-direction:column;gap:10px}
+.module-features li{display:flex;align-items:flex-start;gap:10px;font-size:0.94rem;color:rgba(232,244,255,0.75);font-weight:500}
+.module-features li::before{content:'›';font-family:var(--font-display);font-size:1.2rem;flex-shrink:0;line-height:1.3}
+.mc-blue .module-features li::before{color:var(--volt-blue)}.mc-green .module-features li::before{color:var(--volt-green)}.mc-mix .module-features li::before{color:var(--volt-blue)}
+.module-link{display:inline-flex;align-items:center;gap:8px;margin-top:40px;font-family:var(--font-display);font-size:0.84rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;text-decoration:none;transition:all 0.3s;opacity:0;transform:translateY(10px)}
+.module-card:hover .module-link{opacity:1;transform:translateY(0)}
+.mc-blue .module-link{color:var(--volt-blue)}.mc-green .module-link{color:var(--volt-green)}.mc-mix .module-link{color:var(--volt-blue)}
+
+/* ══ STOCK DEMO ══ */
+#voltstock-demo{background:var(--volt-panel);border-top:1px solid var(--volt-border);border-bottom:1px solid var(--volt-border)}
+.demo-layout{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:1fr 1.4fr;gap:80px;align-items:center}
+.demo-canvas-wrap{position:relative;aspect-ratio:1;max-width:560px}
+canvas#stockMap{width:100%;height:100%;border:1px solid var(--volt-border);border-radius:8px;background:var(--volt-deep)}
+.hud-overlay{position:absolute;top:16px;left:16px;background:rgba(6,10,20,0.92);border:1px solid var(--volt-border);border-radius:4px;padding:10px 14px;font-family:var(--font-mono);font-size:0.65rem;color:var(--volt-green);letter-spacing:0.1em;pointer-events:none}
+.hud-overlay div{margin-bottom:4px}.hud-overlay div:last-child{margin-bottom:0}
+.scan-line{position:absolute;top:0;bottom:0;left:0;right:0;border-radius:8px;overflow:hidden;pointer-events:none}
+.scan-line::after{content:'';position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--volt-green),transparent);animation:scan 3.5s linear infinite;opacity:0.5}
+@keyframes scan{0%{top:0}100%{top:100%}}
+.metric-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:40px}
+.metric-card{background:rgba(0,168,255,0.05);border:1px solid var(--volt-border);border-radius:6px;padding:20px;transition:all 0.3s;cursor:default}
+.metric-card:hover{border-color:var(--volt-blue);box-shadow:0 0 20px var(--volt-glow-b);background:rgba(0,168,255,0.1)}
+.metric-num{display:block;font-family:var(--font-display);font-size:2rem;font-weight:800;color:var(--volt-blue);line-height:1;margin-bottom:6px}
+.metric-card:nth-child(2n) .metric-num{color:var(--volt-green)}
+.metric-label{font-family:var(--font-mono);font-size:0.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.15em}
+
+/* ══ VOLTCHAT ══ */
+#voltchat{background:var(--volt-deep)}
+.chat-layout{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:1.5fr 1fr;gap:80px;align-items:start}
+.chat-ui{background:var(--volt-panel);border:1px solid var(--volt-border);border-radius:12px;overflow:hidden;box-shadow:0 0 80px rgba(0,168,255,0.08),0 40px 80px rgba(0,0,0,0.5)}
+.chat-topbar{background:rgba(0,168,255,0.07);border-bottom:1px solid var(--volt-border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+.chat-topbar-title{font-family:var(--font-mono);font-size:0.68rem;color:var(--volt-blue);letter-spacing:0.15em;text-transform:uppercase}
+.status-dot-badge{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:0.63rem;color:var(--volt-green)}
+.status-dot-badge::before{content:'';width:7px;height:7px;background:var(--volt-green);border-radius:50%;animation:blink 2s step-end infinite;box-shadow:0 0 6px var(--volt-green)}
+.chat-body{display:grid;grid-template-columns:190px 1fr;min-height:440px}
+.chat-sidebar{border-right:1px solid var(--volt-border);padding:14px 0}
+.sidebar-label{font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;padding:4px 14px 10px}
+.sidebar-item{padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:9px;transition:background 0.2s;font-size:0.84rem;font-weight:500}
+.sidebar-item:hover{background:rgba(0,168,255,0.07)}
+.sidebar-item.active{background:rgba(0,168,255,0.12);border-left:2px solid var(--volt-blue)}
+.sdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sd-g{background:var(--volt-green);box-shadow:0 0 5px var(--volt-green)}.sd-b{background:var(--volt-blue);box-shadow:0 0 5px var(--volt-blue)}.sd-m{background:var(--muted)}
+.chat-main{display:flex;flex-direction:column}
+.chat-messages{flex:1;padding:18px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;max-height:340px;scroll-behavior:smooth}
+.chat-messages::-webkit-scrollbar{width:3px}.chat-messages::-webkit-scrollbar-track{background:transparent}.chat-messages::-webkit-scrollbar-thumb{background:var(--volt-border);border-radius:2px}
+.msg{display:flex;gap:10px;align-items:flex-start;animation:msg-in 0.35s ease both}
+@keyframes msg-in{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+.msg.bot-msg{animation:msg-in-right 0.35s ease both}
+@keyframes msg-in-right{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
+.msg-avatar{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:0.68rem;font-weight:800;color:var(--volt-deep);flex-shrink:0;position:relative}
+.msg-avatar.human{background:linear-gradient(135deg,var(--volt-blue),rgba(0,168,255,0.6))}
+.msg-avatar.bot{background:linear-gradient(135deg,var(--volt-blue),var(--volt-green));box-shadow:0 0 12px var(--volt-glow-b)}
+.bot-ring{position:absolute;inset:-3px;border-radius:8px;border:1px solid var(--volt-green);opacity:0.6;animation:ring-pulse 2s ease-in-out infinite}
+@keyframes ring-pulse{0%,100%{opacity:0.6;transform:scale(1)}50%{opacity:0.2;transform:scale(1.05)}}
+.msg-content{flex:1}
+.msg-meta{display:flex;gap:10px;align-items:baseline;margin-bottom:4px}
+.msg-name{font-family:var(--font-display);font-size:0.78rem;font-weight:700;color:var(--volt-blue)}
+.msg-name.bot-name{color:var(--volt-green)}
+.msg-time{font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)}
+.msg-text{font-size:0.88rem;color:rgba(232,244,255,0.82);line-height:1.55}
+.msg-tag{display:inline-block;padding:2px 7px;background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.28);border-radius:2px;font-family:var(--font-mono);font-size:0.58rem;color:var(--volt-green);margin-left:6px;vertical-align:middle}
+.msg-tag.blue{background:rgba(0,168,255,0.12);border-color:rgba(0,168,255,0.3);color:var(--volt-blue)}
+/* typing indicator */
+.typing-indicator{display:flex;gap:10px;align-items:flex-start;padding:4px 0}
+.typing-dots{display:flex;gap:4px;align-items:center;padding:10px 14px;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.15);border-radius:8px}
+.typing-dots span{width:6px;height:6px;background:var(--volt-green);border-radius:50%;animation:dot-bounce 1.2s ease-in-out infinite}
+.typing-dots span:nth-child(2){animation-delay:0.15s}.typing-dots span:nth-child(3){animation-delay:0.3s}
+@keyframes dot-bounce{0%,80%,100%{transform:translateY(0);opacity:0.4}40%{transform:translateY(-6px);opacity:1}}
+/* AI response card */
+.ai-card{background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.2);border-radius:8px;padding:14px 16px;margin-top:8px;position:relative;overflow:hidden}
+.ai-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--volt-green),var(--volt-blue),var(--volt-green));background-size:200% 100%;animation:shimmer 2s linear infinite}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.ai-card-header{font-family:var(--font-mono);font-size:0.6rem;color:var(--volt-green);letter-spacing:0.15em;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.ai-card-header::before{content:'⚡ DACHBYTE ASSIST';color:var(--volt-green)}
+.ai-card-body{font-size:0.86rem;color:rgba(232,244,255,0.85);line-height:1.6}
+.ai-action-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.ai-action-btn{padding:5px 12px;background:rgba(0,168,255,0.1);border:1px solid rgba(0,168,255,0.3);border-radius:3px;font-family:var(--font-mono);font-size:0.6rem;color:var(--volt-blue);cursor:pointer;transition:all 0.25s;letter-spacing:0.08em}
+.ai-action-btn:hover{background:rgba(0,168,255,0.2);box-shadow:0 0 10px var(--volt-glow-b)}
+.ai-action-btn.green{background:rgba(0,255,136,0.08);border-color:rgba(0,255,136,0.25);color:var(--volt-green)}
+.ai-action-btn.green:hover{background:rgba(0,255,136,0.18)}
+.chat-input-bar{border-top:1px solid var(--volt-border);padding:12px 14px;display:flex;gap:8px;align-items:center;background:rgba(0,0,0,0.2)}
+.chat-input{flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--volt-border);border-radius:4px;padding:8px 14px;color:var(--white);font-family:var(--font-body);font-size:0.86rem;outline:none;transition:all 0.3s}
+.chat-input:focus{border-color:var(--volt-blue);box-shadow:0 0 10px rgba(0,168,255,0.15)}
+.chat-send{width:36px;height:36px;background:linear-gradient(135deg,var(--volt-blue),var(--volt-green));border:none;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.9rem;color:var(--volt-deep);transition:all 0.3s;flex-shrink:0}
+.chat-send:hover{box-shadow:0 0 16px var(--volt-glow-b);transform:scale(1.08)}
+.chat-info-panel{padding:0}
+.chat-feature-list{display:flex;flex-direction:column;gap:16px;margin-top:40px}
+.chat-feat{display:flex;gap:16px;align-items:flex-start;padding:18px 20px;background:var(--volt-panel);border:1px solid var(--volt-border);border-radius:6px;transition:all 0.3s}
+.chat-feat:hover{border-color:var(--volt-blue);box-shadow:0 0 20px rgba(0,168,255,0.1)}
+.feat-icon{font-size:1.4rem;flex-shrink:0;margin-top:2px}
+.feat-title{font-family:var(--font-display);font-weight:700;margin-bottom:4px;font-size:0.95rem}
+.feat-desc{color:var(--muted);font-size:0.84rem;line-height:1.5}
+
+/* ══ KANBAN ══ */
+#kanban{background:var(--volt-panel)}
+.kanban-board{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:1400px;margin:0 auto}
+.kanban-col{background:rgba(0,168,255,0.03);border:1px solid var(--volt-border);border-radius:8px;overflow:hidden;transition:all 0.3s}
+.kanban-col-header{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--volt-border)}
+.kanban-col-title{font-family:var(--font-mono);font-size:0.63rem;letter-spacing:0.18em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.col-dot{width:8px;height:8px;border-radius:50%}
+.col-count{background:rgba(255,255,255,0.07);border-radius:10px;padding:2px 8px;font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)}
+.kanban-cards{padding:12px;display:flex;flex-direction:column;gap:10px;min-height:280px}
+.k-card{background:var(--volt-deep);border:1px solid var(--volt-border);border-radius:6px;padding:14px;cursor:grab;transition:all 0.3s;position:relative;overflow:hidden;user-select:none}
+.k-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%}
+.k-card.pr-high::before{background:linear-gradient(to bottom,#FF4444,#FF0000)}
+.k-card.pr-med::before{background:linear-gradient(to bottom,var(--volt-blue),rgba(0,168,255,0.4))}
+.k-card.pr-low::before{background:linear-gradient(to bottom,var(--volt-green),rgba(0,255,136,0.4))}
+.k-card:hover{transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,0,0,0.4),0 0 20px rgba(0,168,255,0.1);border-color:rgba(0,168,255,0.4)}
+.k-card:active{cursor:grabbing}
+.k-card-title{font-family:var(--font-display);font-size:0.88rem;font-weight:600;margin-bottom:8px;color:var(--white)}
+.k-card-sub{color:var(--muted);font-size:0.78rem;margin-bottom:10px}
+.k-card-meta{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.k-tag{font-family:var(--font-mono);font-size:0.55rem;padding:2px 8px;border-radius:2px;text-transform:uppercase;letter-spacing:0.1em}
+.kt-b{background:rgba(0,168,255,0.12);color:var(--volt-blue);border:1px solid rgba(0,168,255,0.28)}
+.kt-g{background:rgba(0,255,136,0.08);color:var(--volt-green);border:1px solid rgba(0,255,136,0.22)}
+.kt-r{background:rgba(255,68,68,0.1);color:#FF6666;border:1px solid rgba(255,68,68,0.22)}
+.k-assignee{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--volt-blue),var(--volt-green));display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:0.55rem;font-weight:800;color:var(--volt-deep)}
+.k-card.dragging{opacity:0.4;transform:scale(0.96)}
+.kanban-col.drag-over{border-color:var(--volt-blue);background:rgba(0,168,255,0.06);box-shadow:inset 0 0 20px rgba(0,168,255,0.08)}
+
+/* ══ VOLTCORE ══ */
+#voltcore{background:var(--volt-deep)}
+.erp-layout{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:1fr 1.35fr;gap:80px;align-items:center}
+.erp-modules-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.erp-mod{background:var(--volt-panel);border:1px solid var(--volt-border);border-radius:6px;padding:20px 14px;text-align:center;cursor:pointer;transition:all 0.3s;position:relative;overflow:hidden}
+.erp-mod::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,168,255,0.07),rgba(0,255,136,0.04));opacity:0;transition:opacity 0.3s}
+.erp-mod:hover{border-color:var(--volt-blue);transform:translateY(-3px);box-shadow:0 0 20px rgba(0,168,255,0.15)}.erp-mod:hover::after{opacity:1}
+.erp-mod-icon{font-size:1.7rem;margin-bottom:8px;display:block}
+.erp-mod-name{font-family:var(--font-display);font-size:0.74rem;font-weight:700;color:var(--white);line-height:1.3}
+.erp-mod-status{font-family:var(--font-mono);font-size:0.55rem;color:var(--volt-green);letter-spacing:0.1em;margin-top:6px;display:block}
+.erp-features{display:flex;flex-direction:column;gap:18px;margin-top:40px}
+.erp-feature{display:flex;gap:18px;align-items:flex-start;padding:20px;background:var(--volt-panel);border:1px solid var(--volt-border);border-radius:6px;transition:all 0.3s}
+.erp-feature:hover{border-color:var(--volt-blue);box-shadow:0 0 20px rgba(0,168,255,0.1)}
+.erp-feat-icon{width:44px;height:44px;background:linear-gradient(135deg,rgba(0,168,255,0.18),rgba(0,255,136,0.08));border:1px solid var(--volt-border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+.erp-feat-title{font-family:var(--font-display);font-size:0.95rem;font-weight:700;margin-bottom:4px;color:var(--white)}
+.erp-feat-desc{font-size:0.84rem;color:var(--muted);line-height:1.5}
+
+/* ══ CTA ══ */
+#cta{background:var(--volt-panel);border-top:1px solid var(--volt-border);text-align:center;position:relative;overflow:hidden}
+#cta::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:900px;height:500px;background:radial-gradient(ellipse,rgba(0,168,255,0.1) 0%,transparent 65%);pointer-events:none}
+.cta-inner{position:relative;z-index:1;max-width:740px;margin:0 auto}
+.cta-title{font-family:var(--font-display);font-size:clamp(2rem,4vw,3.5rem);font-weight:900;line-height:1.1;margin-bottom:24px}
+.cta-title em{font-style:normal;background:linear-gradient(135deg,var(--volt-blue),var(--volt-green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.cta-sub{color:var(--muted);font-size:1.05rem;margin-bottom:48px;line-height:1.75}
+.cta-actions{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:40px}
+.cta-note{font-family:var(--font-mono);font-size:0.63rem;color:var(--muted);letter-spacing:0.1em}
+
+/* ══ FOOTER ══ */
+footer{background:var(--volt-deep);border-top:1px solid var(--volt-border);padding:40px 5%;z-index:1;position:relative}
+.footer-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
+.footer-brand{font-family:var(--font-display);font-weight:700;font-size:1.1rem}
+.footer-brand .v{color:var(--volt-blue)}.footer-brand .c{color:var(--volt-green)}
+.footer-copy{font-family:var(--font-mono);font-size:0.63rem;color:var(--muted);letter-spacing:0.1em}
+.footer-links{display:flex;gap:24px}
+.footer-links a{font-family:var(--font-mono);font-size:0.63rem;color:var(--muted);text-decoration:none;letter-spacing:0.1em;text-transform:uppercase;transition:color 0.3s}
+.footer-links a:hover{color:var(--volt-blue)}
+
+/* ══ FADE IN ══ */
+.fade-in{opacity:0;transform:translateY(28px);transition:opacity 0.7s ease,transform 0.7s ease}
+.fade-in.visible{opacity:1;transform:translateY(0)}
+.fd1{transition-delay:0.1s}.fd2{transition-delay:0.2s}.fd3{transition-delay:0.3s}
+
+/* ══ SCAN BEEP ══ */
+.scan-beep{position:absolute;border:2px solid var(--volt-green);border-radius:4px;pointer-events:none;animation:beep-out 0.8s ease forwards}
+@keyframes beep-out{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.6)}}
+
+/* ══ GLITCH ══ */
+.glitch{position:relative}
+.glitch::before,.glitch::after{content:attr(data-text);position:absolute;top:0;left:0;width:100%;height:100%;background:transparent}
+.glitch::before{left:2px;text-shadow:-2px 0 #FF0080;clip-path:polygon(0 20%,100% 20%,100% 35%,0 35%);animation:glitch1 4s infinite 0.5s}
+.glitch::after{left:-2px;text-shadow:2px 0 var(--volt-blue);clip-path:polygon(0 65%,100% 65%,100% 80%,0 80%);animation:glitch2 4s infinite 1s}
+@keyframes glitch1{0%,90%,100%{clip-path:polygon(0 20%,100% 20%,100% 35%,0 35%);transform:translateX(0)}92%{transform:translateX(-3px)}}
+@keyframes glitch2{0%,85%,100%{clip-path:polygon(0 65%,100% 65%,100% 80%,0 80%);transform:translateX(0)}87%{transform:translateX(3px)}}
+
+/* ══ RESPONSIVE ══ */
+@media(max-width:1100px){.modules-grid{grid-template-columns:repeat(2,1fr)}.demo-layout,.chat-layout,.erp-layout{grid-template-columns:1fr;gap:48px}.kanban-board{grid-template-columns:repeat(2,1fr)}.stats-inner{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.nav-links{display:none}.modules-grid{grid-template-columns:1fr}.kanban-board{grid-template-columns:1fr}.stats-inner{grid-template-columns:1fr}.metric-cards{grid-template-columns:1fr}.erp-modules-grid{grid-template-columns:repeat(2,1fr)}.chat-sidebar{display:none}}
+</style>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+
+<!-- CURSOR GLOW -->
+<div id="cursor-glow"></div>
+
+<!-- PARTICLE CANVAS -->
+<canvas id="particles"></canvas>
+
+<!-- NEURAL NETWORK CANVAS -->
+<canvas id="neural"></canvas>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <span class="dachbyte-signature"><span class="dachbyte-signature__wordmark"><span>DACH</span><span>BYTE</span></span><span class="dachbyte-signature__label">Business</span></span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#modules">Módulos</a></li>
+    <li><a href="#voltstock-demo">Stock</a></li>
+    <li><a href="#voltchat">Chat</a></li>
+    <li><a href="#voltcore">Core</a></li>
+    <li><a href="#cta">Contato</a></li>
+  </ul>
+</nav>
+
+<!-- TICKER -->
+<div class="ticker-wrap" style="margin-top:72px;position:relative;z-index:1">
+  <div class="ticker-inner">
+    <span class="ticker-item">ESTOQUE EM TEMPO REAL <span>✓ SYNC</span></span>
+    <span class="ticker-item pos">SKUs ATIVOS <span>+48.291</span></span>
+    <span class="ticker-item">UPTIME SLA <span>99.97%</span></span>
+    <span class="ticker-item pos">TICKETS HOJE <span>+1.204</span></span>
+    <span class="ticker-item">DACHBYTE BUSINESS <span>Stock · Core · Chat · Price</span></span>
+    <span class="ticker-item pos">NPS <span>4.9 / 5.0</span></span>
+    <span class="ticker-item">EMPRESAS <span>+2.100</span></span>
+    <span class="ticker-item pos">PEDIDOS/MÊS <span>8.4M</span></span>
+    <span class="ticker-item">DACHBYTE ASSIST RESPOSTAS/DIA <span>34.807</span></span>
+    <span class="ticker-item pos">LATÊNCIA MÉDIA <span>12ms</span></span>
+    <span class="ticker-item">ESTOQUE EM TEMPO REAL <span>✓ SYNC</span></span>
+    <span class="ticker-item pos">SKUs ATIVOS <span>+48.291</span></span>
+    <span class="ticker-item">UPTIME SLA <span>99.97%</span></span>
+    <span class="ticker-item pos">TICKETS HOJE <span>+1.204</span></span>
+    <span class="ticker-item">DACHBYTE BUSINESS <span>Stock · Core · Chat · Price</span></span>
+    <span class="ticker-item pos">NPS <span>4.9 / 5.0</span></span>
+    <span class="ticker-item">EMPRESAS <span>+2.100</span></span>
+    <span class="ticker-item pos">PEDIDOS/MÊS <span>8.4M</span></span>
+    <span class="ticker-item">DACHBYTE ASSIST RESPOSTAS/DIA <span>34.807</span></span>
+    <span class="ticker-item pos">LATÊNCIA MÉDIA <span>12ms</span></span>
+  </div>
+</div>
+
+<!-- HERO -->
+<section id="hero">
+  <!-- Floating hexagons -->
+  <div class="hex-float" style="left:5%;top:20%"><svg width="60" height="70" viewBox="0 0 60 70" style="animation-duration:18s"><polygon points="30,2 58,17 58,53 30,68 2,53 2,17" fill="none" stroke="url(#hg)" stroke-width="1.5"/><defs><linearGradient id="hg" x1="0" y1="0" x2="60" y2="70"><stop offset="0%" stop-color="#00A8FF"/><stop offset="100%" stop-color="#00FF88"/></linearGradient></defs></svg></div>
+  <div class="hex-float" style="right:8%;top:30%"><svg width="40" height="46" viewBox="0 0 40 46" style="animation-duration:22s;animation-delay:-5s"><polygon points="20,2 38,12 38,34 20,44 2,34 2,12" fill="none" stroke="#00FF88" stroke-width="1"/></svg></div>
+  <div class="hex-float" style="left:15%;bottom:20%"><svg width="80" height="92" viewBox="0 0 80 92" style="animation-duration:28s;animation-delay:-10s"><polygon points="40,2 78,22 78,70 40,90 2,70 2,22" fill="none" stroke="#00A8FF" stroke-width="1"/></svg></div>
+  <div class="hex-float" style="right:20%;bottom:15%"><svg width="50" height="58" viewBox="0 0 50 58" style="animation-duration:20s;animation-delay:-8s"><polygon points="25,2 48,15 48,43 25,56 2,43 2,15" fill="rgba(0,168,255,0.3)" stroke="#00A8FF" stroke-width="1"/></svg></div>
+  <div class="hex-float" style="left:45%;top:10%"><svg width="30" height="34" viewBox="0 0 30 34" style="animation-duration:15s;animation-delay:-3s"><polygon points="15,2 28,9 28,25 15,32 2,25 2,9" fill="rgba(0,255,136,0.2)" stroke="#00FF88" stroke-width="1"/></svg></div>
+
+  <div class="hero-inner">
+    <div class="hero-eyebrow"><span class="eyebrow-dot"></span>Enterprise Ecosystem · Geração 4.0 · IA Integrada</div>
+    <h1 class="hero-title">
+      <span class="l1">O Sistema Que Move</span>
+      <span class="l2">Toda a Sua Empresa</span>
+    </h1>
+    <p class="hero-sub">Estoque inteligente em 3D, ERP integrado com BI em tempo real e comunicação interna com DACHBYTE Assist — tudo em um ecossistema enterprise construído para o futuro.</p>
+    <div class="hero-actions">
+      <a href="#cta" class="btn-primary">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+        Agendar Demo
+      </a>
+      <a href="#modules" class="btn-secondary">
+        Ver Módulos
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-strip">
+  <div class="stats-inner">
+    <div class="stat-item fade-in"><span class="stat-value" data-target="2100" data-suffix="+">0</span><span class="stat-label">Empresas Ativas</span></div>
+    <div class="stat-item fade-in fd1"><span class="stat-value" data-target="99.97" data-suffix="%" data-dec="2">0</span><span class="stat-label">Disponibilidade SLA</span></div>
+    <div class="stat-item fade-in fd2"><span class="stat-value" data-target="8.4" data-suffix="M" data-dec="1">0</span><span class="stat-label">Pedidos/Mês</span></div>
+    <div class="stat-item fade-in fd3"><span class="stat-value" data-target="48" data-suffix="">0</span><span class="stat-label">Integrações Nativas</span></div>
+  </div>
+</div>
+
+<!-- MODULES -->
+<section id="modules" class="section" style="padding-left:0;padding-right:0">
+  <div style="padding:0 5% 60px">
+    <div class="section-tag fade-in">Ecossistema DACHBYTE Business</div>
+    <h2 class="section-title fade-in">Quatro módulos.<br><em>Um ecossistema.</em></h2>
+    <p class="section-lead fade-in">Cada módulo é poderoso sozinho. Integrados, eles transformam completamente como sua empresa opera.</p>
+  </div>
+  <div class="modules-grid">
+    <div class="module-card mc-blue fade-in">
+      <div class="module-icon-wrap"><img src="/brand/dachbyte/business/mark.svg" alt="DACHBYTE Stock"/></div>
+      <div class="module-name">Módulo 01</div>
+      <h3 class="module-title">DACHBYTE Stock</h3>
+      <p class="module-desc">Controle de estoque com visualização 3D imersiva, bipagem por câmera ou leitor, e rastreabilidade total em tempo real.</p>
+      <ul class="module-features">
+        <li>Mapa 3D interativo de estoque por setor</li>
+        <li>Bipagem via câmera, QR e código de barras</li>
+        <li>Alertas automáticos de ruptura e excesso</li>
+        <li>Histórico completo de movimentações</li>
+        <li>Integração nativa com DACHBYTE Core</li>
+      </ul>
+      <a href="/voltstock" class="module-link">Abrir DACHBYTE Stock <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/></svg></a>
+    </div>
+    <div class="module-card mc-mix fade-in fd1">
+      <div class="module-icon-wrap"><img src="/brand/dachbyte/business/mark.svg" alt="DACHBYTE Core"/></div>
+      <div class="module-name">Módulo 02</div>
+      <h3 class="module-title">DACHBYTE Core</h3>
+      <p class="module-desc">ERP empresarial completo com dashboard executivo, gestão financeira, RH, compras e relatórios analíticos em tempo real.</p>
+      <ul class="module-features">
+        <li>Dashboard executivo com KPIs ao vivo</li>
+        <li>Gestão financeira e fluxo de caixa</li>
+        <li>Módulo de RH e folha de pagamento</li>
+        <li>Compras, fornecedores e contratos</li>
+        <li>BI e relatórios integrados</li>
+      </ul>
+      <a href="/core" class="module-link">Abrir DACHBYTE Core <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/></svg></a>
+    </div>
+    <div class="module-card mc-green fade-in fd2">
+      <div class="module-icon-wrap"><img src="/brand/dachbyte/business/mark.svg" alt="DACHBYTE Chat"/></div>
+      <div class="module-name">Módulo 03</div>
+      <h3 class="module-title">DACHBYTE Chat</h3>
+      <p class="module-desc">Chat empresarial com assistente de IA, sistema de tickets, kanban por setor e integração nativa com todo o ecossistema DACHBYTE Business.</p>
+      <ul class="module-features">
+        <li>DACHBYTE Assist responde e automatiza em tempo real</li>
+        <li>Canais por setor e projeto</li>
+        <li>Tickets com SLA e escalonamento automático</li>
+        <li>Kanban interativo entre colaboradores</li>
+        <li>Histórico pesquisável e auditável</li>
+      </ul>
+      <a href="/chat" class="module-link">Abrir DACHBYTE Chat <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/></svg></a>
+    </div>
+    <div class="module-card mc-price fade-in fd3">
+      <div class="module-icon-wrap"><img src="/brand/dachbyte/business/mark.svg" alt="DACHBYTE Price"/></div>
+      <div class="module-name">Módulo 04</div>
+      <h3 class="module-title">DACHBYTE Price</h3>
+      <p class="module-desc">Inteligência de preço, margem e marketplace para transformar dados operacionais em decisões mais rentáveis.</p>
+      <ul class="module-features">
+        <li>Margem de contribuição por pedido e SKU</li>
+        <li>Conciliação de taxas e recebíveis</li>
+        <li>Recomendações de preço orientadas a lucro</li>
+        <li>Visão de caixa, mídia e rentabilidade</li>
+        <li>Integrações com canais de venda</li>
+      </ul>
+      <a href="/volt-price" class="module-link">Abrir DACHBYTE Price <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/></svg></a>
+    </div>
+  </div>
+</section>
+
+<!-- VOLTSTOCK DEMO -->
+<section id="voltstock-demo" class="section">
+  <div class="demo-layout">
+    <div class="demo-canvas-wrap fade-in">
+      <canvas id="stockMap" width="560" height="560"></canvas>
+      <div class="hud-overlay" id="hudOverlay">
+        <div>SETOR: <span id="hudSector" style="color:#00A8FF">A-01</span></div>
+        <div>OCUPAÇÃO: <span id="hudOcc" style="color:#00FF88">73%</span></div>
+        <div>PRODUTOS: <span id="hudProds" style="color:#00FF88">1.284</span></div>
+        <div>STATUS: <span id="hudStatus" style="color:#00FF88">ONLINE</span></div>
+        <div>ÚLTIMA BIPE: <span id="hudBipe" style="color:#00A8FF">--:--:--</span></div>
+      </div>
+      <div class="scan-line"></div>
+    </div>
+    <div class="fade-in fd1">
+      <div class="section-tag">DACHBYTE Stock</div>
+      <h2 class="section-title">Veja seu estoque<br><em>como nunca antes.</em></h2>
+      <p class="section-lead" style="margin-bottom:24px">O mapa 3D exibe cada seção do armazém em tempo real. Clique para inspecionar setores, ver alertas e simular bipagens.</p>
+      <p style="color:var(--muted);font-size:0.88rem;margin-bottom:32px">👆 <strong style="color:var(--white)">Interaja com o mapa</strong> — clique nas células para bipar e inspecionar setores.</p>
+      <div class="metric-cards">
+        <div class="metric-card"><span class="metric-num" id="metricSkus">48.291</span><span class="metric-label">SKUs Cadastrados</span></div>
+        <div class="metric-card"><span class="metric-num" id="metricLoc">3.840</span><span class="metric-label">Localizações</span></div>
+        <div class="metric-card"><span class="metric-num" id="metricScan">1.204</span><span class="metric-label">Bipagens Hoje</span></div>
+        <div class="metric-card"><span class="metric-num" id="metricAlert">7</span><span class="metric-label">Alertas Ativos</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VOLTCHAT -->
+<section id="voltchat" class="section">
+  <div class="chat-layout">
+    <div class="chat-ui fade-in">
+      <div class="chat-topbar">
+        <span class="chat-topbar-title">⚡ DACHBYTE Chat — #operações</span>
+        <span class="status-dot-badge">DACHBYTE Assist online</span>
+      </div>
+      <div class="chat-body">
+        <div class="chat-sidebar">
+          <div class="sidebar-label">Canais</div>
+          <div class="sidebar-item active"><span class="sdot sd-b"></span> operações</div>
+          <div class="sidebar-item"><span class="sdot sd-g"></span> estoque</div>
+          <div class="sidebar-item"><span class="sdot sd-g"></span> financeiro</div>
+          <div class="sidebar-item"><span class="sdot sd-m"></span> rh-geral</div>
+          <div class="sidebar-item"><span class="sdot sd-b"></span> ti-suporte</div>
+          <div class="sidebar-label" style="margin-top:12px">Tickets</div>
+          <div class="sidebar-item"><span class="sdot sd-b"></span> #TK-2841</div>
+          <div class="sidebar-item"><span class="sdot sd-g"></span> #TK-2840</div>
+        </div>
+        <div class="chat-main">
+          <div class="chat-messages" id="chatMessages">
+            <div class="msg">
+              <div class="msg-avatar human">RB</div>
+              <div class="msg-content">
+                <div class="msg-meta"><span class="msg-name">Rafael B.</span><span class="msg-time">09:14</span></div>
+                <div class="msg-text">Estoque do setor C-03 abaixo do mínimo. DACHBYTE Stock gerou alerta automático.<span class="msg-tag">AUTO</span></div>
+              </div>
+            </div>
+            <div class="msg bot-msg">
+              <div class="msg-avatar bot"><div class="bot-ring"></div>VC</div>
+              <div class="msg-content">
+                <div class="msg-meta"><span class="msg-name bot-name">⚡ DACHBYTE Assist</span><span class="msg-time">09:14</span></div>
+                <div class="ai-card">
+                  <div class="ai-card-body">Alerta detectado no setor <strong style="color:var(--volt-blue)">C-03</strong>. Estoque atual: <strong style="color:#FF6666">18%</strong> do mínimo. Recomendo abertura de ticket urgente e pedido automático ao fornecedor principal.</div>
+                  <div class="ai-action-row">
+                    <button class="ai-action-btn green" onclick="voltbotAction('ticket')">✓ Abrir Ticket</button>
+                    <button class="ai-action-btn" onclick="voltbotAction('pedido')">📦 Gerar Pedido</button>
+                    <button class="ai-action-btn" onclick="voltbotAction('relatorio')">📊 Ver Relatório</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="msg">
+              <div class="msg-avatar human">CL</div>
+              <div class="msg-content">
+                <div class="msg-meta"><span class="msg-name">Carla L.</span><span class="msg-time">09:17</span></div>
+                <div class="msg-text">Abre o ticket urgente e já gera o pedido ao fornecedor @DACHBYTEAssist</div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-input-bar">
+            <input class="chat-input" type="text" id="chatInput" placeholder="Mensagem ou @DACHBYTEAssist para acionar a IA..."/>
+            <button class="chat-send" onclick="sendChatMsg()">➤</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-info-panel fade-in fd1">
+      <div class="section-tag">DACHBYTE Chat + IA</div>
+      <h2 class="section-title">Comunicação que<br><em>trabalha por você.</em></h2>
+      <p class="section-lead" style="margin-bottom:28px">A IA lê o contexto do chat, analisa dados do DACHBYTE Stock e Core, e age automaticamente — sem precisar sair da conversa.</p>
+      <div class="chat-feature-list">
+        <div class="chat-feat"><div class="feat-icon">🤖</div><div><div class="feat-title">DACHBYTE Assist com contexto total</div><div class="feat-desc">Acesse dados de estoque, finanças e tickets diretamente no chat com linguagem natural</div></div></div>
+        <div class="chat-feat"><div class="feat-icon">🎫</div><div><div class="feat-title">Tickets com SLA automático</div><div class="feat-desc">Criação, escalonamento e resolução com prazo monitorado e notificações em tempo real</div></div></div>
+        <div class="chat-feat"><div class="feat-icon">⚡</div><div><div class="feat-title">Ações diretas no chat</div><div class="feat-desc">Aprovar pedidos, mover cards do kanban e emitir relatórios sem trocar de tela</div></div></div>
+        <div class="chat-feat"><div class="feat-icon">🔗</div><div><div class="feat-title">Integração total com ERP</div><div class="feat-desc">Alertas do DACHBYTE Stock e relatórios do Core chegam direto no canal certo</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- KANBAN -->
+<section id="kanban" class="section">
+  <div style="max-width:1400px;margin:0 auto">
+    <div class="section-tag fade-in">DACHBYTE Chat · Kanban</div>
+    <h2 class="section-title fade-in">Fluxo visual entre<br><em>setores e equipes.</em></h2>
+    <p class="section-lead fade-in">Arraste os cards entre colunas. O kanban atualiza para todos em tempo real.</p>
+    <div class="kanban-board" id="kanbanBoard">
+      <div class="kanban-col" data-col="backlog" ondragover="dragOver(event)" ondrop="drop(event)">
+        <div class="kanban-col-header"><span class="kanban-col-title"><span class="col-dot" style="background:#5A7A9A"></span>Backlog</span><span class="col-count" id="cnt-backlog">3</span></div>
+        <div class="kanban-cards" id="cards-backlog">
+          <div class="k-card pr-low" draggable="true" ondragstart="dragStart(event)"><div class="k-card-title">Auditoria de estoque Q3</div><div class="k-card-sub">Contagem cíclica setores A-F</div><div class="k-card-meta"><span class="k-tag kt-g">Estoque</span><span class="k-assignee">AM</span></div></div>
+          <div class="k-card pr-low" draggable="true" ondragstart="dragStart(event)"><div class="k-card-title">Onboarding novos fornecedores</div><div class="k-card-sub">Cadastro no DACHBYTE Core</div><div class="k-card-meta"><span class="k-tag kt-b">Compras</span><span class="k-assignee">TK</span></div></div>
+          <div class="k-card pr-med" draggable="true" ondragstart="dragStart(event)"><div class="k-card-title">Relatório mensal financeiro</div><div class="k-card-sub">Fechamento julho 2026</div><div class="k-card-meta"><span class="k-tag kt-b">Financeiro</span><span class="k-assignee">CL</span></div></div>
+        </div>
+      </div>
+      <div class="kanban-col" data-col="doing" ondragover="dragOver(event)" ondrop="drop(event)">
+        <div class="kanban-col-header"><span class="kanban-col-title"><span class="col-dot" style="background:#00A8FF"></span>Em Andamento</span><span class="col-count" id="cnt-doing">2</span></div>
+        <div class="kanban-cards" id="cards-doing">
+          <div class="k-card pr-high" draggable="true" ondragstart="dragStart(event)"><div class="k-card-title">#TK-2841 — Reposição C-03</div><div class="k-card-sub">Prazo: 4h · Nível crítico</div><div class="k-card-meta"><span class="k-tag kt-r">URGENTE</span><span class="k-assignee">MD</span></div></div>
+          <div class="k-card pr-med" draggable="true" ondragstart="dragStart(event)"><div class="k-card-title">Integração API transportadora</div><div class="k-card-sub">TI · Sprint 12</div><div class="k-card-meta"><span class="k-tag kt-b">TI</span><span class="k-assignee">RB</span></div></div>
+        </div>
+      </div>
+      <div class="kanban-col" data-col="review" ondragover="dragOver(event)" ondrop="drop(event)">
+        <div class="kanban-col-header"><span class="kanban-col-title"><span class="col-dot" style="background:#FFB800"></span>Revisão</span><span class="col-count" id="cnt-review">2</span></div>
+        <div class="kanban-cards" id="cards-review">
+          <div class="k-card pr-med" draggable="true" ondragstart="dragStart(event)"><div class="k-card-title">Treinamento equipe DACHBYTE Stock</div><div class="k-card-sub">RH · 12 colaboradores</div><div class="k-card-meta"><span class="k-tag kt-g">RH</span><span class="k-assignee">JS</span></div></div>
+          <div class="k-card pr-low" draggable="true" ondragstart="dragStart(event)"><div class="k-card-title">Política de devolução</div><div class="k-card-sub">Aprovação diretoria</div><div class="k-card-meta"><span class="k-tag kt-b">Ops</span><span class="k-assignee">CL</span></div></div>
+        </div>
+      </div>
+      <div class="kanban-col" data-col="done" ondragover="dragOver(event)" ondrop="drop(event)">
+        <div class="kanban-col-header"><span class="kanban-col-title"><span class="col-dot" style="background:#00FF88"></span>Concluído</span><span class="col-count" id="cnt-done">3</span></div>
+        <div class="kanban-cards" id="cards-done">
+          <div class="k-card pr-low" draggable="true" ondragstart="dragStart(event)"><div class="k-card-title">Deploy DACHBYTE Core v2.4.1</div><div class="k-card-sub">✓ Produção 08:30</div><div class="k-card-meta"><span class="k-tag kt-g">TI</span><span class="k-assignee">RB</span></div></div>
+          <div class="k-card pr-low" draggable="true" ondragstart="dragStart(event)"><div class="k-card-title">NF-e emissão automática</div><div class="k-card-sub">✓ Integrado SEFAZ</div><div class="k-card-meta"><span class="k-tag kt-g">Fiscal</span><span class="k-assignee">MD</span></div></div>
+          <div class="k-card pr-med" draggable="true" ondragstart="dragStart(event)"><div class="k-card-title">Dashboard executivo Q2</div><div class="k-card-sub">✓ Apresentado diretoria</div><div class="k-card-meta"><span class="k-tag kt-b">BI</span><span class="k-assignee">AM</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VOLTCORE -->
+<section id="voltcore" class="section">
+  <div class="erp-layout">
+    <div class="fade-in">
+      <div class="section-tag">DACHBYTE Core</div>
+      <h2 class="section-title">Gestão completa<br><em>da sua empresa.</em></h2>
+      <p class="section-lead" style="margin-bottom:32px">Do financeiro ao RH, do estoque ao BI — o DACHBYTE Core integra cada área da sua operação em um único painel.</p>
+      <div class="erp-features">
+        <div class="erp-feature"><div class="erp-feat-icon">📊</div><div><div class="erp-feat-title">Dashboard Executivo em Tempo Real</div><div class="erp-feat-desc">KPIs financeiros e operacionais atualizados ao segundo com gráficos interativos.</div></div></div>
+        <div class="erp-feature"><div class="erp-feat-icon">💰</div><div><div class="erp-feat-title">Gestão Financeira Integrada</div><div class="erp-feat-desc">DRE, fluxo de caixa e conciliação bancária automática com alertas inteligentes.</div></div></div>
+        <div class="erp-feature"><div class="erp-feat-icon">📦</div><div><div class="erp-feat-title">Compras e Cadeia de Suprimentos</div><div class="erp-feat-desc">Pedidos automáticos via DACHBYTE Stock, aprovação multinível e rastreio de entrega.</div></div></div>
+        <div class="erp-feature"><div class="erp-feat-icon">👥</div><div><div class="erp-feat-title">RH e Folha de Pagamento</div><div class="erp-feat-desc">Ponto eletrônico, benefícios, FGTS e eSocial integrados com um clique.</div></div></div>
+      </div>
+    </div>
+    <div class="erp-modules-grid fade-in fd1">
+      <div class="erp-mod"><span class="erp-mod-icon">📊</span><div class="erp-mod-name">Dashboard</div><span class="erp-mod-status">● ATIVO</span></div>
+      <div class="erp-mod"><span class="erp-mod-icon">💰</span><div class="erp-mod-name">Financeiro</div><span class="erp-mod-status">● ATIVO</span></div>
+      <div class="erp-mod"><span class="erp-mod-icon">🧾</span><div class="erp-mod-name">Fiscal / NF-e</div><span class="erp-mod-status">● ATIVO</span></div>
+      <div class="erp-mod"><span class="erp-mod-icon">📦</span><div class="erp-mod-name">Compras</div><span class="erp-mod-status">● ATIVO</span></div>
+      <div class="erp-mod"><span class="erp-mod-icon">👥</span><div class="erp-mod-name">RH</div><span class="erp-mod-status">● ATIVO</span></div>
+      <div class="erp-mod"><span class="erp-mod-icon">📈</span><div class="erp-mod-name">BI & Analytics</div><span class="erp-mod-status">● ATIVO</span></div>
+      <div class="erp-mod"><span class="erp-mod-icon">🏭</span><div class="erp-mod-name">Produção</div><span class="erp-mod-status" style="color:#FFB800">◐ BETA</span></div>
+      <div class="erp-mod"><span class="erp-mod-icon">🚚</span><div class="erp-mod-name">Logística</div><span class="erp-mod-status">● ATIVO</span></div>
+      <div class="erp-mod"><span class="erp-mod-icon">🛒</span><div class="erp-mod-name">Vendas / CRM</div><span class="erp-mod-status">● ATIVO</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="cta" class="section">
+  <div class="cta-inner">
+    <div class="section-tag" style="justify-content:center">Pronto para começar?</div>
+    <h2 class="cta-title">Transforme sua empresa<br>com a <em>DACHBYTE</em></h2>
+    <p class="cta-sub">Conheça como o ecossistema DACHBYTE Business se adapta à realidade da sua operação.</p>
+    <div class="cta-actions">
+      <a href="#" class="btn-primary"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Agendar Demo Gratuita</a>
+      <a href="#" class="btn-secondary">Falar com Consultor</a>
+    </div>
+    <div class="cta-note">Sem contrato de fidelidade · Implantação assistida · Suporte 24/7</div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand"><span class="v">DACH</span><span class="c">BYTE</span> © 2026</div>
+    <div class="footer-copy">ENTERPRISE ECOSYSTEM · BUILT FOR THE FUTURE</div>
+    <div class="footer-links"><a href="#">Privacidade</a><a href="#">Termos</a><a href="#">Status</a><a href="#">API Docs</a></div>
+  </div>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════
+//  CURSOR GLOW
+// ═══════════════════════════════════════════
+const cursorGlow = document.getElementById('cursor-glow');
+document.addEventListener('mousemove', e => {
+  cursorGlow.style.left = e.clientX + 'px';
+  cursorGlow.style.top = e.clientY + 'px';
+});
+
+// ═══════════════════════════════════════════
+//  PARTICLE SYSTEM
+// ═══════════════════════════════════════════
+(function(){
+  const c = document.getElementById('particles');
+  const ctx = c.getContext('2d');
+  let W = c.width = window.innerWidth;
+  let H = c.height = window.innerHeight;
+  window.addEventListener('resize', () => { W = c.width = window.innerWidth; H = c.height = window.innerHeight; });
+
+  const N = 80;
+  const particles = [];
+  for (let i = 0; i < N; i++) {
+    particles.push({
+      x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 1.5 + 0.5,
+      alpha: Math.random() * 0.5 + 0.1,
+      color: Math.random() > 0.5 ? '#00A8FF' : '#00FF88'
+    });
+  }
+
+  let mouseX = W/2, mouseY = H/2;
+  document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+
+  function drawParticles() {
+    ctx.clearRect(0, 0, W, H);
+    // Draw connection lines
+    for (let i = 0; i < N; i++) {
+      for (let j = i+1; j < N; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 120) {
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(0,168,255,${0.08 * (1 - dist/120)})`;
+          ctx.lineWidth = 0.5;
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+    // Draw particles
+    particles.forEach(p => {
+      // slight mouse attraction
+      const dx = mouseX - p.x, dy = mouseY - p.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 200) {
+        p.vx += dx * 0.00003;
+        p.vy += dy * 0.00003;
+      }
+      p.vx *= 0.999; p.vy *= 0.999;
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = p.color.replace(')', `,${p.alpha})`).replace('rgb', 'rgba').replace('#00A8FF', 'rgba(0,168,255').replace('#00FF88', 'rgba(0,255,136');
+      // simpler:
+      ctx.fillStyle = p.color === '#00A8FF'
+        ? `rgba(0,168,255,${p.alpha})`
+        : `rgba(0,255,136,${p.alpha})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(drawParticles);
+  }
+  drawParticles();
+})();
+
+// ═══════════════════════════════════════════
+//  NEURAL NETWORK BG
+// ═══════════════════════════════════════════
+(function(){
+  const c = document.getElementById('neural');
+  const ctx = c.getContext('2d');
+  let W = c.width = window.innerWidth;
+  let H = c.height = window.innerHeight;
+  window.addEventListener('resize', () => { W = c.width = window.innerWidth; H = c.height = window.innerHeight; });
+
+  const nodes = [];
+  const COLS = 12, ROWS = 8;
+  for (let r = 0; r < ROWS; r++) {
+    for (let cl = 0; cl < COLS; cl++) {
+      nodes.push({
+        x: (cl / (COLS-1)) * W,
+        y: (r / (ROWS-1)) * H,
+        ox: (cl / (COLS-1)) * W,
+        oy: (r / (ROWS-1)) * H,
+        pulse: Math.random() * Math.PI * 2,
+        speed: 0.003 + Math.random() * 0.004
+      });
+    }
+  }
+
+  // Signal traveling along edges
+  let signals = [];
+  function spawnSignal() {
+    const i = Math.floor(Math.random() * nodes.length);
+    const j = Math.floor(Math.random() * nodes.length);
+    signals.push({ from: i, to: j, t: 0, speed: 0.008 + Math.random() * 0.012 });
+  }
+  setInterval(spawnSignal, 800);
+
+  function drawNeural() {
+    ctx.clearRect(0, 0, W, H);
+    // Update node positions
+    nodes.forEach(n => {
+      n.pulse += n.speed;
+      n.x = n.ox + Math.sin(n.pulse) * 15;
+      n.y = n.oy + Math.cos(n.pulse * 0.7) * 10;
+    });
+    // Draw edges
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i+1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < W/COLS * 1.6) {
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(0,168,255,${0.04 * (1 - dist/(W/COLS*1.6))})`;
+          ctx.lineWidth = 0.5;
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+    // Draw signals
+    signals = signals.filter(s => s.t <= 1);
+    signals.forEach(s => {
+      s.t += s.speed;
+      if (s.t > 1) return;
+      const from = nodes[s.from], to = nodes[s.to];
+      const x = from.x + (to.x - from.x) * s.t;
+      const y = from.y + (to.y - from.y) * s.t;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, 8);
+      g.addColorStop(0, 'rgba(0,255,136,0.6)');
+      g.addColorStop(1, 'transparent');
+      ctx.beginPath();
+      ctx.arc(x, y, 8, 0, Math.PI*2);
+      ctx.fillStyle = g;
+      ctx.fill();
+    });
+    // Draw nodes
+    nodes.forEach(n => {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, 2, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(0,168,255,0.2)';
+      ctx.fill();
+    });
+    requestAnimationFrame(drawNeural);
+  }
+  drawNeural();
+})();
+
+// ═══════════════════════════════════════════
+//  FADE IN ON SCROLL
+// ═══════════════════════════════════════════
+const fadeEls = document.querySelectorAll('.fade-in');
+const obsv = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.12 });
+fadeEls.forEach(el => obsv.observe(el));
+
+// ═══════════════════════════════════════════
+//  COUNTER ANIMATION
+// ═══════════════════════════════════════════
+function animCounter(el, target, suffix, decimals) {
+  const dur = 2200;
+  const start = performance.now();
+  const run = (now) => {
+    const p = Math.min((now - start) / dur, 1);
+    const ease = 1 - Math.pow(1-p, 4);
+    const v = target * ease;
+    el.textContent = decimals > 0 ? v.toFixed(decimals) + suffix : Math.round(v).toLocaleString('pt-BR') + suffix;
+    if (p < 1) requestAnimationFrame(run);
+  };
+  requestAnimationFrame(run);
+}
+const statObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    const el = e.target;
+    const t = parseFloat(el.dataset.target);
+    const s = el.dataset.suffix || '';
+    const d = parseInt(el.dataset.dec || '0');
+    animCounter(el, t, s, d);
+    statObs.unobserve(el);
+  });
+}, { threshold: 0.5 });
+document.querySelectorAll('.stat-value[data-target]').forEach(el => statObs.observe(el));
+
+// ═══════════════════════════════════════════
+//  3D ISOMETRIC STOCK MAP
+// ═══════════════════════════════════════════
+(function(){
+  const canvas = document.getElementById('stockMap');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const COLS = 8, ROWS = 8;
+  const TW = 52, TH = 28;
+  const originX = W/2, originY = 85;
+  const sectorNames = ['A','B','C','D','E','F','G','H'];
+
+  const sectors = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const occ = Math.random();
+      sectors.push({
+        r, c,
+        occ,
+        name: sectorNames[r] + '-0' + (c+1),
+        products: Math.floor(occ * 900 + 50),
+        h: Math.floor(occ * 3 + 1),
+        alert: occ < 0.22 || occ > 0.9,
+        alertType: occ < 0.22 ? 'BAIXO' : (occ > 0.9 ? 'CHEIO' : null)
+      });
+    }
+  }
+
+  let hovered = -1, selected = -1, frame = 0;
+
+  function iso(r, c) {
+    return {
+      x: originX + (c - r) * (TW/2),
+      y: originY + (c + r) * (TH/2)
+    };
+  }
+
+  function tileColor(occ, isHov, isSel) {
+    if (isSel) return { top:'#00A8FF', left:'#0077CC', right:'#005599' };
+    if (occ < 0.22) return {
+      top: isHov ? '#FF7777' : '#CC3333',
+      left: isHov ? '#BB3333' : '#881111',
+      right: isHov ? '#882222' : '#550000'
+    };
+    if (occ > 0.9) return {
+      top: isHov ? '#FFE066' : '#CCAA00',
+      left: isHov ? '#BB8800' : '#887700',
+      right: isHov ? '#996600' : '#554400'
+    };
+    const t = occ;
+    const br = isHov ? 1.4 : 1;
+    const g = Math.min(255, Math.round((80 + t*160)*br));
+    const b = Math.min(255, Math.round((180 - t*120)*br));
+    return {
+      top: `rgba(0,${g},${b},0.9)`,
+      left: `rgba(0,${Math.round(g*0.6)},${Math.round(b*0.6)},0.95)`,
+      right: `rgba(0,${Math.round(g*0.4)},${Math.round(b*0.4)},0.95)`
+    };
+  }
+
+  function drawTile(r, c, h, color, pulse) {
+    const { x, y } = iso(r, c);
+    const ph = h * 20;
+    ctx.globalAlpha = pulse ? (0.7 + 0.3*Math.sin(frame*0.07)) : 1;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y+ph); ctx.lineTo(x-TW/2, y+TH/2+ph); ctx.lineTo(x-TW/2, y+TH/2); ctx.lineTo(x, y);
+    ctx.closePath(); ctx.fillStyle = color.left; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.5; ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x, y+ph); ctx.lineTo(x+TW/2, y+TH/2+ph); ctx.lineTo(x+TW/2, y+TH/2); ctx.lineTo(x, y);
+    ctx.closePath(); ctx.fillStyle = color.right; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.5; ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x, y+ph); ctx.lineTo(x+TW/2, y+ph-TH/2); ctx.lineTo(x, y+ph-TH); ctx.lineTo(x-TW/2, y+ph-TH/2);
+    ctx.closePath(); ctx.fillStyle = color.top; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 0.5; ctx.stroke();
+
+    ctx.globalAlpha = 1;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const idx = r*COLS+c;
+        const s = sectors[idx];
+        const isH = idx===hovered, isS = idx===selected;
+        const color = tileColor(s.occ, isH, isS);
+        drawTile(r, c, s.h + (isH||isS ? 0.6 : 0), color, s.alert && !isS);
+      }
+    }
+    frame++;
+    requestAnimationFrame(draw);
+  }
+
+  function getTile(mx, my) {
+    let best = -1, bestD = 35;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const idx = r*COLS+c;
+        const s = sectors[idx];
+        const ph = s.h*20;
+        const { x, y } = iso(r, c);
+        const d = Math.hypot(mx-x, my-(y+ph-TH/2));
+        if (d < bestD) { bestD = d; best = idx; }
+      }
+    }
+    return best;
+  }
+
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width/rect.width, sy = canvas.height/rect.height;
+    hovered = getTile((e.clientX-rect.left)*sx, (e.clientY-rect.top)*sy);
+    if (hovered >= 0) {
+      const s = sectors[hovered];
+      document.getElementById('hudSector').textContent = s.name;
+      document.getElementById('hudOcc').textContent = Math.round(s.occ*100)+'%';
+      document.getElementById('hudProds').textContent = s.products.toLocaleString('pt-BR');
+      const st = document.getElementById('hudStatus');
+      st.textContent = s.alert ? s.alertType : 'NORMAL';
+      st.style.color = s.alert ? '#FF6666' : '#00FF88';
+      canvas.style.cursor = 'pointer';
+    } else { canvas.style.cursor = 'default'; }
+  });
+
+  canvas.addEventListener('click', e => {
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width/rect.width, sy = canvas.height/rect.height;
+    const idx = getTile((e.clientX-rect.left)*sx, (e.clientY-rect.top)*sy);
+    if (idx >= 0) {
+      selected = idx === selected ? -1 : idx;
+      const now = new Date();
+      document.getElementById('hudBipe').textContent =
+        now.getHours().toString().padStart(2,'0')+':'+
+        now.getMinutes().toString().padStart(2,'0')+':'+
+        now.getSeconds().toString().padStart(2,'0');
+      const wrap = canvas.parentElement;
+      const beep = document.createElement('div');
+      beep.className = 'scan-beep';
+      const wr = wrap.getBoundingClientRect();
+      beep.style.cssText = `left:${e.clientX-wr.left-24}px;top:${e.clientY-wr.top-24}px;width:48px;height:48px;`;
+      wrap.appendChild(beep);
+      setTimeout(() => beep.remove(), 900);
+      const scan = parseInt(document.getElementById('metricScan').textContent.replace(/\D/g,''));
+      document.getElementById('metricScan').textContent = (scan+1).toLocaleString('pt-BR');
+    }
+  });
+
+  canvas.addEventListener('mouseleave', () => { hovered = -1; });
+  draw();
+})();
+
+// ═══════════════════════════════════════════
+//  KANBAN DRAG AND DROP
+// ═══════════════════════════════════════════
+let dragging = null;
+function dragStart(e) { dragging = e.target; setTimeout(() => e.target.classList.add('dragging'), 0); }
+document.addEventListener('dragend', () => {
+  if (dragging) dragging.classList.remove('dragging');
+  document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drag-over'));
+  dragging = null;
+});
+function dragOver(e) {
+  e.preventDefault();
+  document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drag-over'));
+  e.currentTarget.classList.add('drag-over');
+}
+function drop(e) {
+  e.preventDefault();
+  const col = e.currentTarget;
+  col.classList.remove('drag-over');
+  if (!dragging) return;
+  col.querySelector('.kanban-cards').appendChild(dragging);
+  document.querySelectorAll('.kanban-col').forEach(c => {
+    document.getElementById('cnt-'+c.dataset.col).textContent = c.querySelectorAll('.k-card').length;
+  });
+}
+
+// ═══════════════════════════════════════════
+//  VOLTBOT AI CHAT
+// ═══════════════════════════════════════════
+const voltbotResponses = {
+  ticket: {
+    text: "Ticket <strong style='color:var(--volt-blue)'>#TK-2841</strong> criado com prioridade <strong style='color:#FF6666'>URGENTE</strong>. SLA: 4h. Kanban atualizado automaticamente. Notificação enviada para @Logística e @Compras.",
+    actions: [['📦 Ver no Kanban','kanban'],['✉️ Notificar Equipe','notif']]
+  },
+  pedido: {
+    text: "Pedido de compra <strong style='color:var(--volt-blue)'>#PC-9914</strong> gerado no DACHBYTE Core. Fornecedor: <strong style='color:var(--volt-green)'>DistribTech LTDA</strong> · Quantidade: 500 unidades · ETA estimado: <strong>14h de hoje</strong>.",
+    actions: [['✓ Confirmar','confirmar'],['🔄 Trocar Fornecedor','fornecedor']]
+  },
+  relatorio: {
+    text: "Relatório do setor C-03 — Últimas 24h:<br>📉 Saídas: <strong style='color:#FF6666'>342 un.</strong> · Entradas: <strong style='color:var(--volt-green)'>12 un.</strong><br>Tendência: ruptura em <strong style='color:#FF6666'>~3h</strong> se não houver reposição.",
+    actions: [['📊 Relatório Completo','relatorio_full'],['📤 Exportar PDF','exportar']]
+  },
+  confirmar: {
+    text: "Pedido <strong style='color:var(--volt-blue)'>#PC-9914</strong> confirmado e enviado ao fornecedor. <strong style='color:var(--volt-green)'>Pedido aprovado</strong>. Você receberá atualização assim que o fornecedor confirmar.",
+    actions: [['🔔 Ativar Alerta','alerta'],['📦 Acompanhar','acompanhar']]
+  },
+  notif: {
+    text: "Notificação enviada para <strong style='color:var(--volt-blue)'>@Logística</strong> e <strong style='color:var(--volt-blue)'>@Compras</strong>. 4 colaboradores foram alertados via DACHBYTE Chat e e-mail.",
+    actions: []
+  },
+  fornecedor: {
+    text: "Fornecedores disponíveis para o produto:<br>1️⃣ <strong>DistribTech</strong> — R$8,40/un · ETA 4h<br>2️⃣ <strong>Global Supply</strong> — R$7,90/un · ETA 24h<br>3️⃣ <strong>FastMed</strong> — R$9,10/un · ETA 2h",
+    actions: [['⚡ FastMed (2h)','fast'],['💰 DistribTech','confirmar']]
+  },
+  fast: {
+    text: "Pedido redirecionado para <strong style='color:var(--volt-green)'>FastMed</strong>. ETA: <strong style='color:var(--volt-green)'>2h</strong>. Custo adicional aprovado dentro do limite de emergência. Ticket #TK-2841 atualizado.",
+    actions: []
+  },
+  relatorio_full: {
+    text: "📊 Relatório completo gerado e disponível no dashboard DACHBYTE Core. Link enviado para seu e-mail e para o canal #financeiro.",
+    actions: []
+  },
+  exportar: {
+    text: "📄 PDF exportado com sucesso. O arquivo será enviado para o seu e-mail nos próximos instantes.",
+    actions: []
+  },
+  alerta: {
+    text: "🔔 Alerta configurado! Você receberá notificação quando o pedido for confirmado pelo fornecedor.",
+    actions: []
+  },
+  acompanhar: {
+    text: "Acompanhamento ativado para #PC-9914. Status em tempo real disponível no DACHBYTE Core → Compras → Pedidos em Andamento.",
+    actions: []
+  }
+};
+
+// User → AI message patterns
+const userResponses = [
+  { match: /estoque|stock|produto|item/i, key: 'relatorio' },
+  { match: /ticket|abr|cri|novo/i, key: 'ticket' },
+  { match: /pedido|compra|reposic|fornec/i, key: 'pedido' },
+  { match: /relat|dados|analise|info/i, key: 'relatorio' },
+  { match: /dachbyte\s*assist|assist|bot|ia|ai/i, key: 'ticket' },
+  { match: /urgente|critico|alerta|atenção/i, key: 'pedido' },
+];
+
+function getVoltbotKey(msg) {
+  msg = msg.toLowerCase();
+  for (const r of userResponses) {
+    if (r.match.test(msg)) return r.key;
+  }
+  return null;
+}
+
+const freeformResponses = [
+  "Entendido! Posso acessar os dados do DACHBYTE Stock e Core para te ajudar. O que você precisa?",
+  "Certo! Analisando os dados em tempo real... O que devo verificar primeiro?",
+  "Pode me dar mais detalhes? Tenho acesso completo ao estoque, finanças e tickets para ajudar.",
+  "Detectei sua solicitação. Posso abrir um ticket, gerar um pedido ou puxar um relatório — qual desses resolve sua necessidade?",
+  "Processando... Para agilizar, posso agir direto. Você quer que eu <strong style='color:var(--volt-green)'>execute automaticamente</strong> ou prefere revisar primeiro?"
+];
+
+function addMsg(avatar, name, isBot, text, actions, delay) {
+  const msgs = document.getElementById('chatMessages');
+  setTimeout(() => {
+    // Remove typing if exists
+    const typing = document.getElementById('typingIndicator');
+    if (typing) typing.remove();
+
+    const div = document.createElement('div');
+    div.className = isBot ? 'msg bot-msg' : 'msg';
+    const now = new Date();
+    const time = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+    let actHtml = '';
+    if (actions && actions.length > 0) {
+      actHtml = '<div class="ai-action-row">' +
+        actions.map(([label, key]) => `<button class="ai-action-btn ${key==='confirmar'||key==='fast'?'green':''}" onclick="voltbotAction('${key}')">${label}</button>`).join('') +
+        '</div>';
+    }
+    if (isBot) {
+      div.innerHTML = `
+        <div class="msg-avatar bot"><div class="bot-ring"></div>VC</div>
+        <div class="msg-content">
+          <div class="msg-meta"><span class="msg-name bot-name">⚡ DACHBYTE Assist</span><span class="msg-time">${time}</span></div>
+          <div class="ai-card"><div class="ai-card-body">${text}</div>${actHtml}</div>
+        </div>`;
+    } else {
+      div.innerHTML = `
+        <div class="msg-avatar human">${avatar}</div>
+        <div class="msg-content">
+          <div class="msg-meta"><span class="msg-name">${name}</span><span class="msg-time">${time}</span></div>
+          <div class="msg-text">${text}</div>
+        </div>`;
+    }
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  }, delay || 0);
+}
+
+function showTyping() {
+  const msgs = document.getElementById('chatMessages');
+  const existing = document.getElementById('typingIndicator');
+  if (existing) existing.remove();
+  const div = document.createElement('div');
+  div.className = 'typing-indicator'; div.id = 'typingIndicator';
+  div.innerHTML = `
+    <div class="msg-avatar bot" style="flex-shrink:0"><div class="bot-ring"></div>VC</div>
+    <div class="typing-dots"><span></span><span></span><span></span></div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function voltbotAction(key) {
+  const resp = voltbotResponses[key];
+  if (!resp) return;
+  showTyping();
+  const delay = 900 + Math.random() * 600;
+  addMsg('', '', true, resp.text, resp.actions, delay);
+}
+
+function sendChatMsg() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  const initials = 'VC';
+  addMsg(initials, 'Você', false, text, null, 0);
+  input.value = '';
+  // Check if it triggers VoltBot
+  const isAtBot = /@dachbyteassist/i.test(text);
+  const key = getVoltbotKey(text);
+  if (isAtBot || key) {
+    showTyping();
+    const delay = 1000 + Math.random() * 800;
+    if (key) {
+      addMsg('', '', true, voltbotResponses[key].text, voltbotResponses[key].actions, delay);
+    } else {
+      const r = freeformResponses[Math.floor(Math.random() * freeformResponses.length)];
+      addMsg('', '', true, r, [['🎫 Abrir Ticket','ticket'],['📦 Gerar Pedido','pedido'],['📊 Relatório','relatorio']], delay);
+    }
+  }
+}
+
+document.getElementById('chatInput').addEventListener('keypress', e => { if (e.key === 'Enter') sendChatMsg(); });
+
+// Auto-demo: VoltBot replies to existing actions
+setTimeout(() => { voltbotAction('ticket'); }, 2500);
+
+// ═══════════════════════════════════════════
+//  LIVE METRICS UPDATE
+// ═══════════════════════════════════════════
+setInterval(() => {
+  const sc = document.getElementById('metricScan');
+  if (sc) {
+    const v = parseInt(sc.textContent.replace(/\D/g,''));
+    sc.textContent = (v + Math.floor(Math.random()*2)).toLocaleString('pt-BR');
+  }
+}, 2500);
+</script>
+</body>
+</html>

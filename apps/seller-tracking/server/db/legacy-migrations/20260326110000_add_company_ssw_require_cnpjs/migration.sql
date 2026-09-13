@@ -1,0 +1,2 @@
+ALTER TABLE "Company"
+ADD COLUMN "sswRequireCnpjs" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

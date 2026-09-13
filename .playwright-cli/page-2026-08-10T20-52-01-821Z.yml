@@ -1,0 +1,11 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - img "Volt Core" [ref=e6]
+      - generic [ref=e7]: VOLTCORE
+    - generic [ref=e8]:
+      - generic [ref=e9]: Validando sessao
+      - heading "Preparando seu ambiente Volt Core." [level=1] [ref=e13]
+  - generic [ref=e15]:
+    - heading "Carregando" [level=2] [ref=e17]
+    - paragraph [ref=e18]: Conferindo sua sessao de acesso.

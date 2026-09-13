@@ -1,0 +1,2370 @@
+--- a/routes/promocoesRoutes.js
++++ b/routes/promocoesRoutes.js
+@@ -1251,11 +1251,30 @@
+   const original = toNumSafe(it.original_price ?? it.price ?? null);
+   const st = normalizeStatusServer(it.status);
+ 
++  // PRE_NEGOTIATED: o teto usa o desconto base pre-acordado (preco original
++  // versus price acordado). Rebate e boost nao alteram essa trava.
++  if (typeUp === "PRE_NEGOTIATED") {
++    const preOriginal = toNumSafe(
++      it.original_price ?? it.item_original_price ?? it.regular_amount ?? it.base_price,
++    );
++    const prePrice = toNumSafe(
++      it.deal_price ?? it.new_price ?? it._resolved_final_price ?? it.price,
++    );
++    if (
++      preOriginal != null &&
++      preOriginal > 0 &&
++      prePrice != null &&
++      prePrice > 0 &&
++      prePrice <= preOriginal
++    ) {
++      return (1 - prePrice / preOriginal) * 100;
++    }
++    return toNumSafe(it.discount_percentage);
++  }
++
+   // SMART / PRICE_MATCHING: soma MELI + Seller quando faltar % do ML
+   if (
+-    ["SMART", "PRE_NEGOTIATED", "PRICE_MATCHING", "PRICE_MATCHING_MELI_ALL"].includes(
+-      typeUp,
+-    )
++    ["SMART", "PRICE_MATCHING", "PRICE_MATCHING_MELI_ALL"].includes(typeUp)
+   ) {
+     if (original != null) {
+       const rb = pickRebateServer(it, promotionBenefits);
+@@ -3786,7 +3805,7 @@
+     }
+ 
+     const t = String(promotion_type).toUpperCase();
+-    if (["DEAL", "SELLER_CAMPAIGN", "SMART", "LIGHTNING"].includes(t)) {
++    if (["DEAL", "SELLER_CAMPAIGN", "SMART", "LIGHTNING", "PRE_NEGOTIATED"].includes(t)) {
+       return res.status(410).json({
+         ok: false,
+         error: "legacy_single_apply_removed",
+@@ -5632,11 +5651,12 @@
+       typeUp === "DEAL" ||
+       typeUp === "SELLER_CAMPAIGN" ||
+       typeUp === "SMART" ||
++      typeUp === "PRE_NEGOTIATED" ||
+       typeUp.startsWith("PRICE_MATCHING");
+     if (!supportsList) {
+       return res.status(400).json({
+         ok: false,
+-        error: "Validacao por lista esta disponivel apenas para Smart, Seller e Deal.",
++        error: "Validacao por lista esta disponivel para Smart, Pre-acordo, Seller e Deal.",
+       });
+     }
+ 
+@@ -6132,7 +6152,7 @@
+             normalizeStatusServer(it?.status) !== normalizeStatusServer(status)
+           ) continue;
+           if (
+-            ["SMART", "LIGHTNING"].includes(promotionTypeUp) &&
++            ["SMART", "LIGHTNING", "PRE_NEGOTIATED"].includes(promotionTypeUp) &&
+             normalizeStatusServer(it?.status) !== "candidate"
+           ) continue;
+           const normalizedId = id.toUpperCase();
+--- a/views/criar-promocao.html
++++ b/views/criar-promocao.html
+@@ -142,6 +142,9 @@
+           </button>
+           <button class="promo-tab" type="button" data-type="SMART" role="tab" aria-selected="false">
+             Smart <span class="count" data-count="SMART">0</span>
++          </button>
++          <button class="promo-tab" type="button" data-type="PRE_NEGOTIATED" role="tab" aria-selected="false">
++            Pre-acordo <span class="count" data-count="PRE_NEGOTIATED">0</span>
+           </button>
+           <button class="promo-tab" type="button" data-type="SELLER_CAMPAIGN" role="tab" aria-selected="false">
+             Seller <span class="count" data-count="SELLER_CAMPAIGN">0</span>
+@@ -698,7 +701,7 @@
+     };
+   </script>
+   <script src="/ml/js/promo-http.js?v=2026080701" defer></script>
+-  <script src="/ml/js/promo-state.js?v=2026070703" defer></script>
++  <script src="/ml/js/promo-state.js?v=2026082101" defer></script>
+   <script src="/ml/js/promo-jobs-watcher.js?v=2026081902" defer></script>
+   <script src="/ml/js/promo-actions.js?v=2026081902" defer></script>
+   <script src="/ml/js/promo-seller-campaign.js?v=2026070701" defer></script>
+@@ -706,8 +709,8 @@
+   <script src="/ml/js/promo-cards.js?v=2026081201" defer></script>
+   <script src="/ml/js/promo-bulk-bridge.js?v=2026070702" defer></script>
+   <script src="/ml/js/jobs-panel-adapters.js?v=2026081902" defer></script>
+-  <script src="/ml/js/jobs-panel.js?v=2026081902" defer></script>
+-  <script src="/ml/js/criar-promocao.js?v=2026081902" defer></script>
++  <script src="/ml/js/jobs-panel.js?v=2026082101" defer></script>
++  <script src="/ml/js/criar-promocao.js?v=2026082101" defer></script>
+   <script src="/ml/js/promo-bulk.js?v=2026081902" defer></script>
+   <script src="/ml/js/promo-intelligence.js?v=2026081402" defer></script>
+ 
+--- a/services/promoJobsService.js
++++ b/services/promoJobsService.js
+@@ -248,8 +248,18 @@
+       console.log(`[PromoJobsService] Job ${job?.id} cedeu o worker: ${err?.message || err}`);
+       return;
+     }
++    const data = job?.data || {};
++    if (isPromotionChunkData(data)) {
++      // O chunk e infraestrutura interna. O estado terminal pertence a operacao pai.
++      console.error('PromoJobsService Chunk failed:', job?.id, err?.message);
++      return;
++    }
+     console.error('PromoJobsService Job failed:', job?.id, err?.message);
+-    const data = job?.data || {};
++    if (isLogicalPromotionOperationData(data)) {
++      // O job Bull pai termina rapidamente apos agendar o primeiro chunk. Recursos
++      // sao liquidados somente quando a operacao logica ficar terminal.
++      return;
++    }
+     if (data?.safetyPaused !== true && data?.resumable !== true) {
+       await settleCredits(data?.creditReservation, { release: true });
+       await releaseCampaignGuard(data, String(job?.id || ''));
+@@ -257,8 +267,19 @@
+   });
+   queue.on('completed', async (job, result) => {
+     if (job?.id != null) localActivePromoJobs.delete(String(job.id));
++    const data = job?.data || {};
++    if (isPromotionChunkData(data)) {
++      return;
++    }
+     console.log(`PromoJobsService Job completed: ${job?.id}`, result);
+-    const data = job?.data || {};
++    if (isLogicalPromotionOperationData(data)) {
++      // Bull completed != operacao concluida. O pai permanece como registro
++      // logico e recebe progresso dos chunks internos.
++      if (data?.operationTerminal === true) {
++        await settleLogicalOperationResources(job, { releaseCredits: false });
++      }
++      return;
++    }
+     await settleCredits(data?.creditReservation, { release: false });
+     if (!jobHasPendingRemediation(data)) {
+       await releaseCampaignGuard(data, String(job?.id || ''));
+@@ -1125,6 +1146,7 @@
+     derivedProcessed
+   );
+   const total = Math.max(
++    positiveNumber(d.operationTotal),
+     positiveNumber(counters.total),
+     positiveNumber(result?.total),
+     processed
+@@ -1248,20 +1270,30 @@
+       return jobs.map((job) => ({ job, state }));
+     }),
+   );
+-  return buckets.flat().filter(({ job, state }) => {
++  const tracked = await getTrackedLogicalOperations(q, { accountKey, limit });
++  const byId = new Map();
++  for (const entry of [...buckets.flat(), ...tracked]) {
++    const id = String(entry?.job?.id ?? '');
++    if (!id) continue;
++    const current = byId.get(id);
++    if (!current || isLogicalPromotionOperationOpen(entry?.job?.data || {})) {
++      byId.set(id, entry);
++    }
++  }
++  return [...byId.values()].filter(({ job, state }) => {
+     const data = job?.data || {};
+     if (data?.kind === 'list-validation' || data?.kind === 'promotion-remediation' || data?.internalJob === true) {
+       return false;
+     }
+     if (wanted && normalizeAccountKey(data?.accountKey) !== wanted) return false;
+     if (data?.stateLabel === 'cancelado') return false;
++    if (isLogicalPromotionOperationOpen(data)) return true;
+     if (state === 'active' || state === 'waiting' || state === 'delayed') return true;
+     if (state === 'failed' && (data?.safetyPaused === true || data?.resumable === true)) return true;
+     if (state === 'completed' && jobHasPendingRemediation(data)) return true;
+     return false;
+   });
+ }
+-
+ async function findOpenCampaignJob(q, data = {}) {
+   const wantedIdentity = campaignGuardIdentity(data);
+   const fingerprint = data?.requestFingerprint || buildPromoRequestFingerprint(data);
+@@ -1320,20 +1352,7 @@
+ }
+ 
+ async function refreshCampaignGuard(job) {
+-  const data = job?.data || {};
+-  const redis = promoOrchestrationRedis();
+-  const key = data?.campaignGuardKey || campaignGuardKey(data);
+-  try {
+-    const script = `
+-      local current = redis.call('GET', KEYS[1])
+-      if current == ARGV[1] then
+-        redis.call('PEXPIRE', KEYS[1], ARGV[2])
+-        return 1
+-      end
+-      return 0
+-    `;
+-    await redis.eval(script, 1, key, String(job.id), PROMO_OPEN_GUARD_MS);
+-  } catch {}
++  return refreshCampaignGuardForOwner(job?.data || {}, operationOwnerJobId(job));
+ }
+ 
+ async function acquireCampaignCreationReservation(data = {}) {
+@@ -1383,6 +1402,7 @@
+         const state = await job.getState().catch(() => 'unknown');
+         const jobData = job.data || {};
+         const stillOpen =
++          isLogicalPromotionOperationOpen(jobData) ||
+           ['active', 'waiting', 'delayed'].includes(state) ||
+           (state === 'failed' && (jobData?.safetyPaused === true || jobData?.resumable === true)) ||
+           (state === 'completed' && jobHasPendingRemediation(jobData));
+@@ -1415,6 +1435,7 @@
+   const accountKeyRedis = accountRuntimeKey(accountKey);
+   const campaignKeyRedis = campaignRuntimeKey(data);
+   const openGuardKey = data?.campaignGuardKey || campaignGuardKey(data);
++  const ownerJobId = operationOwnerJobId(job);
+   const token = `${WORKER_INSTANCE_ID}:${job.id}`;
+   const now = Date.now();
+   const expiresAt = now + PROMO_RUNTIME_LEASE_MS;
+@@ -1436,7 +1457,7 @@
+   `;
+   try {
+     const openOwner = await redis.get(openGuardKey).catch(() => null);
+-    if (openOwner && !String(openOwner).startsWith('pending:') && String(openOwner) !== String(job.id)) {
++    if (openOwner && !String(openOwner).startsWith('pending:') && String(openOwner) !== ownerJobId) {
+       return {
+         acquired: false,
+         reason: 'campaign_busy',
+@@ -1446,9 +1467,9 @@
+       };
+     }
+     if (!openOwner) {
+-      await redis.set(openGuardKey, String(job.id), 'PX', PROMO_OPEN_GUARD_MS, 'NX').catch(() => null);
++      await redis.set(openGuardKey, ownerJobId, 'PX', PROMO_OPEN_GUARD_MS, 'NX').catch(() => null);
+       const claimedOwner = await redis.get(openGuardKey).catch(() => null);
+-      if (claimedOwner && String(claimedOwner) !== String(job.id)) {
++      if (claimedOwner && String(claimedOwner) !== ownerJobId) {
+         return {
+           acquired: false,
+           reason: 'campaign_busy',
+@@ -1497,7 +1518,7 @@
+           return 0
+         `;
+         await redis.eval(script, 1, campaignKeyRedis, token, PROMO_RUNTIME_LEASE_MS).catch(() => {});
+-        await refreshCampaignGuard(job);
++        await refreshCampaignGuardForOwner(data, ownerJobId);
+       },
+       async release() {
+         await redis.zrem(accountKeyRedis, token).catch(() => {});
+@@ -1527,7 +1548,7 @@
+     state: 'cancelado',
+     lifecycle_status: 'canceled',
+     processed: Number(counters.processed || 0),
+-    total: Number(counters.total || source?.options?.expected_total || 0),
++    total: Number(source?.operationTotal || counters.total || source?.options?.expected_total || 0),
+     success: Number(counters.success || 0),
+     failed: Number(counters.failed || 0),
+     progress: Number(counters.total || 0) > 0
+@@ -1619,6 +1640,217 @@
+   const max = Number(job?.opts?.attempts || 1);
+   const used = Number(job?.attemptsMade || 0);
+   return max > used + 1;
++}
++
++const PROMO_ORCHESTRATION_VERSION = 2;
++const PROMO_LOGICAL_OPEN_JOBS_KEY = 'promo:logical-open-jobs';
++
++async function trackLogicalOperation(jobOrId, { open = true } = {}) {
++  const id = String(jobOrId?.id ?? jobOrId ?? '').trim();
++  if (!id) return;
++  try {
++    const redis = promoOrchestrationRedis();
++    if (open) {
++      await redis.zadd(PROMO_LOGICAL_OPEN_JOBS_KEY, Date.now(), id);
++      await redis.pexpire(PROMO_LOGICAL_OPEN_JOBS_KEY, PROMO_OPEN_GUARD_MS);
++    } else {
++      await redis.zrem(PROMO_LOGICAL_OPEN_JOBS_KEY, id);
++    }
++  } catch {}
++}
++
++async function getTrackedLogicalOperations(q, { accountKey = null, limit = 500 } = {}) {
++  const wanted = normalizeAccountKey(accountKey);
++  try {
++    const redis = promoOrchestrationRedis();
++    const ids = await redis.zrevrange(
++      PROMO_LOGICAL_OPEN_JOBS_KEY,
++      0,
++      Math.max(0, Number(limit || 500) - 1),
++    );
++    if (!Array.isArray(ids) || !ids.length) return [];
++    const jobs = await Promise.all(
++      ids.map((id) => q.getJob(id).catch(() => null)),
++    );
++    const valid = [];
++    const staleIds = [];
++    for (let i = 0; i < ids.length; i += 1) {
++      const job = jobs[i];
++      const data = job?.data || {};
++      if (!job || !isLogicalPromotionOperationOpen(data)) {
++        staleIds.push(ids[i]);
++        continue;
++      }
++      if (wanted && normalizeAccountKey(data?.accountKey) !== wanted) continue;
++      valid.push({ job, state: 'completed' });
++    }
++    if (staleIds.length) await redis.zrem(PROMO_LOGICAL_OPEN_JOBS_KEY, ...staleIds).catch(() => {});
++    return valid;
++  } catch {
++    return [];
++  }
++}
++
++
++function isLogicalPromotionOperationData(data = {}) {
++  return (
++    Number(data?.orchestrationVersion || 0) >= PROMO_ORCHESTRATION_VERSION &&
++    String(data?.kind || '').toLowerCase() === 'promotion-operation'
++  );
++}
++
++function isPromotionChunkData(data = {}) {
++  return (
++    Number(data?.orchestrationVersion || 0) >= PROMO_ORCHESTRATION_VERSION &&
++    String(data?.kind || '').toLowerCase() === 'promotion-chunk'
++  );
++}
++
++function isLogicalPromotionOperationOpen(data = {}) {
++  return isLogicalPromotionOperationData(data) && data?.operationTerminal !== true;
++}
++
++function logicalPromotionLifecycle(data = {}, bullState = 'unknown') {
++  if (!isLogicalPromotionOperationData(data)) return null;
++  if (data?.stateLabel === 'cancelado' || data?.operationLifecycle === 'canceled') return 'canceled';
++  if (data?.safetyPaused === true || data?.operationLifecycle === 'paused_safety') return 'paused_safety';
++  if (data?.transientRetry?.active === true || data?.operationLifecycle === 'retry_wait') return 'retry_wait';
++  if (data?.operationLifecycle === 'review_pending' || jobHasPendingRemediation(data)) return 'review_pending';
++  if (data?.operationTerminal === true) {
++    if (data?.operationLifecycle === 'failed') return 'failed';
++    if (data?.operationLifecycle === 'partial') return 'partial';
++    return 'completed';
++  }
++  if (data?.operationLifecycle === 'processing') return 'processing';
++  if (data?.operationLifecycle === 'queued' || data?.operationLifecycle === 'yielded') return 'queued';
++  return bullState === 'active' ? 'processing' : 'queued';
++}
++
++function operationOwnerJobId(job) {
++  const data = job?.data || {};
++  return String(data?.parentJobId || job?.id || '');
++}
++
++async function refreshCampaignGuardForOwner(data = {}, ownerJobId = null) {
++  const owner = String(ownerJobId || '').trim();
++  if (!owner) return;
++  const redis = promoOrchestrationRedis();
++  const key = data?.campaignGuardKey || campaignGuardKey(data);
++  try {
++    const script = `
++      local current = redis.call('GET', KEYS[1])
++      if current == ARGV[1] then
++        redis.call('PEXPIRE', KEYS[1], ARGV[2])
++        return 1
++      end
++      return 0
++    `;
++    await redis.eval(script, 1, key, owner, PROMO_OPEN_GUARD_MS);
++  } catch {}
++}
++
++function inferOperationTotal(data = {}) {
++  const explicit = Number(data?.operationTotal || 0);
++  if (explicit > 0) return explicit;
++  const countersTotal = Number(data?.counters?.total || 0);
++  if (countersTotal > 0) return countersTotal;
++  const expected = Number(data?.options?.expected_total || 0);
++  if (expected > 0) return expected;
++  if (Array.isArray(data?.selectionItems) && data.selectionItems.length > 0) {
++    return data.selectionItems.length;
++  }
++  if (Array.isArray(data?.filters?.mlbs) && data.filters.mlbs.length > 0) {
++    return data.filters.mlbs.length;
++  }
++  return data?.filters?.mlb ? 1 : 0;
++}
++
++function shouldUseLogicalChunks(job, sourceCount = 0) {
++  return (
++    isLogicalPromotionOperationData(job?.data || {}) &&
++    Number(sourceCount || 0) > PROMO_JOB_CHUNK_SIZE
++  );
++}
++
++async function enqueuePromotionChunk(parentJob, {
++  offset = 0,
++  sequence = 1,
++  reason = 'worker_queue',
++} = {}) {
++  if (!parentJob) throw new Error('Operacao pai ausente para criar chunk promocional.');
++  const q = parentJob.queue || ensureQueue();
++  const parentData = parentJob.data || {};
++  const parentJobId = String(parentJob.id);
++  const chunkJobId = `promo-chunk:${parentJobId}:${Number(sequence || 1)}`;
++  const chunkData = {
++    kind: 'promotion-chunk',
++    internalJob: true,
++    orchestrationVersion: PROMO_ORCHESTRATION_VERSION,
++    parentJobId,
++    operationId: parentData.operationId || parentData.options?.operation_id || null,
++    accountKey: parentData.accountKey || null,
++    accountLabel: parentData.accountLabel || parentData.accountKey || null,
++    promotion: parentData.promotion || null,
++    action: parentData.action || 'apply',
++    requestFingerprint: parentData.requestFingerprint || null,
++    campaignGuardKey: parentData.campaignGuardKey || campaignGuardKey(parentData),
++    chunkOffset: Math.max(0, Number(offset || 0)),
++    chunkSequence: Math.max(1, Number(sequence || 1)),
++    createdAt: Date.now(),
++  };
++
++  let child = await q.getJob(chunkJobId).catch(() => null);
++  if (!child) {
++    child = await q.add(chunkData, {
++      jobId: chunkJobId,
++      removeOnComplete: true,
++      removeOnFail: 100,
++      attempts: PROMO_JOB_MAX_YIELD_ATTEMPTS,
++      backoff: { type: 'fixed', delay: PROMO_JOB_YIELD_DELAY_MS },
++    });
++  }
++
++  const latest = (await q.getJob(parentJobId).catch(() => null)) || parentJob;
++  const latestData = latest?.data || parentData;
++  const opTotal = inferOperationTotal(latestData);
++  const counters = latestData?.counters || {};
++  await latest.update({
++    ...latestData,
++    operationTotal: opTotal,
++    operationTerminal: false,
++    operationLifecycle: reason === 'cooperative_chunk' ? 'yielded' : 'queued',
++    activeChunkJobId: String(child.id),
++    chunkCheckpoint: {
++      ...(latestData?.chunkCheckpoint || {}),
++      offset: Math.max(0, Number(offset || 0)),
++      sourceCount: Number(latestData?.chunkCheckpoint?.sourceCount || opTotal || 0),
++      size: PROMO_JOB_CHUNK_SIZE,
++      sequence: Math.max(1, Number(sequence || 1)),
++      updatedAt: Date.now(),
++    },
++    stateLabel:
++      reason === 'cooperative_chunk'
++        ? `na fila: ${Number(counters.processed || 0)}/${opTotal || '?'} processados, cedendo turno`
++        : 'na fila: aguardando worker',
++    queueReason: reason,
++    lastUpdate: Date.now(),
++  }).catch(() => {});
++
++  return child;
++}
++
++async function settleLogicalOperationResources(job, { releaseCredits = false } = {}) {
++  const data = job?.data || {};
++  if (!isLogicalPromotionOperationData(data)) return;
++  if (data?.operationTerminal === true) {
++    await trackLogicalOperation(job, { open: false });
++  } else {
++    await trackLogicalOperation(job, { open: true });
++  }
++  await settleCredits(data?.creditReservation, { release: releaseCredits }).catch(() => {});
++  if (!jobHasPendingRemediation(data) && data?.operationTerminal === true) {
++    await releaseCampaignGuard(data, String(job.id)).catch(() => {});
++  }
+ }
+ 
+ async function supersedeDuplicateBeforeMutation(job, ownerJobId = null) {
+@@ -2190,37 +2422,94 @@
+ }
+ 
+ function smartConfirmationAuditFields(confirmation, promotion_type) {
+-  if (String(promotion_type || '').toUpperCase() !== 'SMART') return {};
+-  return {
+-    smart_requested_offer_id: confirmation?.requested_offer_id ?? null,
+-    smart_expected_offer_id: confirmation?.expected_offer_id ?? null,
+-    smart_accepted_offer_id: confirmation?.accepted_offer_id ?? null,
+-    smart_accepted_price: confirmation?.accepted_price ?? null,
+-    smart_confirmed_offer_id: confirmation?.confirmed_offer_id ?? null,
+-    smart_confirmation_state:
+-      confirmation?.confirmation_state ??
+-      (confirmation?.confirmation_deferred === true ? 'pending' : confirmation?.ok === true ? 'confirmed' : 'failed'),
+-    smart_offer_resource_confirmed: confirmation?.offer_resource_confirmed === true,
+-    smart_offer_match_confirmed: confirmation?.offer_match_confirmed === true,
+-    smart_expected_meli_percentage:
+-      confirmation?.expected_meli_percentage ?? null,
+-    smart_confirmed_meli_percentage:
+-      confirmation?.confirmed_meli_percentage ?? null,
+-    smart_expected_seller_percentage:
+-      confirmation?.expected_seller_percentage ?? null,
+-    smart_confirmed_seller_percentage:
+-      confirmation?.confirmed_seller_percentage ?? null,
+-    smart_contribution_match:
+-      confirmation?.contribution_match == null
+-        ? null
+-        : confirmation.contribution_match === true,
+-    smart_contribution_state:
+-      confirmation?.contribution_match === true
+-        ? 'confirmed'
+-        : confirmation?.contribution_match === false
+-          ? 'different'
+-          : 'pending',
+-  };
++  const typeUp = String(promotion_type || '').toUpperCase();
++  if (typeUp === 'SMART') {
++    return {
++      smart_requested_offer_id: confirmation?.requested_offer_id ?? null,
++      smart_expected_offer_id: confirmation?.expected_offer_id ?? null,
++      smart_accepted_offer_id: confirmation?.accepted_offer_id ?? null,
++      smart_accepted_price: confirmation?.accepted_price ?? null,
++      smart_confirmed_offer_id: confirmation?.confirmed_offer_id ?? null,
++      smart_confirmation_state:
++        confirmation?.confirmation_state ??
++        (confirmation?.confirmation_deferred === true ? 'pending' : confirmation?.ok === true ? 'confirmed' : 'failed'),
++      smart_offer_resource_confirmed: confirmation?.offer_resource_confirmed === true,
++      smart_offer_match_confirmed: confirmation?.offer_match_confirmed === true,
++      smart_expected_meli_percentage:
++        confirmation?.expected_meli_percentage ?? null,
++      smart_confirmed_meli_percentage:
++        confirmation?.confirmed_meli_percentage ?? null,
++      smart_expected_seller_percentage:
++        confirmation?.expected_seller_percentage ?? null,
++      smart_confirmed_seller_percentage:
++        confirmation?.confirmed_seller_percentage ?? null,
++      smart_contribution_match:
++        confirmation?.contribution_match == null
++          ? null
++          : confirmation.contribution_match === true,
++      smart_contribution_state:
++        confirmation?.contribution_match === true
++          ? 'confirmed'
++          : confirmation?.contribution_match === false
++            ? 'different'
++            : 'pending',
++    };
++  }
++
++  if (typeUp === 'PRE_NEGOTIATED') {
++    const snapshot = confirmation?.snapshot || {};
++    const preflight = confirmation?.preflight_snapshot || confirmation?.preflightSnapshot || {};
++    const originalPrice = toNum(
++      snapshot?.original_price ??
++      snapshot?.item_original_price ??
++      preflight?.original_price ??
++      preflight?.item_original_price,
++    );
++    const agreedPrice = toNum(
++      confirmation?.accepted_price ??
++      snapshot?.price ??
++      snapshot?.deal_price ??
++      preflight?.price ??
++      preflight?.deal_price,
++    );
++    const baseDiscount =
++      toNum(confirmation?.actual_percent) ??
++      (originalPrice != null && originalPrice > 0 && agreedPrice != null && agreedPrice > 0
++        ? computePercentFromDealPrice(originalPrice, agreedPrice)
++        : null);
++    return {
++      pre_requested_offer_id: confirmation?.requested_offer_id ?? null,
++      pre_accepted_offer_id: confirmation?.accepted_offer_id ?? null,
++      pre_confirmed_offer_id: confirmation?.confirmed_offer_id ?? null,
++      pre_confirmation_state:
++        confirmation?.confirmation_state ??
++        (confirmation?.confirmation_deferred === true ? 'pending' : confirmation?.ok === true ? 'confirmed' : 'failed'),
++      pre_original_price: originalPrice,
++      pre_agreed_price: agreedPrice,
++      pre_base_discount_percent: baseDiscount == null ? null : round2(baseDiscount),
++      pre_expected_meli_percentage: confirmation?.expected_meli_percentage ?? null,
++      pre_confirmed_meli_percentage: confirmation?.confirmed_meli_percentage ?? null,
++      pre_expected_seller_percentage: confirmation?.expected_seller_percentage ?? null,
++      pre_confirmed_seller_percentage: confirmation?.confirmed_seller_percentage ?? null,
++      pre_contribution_match:
++        confirmation?.contribution_match == null ? null : confirmation.contribution_match === true,
++      pre_boosted_offer: snapshot?.boosted_offer === true,
++      pre_meli_boost_percent: toNum(
++        snapshot?.discount_meli_boosted_percentage ??
++        confirmation?.ml_response_body?.discount_meli_boosted_percentage,
++      ),
++      pre_meli_boost_amount: toNum(
++        snapshot?.discount_meli_boost_amount ??
++        confirmation?.ml_response_body?.discount_meli_boost_amount,
++      ),
++      pre_boosted_buyer_price: toNum(
++        snapshot?.total_price_for_boosted_offer ??
++        confirmation?.ml_response_body?.total_price_for_boosted_offer,
++      ),
++    };
++  }
++
++  return {};
+ }
+ 
+ function isPostApplyFullyConfirmed(confirmation) {
+@@ -2520,26 +2809,35 @@
+     const expected = String(expected_offer_id || "").trim();
+     const requested = String(requested_offer_id || expected_offer_id || "").trim();
+     const expectedIsConcreteOffer = /^OFFER-/i.test(expected);
+-    const requiresOfferMatch = requiresConfirmedOfferIdentity(t);
++    // PRE_NEGOTIATED usa um offer_id de candidatura que pode virar um OFFER-*
++    // diferente quando a oferta fica ativa. A identidade estrita e validada no
++    // POST; no pos-apply confirmamos campanha/item/status/preco, sem exigir que
++    // o identificador ativo seja textual e identico ao candidato.
++    const requiresOfferMatch =
++      t === 'PRE_NEGOTIATED' ? false : requiresConfirmedOfferIdentity(t);
+     const confirmedOfferId = expectedIsConcreteOffer && refs.includes(expected)
+       ? expected
+       : confirmedOfferRefs[0] || null;
+-    const offerMatches = t === "SMART"
+-      ? expectedIsConcreteOffer
+-        ? refs.includes(expected)
+-        : confirmedOfferRefs.length === 1
+-      : !!expected && refs.includes(expected);
+-
++    const offerMatches =
++      t === 'PRE_NEGOTIATED'
++        ? refs.length > 0
++        : t === "SMART"
++          ? expectedIsConcreteOffer
++            ? refs.includes(expected)
++            : confirmedOfferRefs.length === 1
++          : !!expected && refs.includes(expected);
++
++    const rebateAuditedType = t === 'SMART' || t === 'PRE_NEGOTIATED';
+     const expectedContribution =
+-      t === "SMART"
++      rebateAuditedType
+         ? resolveSmartContribution(preflightSnapshot || item || {}, requested || expected)
+         : { meli_percentage: null, seller_percentage: null };
+     const confirmedContribution =
+-      t === "SMART"
++      rebateAuditedType
+         ? resolveSmartContribution(snapshot || {}, confirmedOfferId || expected)
+         : { meli_percentage: null, seller_percentage: null };
+     const contributionMatch =
+-      t === "SMART"
++      rebateAuditedType
+         ? smartContributionMatches(expectedContribution, confirmedContribution)
+         : null;
+     const withinCap = cap != null && actual != null && actual <= cap + 0.0001;
+@@ -2560,13 +2858,21 @@
+             : "nao foi possivel confirmar um OFFER-* efetivamente aplicado para a Smart"
+           : "offer_id confirmado no ML difere da oferta selecionada";
+       } else if (actual == null) {
+-        reason = "nao foi possivel confirmar o desconto real da oferta Smart";
++        reason =
++          t === 'PRE_NEGOTIATED'
++            ? "nao foi possivel confirmar o desconto base do pre-acordo"
++            : "nao foi possivel confirmar o desconto real da oferta Smart";
+       } else {
+-        reason = `desconto Smart confirmado ${round2(actual)}% acima do teto de ${round2(cap)}%`;
++        reason =
++          t === 'PRE_NEGOTIATED'
++            ? `desconto base PRE_NEGOTIATED confirmado ${round2(actual)}% acima do teto de ${round2(cap)}%`
++            : `desconto Smart confirmado ${round2(actual)}% acima do teto de ${round2(cap)}%`;
+       }
+-    } else if (t === "SMART" && contributionMatch === false) {
++    } else if ((t === "SMART" || t === 'PRE_NEGOTIATED') && contributionMatch === false) {
+       warning =
+-        "participacao ML/vendedor confirmada na Smart difere da oferta selecionada; mantida para auditoria";
++        t === 'PRE_NEGOTIATED'
++          ? "participacao ML/vendedor do pre-acordo difere do candidato; mantida para auditoria"
++          : "participacao ML/vendedor confirmada na Smart difere da oferta selecionada; mantida para auditoria";
+     }
+ 
+     return {
+@@ -2661,16 +2967,45 @@
+     expected_offer_id,
+   });
+ 
+-  const acceptedOfferId = collectApplyOfferRefsFromItem(body, t).find((ref) =>
+-    /^OFFER-/i.test(String(ref || "")),
+-  ) || (/^OFFER-/i.test(String(body?.id || "")) ? String(body.id) : null);
++  const responseOfferRefs = collectApplyOfferRefsFromItem(body, t);
++  const acceptedOfferId =
++    t === 'PRE_NEGOTIATED'
++      ? responseOfferRefs[0] || String(body?.offer_id || body?.id || '').trim() || null
++      : responseOfferRefs.find((ref) => /^OFFER-/i.test(String(ref || ""))) ||
++        (/^OFFER-/i.test(String(body?.id || "")) ? String(body.id) : null);
+   const acceptedPrice = toNum(body?.price ?? body?.deal_price ?? body?.new_price);
+ 
+   // Para SMART, o fallback assincrono so e considerado evidencia suficiente
+   // quando o POST devolve um OFFER-* concreto e o preco efetivamente aceito.
+   // Sem um desses dados, aguardamos os GETs de confirmacao e nao inferimos o
+   // estado final apenas a partir do preflight.
+-  if (t === "SMART" && (!acceptedOfferId || acceptedPrice == null)) return null;
++  if (
++    (t === "SMART" || t === 'PRE_NEGOTIATED') &&
++    (!acceptedOfferId || acceptedPrice == null)
++  ) return null;
++
++  const requestedOfferId = String(
++    requestPayload?.offer_id || expected_offer_id || '',
++  ).trim();
++  if (
++    t === 'PRE_NEGOTIATED' &&
++    requestedOfferId &&
++    acceptedOfferId &&
++    String(acceptedOfferId) !== requestedOfferId
++  ) {
++    return {
++      ...evaluated,
++      ok: false,
++      reason: 'offer_id aceito pelo ML difere do pre-acordo enviado no POST',
++      concrete_divergence: true,
++      requested_offer_id: requestedOfferId,
++      accepted_offer_id: acceptedOfferId,
++      accepted_price: acceptedPrice,
++      confirmation_state: 'divergent',
++      ml_response_status: status,
++      ml_response_body: body,
++    };
++  }
+ 
+   // Se a propria resposta 2xx do ML trouxer um desconto acima do teto, isso e
+   // uma divergencia concreta e deve permanecer bloqueante. Nos demais casos,
+@@ -2679,7 +3014,7 @@
+     const cap = toNum(max_discount_percent);
+     const actual = toNum(evaluated?.actual_percent);
+     if (
+-      t === "SMART" &&
++      (t === "SMART" || t === 'PRE_NEGOTIATED') &&
+       acceptedOfferId &&
+       acceptedPrice != null &&
+       cap != null &&
+@@ -2731,14 +3066,18 @@
+     typeUp,
+   );
+   const acceptedOfferId =
+-    responseOfferRefs.find((ref) => /^OFFER-/i.test(String(ref || ""))) ||
+-    (/^OFFER-/i.test(String(applyResult?.body?.id || ""))
+-      ? String(applyResult.body.id)
+-      : null) ||
+-    (/^OFFER-/i.test(String(applyResult?.body?.offer_id || ""))
+-      ? String(applyResult.body.offer_id)
+-      : null) ||
+-    null;
++    typeUp === 'PRE_NEGOTIATED'
++      ? responseOfferRefs[0] ||
++        String(applyResult?.body?.offer_id || applyResult?.body?.id || '').trim() ||
++        null
++      : responseOfferRefs.find((ref) => /^OFFER-/i.test(String(ref || ""))) ||
++        (/^OFFER-/i.test(String(applyResult?.body?.id || ""))
++          ? String(applyResult.body.id)
++          : null) ||
++        (/^OFFER-/i.test(String(applyResult?.body?.offer_id || ""))
++          ? String(applyResult.body.offer_id)
++          : null) ||
++        null;
+   const acceptedPrice = toNum(
+     applyResult?.body?.price ??
+       applyResult?.body?.deal_price ??
+@@ -2767,10 +3106,11 @@
+ 
+   let offerResourceConfirmed = false;
+   let offerResource = null;
++  const asyncOfferType = typeUp === "SMART" || typeUp === 'PRE_NEGOTIATED';
+   const verifyAttempts =
+-    typeUp === "SMART" ? SMART_POST_APPLY_VERIFY_ATTEMPTS : POST_APPLY_VERIFY_ATTEMPTS;
++    asyncOfferType ? SMART_POST_APPLY_VERIFY_ATTEMPTS : POST_APPLY_VERIFY_ATTEMPTS;
+   const verifyDelayMs =
+-    typeUp === "SMART" ? SMART_POST_APPLY_VERIFY_DELAY_MS : POST_APPLY_VERIFY_DELAY_MS;
++    asyncOfferType ? SMART_POST_APPLY_VERIFY_DELAY_MS : POST_APPLY_VERIFY_DELAY_MS;
+ 
+   for (let attempt = 1; attempt <= verifyAttempts; attempt += 1) {
+     if (attempt > 1) {
+@@ -2863,7 +3203,7 @@
+     // Desconto acima do teto e uma divergencia concreta: nao aguardamos mais
+     // propagacao para iniciar a protecao/rollback.
+     if (
+-      typeUp === "SMART" &&
++      (typeUp === "SMART" || typeUp === 'PRE_NEGOTIATED') &&
+       toNum(last.actual_percent) != null &&
+       toNum(max_discount_percent) != null &&
+       toNum(last.actual_percent) > toNum(max_discount_percent) + 0.0001
+@@ -2875,7 +3215,9 @@
+     }
+ 
+     if (last.ok) {
+-      const rebatePending = typeUp === "SMART" && last.contribution_match == null;
++      const rebatePending =
++        (typeUp === "SMART" || typeUp === 'PRE_NEGOTIATED') &&
++        last.contribution_match == null;
+       return {
+         ...last,
+         confirmation_deferred: rebatePending,
+@@ -2888,25 +3230,37 @@
+     }
+   }
+ 
+-  // Para SMART, HTTP 2xx + OFFER-* concreto + preco dentro do teto e uma
+-  // aplicacao aceita. Se a listagem ainda nao propagou, seguimos o lote como
+-  // confirmacao pendente em vez de disparar rollback/remediacao.
+-  if (typeUp === "SMART" && acceptedResponse) {
++  // SMART e PRE_NEGOTIATED podem propagar o estado ativo de forma assincrona.
++  // Se o POST 2xx trouxe a oferta aceita e o preco ficou dentro do teto, seguimos
++  // como confirmacao pendente. Isso evita rollback/remediacao apenas por atraso
++  // de propagacao, sem relaxar a trava de desconto acima do teto.
++  if ((typeUp === "SMART" || typeUp === "PRE_NEGOTIATED") && acceptedResponse) {
++    const isPreNegotiated = typeUp === "PRE_NEGOTIATED";
+     return {
+       ...acceptedResponse,
+       requested_offer_id: requestedOfferId,
+-      expected_offer_id: acceptedOfferId || acceptedResponse.expected_offer_id || requestedOfferId,
++      expected_offer_id: isPreNegotiated
++        ? requestedOfferId
++        : acceptedOfferId || acceptedResponse.expected_offer_id || requestedOfferId,
+       accepted_offer_id: acceptedOfferId || acceptedResponse.accepted_offer_id || null,
+       accepted_price: acceptedPrice ?? acceptedResponse.accepted_price ?? null,
+-      confirmed_offer_id: offerResourceConfirmed ? acceptedOfferId : null,
+-      offer_match_confirmed: offerResourceConfirmed,
+-      offer_resource_confirmed: offerResourceConfirmed,
+-      offer_resource_status: offerResource?.status ?? null,
++      confirmed_offer_id: last?.confirmed_offer_id || (offerResourceConfirmed ? acceptedOfferId : null),
++      offer_match_confirmed: isPreNegotiated
++        ? last?.offer_match_confirmed === true
++        : offerResourceConfirmed,
++      offer_resource_confirmed: isPreNegotiated ? false : offerResourceConfirmed,
++      offer_resource_status: isPreNegotiated ? null : offerResource?.status ?? null,
+       confirmation_deferred: true,
+-      confirmation_state: offerResourceConfirmed
+-        ? "offer_confirmed_details_pending"
+-        : "pending",
+-      fallback_reason: last?.reason || "propagacao Smart ainda pendente",
++      confirmation_state: isPreNegotiated
++        ? "pre_agreement_accepted_activation_pending"
++        : offerResourceConfirmed
++          ? "offer_confirmed_details_pending"
++          : "pending",
++      fallback_reason:
++        last?.reason ||
++        (isPreNegotiated
++          ? "pre-acordo aceito pelo ML; ativacao ainda em propagacao"
++          : "propagacao Smart ainda pendente"),
+       snapshot: acceptedResponse.ml_response_body,
+       attempt: verifyAttempts,
+     };
+@@ -2914,6 +3268,7 @@
+ 
+   if (
+     typeUp !== "SMART" &&
++    typeUp !== "PRE_NEGOTIATED" &&
+     acceptedResponse &&
+     last &&
+     String(last.reason || "").includes("status pos-aplicacao nao confirmado")
+@@ -2988,6 +3343,22 @@
+   { header: 'Smart % vendedor esperada', key: 'smart_expected_seller_percentage', width: 24 },
+   { header: 'Smart % vendedor confirmada', key: 'smart_confirmed_seller_percentage', width: 26 },
+   { header: 'Smart rebate confirmado', key: 'smart_contribution_match', width: 22 },
++  { header: 'PRE oferta candidata enviada', key: 'pre_requested_offer_id', width: 34 },
++  { header: 'PRE oferta aceita no POST', key: 'pre_accepted_offer_id', width: 34 },
++  { header: 'PRE oferta ativa confirmada', key: 'pre_confirmed_offer_id', width: 34 },
++  { header: 'PRE estado confirmacao', key: 'pre_confirmation_state', width: 26 },
++  { header: 'PRE preco original', key: 'pre_original_price', width: 20 },
++  { header: 'PRE preco acordado', key: 'pre_agreed_price', width: 20 },
++  { header: 'PRE desconto base %', key: 'pre_base_discount_percent', width: 20 },
++  { header: 'PRE % ML esperada', key: 'pre_expected_meli_percentage', width: 20 },
++  { header: 'PRE % ML confirmada', key: 'pre_confirmed_meli_percentage', width: 22 },
++  { header: 'PRE % vendedor esperada', key: 'pre_expected_seller_percentage', width: 24 },
++  { header: 'PRE % vendedor confirmada', key: 'pre_confirmed_seller_percentage', width: 26 },
++  { header: 'PRE rebate confirmado', key: 'pre_contribution_match', width: 22 },
++  { header: 'PRE boost ML', key: 'pre_boosted_offer', width: 16 },
++  { header: 'PRE boost ML %', key: 'pre_meli_boost_percent', width: 18 },
++  { header: 'PRE boost ML valor', key: 'pre_meli_boost_amount', width: 20 },
++  { header: 'PRE preco comprador c/ boost', key: 'pre_boosted_buyer_price', width: 26 },
+   { header: 'Retries transitorios', key: 'transient_retries', width: 20 },
+   { header: 'Disjuntor de seguranca', key: 'safety_circuit_breaker', width: 22 },
+   { header: 'Decisao do lote', key: 'batch_decision', width: 18 },
+@@ -3045,6 +3416,28 @@
+         : row.smart_contribution_match
+           ? 'sim'
+           : 'nao',
++    pre_requested_offer_id: row?.pre_requested_offer_id || null,
++    pre_accepted_offer_id: row?.pre_accepted_offer_id || null,
++    pre_confirmed_offer_id: row?.pre_confirmed_offer_id || null,
++    pre_confirmation_state: row?.pre_confirmation_state || null,
++    pre_original_price: toNum(row?.pre_original_price),
++    pre_agreed_price: toNum(row?.pre_agreed_price),
++    pre_base_discount_percent: toNum(row?.pre_base_discount_percent),
++    pre_expected_meli_percentage: toNum(row?.pre_expected_meli_percentage),
++    pre_confirmed_meli_percentage: toNum(row?.pre_confirmed_meli_percentage),
++    pre_expected_seller_percentage: toNum(row?.pre_expected_seller_percentage),
++    pre_confirmed_seller_percentage: toNum(row?.pre_confirmed_seller_percentage),
++    pre_contribution_match:
++      row?.pre_contribution_match == null
++        ? ''
++        : row.pre_contribution_match
++          ? 'sim'
++          : 'nao',
++    pre_boosted_offer:
++      row?.pre_boosted_offer == null ? '' : row.pre_boosted_offer ? 'sim' : 'nao',
++    pre_meli_boost_percent: toNum(row?.pre_meli_boost_percent),
++    pre_meli_boost_amount: toNum(row?.pre_meli_boost_amount),
++    pre_boosted_buyer_price: toNum(row?.pre_boosted_buyer_price),
+     transient_retries: toNum(row?.transient_retries) ?? 0,
+     safety_circuit_breaker: row?.safety_circuit_breaker ? 'sim' : 'nao',
+     batch_decision: row?.batch_decision || '',
+@@ -3285,6 +3678,15 @@
+       { header: 'Smart confirmacao', key: 'smart_confirmation_state', width: 24 },
+       { header: 'Smart % ML', key: 'smart_confirmed_meli_percentage', width: 18 },
+       { header: 'Smart % vendedor', key: 'smart_confirmed_seller_percentage', width: 22 },
++      { header: 'PRE oferta candidata', key: 'pre_requested_offer_id', width: 34 },
++      { header: 'PRE oferta aceita', key: 'pre_accepted_offer_id', width: 34 },
++      { header: 'PRE oferta ativa', key: 'pre_confirmed_offer_id', width: 34 },
++      { header: 'PRE confirmacao', key: 'pre_confirmation_state', width: 24 },
++      { header: 'PRE preco acordado', key: 'pre_agreed_price', width: 20 },
++      { header: 'PRE desconto base %', key: 'pre_base_discount_percent', width: 20 },
++      { header: 'PRE % ML', key: 'pre_confirmed_meli_percentage', width: 18 },
++      { header: 'PRE % vendedor', key: 'pre_confirmed_seller_percentage', width: 22 },
++      { header: 'PRE boost ML %', key: 'pre_meli_boost_percent', width: 18 },
+       { header: 'HTTP', key: 'ml_status', width: 10 },
+       { header: 'Mensagem', key: 'message', width: 55 },
+       { header: 'Metadata JSON', key: 'metadata_json', width: 80 },
+@@ -3312,6 +3714,15 @@
+           smart_confirmation_state: metadata?.smart_confirmation_state || null,
+           smart_confirmed_meli_percentage: toNum(metadata?.smart_confirmed_meli_percentage),
+           smart_confirmed_seller_percentage: toNum(metadata?.smart_confirmed_seller_percentage) ?? '',
++          pre_requested_offer_id: metadata?.pre_requested_offer_id || null,
++          pre_accepted_offer_id: metadata?.pre_accepted_offer_id || null,
++          pre_confirmed_offer_id: metadata?.pre_confirmed_offer_id || null,
++          pre_confirmation_state: metadata?.pre_confirmation_state || null,
++          pre_agreed_price: toNum(metadata?.pre_agreed_price),
++          pre_base_discount_percent: toNum(metadata?.pre_base_discount_percent),
++          pre_confirmed_meli_percentage: toNum(metadata?.pre_confirmed_meli_percentage),
++          pre_confirmed_seller_percentage: toNum(metadata?.pre_confirmed_seller_percentage),
++          pre_meli_boost_percent: toNum(metadata?.pre_meli_boost_percent),
+           ml_status: metadata?.ml_status ?? '',
+           message: safeText(metadata?.message || metadata?.error || '', 2000),
+           metadata_json: safeText(metadataJson, 12000),
+@@ -3434,7 +3845,7 @@
+   offer_id = null,
+ }) {
+   const type = String(promotion_type || '').toUpperCase();
+-  if (!['DEAL', 'SELLER_CAMPAIGN', 'SMART', 'LIGHTNING'].includes(type)) {
++  if (!['DEAL', 'SELLER_CAMPAIGN', 'SMART', 'LIGHTNING', 'PRE_NEGOTIATED'].includes(type)) {
+     return {
+       ok: false,
+       supported: false,
+@@ -3448,6 +3859,14 @@
+       supported: false,
+       status: 409,
+       error: 'Rollback Smart exige o offer_id confirmado pelo Mercado Livre.',
++    };
++  }
++  if (type === 'PRE_NEGOTIATED' && !String(offer_id || '').trim()) {
++    return {
++      ok: false,
++      supported: false,
++      status: 409,
++      error: 'Rollback PRE_NEGOTIATED exige o offer_id original do pre-acordo.',
+     };
+   }
+ 
+@@ -3540,19 +3959,46 @@
+     },
+     { total: 0, pending: 0, resolved: 0, critical: 0 },
+   );
+-  await sourceJob.update({
++  const remediationCompleted = quarantineCounters.pending <= 0;
++  const sourceCounters = data?.counters || {};
++  const updatedSourceData = {
+     ...data,
+     results,
+     quarantineCounters,
++    operationLifecycle:
++      isLogicalPromotionOperationData(data) && remediationCompleted
++        ? Number(sourceCounters.failed || 0) > 0
++          ? 'partial'
++          : 'completed'
++        : isLogicalPromotionOperationData(data)
++          ? 'review_pending'
++          : data?.operationLifecycle,
++    operationTerminal:
++      isLogicalPromotionOperationData(data)
++        ? remediationCompleted
++        : data?.operationTerminal,
++    stateLabel:
++      isLogicalPromotionOperationData(data) && remediationCompleted
++        ? `concluído: ${Number(sourceCounters.success || 0)} ok, ${Number(sourceCounters.failed || 0)} erros`
++        : data?.stateLabel,
+     lastUpdate: Date.now(),
+-  });
+-  if (quarantineCounters.pending <= 0) {
++  };
++  await sourceJob.update(updatedSourceData);
++  if (remediationCompleted) {
+     const sourceState = await sourceJob.getState().catch(() => 'unknown');
+-    if (sourceState === 'completed' || (sourceState === 'failed' && data?.resumable !== true)) {
+-      await releaseCampaignGuard(data, String(sourceJob.id));
++    if (
++      isLogicalPromotionOperationData(updatedSourceData) ||
++      sourceState === 'completed' ||
++      (sourceState === 'failed' && data?.resumable !== true)
++    ) {
++      if (isLogicalPromotionOperationData(updatedSourceData)) {
++        await settleCredits(updatedSourceData?.creditReservation, { release: false }).catch(() => {});
++        await trackLogicalOperation(sourceJob, { open: false }).catch(() => {});
++      }
++      await releaseCampaignGuard(updatedSourceData, String(sourceJob.id));
+     }
+   } else {
+-    await claimCampaignGuard(data, String(sourceJob.id));
++    await claimCampaignGuard(updatedSourceData, String(sourceJob.id));
+   }
+   return sourceJob;
+ }
+@@ -3952,6 +4398,25 @@
+     return null;
+   }
+ 
++  if (t === 'PRE_NEGOTIATED') {
++    const orig = n(
++      it.original_price ?? it.item_original_price ?? it.regular_amount ?? it.base_price,
++    );
++    const agreed = n(
++      it.deal_price ?? it.new_price ?? it._resolved_final_price ?? it.price,
++    );
++    if (
++      orig != null &&
++      orig > 0 &&
++      agreed != null &&
++      agreed > 0 &&
++      agreed <= orig
++    ) {
++      return 100 * (1 - agreed / orig);
++    }
++    return n(it.discount_percentage);
++  }
++
+   if (t === 'SMART' || t.startsWith('PRICE_MATCHING')) {
+     const meli   = n(it.meli_percentage ?? it.rebate_meli_percent ?? benefitsGlobal?.meli_percent);
+     const seller = n(it.seller_percentage ?? benefitsGlobal?.seller_percent);
+@@ -4224,7 +4689,7 @@
+   if (Array.isArray(mlbs) && mlbs.length && !mlbs.includes(itemId)) return false;
+   // "Todos" pode exibir participantes, mas uma aplicacao Smart so envia candidatos.
+   if (
+-    ['SMART', 'LIGHTNING'].includes(typeUp) &&
++    ['SMART', 'LIGHTNING', 'PRE_NEGOTIATED'].includes(typeUp) &&
+     normalizeStatusForML(it?.status) !== 'candidate'
+   ) return false;
+   if (maxDesc != null) {
+@@ -4324,11 +4789,17 @@
+       return {
+         ok: false,
+         status: 400,
+-        error: 'Teto de desconto obrigatório para aplicar ofertas Smart.',
++        error:
++          t === 'PRE_NEGOTIATED'
++            ? 'Teto de desconto obrigatorio para aceitar ofertas PRE_NEGOTIATED.'
++            : 'Teto de desconto obrigatório para aplicar ofertas Smart.',
+         trace: buildTraceEntry({
+           ...trace,
+           payload,
+-          notes: 'max_discount_percent ausente; aplicacao Smart bloqueada'
++          notes:
++            t === 'PRE_NEGOTIATED'
++              ? 'max_discount_percent ausente; pre-acordo bloqueado'
++              : 'max_discount_percent ausente; aplicacao Smart bloqueada'
+         })
+       };
+     }
+@@ -4342,7 +4813,7 @@
+     const freshRows = Array.isArray(freshBundle?.results) ? freshBundle.results : [];
+     const selectedFreshOffers = freshRows
+       .filter((row) =>
+-        !['SMART', 'LIGHTNING'].includes(t) ||
++        !['SMART', 'LIGHTNING', 'PRE_NEGOTIATED'].includes(t) ||
+         normalizeStatusForML(row?.status) === 'candidate'
+       )
+       .map((row) => selectOfferWithinPercentCap(row, t, freshBundle?.benefits, cap))
+@@ -4352,7 +4823,18 @@
+         const bp = toNum(b?._selected_discount_percentage ?? b?.discount_percentage) ?? -1;
+         return bp - ap;
+       });
+-    const selectedFreshOffer = selectedFreshOffers[0] || null;
++    let selectedFreshOffer = selectedFreshOffers[0] || null;
++    if (t === 'PRE_NEGOTIATED') {
++      const requestedPreOfferRefs = collectApplyOfferRefsFromItem(item, t);
++      if (requestedPreOfferRefs.length) {
++        selectedFreshOffer =
++          selectedFreshOffers.find((candidate) =>
++            requestedPreOfferRefs.includes(
++              String(candidate?._selected_offer_id || candidate?.offer_id || '').trim(),
++            ),
++          ) || null;
++      }
++    }
+     const selectedPercent = computeDiscountPct(
+       selectedFreshOffer || {},
+       t,
+@@ -5224,6 +5706,233 @@
+   }
+ }
+ 
++async function scheduleLogicalPromotionOperation(job, done) {
++  const latest = (await job.queue.getJob(job.id).catch(() => null)) || job;
++  const data = latest?.data || job.data || {};
++  if (!isLogicalPromotionOperationData(data)) {
++    done(new Error('Operacao logica promocional invalida.'));
++    return;
++  }
++
++  if (data?.operationTerminal === true) {
++    done(null, {
++      id: job.id,
++      kind: 'promotion-operation',
++      status: data.operationLifecycle || 'completed',
++      terminal: true,
++    });
++    return;
++  }
++
++  if (data?.cancelRequested === true || data?.stateLabel === 'cancelado') {
++    const operationTotal = inferOperationTotal(data);
++    const counters = data?.counters || {};
++    const canceledData = {
++      ...data,
++      operationTotal,
++      operationLifecycle: 'canceled',
++      operationTerminal: true,
++      activeChunkJobId: null,
++      stateLabel: 'cancelado',
++      queueReason: null,
++      cancelRequested: false,
++      cancelCompletedAt: Date.now(),
++      lastUpdate: Date.now(),
++    };
++    await latest.update(canceledData).catch(() => {});
++    await storeCanceledTombstone(latest, canceledData).catch(() => {});
++    await settleCredits(canceledData?.creditReservation, { release: true }).catch(() => {});
++    await releaseCampaignGuard(canceledData, String(latest.id)).catch(() => {});
++    done(null, {
++      id: latest.id,
++      kind: 'promotion-operation',
++      status: 'cancelado',
++      total: operationTotal,
++      processed: Number(counters.processed || 0),
++      success: Number(counters.success || 0),
++      failed: Number(counters.failed || 0),
++    });
++    return;
++  }
++
++  const checkpoint = data?.chunkCheckpoint || {};
++  const offset = Math.max(0, Number(checkpoint?.offset || 0));
++  const sequence = Math.max(1, Number(checkpoint?.sequence || 1));
++  const child = await enqueuePromotionChunk(latest, {
++    offset,
++    sequence,
++    reason: offset > 0 ? 'cooperative_chunk' : 'worker_queue',
++  });
++
++  done(null, {
++    id: latest.id,
++    kind: 'promotion-operation',
++    status: 'scheduled',
++    terminal: false,
++    chunk_job_id: String(child.id),
++  });
++}
++
++async function runPromotionChunkJob(chunkJob, done) {
++  const chunkData = chunkJob?.data || {};
++  const parentJobId = String(chunkData?.parentJobId || '').trim();
++  if (!parentJobId) {
++    done(new Error('Chunk promocional sem parentJobId.'));
++    return;
++  }
++
++  const parentJob = await chunkJob.queue.getJob(parentJobId).catch(() => null);
++  if (!parentJob) {
++    done(null, {
++      id: chunkJob.id,
++      kind: 'promotion-chunk',
++      status: 'orphaned',
++      parent_job_id: parentJobId,
++    });
++    return;
++  }
++
++  let parentData = parentJob.data || {};
++  if (parentData?.operationTerminal === true) {
++    done(null, {
++      id: chunkJob.id,
++      kind: 'promotion-chunk',
++      status: 'parent_terminal',
++      parent_job_id: parentJobId,
++    });
++    return;
++  }
++
++  const offset = Math.max(0, Number(chunkData?.chunkOffset || parentData?.chunkCheckpoint?.offset || 0));
++  const sequence = Math.max(1, Number(chunkData?.chunkSequence || parentData?.chunkCheckpoint?.sequence || 1));
++  const operationTotal = inferOperationTotal(parentData);
++  await parentJob.update({
++    ...parentData,
++    operationTotal,
++    operationLifecycle: 'processing',
++    operationTerminal: false,
++    activeChunkJobId: String(chunkJob.id),
++    chunkCheckpoint: {
++      ...(parentData?.chunkCheckpoint || {}),
++      offset,
++      sequence,
++      size: PROMO_JOB_CHUNK_SIZE,
++      updatedAt: Date.now(),
++    },
++    queueReason: null,
++    stateLabel: operationTotal > 0
++      ? `active ${Number(parentData?.counters?.processed || 0)}/${operationTotal}`
++      : 'active 0/?',
++    lastUpdate: Date.now(),
++  }).catch(() => {});
++  parentData = parentJob.data || parentData;
++
++  let lease = null;
++  while (!lease?.acquired) {
++    const freshParent = await chunkJob.queue.getJob(parentJobId).catch(() => null);
++    const freshData = freshParent?.data || {};
++    if (!freshParent || freshData?.operationTerminal === true) {
++      done(null, {
++        id: chunkJob.id,
++        kind: 'promotion-chunk',
++        status: 'parent_terminal',
++        parent_job_id: parentJobId,
++      });
++      return;
++    }
++    if (freshData?.cancelRequested === true || freshData?.stateLabel === 'cancelado') {
++      await parentJob.update({
++        ...freshData,
++        operationLifecycle: 'canceled',
++        operationTerminal: true,
++        activeChunkJobId: null,
++        stateLabel: 'cancelado',
++        queueReason: null,
++        cancelRequested: false,
++        cancelCompletedAt: Date.now(),
++        lastUpdate: Date.now(),
++      }).catch(() => {});
++      await storeCanceledTombstone(parentJob, parentJob.data || freshData).catch(() => {});
++      await settleCredits(freshData?.creditReservation, { release: true }).catch(() => {});
++      await releaseCampaignGuard(freshData, parentJobId).catch(() => {});
++      done(null, {
++        id: chunkJob.id,
++        kind: 'promotion-chunk',
++        status: 'cancelado',
++        parent_job_id: parentJobId,
++      });
++      return;
++    }
++
++    lease = await acquireRuntimeFairness(chunkJob);
++    if (lease?.acquired) break;
++
++    const reason =
++      lease?.reason === 'campaign_busy'
++        ? 'na fila: outra operacao da mesma campanha esta em andamento'
++        : `na fila: limite de ${PROMO_MAX_ACTIVE_JOBS_PER_ACCOUNT} jobs ativos da conta`;
++    await parentJob.update({
++      ...(freshParent?.data || freshData),
++      operationLifecycle: 'queued',
++      operationTerminal: false,
++      stateLabel: reason,
++      queueReason: lease?.reason || 'fairness',
++      activeChunkJobId: String(chunkJob.id),
++      lastUpdate: Date.now(),
++    }).catch(() => {});
++
++    // Um chunk e interno e pode usar retry do Bull sem contaminar o lifecycle
++    // do job principal exibido ao usuario.
++    if (canCooperativelyYield(chunkJob)) {
++      done(new PromoFairnessYieldError(`PROMO_YIELD: ${reason}`));
++      return;
++    }
++    await new Promise((resolve) => setTimeout(resolve, 1500));
++  }
++
++  const refreshTimer = setInterval(() => {
++    lease?.refresh?.().catch(() => {});
++  }, Math.max(5000, Math.floor(PROMO_RUNTIME_LEASE_MS / 3)));
++  refreshTimer.unref?.();
++
++  const finish = async (error, result) => {
++    clearInterval(refreshTimer);
++    await lease?.release?.().catch(() => {});
++
++    if (error && !isInternalYieldError(error)) {
++      const latestParent = await chunkJob.queue.getJob(parentJobId).catch(() => null);
++      const latestData = latestParent?.data || parentJob.data || {};
++      if (latestParent && latestData?.safetyPaused !== true && latestData?.operationTerminal !== true) {
++        const failedData = {
++          ...latestData,
++          operationLifecycle: 'failed',
++          operationTerminal: true,
++          activeChunkJobId: null,
++          stateLabel: latestData?.stateLabel || 'falhou',
++          queueReason: null,
++          failedReason: error?.message || String(error),
++          lastUpdate: Date.now(),
++        };
++        await latestParent.update(failedData).catch(() => {});
++        await settleCredits(failedData?.creditReservation, { release: true }).catch(() => {});
++        await releaseCampaignGuard(failedData, parentJobId).catch(() => {});
++      }
++    }
++
++    done(error, {
++      ...(result || {}),
++      chunk_job_id: String(chunkJob.id),
++      parent_job_id: parentJobId,
++    });
++  };
++
++  try {
++    return runBulkJob(parentJob, finish);
++  } catch (error) {
++    return finish(error);
++  }
++}
++
+ async function runPromoJob(job, done) {
+   const kind = String(job?.data?.kind || "").toLowerCase();
+   if (kind === "list-validation") {
+@@ -5232,7 +5941,14 @@
+   if (kind === "promotion-remediation") {
+     return runPromotionRemediationJob(job, done);
+   }
+-
++  if (kind === 'promotion-operation' && isLogicalPromotionOperationData(job?.data || {})) {
++    return scheduleLogicalPromotionOperation(job, done);
++  }
++  if (kind === 'promotion-chunk' && isPromotionChunkData(job?.data || {})) {
++    return runPromotionChunkJob(job, done);
++  }
++
++  // Compatibilidade para jobs criados antes da orquestracao v2.
+   let lease = null;
+   while (!lease?.acquired) {
+     try {
+@@ -5289,8 +6005,6 @@
+       done(new PromoFairnessYieldError(`PROMO_YIELD: ${reason}`));
+       return;
+     }
+-    // Compatibilidade para jobs criados antes desta politica (attempts=1):
+-    // aguardamos aqui em vez de transformar um job valido em falha terminal.
+     await new Promise((resolve) => setTimeout(resolve, 1500));
+   }
+ 
+@@ -5354,8 +6068,10 @@
+   const checkpoint = data?.chunkCheckpoint || {};
+   const chunkOffset = Math.max(0, Number(checkpoint?.offset || 0));
+   const persistedCounters = data?.counters || {};
+-
+-  // Em retomadas cooperativas preservamos o progresso real do mesmo Bull job.
++  const logicalOperation = isLogicalPromotionOperationData(data);
++  let operationTotal = inferOperationTotal(data);
++
++  // Em retomadas cooperativas preservamos o progresso real da operacao pai.
+   await job.progress(
+     Number(persistedCounters.total || 0) > 0
+       ? clampPct(
+@@ -5369,7 +6085,7 @@
+   const wantStatus = statusQueryOrNull(normalizedFilters.status) || undefined;
+ 
+   // Counters/checkpoint persistem entre fatias do mesmo job.
+-  let total = Number(persistedCounters.total || 0);
++  let total = Number(operationTotal || persistedCounters.total || 0);
+   let processed = Number(persistedCounters.processed || 0);
+   let success = Number(persistedCounters.success || 0);
+   let failed = Number(persistedCounters.failed || 0);
+@@ -5434,6 +6150,10 @@
+       itemTraces: finalItemTraces,
+       results: finalResults,
+       stateLabel: "cancelado",
++      operationLifecycle: logicalOperation ? 'canceled' : latestData?.operationLifecycle,
++      operationTerminal: logicalOperation ? true : latestData?.operationTerminal,
++      activeChunkJobId: logicalOperation ? null : latestData?.activeChunkJobId,
++      queueReason: null,
+       cancelRequested: false,
+       cancelCompletedAt: Date.now(),
+       safetyPaused: false,
+@@ -5446,6 +6166,11 @@
+     const cancellationCoverage =
+       finalTotal > 0 ? clampPct((finalProcessed / finalTotal) * 100) : 0;
+     await job.progress(cancellationCoverage).catch(() => {});
++    if (logicalOperation) {
++      await storeCanceledTombstone(job, cancelledData).catch(() => {});
++      await settleCredits(cancelledData?.creditReservation, { release: true }).catch(() => {});
++      await releaseCampaignGuard(cancelledData, String(job.id)).catch(() => {});
++    }
+ 
+     const summary = {
+       id: job.id,
+@@ -5481,11 +6206,16 @@
+     console.log(`[PromoJobsService] Job ${job.id} - Calculando total...`);
+     await checkCancelled(job);
+     
+-    if (Array.isArray(preparedItems) && preparedItems.length > 0) {
++    if (operationTotal > 0) {
++      total = operationTotal;
++      console.log(`[PromoJobsService] Job ${job.id} - Total imutavel da operacao: ${total}`);
++    } else if (Array.isArray(preparedItems) && preparedItems.length > 0) {
+       total = Number(preparedItems.length);
++      operationTotal = total;
+       console.log(`[PromoJobsService] Job ${job.id} - Total vindo da seleção preparada: ${total}`);
+     } else if (typeof options.expected_total === 'number' && options.expected_total > 0) {
+       total = Number(options.expected_total);
++      operationTotal = total;
+       console.log(`[PromoJobsService] Job ${job.id} - Total esperado: ${total}`);
+     } else {
+       const pre = await precountEligible({
+@@ -5497,6 +6227,7 @@
+         price_policy: normalizedPricePolicy
+       });
+       total = Number(pre.total || 0);
++      operationTotal = total;
+       benefitsGlobal = pre.benefitsGlobal || null;
+       console.log(`[PromoJobsService] Job ${job.id} - Total calculado: ${total}`);
+     }
+@@ -5514,6 +6245,9 @@
+   const initialData = {
+     ...job.data,
+     counters: { processed, total, success, failed },
++    operationTotal: total,
++    operationLifecycle: logicalOperation ? 'processing' : job.data?.operationLifecycle,
++    operationTerminal: logicalOperation ? false : job.data?.operationTerminal,
+     failedItems,
+     itemTraces,
+     results,
+@@ -5569,15 +6303,72 @@
+   });
+ 
+   async function cooperativelyYieldAfterChunk(nextOffset, sourceCount) {
+-    if (
+-      nextOffset >= sourceCount ||
+-      sourceCount <= PROMO_JOB_CHUNK_SIZE ||
+-      !canCooperativelyYield(job)
+-    ) {
++    if (nextOffset >= sourceCount || sourceCount <= PROMO_JOB_CHUNK_SIZE) {
+       return false;
+     }
++
+     const latest = await latestJobData(job);
+     const pct = total > 0 ? clampPct((processed / total) * 100) : 0;
++
++    if (logicalOperation) {
++      const nextSequence = Math.max(
++        2,
++        Number(latest?.chunkCheckpoint?.sequence || checkpoint?.sequence || 1) + 1,
++      );
++      await job.update({
++        ...latest,
++        counters: { processed, total, success, failed },
++        operationTotal: total,
++        operationLifecycle: 'yielded',
++        operationTerminal: false,
++        activeChunkJobId: null,
++        failedItems,
++        itemTraces,
++        results,
++        chunkCheckpoint: {
++          offset: nextOffset,
++          sourceCount,
++          size: PROMO_JOB_CHUNK_SIZE,
++          sequence: nextSequence,
++          yields: Number(latest?.chunkCheckpoint?.yields || checkpoint?.yields || 0) + 1,
++          updatedAt: Date.now(),
++        },
++        stateLabel: `na fila: ${processed}/${total || sourceCount} processados, cedendo turno`,
++        queueReason: 'cooperative_chunk',
++        safetyPaused: false,
++        transientRetry: null,
++        lastUpdate: Date.now(),
++      }).catch(() => {});
++      await job.progress(pct).catch(() => {});
++      const nextChunk = await enqueuePromotionChunk(job, {
++        offset: nextOffset,
++        sequence: nextSequence,
++        reason: 'cooperative_chunk',
++      });
++      await auditPromoJobEvent(job, 'promotion_job_chunk_yielded', 'success', {
++        processed,
++        total,
++        next_offset: nextOffset,
++        source_count: sourceCount,
++        chunk_size: PROMO_JOB_CHUNK_SIZE,
++        next_chunk_job_id: String(nextChunk.id),
++      });
++      done(null, {
++        id: job.id,
++        kind: 'promotion-operation',
++        status: 'chunk_completed',
++        terminal: false,
++        total,
++        processed,
++        success,
++        failed,
++        next_chunk_job_id: String(nextChunk.id),
++      });
++      return true;
++    }
++
++    // Compatibilidade para jobs legados: ainda usa o retry do mesmo Bull job.
++    if (!canCooperativelyYield(job)) return false;
+     await job.update({
+       ...latest,
+       counters: { processed, total, success, failed },
+@@ -5746,13 +6537,22 @@
+               postApplyConfirmation?.snapshot?.offer_id ||
+               postApplyConfirmation?.snapshot?.ref_id ||
+               null;
++            // PRE_NEGOTIATED deve ser removida usando o offer_id original do
++            // pre-acordo (o mesmo enviado no POST). Depois de ativa, a consulta
++            // da campanha pode exibir um OFFER-* diferente.
++            const rollbackOfferId =
++              promotion_type === 'PRE_NEGOTIATED'
++                ? postApplyConfirmation?.requested_offer_id ||
++                  res?.trace?.payload?.offer_id ||
++                  confirmedOfferId
++                : confirmedOfferId;
+             if (review.critical) {
+               rollback = await rollbackAppliedPromotion({
+                 mlCreds,
+                 promotion_id,
+                 promotion_type,
+                 item_id: id,
+-                offer_id: confirmedOfferId,
++                offer_id: rollbackOfferId,
+               });
+             }
+             const rollbackConfirmed = rollback?.ok === true;
+@@ -5765,7 +6565,7 @@
+                 itemId: id,
+                 promotionId: promotion_id,
+                 promotionType: promotion_type,
+-                offerId: confirmedOfferId,
++                offerId: rollbackOfferId,
+                 requestedPercent: definedPercent,
+                 actualPercent: realAppliedPercent,
+                 rollback,
+@@ -6251,7 +7051,8 @@
+     if (Array.isArray(preparedItems) && preparedItems.length > 0) {
+       const chunkEnd = Math.min(preparedItems.length, chunkOffset + PROMO_JOB_CHUNK_SIZE);
+       const chunkItems =
+-        preparedItems.length > PROMO_JOB_CHUNK_SIZE && canCooperativelyYield(job)
++        preparedItems.length > PROMO_JOB_CHUNK_SIZE &&
++        (logicalOperation || canCooperativelyYield(job))
+           ? preparedItems.slice(chunkOffset, chunkEnd)
+           : preparedItems.slice(chunkOffset);
+       console.log(
+@@ -6354,7 +7155,8 @@
+       const sourceIds = normalizedFilters.mlbs || [];
+       const chunkEnd = Math.min(sourceIds.length, chunkOffset + PROMO_JOB_CHUNK_SIZE);
+       const chunkIds =
+-        sourceIds.length > PROMO_JOB_CHUNK_SIZE && canCooperativelyYield(job)
++        sourceIds.length > PROMO_JOB_CHUNK_SIZE &&
++        (logicalOperation || canCooperativelyYield(job))
+           ? sourceIds.slice(chunkOffset, chunkEnd)
+           : sourceIds.slice(chunkOffset);
+       await runAdaptiveItems(
+@@ -6453,6 +7255,10 @@
+         itemTraces,
+         results,
+         stateLabel: `pausado por seguranca: ${processed}/${total || '?'}`,
++        operationLifecycle: logicalOperation ? 'paused_safety' : current?.operationLifecycle,
++        operationTerminal: logicalOperation ? false : current?.operationTerminal,
++        activeChunkJobId: logicalOperation ? null : current?.activeChunkJobId,
++        queueReason: null,
+         pauseReason: e.message,
+         safetyPaused: true,
+         resumable: e?.details?.resume_allowed !== false && processed < total,
+@@ -6552,10 +7358,19 @@
+     },
+     { total: 0, pending: 0, resolved: 0, critical: 0 },
+   );
++  const logicalFinalLifecycle =
++    quarantineCounters.pending > 0
++      ? 'review_pending'
++      : failed > 0
++        ? 'partial'
++        : 'completed';
++  const logicalFinalTerminal = quarantineCounters.pending <= 0;
++
+   const summary = {
+     id: job.id,
+     title: `${action === 'remove' ? 'Remover' : 'Aplicar'} ${promotion_type} ${promotion_id}`,
+-    status: 'completed',
++    status: logicalOperation ? logicalFinalLifecycle : 'completed',
++    terminal: logicalOperation ? logicalFinalTerminal : true,
+     total,
+     processed,
+     success,
+@@ -6579,11 +7394,16 @@
+     itemTraces,
+     results,
+     quarantineCounters,
++    operationTotal: total,
++    operationLifecycle: logicalOperation ? logicalFinalLifecycle : job.data?.operationLifecycle,
++    operationTerminal: logicalOperation ? logicalFinalTerminal : job.data?.operationTerminal,
++    activeChunkJobId: logicalOperation ? null : job.data?.activeChunkJobId,
++    queueReason: null,
+     stateLabel:
+       processed === 0 && total === 0
+         ? 'concluído: nenhum item elegível'
+         : quarantineCounters.pending > 0
+-          ? `concluído: ${success} ok, ${failed} erros, ${quarantineCounters.pending} em quarentena`
++          ? `em revisao: ${success} ok, ${failed} erros, ${quarantineCounters.pending} em remediacao`
+           : `concluído: ${success} ok, ${failed} erros`,
+     lastUpdate: Date.now()
+   };
+@@ -6591,6 +7411,14 @@
+   try {
+     await job.update(finalData);
+     await job.progress(100);
++    if (logicalOperation) {
++      if (logicalFinalTerminal) {
++        await settleCredits(finalData?.creditReservation, { release: false }).catch(() => {});
++        await releaseCampaignGuard(finalData, String(job.id)).catch(() => {});
++      } else {
++        await claimCampaignGuard(finalData, String(job.id)).catch(() => {});
++      }
++    }
+     console.log(`[PromoJobsService] Job ${job.id} - Finalizado: ${success} ok, ${failed} erros`);
+   } catch (e) {
+     console.error(`[PromoJobsService] Job ${job.id} - Erro ao finalizar:`, e.message);
+@@ -6713,9 +7541,22 @@
+         type: String(opts?.promotion?.type || '').toUpperCase(),
+       },
+       auditContext: opts?.auditContext || null,
+-      operationId: opts?.operationId || opts?.options?.operation_id || null,
++      orchestrationVersion: PROMO_ORCHESTRATION_VERSION,
++      kind: 'promotion-operation',
++      operationId:
++        opts?.operationId ||
++        opts?.options?.operation_id ||
++        `OP-${crypto.randomUUID()}`,
++      operationLifecycle: 'queued',
++      operationTerminal: false,
++      activeChunkJobId: null,
+       createdAt: Date.now(),
+     };
++    baseData.options = {
++      ...(baseData.options || {}),
++      operation_id: baseData.operationId,
++    };
++    baseData.operationTotal = inferOperationTotal(baseData);
+     baseData.requestFingerprint = buildPromoRequestFingerprint(baseData);
+     baseData.campaignGuardKey = campaignGuardKey(baseData);
+ 
+@@ -6790,30 +7631,28 @@
+         creditReservation,
+         counters: baseData?.counters || {
+           processed: 0,
+-          total: Number(opts?.options?.expected_total || 0),
++          total: Number(baseData.operationTotal || 0),
+           success: 0,
+           failed: 0,
+         },
++        operationTotal: Number(baseData.operationTotal || 0),
++        operationLifecycle: 'queued',
++        operationTerminal: false,
+         stateLabel: 'na fila: aguardando worker',
+         queueReason: 'worker_queue',
+       };
+ 
+       job = await q.add(data, {
+         jobId: opts?.queueJobId || undefined,
+-        removeOnComplete: 100,
++        // O pai e um registro logico duravel. Ele conclui no Bull apos agendar
++        // o primeiro chunk, mas permanece consultavel ate a operacao logica terminar.
++        removeOnComplete: false,
+         removeOnFail: false,
+-        attempts: PROMO_JOB_MAX_YIELD_ATTEMPTS,
+-        backoff: { type: 'fixed', delay: PROMO_JOB_YIELD_DELAY_MS },
++        attempts: 1,
+       });
+ 
+       await reservation.finalize(job.id);
+-      if (!data.operationId) {
+-        data.operationId = `OP-${job.id}`;
+-        data.options = {
+-          ...(data.options || {}),
+-          operation_id: data.operationId,
+-        };
+-      }
++      await trackLogicalOperation(job, { open: true });
+       await job.update({
+         ...(job.data || data),
+         operationId: data.operationId,
+@@ -6918,9 +7757,46 @@
+           return rows.map((job) => ({ job, state }));
+         }),
+       );
++      // Um mesmo Job Bull pode aparecer por alguns milissegundos em dois
++      // buckets durante uma transicao (ex.: active + completed). Nunca enviamos
++      // duas representacoes do mesmo ID ao navegador. So os IDs conflitados
++      // exigem getState(), preservando a latencia baixa do endpoint.
++      const trackedLogical = await getTrackedLogicalOperations(q, {
++        accountKey,
++        limit: Math.max(100, n * 4),
++      });
++      // Pais logicos podem estar no bucket Bull "completed" enquanto chunks
++      // internos continuam executando. O indice Redis garante que eles nao
++      // desaparecam do painel quando o bucket completed tiver muitos jobs.
++      const rawEntries = [...stateBuckets.flat(), ...trackedLogical];
++      const entriesById = new Map();
++      for (const entry of rawEntries) {
++        const id = String(entry?.job?.id ?? '');
++        if (!id) continue;
++        if (!entriesById.has(id)) entriesById.set(id, []);
++        entriesById.get(id).push(entry);
++      }
++      const canonicalEntries = [];
++      for (const entries of entriesById.values()) {
++        if (entries.length === 1) {
++          canonicalEntries.push(entries[0]);
++          continue;
++        }
++        const canonicalJob =
++          (await q.getJob(entries[0].job.id).catch(() => null)) || entries[0].job;
++        const canonicalState = await canonicalJob.getState().catch(() => {
++          // Enquanto houver conflito, um estado nao terminal vence um terminal
++          // para impedir "concluido" prematuro durante processamento.
++          const priority = ['active', 'waiting', 'delayed', 'failed', 'completed'];
++          return entries
++            .map((entry) => entry.state)
++            .sort((a, b) => priority.indexOf(a) - priority.indexOf(b))[0] || 'unknown';
++        });
++        canonicalEntries.push({ job: canonicalJob, state: canonicalState });
++      }
++
+       const workerHealth = await getWorkerHealth();
+-      const queuedEntries = stateBuckets
+-        .flat()
++      const queuedEntries = canonicalEntries
+         .filter(({ state, job }) =>
+           ['waiting', 'delayed'].includes(state) &&
+           canAccessJobData(job?.data || {}, accountKey) &&
+@@ -6934,8 +7810,7 @@
+ 
+       // Remediacoes sao detalhes internos do processo pai. Mantemos execucao e
+       // auditoria no Bull, mas evitamos cards duplicados no painel principal.
+-      const scopedJobs = stateBuckets
+-        .flat()
++      const scopedJobs = canonicalEntries
+         .filter(({ job: j }) => canAccessJobData(j.data || {}, accountKey))
+         .filter(({ job: j }) => j.data?.kind !== 'promotion-remediation' && j.data?.internalJob !== true)
+         .sort((a, b) => {
+@@ -6947,9 +7822,23 @@
+         })
+         .slice(0, n);
+       const map = await Promise.all(
+-        scopedJobs.map(async ({ job: j, state }) => {
++        scopedJobs.map(async ({ job: j, state: bullState }) => {
+           try {
+             const d = j.data || {};
++            const logicalLifecycle = logicalPromotionLifecycle(d, bullState);
++            const state =
++              logicalLifecycle === 'processing'
++                ? 'active'
++                : logicalLifecycle === 'queued' || logicalLifecycle === 'retry_wait'
++                  ? 'waiting'
++                  : logicalLifecycle === 'paused_safety' || logicalLifecycle === 'failed'
++                    ? 'failed'
++                    : logicalLifecycle === 'review_pending' ||
++                        logicalLifecycle === 'partial' ||
++                        logicalLifecycle === 'completed' ||
++                        logicalLifecycle === 'canceled'
++                      ? 'completed'
++                      : bullState;
+             const {
+               processed,
+               total,
+@@ -7018,7 +7907,9 @@
+             }
+ 
+             const remediationPending = Number(d.quarantineCounters?.pending || 0);
+-            const reviewPending = remediationPending > 0 && state === 'completed';
++            const reviewPending =
++              logicalLifecycle === 'review_pending' ||
++              (remediationPending > 0 && state === 'completed');
+             const completedForReview =
+               ((state === 'completed' && !reviewPending) ||
+                 state === 'failed') &&
+@@ -7221,9 +8112,23 @@
+       }
+       if (!canAccessJobData(j.data || {}, accountKey)) return null;
+ 
+-      const state = await j.getState().catch(() => 'unknown');
++      const bullState = await j.getState().catch(() => 'unknown');
+       const workerHealth = await getWorkerHealth();
+       const d = j.data || {};
++      const logicalLifecycle = logicalPromotionLifecycle(d, bullState);
++      const state =
++        logicalLifecycle === 'processing'
++          ? 'active'
++          : logicalLifecycle === 'queued' || logicalLifecycle === 'retry_wait'
++            ? 'waiting'
++            : logicalLifecycle === 'paused_safety' || logicalLifecycle === 'failed'
++              ? 'failed'
++              : logicalLifecycle === 'review_pending' ||
++                  logicalLifecycle === 'partial' ||
++                  logicalLifecycle === 'completed' ||
++                  logicalLifecycle === 'canceled'
++                ? 'completed'
++                : bullState;
+       const {
+         processed,
+         total,
+@@ -7267,7 +8172,9 @@
+             : 'falhou';
+       }
+       const remediationPending = Number(d.quarantineCounters?.pending || 0);
+-      const reviewPending = remediationPending > 0 && state === 'completed';
++      const reviewPending =
++        logicalLifecycle === 'review_pending' ||
++        (remediationPending > 0 && state === 'completed');
+       const completedForReview =
+         ((state === 'completed' && !reviewPending) || state === 'failed') &&
+         d.stateLabel !== 'cancelado';
+@@ -7401,8 +8308,11 @@
+         error: 'Job cancelado pelo usuario e nao pode ser retomado.',
+       };
+     }
++    const logicalPaused =
++      isLogicalPromotionOperationData(data) &&
++      logicalPromotionLifecycle(data, sourceState) === 'paused_safety';
+     if (
+-      sourceState !== 'failed' ||
++      (!logicalPaused && sourceState !== 'failed') ||
+       data.safetyPaused !== true ||
+       data.resumable !== true ||
+       data.resumedByJobId
+@@ -7437,7 +8347,6 @@
+       mlCreds: data.mlCreds,
+       accountKey: data.accountKey,
+       accountLabel: data.accountLabel,
+-      operationId: data.operationId || data.options?.operation_id || `OP-${job_id}`,
+       action: data.action || 'apply',
+       promotion: data.promotion,
+       filters: {
+@@ -7532,6 +8441,66 @@
+ 
+       if (data.stateLabel === 'cancelado') {
+         return { ok: true, status: 'cancelado', processed: data?.counters?.processed || 0, total: data?.counters?.total || 0 };
++      }
++
++      if (isLogicalPromotionOperationData(data) && data?.operationTerminal !== true) {
++        const updated = {
++          ...data,
++          counters: knownCounters,
++          operationLifecycle: 'processing',
++          operationTerminal: false,
++          stateLabel: 'cancelando',
++          cancelRequested: true,
++          cancelRequestedAt: data.cancelRequestedAt || Date.now(),
++          cancelRequestedBy: cancelAuditContext || data.cancelRequestedBy || null,
++          resumable: false,
++          transientRetry: null,
++          lastUpdate: Date.now(),
++        };
++        await j.update(updated).catch(() => {});
++
++        const activeChunkId = String(data?.activeChunkJobId || '').trim();
++        const activeChunk = activeChunkId ? await q.getJob(activeChunkId).catch(() => null) : null;
++        const chunkState = activeChunk ? await activeChunk.getState().catch(() => 'unknown') : 'missing';
++
++        if (activeChunk && ['waiting', 'delayed'].includes(chunkState)) {
++          await activeChunk.remove().catch(() => {});
++          const canceledData = {
++            ...updated,
++            operationLifecycle: 'canceled',
++            operationTerminal: true,
++            activeChunkJobId: null,
++            stateLabel: 'cancelado',
++            queueReason: null,
++            cancelRequested: false,
++            cancelCompletedAt: Date.now(),
++            lastUpdate: Date.now(),
++          };
++          await j.update(canceledData).catch(() => {});
++          await storeCanceledTombstone(j, canceledData).catch(() => {});
++          await settleCredits(canceledData?.creditReservation, { release: true }).catch(() => {});
++          await releaseCampaignGuard(canceledData, String(j.id)).catch(() => {});
++          await auditPromoJobEvent(j, 'promotion_job_canceled', 'warn', {
++            current_state: state,
++            processed: knownProcessed,
++            total: knownTotal,
++            canceled_queued_chunk: true,
++          });
++          return { ok: true, status: 'cancelado', processed: knownProcessed, total: knownTotal };
++        }
++
++        await auditPromoJobEvent(j, 'promotion_job_cancel_requested', 'warn', {
++          current_state: logicalPromotionLifecycle(updated, state),
++          processed: knownProcessed,
++          total: knownTotal,
++          active_chunk_job_id: activeChunkId || null,
++        });
++        return {
++          ok: true,
++          status: 'cancelando',
++          processed: knownProcessed,
++          total: knownTotal,
++        };
+       }
+ 
+       if (state === 'completed') {
+@@ -7801,6 +8770,10 @@
+     jobHasPendingRemediation,
+     isInternalYieldError,
+     canCooperativelyYield,
++    inferOperationTotal,
++    logicalPromotionLifecycle,
++    isLogicalPromotionOperationData,
++    selectOfferWithinPercentCap,
+   },
+ };
+ 
+--- a/public/js/criar-promocao.js
++++ b/public/js/criar-promocao.js
+@@ -600,6 +600,9 @@
+ function getGuidedApplyMode() {
+   if (isDealSelected()) return "deal";
+   if (isSellerCampaignSelected()) return "seller";
++  if (String(state.selectedCard?.type || "").toUpperCase() === "PRE_NEGOTIATED") {
++    return "pre_negotiated";
++  }
+   if (isSmartApplyFlowSelected()) return "smart";
+   return null;
+ }
+@@ -2225,7 +2228,7 @@
+   } else if (mode === "seller") {
+     state.sellerManualPercent = pct;
+     state.dealManualPercent = null;
+-  } else if (mode === "smart") {
++  } else if (mode === "smart" || mode === "pre_negotiated") {
+     state.dealManualPercent = null;
+     state.sellerManualPercent = null;
+   }
+@@ -2271,64 +2274,104 @@
+ 
+ function getManualWizardCopy(mode) {
+   const isSmart = mode === "smart";
++  const isPreNegotiated = mode === "pre_negotiated";
++  const isCapFlow = isSmart || isPreNegotiated;
+   const isLightning = isLightningSelected();
+   return {
+-    titlePrefix: isSmart ? "Aplicar ofertas Smart na campanha" : "Aplicar desconto na campanha",
+-    stepFilter: isSmart ? "Definir teto" : "Filtrar elegiveis",
+-    stepPercent: isSmart
+-      ? "Verificar candidatos"
+-      : isLightning
+-        ? "Definir desconto e unidades"
+-        : "Definir desconto",
+-    fieldLabel: isSmart ? "Qual desconto maximo voce aceita aplicar?" : "Qual % voce deseja aplicar?",
+-    hint: isSmart
+-      ? "A Smart ja traz ofertas sugeridas pelo Mercado Livre. A Davantti aplica apenas candidatos cujo desconto atual seja menor ou igual ao teto informado."
+-      : isLightning
+-        ? "A verificacao considera a faixa de desconto aceita. Na aplicacao, a mesma quantidade sera enviada para todos os anuncios do escopo escolhido."
+-      : "A verificacao considera a faixa minima e maxima aceita pelo Mercado Livre para cada anuncio.",
+-    idle: isSmart
+-      ? "Informe o teto maximo de desconto para verificar quais ofertas Smart candidatas podem ser aplicadas."
+-      : isLightning
+-        ? "Informe a porcentagem e a quantidade de unidades para verificar os anuncios elegiveis."
+-      : "Informe a porcentagem desejada para verificar quais anuncios aceitam esse desconto.",
+-    typed: isSmart
+-      ? "Teto informado. Clique em Verificar elegiveis para liberar a aplicacao das ofertas Smart."
+-      : isLightning
+-        ? "Percentual e unidades informados. Clique em Verificar elegiveis para liberar a aplicacao em massa."
+-      : "Percentual informado. Clique em Verificar elegiveis para liberar a aplicacao em massa.",
+-    verifying: isSmart
+-      ? "Verificando ofertas Smart candidatas dentro do teto informado..."
+-      : "Verificando faixas aceitas pelo Mercado Livre...",
+-    verified: isSmart
+-      ? "Ofertas Smart elegiveis ate {percent}. Escolha abaixo se deseja aplicar em todas, nas selecionadas ou apenas nesta pagina."
+-      : isLightning
+-        ? "Elegiveis verificados para {percent} e {quantity} unidade(s) por anuncio. Escolha o escopo abaixo."
+-      : "Elegiveis verificados para {percent}. Escolha abaixo se deseja aplicar em todos, nos selecionados ou apenas nesta pagina.",
+-    none: isSmart
+-      ? "Nenhuma oferta Smart elegivel ate {percent} com os filtros atuais."
+-      : "Nenhum anuncio elegivel para {percent} com os filtros atuais.",
+-    eligibleBadge: isSmart ? "Ofertas: nao verificado" : "Elegiveis: nao verificado",
+-    discountBadge: isSmart ? "Teto: nao definido" : "Desconto: nao definido",
+-    discountValue: isSmart ? "Teto maximo: ate {percent}" : "{percent} de desconto",
+-    applyButton: isSmart ? "Aplicar ofertas Smart" : "Aplicar no ML",
+-    selectedMissing: isSmart
+-      ? "Informe o teto maximo de desconto antes de aplicar as ofertas selecionadas."
+-      : "Informe a porcentagem de desconto antes de aplicar os itens selecionados.",
+-    allHint: isSmart
+-      ? "Aplicar ofertas Smart em {count} dentro do teto de {percent} via lote completo filtrado."
+-      : isLightning
+-        ? "Aplicar {percent} com {quantity} unidade(s) em {count} via lote completo filtrado."
+-      : "Aplicar {percent} em {count} via lote completo filtrado.",
+-    selectedHint: isSmart
+-      ? "Aplicar ofertas Smart dentro do teto de {percent} somente nos {count}."
+-      : isLightning
+-        ? "Aplicar {percent} com {quantity} unidade(s) somente nos {count}."
+-      : "Aplicar {percent} somente nos {count}.",
+-    pageHint: isSmart
+-      ? "Aplicar ofertas Smart dentro do teto de {percent} nos {count} visiveis nesta pagina."
+-      : isLightning
+-        ? "Aplicar {percent} com {quantity} unidade(s) nos {count} visiveis nesta pagina."
+-      : "Aplicar {percent} nos {count} elegiveis visiveis nesta pagina.",
++    titlePrefix: isPreNegotiated
++      ? "Aceitar pre-acordos na campanha"
++      : isSmart
++        ? "Aplicar ofertas Smart na campanha"
++        : "Aplicar desconto na campanha",
++    stepFilter: isCapFlow ? "Definir teto" : "Filtrar elegiveis",
++    stepPercent: isPreNegotiated
++      ? "Verificar pre-acordos"
++      : isSmart
++        ? "Verificar candidatos"
++        : isLightning
++          ? "Definir desconto e unidades"
++          : "Definir desconto",
++    fieldLabel: isPreNegotiated
++      ? "Qual desconto maximo pre-acordado voce aceita?"
++      : isSmart
++        ? "Qual desconto maximo voce aceita aplicar?"
++        : "Qual % voce deseja aplicar?",
++    hint: isPreNegotiated
++      ? "O Mercado Livre ja definiu o preco e o offer_id do pre-acordo. A Davantti apenas aceita candidatos cujo desconto base seja menor ou igual ao teto informado; nenhum novo preco e calculado."
++      : isSmart
++        ? "A Smart ja traz ofertas sugeridas pelo Mercado Livre. A Davantti aplica apenas candidatos cujo desconto atual seja menor ou igual ao teto informado."
++        : isLightning
++          ? "A verificacao considera a faixa de desconto aceita. Na aplicacao, a mesma quantidade sera enviada para todos os anuncios do escopo escolhido."
++          : "A verificacao considera a faixa minima e maxima aceita pelo Mercado Livre para cada anuncio.",
++    idle: isPreNegotiated
++      ? "Informe o teto maximo de desconto para verificar quais pre-acordos candidatos podem ser aceitos."
++      : isSmart
++        ? "Informe o teto maximo de desconto para verificar quais ofertas Smart candidatas podem ser aplicadas."
++        : isLightning
++          ? "Informe a porcentagem e a quantidade de unidades para verificar os anuncios elegiveis."
++          : "Informe a porcentagem desejada para verificar quais anuncios aceitam esse desconto.",
++    typed: isPreNegotiated
++      ? "Teto informado. Clique em Verificar elegiveis para validar os pre-acordos candidatos."
++      : isSmart
++        ? "Teto informado. Clique em Verificar elegiveis para liberar a aplicacao das ofertas Smart."
++        : isLightning
++          ? "Percentual e unidades informados. Clique em Verificar elegiveis para liberar a aplicacao em massa."
++          : "Percentual informado. Clique em Verificar elegiveis para liberar a aplicacao em massa.",
++    verifying: isPreNegotiated
++      ? "Revalidando offer_id, preco pre-acordado e desconto base..."
++      : isSmart
++        ? "Verificando ofertas Smart candidatas dentro do teto informado..."
++        : "Verificando faixas aceitas pelo Mercado Livre...",
++    verified: isPreNegotiated
++      ? "Pre-acordos elegiveis ate {percent}. Escolha abaixo se deseja aceitar todos, os selecionados ou apenas os desta pagina."
++      : isSmart
++        ? "Ofertas Smart elegiveis ate {percent}. Escolha abaixo se deseja aplicar em todas, nas selecionadas ou apenas nesta pagina."
++        : isLightning
++          ? "Elegiveis verificados para {percent} e {quantity} unidade(s) por anuncio. Escolha o escopo abaixo."
++          : "Elegiveis verificados para {percent}. Escolha abaixo se deseja aplicar em todos, nos selecionados ou apenas nesta pagina.",
++    none: isPreNegotiated
++      ? "Nenhum pre-acordo candidato elegivel ate {percent} com os filtros atuais."
++      : isSmart
++        ? "Nenhuma oferta Smart elegivel ate {percent} com os filtros atuais."
++        : "Nenhum anuncio elegivel para {percent} com os filtros atuais.",
++    eligibleBadge: isPreNegotiated
++      ? "Pre-acordos: nao verificado"
++      : isSmart
++        ? "Ofertas: nao verificado"
++        : "Elegiveis: nao verificado",
++    discountBadge: isCapFlow ? "Teto: nao definido" : "Desconto: nao definido",
++    discountValue: isCapFlow ? "Teto maximo: ate {percent}" : "{percent} de desconto",
++    applyButton: isPreNegotiated
++      ? "Aceitar pre-acordos"
++      : isSmart
++        ? "Aplicar ofertas Smart"
++        : "Aplicar no ML",
++    selectedMissing: isPreNegotiated
++      ? "Informe o teto maximo antes de aceitar os pre-acordos selecionados."
++      : isSmart
++        ? "Informe o teto maximo de desconto antes de aplicar as ofertas selecionadas."
++        : "Informe a porcentagem de desconto antes de aplicar os itens selecionados.",
++    allHint: isPreNegotiated
++      ? "Aceitar {count} pre-acordos dentro do teto de {percent} via lote filtrado."
++      : isSmart
++        ? "Aplicar ofertas Smart em {count} dentro do teto de {percent} via lote completo filtrado."
++        : isLightning
++          ? "Aplicar {percent} com {quantity} unidade(s) em {count} via lote completo filtrado."
++          : "Aplicar {percent} em {count} via lote completo filtrado.",
++    selectedHint: isPreNegotiated
++      ? "Aceitar somente os {count} pre-acordos selecionados dentro do teto de {percent}."
++      : isSmart
++        ? "Aplicar ofertas Smart dentro do teto de {percent} somente nos {count}."
++        : isLightning
++          ? "Aplicar {percent} com {quantity} unidade(s) somente nos {count}."
++          : "Aplicar {percent} somente nos {count}.",
++    pageHint: isPreNegotiated
++      ? "Aceitar os {count} pre-acordos elegiveis visiveis nesta pagina dentro do teto de {percent}."
++      : isSmart
++        ? "Aplicar ofertas Smart dentro do teto de {percent} nos {count} visiveis nesta pagina."
++        : isLightning
++          ? "Aplicar {percent} com {quantity} unidade(s) nos {count} visiveis nesta pagina."
++          : "Aplicar {percent} nos {count} elegiveis visiveis nesta pagina.",
+   };
+ }
+ 
+@@ -2642,7 +2685,7 @@
+   if (state.manualWizard?.loading) return;
+ 
+   if (!state.selectedCard || !isManualApplyFlowSelected()) {
+-    notifyPromocoes("Selecione uma campanha Deal, Seller Campaign ou Smart.");
++    notifyPromocoes("Selecione uma campanha Deal, Seller, Smart, Pre-acordo ou Lightning.");
+     return;
+   }
+   const input = document.getElementById("manualWizardPercentInput");
+@@ -2823,11 +2866,16 @@
+   const scope = currentManualWizardScope();
+   const selectedCount = selectedTableCount();
+   if (scope === "selected") {
+-    if ((mode === "smart" || isLightningSelected()) && !isManualWizardVerifiedForCurrent()) {
++    if (
++      (mode === "smart" || mode === "pre_negotiated" || isLightningSelected()) &&
++      !isManualWizardVerifiedForCurrent()
++    ) {
+       notifyPromocoes(
+         isLightningSelected()
+           ? "Verifique os elegiveis antes de aplicar a oferta relampago nos selecionados."
+-          : "Verifique os elegiveis antes de aplicar ofertas Smart selecionadas.",
++          : mode === "pre_negotiated"
++            ? "Verifique os elegiveis antes de aceitar os pre-acordos selecionados."
++            : "Verifique os elegiveis antes de aplicar ofertas Smart selecionadas.",
+       );
+       input?.focus();
+       return;
+@@ -2880,6 +2928,14 @@
+ 
+ function removeFromManualWizard() {
+   if (!state.selectedCard || !isManualApplyFlowSelected()) return;
++  if (
++    String(state.selectedCard?.type || "").toUpperCase() === "PRE_NEGOTIATED" &&
++    !window.confirm(
++      "Atencao: ao remover um pre-acordo, o Mercado Livre informa que o anuncio deixa de ser candidato a essa oferta. Deseja continuar?",
++    )
++  ) {
++    return;
++  }
+   const scope = currentManualWizardScope();
+ 
+   if (scope === "selected") {
+@@ -3377,7 +3433,28 @@
+ 
+   if (isStrictDealCandidate(it)) return null;
+ 
+-  // SMART / PRE_NEGOTIATED / PRICE_MATCHING: soma MELI + Seller quando faltar % do ML
++  // PRE_NEGOTIATED: o ML ja pre-acordou o preco. O teto compara o desconto
++  // base original_price -> price; rebate ML/Seller e boost ficam so na auditoria.
++  if (typeUp === "PRE_NEGOTIATED") {
++    const preOriginal = toNum(
++      it.original_price ?? it.item_original_price ?? it.regular_amount ?? it.base_price,
++    );
++    const prePrice = toNum(
++      it.deal_price ?? it.new_price ?? it._resolved_final_price ?? it.price,
++    );
++    if (
++      preOriginal != null &&
++      preOriginal > 0 &&
++      prePrice != null &&
++      prePrice > 0 &&
++      prePrice <= preOriginal
++    ) {
++      return 100 * (1 - prePrice / preOriginal);
++    }
++    return toNum(it.discount_percentage);
++  }
++
++  // SMART / PRICE_MATCHING: soma MELI + Seller quando faltar % do ML
+   if (isSmartLikePromotionType(typeUp)) {
+     if (original != null) {
+       const rb = pickRebate(it);
+@@ -4175,20 +4252,22 @@
+ const TYPE_LABELS = {
+   DEAL: "Deal",
+   SMART: "Smart",
++  PRE_NEGOTIATED: "Pre-acordo",
+   SELLER_CAMPAIGN: "Seller",
+   DOD: "DOD",
+   LIGHTNING: "Lightning",
+   OTHER: "Outros",
+ };
+ 
+-const TYPE_TAB_ORDER = ["DEAL", "SMART", "SELLER_CAMPAIGN", "DOD", "LIGHTNING", "OTHER"];
++const TYPE_TAB_ORDER = ["DEAL", "SMART", "PRE_NEGOTIATED", "SELLER_CAMPAIGN", "DOD", "LIGHTNING", "OTHER"];
+ const TYPE_TAB_ALLOWED = new Set(TYPE_TAB_ORDER);
+ 
+ function normalizeCardTypeForTabs(type) {
+   const up = String(type || "").toUpperCase();
+ 
+-  // Smart tab = SMART + PRE_NEGOTIATED + PRICE_MATCHING
+-  if (up === "PRICE_MATCHING" || up === "PRE_NEGOTIATED") return "SMART";
++  // PRICE_MATCHING permanece agrupado em Smart; PRE_NEGOTIATED tem fluxo proprio.
++  if (up === "PRICE_MATCHING") return "SMART";
++  if (up === "PRE_NEGOTIATED") return "PRE_NEGOTIATED";
+ 
+   // você já decidiu que PM(ML) e Marketplace somem também
+   // (se você já filtrou no carregarCards, ótimo; aqui deixo seguro)
+@@ -4197,6 +4276,7 @@
+ 
+   // Tabs dedicadas que você quer manter
+   if (up === "SMART") return "SMART";
++  if (up === "PRE_NEGOTIATED") return "PRE_NEGOTIATED";
+   if (up === "DEAL") return "DEAL";
+   if (up === "SELLER_CAMPAIGN") return "SELLER_CAMPAIGN";
+   if (up === "DOD") return "DOD";
+@@ -6310,23 +6390,27 @@
+   }
+ 
+   const selectedType = String(state.selectedCard?.type || "").toUpperCase();
+-  if (["DEAL", "SELLER_CAMPAIGN", "LIGHTNING", "SMART"].includes(selectedType)) {
++  if (["DEAL", "SELLER_CAMPAIGN", "LIGHTNING", "SMART", "PRE_NEGOTIATED"].includes(selectedType)) {
+     const isSmart = selectedType === "SMART";
+-    const draftPrice = !isSmart && !silent ? getDealRangeDraftPriceForItem(mlb, it) : null;
++    const isPreNegotiated = selectedType === "PRE_NEGOTIATED";
++    const isCapBasedOffer = isSmart || isPreNegotiated;
++    const draftPrice = !isCapBasedOffer && !silent ? getDealRangeDraftPriceForItem(mlb, it) : null;
+     const draftPercent =
+       draftPrice != null ? getDealRangeDraftForItem(mlb)?.defPct : null;
+-    const manualPercent = isSmart
++    const manualPercent = isCapBasedOffer
+       ? null
+       : draftPercent != null
+         ? Number(draftPercent)
+         : selectedType === "SELLER_CAMPAIGN"
+           ? getSellerManualPercent()
+           : getDealManualPercent();
+-    const smartPercentCap = isSmart ? Number(getCurrentApplyPercent()) : null;
+-    if (isSmart && !(smartPercentCap > 0)) {
++    const offerPercentCap = isCapBasedOffer ? Number(getCurrentApplyPercent()) : null;
++    if (isCapBasedOffer && !(offerPercentCap > 0)) {
+       if (!silent) {
+         notifyPromocoes(
+-          "Defina o teto de desconto da Smart antes de aplicar. Nenhum anuncio foi alterado.",
++          isPreNegotiated
++            ? "Defina o teto maximo do pre-acordo antes de aceitar. Nenhum anuncio foi alterado."
++            : "Defina o teto de desconto da Smart antes de aplicar. Nenhum anuncio foi alterado.",
+         );
+       }
+       return false;
+@@ -6352,7 +6436,7 @@
+       promotion_type: selectedType,
+       promotion_name: state.selectedCard.name || state.selectedCard.id,
+       status: null,
+-      percentMax: isSmart ? smartPercentCap : manualPercent,
++      percentMax: isCapBasedOffer ? offerPercentCap : manualPercent,
+       manualPercent,
+       lightningStock,
+     });
+--- a/public/js/jobs-panel.js
++++ b/public/js/jobs-panel.js
+@@ -1989,8 +1989,49 @@
+   function mergeApiJobs(list, options = {}) {
+     if (!Array.isArray(list)) return;
+     const requestedAdapter = String(options.adapter || defaultAdapter || "generic");
++
++    // Defesa adicional: o backend ja canonicaliza IDs, mas durante deploys ou
++    // transicoes do Bull uma resposta antiga pode trazer o mesmo job duas vezes.
++    // Nunca deixamos um registro terminal sobrescrever um registro ativo do
++    // mesmo ID dentro do mesmo poll.
++    const apiById = new Map();
++    for (const raw of list) {
++      const adapterName = String(raw?.adapter || requestedAdapter || "generic");
++      const normalized = normalizeApiJob(adapterName, raw);
++      const id = String(normalized?.id || raw?.id || raw?.job_id || raw?.process_id || "").trim();
++      if (!id) continue;
++      const current = apiById.get(id);
++      if (!current) {
++        apiById.set(id, raw);
++        continue;
++      }
++      const currentNorm = normalizeApiJob(adapterName, current);
++      const incomingActive = !!normalized?.active || !!normalized?.waiting;
++      const currentActive = !!currentNorm?.active || !!currentNorm?.waiting;
++      const incomingTerminal = !!normalized?.completed || !!normalized?.failed;
++      const currentTerminal = !!currentNorm?.completed || !!currentNorm?.failed;
++
++      if (incomingActive && currentTerminal) {
++        apiById.set(id, raw);
++        continue;
++      }
++      if (currentActive && incomingTerminal) continue;
++
++      const incomingUpdated = normalizeTimestamp(normalized?.updatedAt, 0);
++      const currentUpdated = normalizeTimestamp(currentNorm?.updatedAt, 0);
++      const incomingProcessed = Number(normalized?.processed || 0);
++      const currentProcessed = Number(currentNorm?.processed || 0);
++      if (
++        incomingUpdated > currentUpdated ||
++        (incomingUpdated === currentUpdated && incomingProcessed >= currentProcessed)
++      ) {
++        apiById.set(id, raw);
++      }
++    }
++    const apiList = [...apiById.values()];
++
+     const incomingIds = new Set(
+-      list
++      apiList
+         .map((raw) => {
+           const adapterName = String(raw?.adapter || requestedAdapter || "generic");
+           return String(normalizeApiJob(adapterName, raw)?.id || "").trim();
+@@ -2005,7 +2046,7 @@
+         title.startsWith("exportação csv")
+       );
+     };
+-    const incomingFiltroJobs = list
++    const incomingFiltroJobs = apiList
+       .map((raw) => {
+         const title = String(raw?.title || raw?.label || raw?.name || raw?.job_name || "")
+           .trim()
+@@ -2046,7 +2087,7 @@
+       });
+     }
+ 
+-    list.forEach((raw) => {
++    apiList.forEach((raw) => {
+       const adapterName = String(raw?.adapter || requestedAdapter || "generic");
+       const normalized = normalizeApiJob(adapterName, raw);
+       const id = String(normalized?.id || raw.id || raw.job_id || raw.process_id || "").trim();
+--- a/public/js/promo-state.js
++++ b/public/js/promo-state.js
+@@ -235,10 +235,30 @@
+ 
+     if (isStrictDealCandidate(it, state)) return null;
+ 
++    // PRE_NEGOTIATED tem preco base pre-acordado pelo ML. O teto de seguranca
++    // deve comparar a reducao real original_price -> price, e nao a soma do
++    // rebate ML/vendedor (que e uma informacao economica separada).
++    if (typeUp === "PRE_NEGOTIATED") {
++      const preOriginal = toNum(
++        it.original_price ?? it.item_original_price ?? it.regular_amount ?? it.base_price,
++      );
++      const prePrice = toNum(
++        it.deal_price ?? it.new_price ?? it._resolved_final_price ?? it.price,
++      );
++      if (
++        preOriginal != null &&
++        preOriginal > 0 &&
++        prePrice != null &&
++        prePrice > 0 &&
++        prePrice <= preOriginal
++      ) {
++        return 100 * (1 - prePrice / preOriginal);
++      }
++      return toNum(it.discount_percentage);
++    }
++
+     if (
+-      ["SMART", "PRE_NEGOTIATED", "PRICE_MATCHING", "PRICE_MATCHING_MELI_ALL"].includes(
+-        typeUp,
+-      )
++      ["SMART", "PRICE_MATCHING", "PRICE_MATCHING_MELI_ALL"].includes(typeUp)
+     ) {
+       if (original != null) {
+         const rb = pickRebate(it, toNum);

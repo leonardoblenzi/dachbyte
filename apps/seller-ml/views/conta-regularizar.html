@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Regularizar conta | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/conta-regularizar.css?v=2" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <script src="/ml/js/conta-regularizar.js?v=1" defer></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="regularize-app">
+  <main class="regularize-page">
+    <section class="regularize-hero">
+      <div>
+        <span class="regularize-kicker">Conta ML / Assinatura</span>
+        <h1>Regularize esta conta para continuar operando.</h1>
+        <p id="regularize-reason">
+          Estamos conferindo o status da conta selecionada e preparando o caminho correto no Davantti Pay.
+        </p>
+      </div>
+      <a class="regularize-btn regularize-btn-ghost" href="/selecao-plataforma">Voltar aos modulos</a>
+    </section>
+
+    <section class="regularize-alert" id="regularize-alert" hidden></section>
+
+    <section class="regularize-grid">
+      <article class="regularize-card regularize-card-main">
+        <span class="regularize-kicker">Conta selecionada</span>
+        <div class="regularize-account-head">
+          <div>
+            <h2 id="regularize-account-label">Carregando conta...</h2>
+            <p id="regularize-account-sub">Aguarde alguns segundos.</p>
+          </div>
+          <span class="regularize-status" id="regularize-status">Verificando</span>
+        </div>
+
+        <div class="regularize-metrics">
+          <div>
+            <span>Faixa atual</span>
+            <strong id="regularize-current-range">--</strong>
+          </div>
+          <div>
+            <span>Faixa recomendada</span>
+            <strong id="regularize-target-range">--</strong>
+          </div>
+          <div>
+            <span>Pedidos no mes fechado</span>
+            <strong id="regularize-orders">--</strong>
+          </div>
+          <div>
+            <span>Prazo de regularizacao</span>
+            <strong id="regularize-grace">--</strong>
+          </div>
+        </div>
+
+        <div class="regularize-actions">
+          <a class="regularize-btn regularize-btn-primary" id="regularize-pay" href="#" aria-disabled="true">
+            Regularizar no Davantti Pay
+          </a>
+          <button class="regularize-btn regularize-btn-ghost" id="regularize-refresh" type="button">
+            Atualizar status
+          </button>
+        </div>
+      </article>
+
+      <aside class="regularize-card">
+        <span class="regularize-kicker">Como funciona</span>
+        <h2>O bloqueio e por conta vinculada.</h2>
+        <p>
+          Se uma conta Mercado Livre venceu, estornou pagamento ou excedeu a faixa contratada,
+          apenas ela entra em revisao. Outras contas ativas continuam operando normalmente.
+        </p>
+        <ol class="regularize-flow">
+          <li>Regularize a conta indicada no Davantti Pay.</li>
+          <li>O pagamento reativa somente esta conta.</li>
+          <li>Contas legado, cortesia e internas seguem ilimitadas durante a migracao.</li>
+        </ol>
+      </aside>
+    </section>
+
+    <section class="regularize-card">
+      <div class="regularize-section-head">
+        <div>
+          <span class="regularize-kicker">Outras contas</span>
+          <h2>Entrar em uma conta ativa</h2>
+          <p>Use uma conta operacional enquanto regulariza a selecionada.</p>
+        </div>
+      </div>
+      <div class="regularize-account-list" id="regularize-account-list">
+        <div class="regularize-empty">Carregando contas...</div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

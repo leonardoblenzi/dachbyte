@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none" role="img" aria-label="DACHBYTE">
+  <defs>
+    <linearGradient id="dachbyte-business-gradient" x1="10" y1="12" x2="86" y2="84" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#147CFF"/><stop offset=".5" stop-color="#08D5ED"/><stop offset="1" stop-color="#33F06B"/>
+    </linearGradient>
+    <filter id="dachbyte-business-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </defs>
+  <g stroke="url(#dachbyte-business-gradient)" stroke-linecap="round" stroke-linejoin="round" filter="url(#dachbyte-business-glow)">
+    <path d="M18 24h51l14 24-14 24H18" stroke-width="8"/>
+    <path d="M12 38h42l9 10-9 10H12" stroke-width="7"/>
+    <path d="M12 58h39" stroke-width="7"/>
+  </g>
+  <g fill="#06101C" stroke="url(#dachbyte-business-gradient)" stroke-width="5"><circle cx="12" cy="38" r="5"/><circle cx="12" cy="58" r="5"/></g>
+</svg>

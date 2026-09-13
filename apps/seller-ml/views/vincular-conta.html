@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DACHBYTE Seller | Vincular conta Mercado Livre</title>
+  <meta name="theme-color" content="#090b10" />
+  <link rel="icon" type="image/svg+xml" href="/ml/img/dachbyte-seller-mark.svg?v=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/login.css" />
+  <link rel="stylesheet" href="./css/select-conta.css?v=9" />
+  <script>
+    (function initBasePath() {
+      if (typeof window === "undefined") return;
+      window.__ML_DISABLE_SHELL__ = true;
+      if (window.__ML_BASE_PATH != null) return;
+      const p = window.location && window.location.pathname ? window.location.pathname : "/";
+      const m = String(p).match(
+        /^\/([^/]+)\/(?:login|cadastro|ativar|esqueci-senha|redefinir-senha|selecao-plataforma|select-conta|vincular-conta|api|painel|admin)(?:\/|$)/i,
+      );
+      window.__ML_BASE_PATH = m && m[1] ? `/${m[1]}` : "";
+    })();
+    function withBase(path) {
+      const base = window.__ML_BASE_PATH || "";
+      if (!path || typeof path !== "string") return path;
+      if (!base) return path;
+      if (path === base || path.startsWith(base + "/")) return path;
+      if (path.startsWith("/")) return base + path;
+      return path;
+    }
+  </script>
+  <script src="./js/ml-base.js?v=7"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+
+<body class="auth-page theme-ml ml-oauth-page ml-oauth-link-page" data-ml-shell="off">
+  <main class="oauth-page">
+    <section class="oauth-shell">
+      <header class="oauth-topbar">
+        <a class="oauth-brand" href="select-conta" aria-label="Voltar para contas conectadas">
+          <span class="oauth-brand__word">DACHBYTE<span>Seller</span></span>
+          <small>Mercado Livre OAuth</small>
+        </a>
+        <a class="oauth-link" href="select-conta">&larr; Voltar para contas</a>
+      </header>
+
+      <section class="oauth-connect-layout">
+        <article class="oauth-connect-card">
+          <span class="oauth-kicker"><i></i> Vinculo seguro</span>
+          <h1>Conecte uma conta Mercado Livre.</h1>
+          <p>
+            A autorizacao acontece na tela oficial do Mercado Livre. Quando o retorno for concluido,
+            a conta entra no DACHBYTE Seller pronta para selecao, cobranca por recurso e uso operacional.
+          </p>
+
+          <div id="msg" class="login-msg oauth-message"></div>
+
+          <div class="oauth-connect-actions">
+            <button class="oauth-btn oauth-btn--primary oauth-btn--large" id="btn-vincular" type="button">
+              Autorizar no Mercado Livre
+            </button>
+            <button class="oauth-btn oauth-btn--ghost oauth-btn--large" id="btn-ir-app" type="button">
+              Ver contas conectadas
+            </button>
+          </div>
+        </article>
+
+        <aside class="oauth-flow-card" aria-label="Como a vinculacao funciona">
+          <span class="oauth-flow-card__badge">OAuth oficial</span>
+          <h2>Autorizacao oficial, sem compartilhar credenciais.</h2>
+          <div class="oauth-flow-list">
+            <div class="oauth-flow-step">
+              <strong>01</strong>
+              <span>Voce autoriza a loja no Mercado Livre usando a conta principal.</span>
+            </div>
+            <div class="oauth-flow-step">
+              <strong>02</strong>
+              <span>O Davantti salva tokens, identifica a conta e recomenda a faixa de uso.</span>
+            </div>
+            <div class="oauth-flow-step">
+              <strong>03</strong>
+              <span>Depois voce escolhe a conta ativa e entra no painel com o contexto correto.</span>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </section>
+  </main>
+<script>
+    (function cleanupLegacyShellArtifacts() {
+      document.addEventListener("DOMContentLoaded", () => {
+        window.setTimeout(() => {
+          document.querySelector(".ml-shell")?.remove();
+          document.querySelector(".account-bar")?.remove();
+          document.querySelector(".main-nav")?.remove();
+          document.getElementById("modal-status")?.remove();
+          document.body?.classList?.remove(
+            "ml-shell-ready",
+            "ml-shell-collapsed",
+            "ml-shell-mobile-open",
+          );
+        }, 0);
+      }, { once: true });
+    })();
+
+    (function () {
+      const btn = document.getElementById("btn-vincular");
+      const btnIr = document.getElementById("btn-ir-app");
+      const msg = document.getElementById("msg");
+
+      function showMsg(text, type) {
+        msg.textContent = text;
+        msg.className = "login-msg";
+        if (type === "ok") msg.classList.add("is-success");
+        else if (type === "info") msg.classList.add("is-info");
+        else msg.classList.add("is-error");
+      }
+
+      function setLoading(on) {
+        btn.disabled = on;
+        btn.textContent = on ? "Redirecionando..." : "Vincular conta Mercado Livre";
+      }
+
+      btnIr.addEventListener("click", () => {
+        window.location.href = withBase("/select-conta");
+      });
+
+      btn.addEventListener("click", async () => {
+        msg.className = "login-msg";
+        msg.textContent = "";
+        setLoading(true);
+
+        try {
+          const resp = await fetch(withBase("/api/meli/oauth/start"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ return_to: "/painel?linked=1" })
+          });
+
+          let data = null;
+          try { data = await resp.json(); } catch (_) {}
+
+          if (!resp.ok || !data || data.ok !== true || !data.url) {
+            const m =
+              data && (data.error || data.message)
+                ? data.error || data.message
+                : "Falha ao iniciar vinculacao.";
+            showMsg(m, "err");
+            console.error("[ML][OAuth] start failed:", data);
+            return;
+          }
+
+          window.location.href = data.url;
+        } catch (e) {
+          showMsg("Erro de rede ao iniciar vinculacao. Tente novamente.", "err");
+        } finally {
+          setLoading(false);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Acesso nao autorizado</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <style>
+    .forbidden-page{
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      padding:32px 20px;
+    }
+
+    .forbidden-card{
+      width:min(100%, 760px);
+      padding:32px;
+      display:grid;
+      gap:20px;
+    }
+
+    .forbidden-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      width:max-content;
+      padding:10px 14px;
+      border-radius:999px;
+      background:#eaf2ff;
+      border:1px solid #c8dafc;
+      color:#1f5fd6;
+      font-size:.82rem;
+      font-weight:800;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+    }
+
+    .forbidden-kicker__dot{
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      background:linear-gradient(135deg, #f59e0b, #facc15);
+      box-shadow:0 0 0 4px rgba(245, 158, 11, .14);
+    }
+
+    .forbidden-actions{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .forbidden-list{
+      margin:0;
+      padding-left:18px;
+      color:var(--ml-text);
+      line-height:1.7;
+    }
+  </style>
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body data-ml-shell="off">
+  <main class="forbidden-page">
+    <section class="container forbidden-card">
+      <span class="forbidden-kicker">
+        <span class="forbidden-kicker__dot"></span>
+        Acesso restrito
+      </span>
+
+      <div>
+        <h1>Acesso nao autorizado</h1>
+        <p class="subtitle">Voce nao tem permissao para acessar esta area no contexto atual.</p>
+      </div>
+
+      <div class="panel">
+        <h3>O que voce pode fazer agora</h3>
+        <ul class="forbidden-list">
+          <li>Voltar para o <strong>Painel</strong>.</li>
+          <li>Trocar de conta, se houver outra conta com acesso.</li>
+          <li>Solicitar liberacao a um administrador.</li>
+        </ul>
+      </div>
+
+      <div class="forbidden-actions">
+        <a class="btn-primary" href="/ml/painel">Ir para o Painel</a>
+        <button class="btn-secondary" id="btn-logout" type="button">Sair</button>
+      </div>
+
+      <p class="text-muted">Codigo: <code>403</code></p>
+    </section>
+  </main>
+<script>
+    document.getElementById("btn-logout").addEventListener("click", async () => {
+      try {
+        await fetch("/ml/api/auth/logout", { method: "POST" });
+      } catch (_) {}
+      window.location.href = "/selecao-plataforma";
+    });
+  </script>
+</body>
+</html>

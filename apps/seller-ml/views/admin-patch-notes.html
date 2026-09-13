@@ -1,0 +1,212 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="stylesheet" href="/ml/css/ml-app.css?v=7" />
+<title>Admin - Patch Notes</title>
+
+  <link rel="stylesheet" href="/ml/css/admin-usuarios.css?v=5">
+  <link rel="stylesheet" href="/ml/css/admin-patch-notes.css?v=1">
+    <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/ml/css/ml-master-theme.css?v=2026081301" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+<main class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar__brand">
+        <div class="admin-sidebar__logo">DACHBYTE</div>
+        <div class="admin-sidebar__sub">Administracao</div>
+      </div>
+
+      <nav class="admin-menu" aria-label="Menu Administracao">
+        <a class="admin-menu__item" href="/ml/admin/usuarios"><span class="ico">U</span><span>Usuarios</span></a>
+        <a class="admin-menu__item" href="/ml/admin/empresas"><span class="ico">E</span><span>Empresas</span></a>
+        <a class="admin-menu__item" href="/ml/admin/vinculos"><span class="ico">V</span><span>Vinculos</span></a>
+        <a class="admin-menu__item" href="/ml/admin/contas-ml"><span class="ico">M</span><span>Contas ML</span></a>
+        <a class="admin-menu__item" href="/ml/admin/relatorios-ml"><span class="ico">R</span><span>Relatorios ML</span></a>
+        <a class="admin-menu__item" href="/ml/admin/tokens-ml"><span class="ico">T</span><span>Tokens ML</span></a>
+        <a class="admin-menu__item" href="/ml/admin/oauth-states"><span class="ico">O</span><span>OAuth States</span></a>
+        <a class="admin-menu__item" href="/ml/admin/migracoes"><span class="ico">G</span><span>Migracoes</span></a>
+        <a class="admin-menu__item" href="/ml/admin/auditoria"><span class="ico">A</span><span>Auditoria</span></a>
+        <a class="admin-menu__item active" href="/ml/admin/patch-notes"><span class="ico">P</span><span>Patch Notes</span></a>
+        <a class="admin-menu__item" href="/ml/admin/jobs"><span class="ico">J</span><span>Automacoes</span></a>
+        <a class="admin-menu__item" href="/ml/admin/backup"><span class="ico">B</span><span>Backup</span></a>
+      </nav>
+
+      <div class="admin-sidebar__footer">
+        <small>Area restrita</small>
+      </div>
+    </aside>
+
+    <section class="admin-content">
+      <div class="admin-content__header">
+        <div>
+          <h1 class="admin-title">Patch Notes</h1>
+          <p class="admin-subtitle">Escreva manualmente a comunicacao da release, visualize o email e envie para os destinatarios escolhidos.</p>
+        </div>
+
+        <div class="admin-actions">
+          <button id="btn-new" class="btn-lite" type="button">Novo rascunho</button>
+          <button id="btn-preview" class="btn-lite" type="button">Visualizar</button>
+          <button id="btn-save" class="btn-primary" type="button">Salvar</button>
+          <button id="btn-send" class="btn-primary" type="button">Enviar email</button>
+        </div>
+      </div>
+
+      <div class="patch-layout">
+        <section class="patch-main">
+          <div class="card patch-card">
+            <div class="patch-card__head">
+              <div>
+                <h2>Conteudo da release</h2>
+                <p>Use a versao no formato <strong>x.y.z</strong>. Exemplo: <strong>1.8.0</strong>.</p>
+              </div>
+              <span class="pill" id="draft-status-pill">Rascunho local</span>
+            </div>
+
+            <div class="patch-grid">
+              <label class="field">
+                <span>Versao *</span>
+                <div class="field-inline">
+                  <input id="f-version" type="text" placeholder="Ex: 1.8.0" />
+                  <button id="btn-suggest-version" class="btn-lite" type="button">Sugerir proxima</button>
+                </div>
+                <small id="version-help" class="field-help">Formato padrao: major.minor.patch</small>
+              </label>
+
+              <label class="field">
+                <span>Titulo *</span>
+                <input id="f-title" type="text" placeholder="Ex: Novidades da release Seller e Jobs" />
+              </label>
+
+              <label class="field field--full">
+                <span>Resumo curto</span>
+                <textarea id="f-summary" rows="3" placeholder="Uma frase curta explicando o foco desta atualizacao."></textarea>
+              </label>
+
+              <label class="field field--full">
+                <span>Novidades</span>
+                <textarea id="f-novidades" rows="6" placeholder="Uma linha por item. Ex:&#10;Nova experiencia para seller campaign&#10;Preview do template do ML"></textarea>
+              </label>
+
+              <label class="field field--full">
+                <span>Melhorias</span>
+                <textarea id="f-melhorias" rows="6" placeholder="Uma linha por item."></textarea>
+              </label>
+
+              <label class="field field--full">
+                <span>Correcoes</span>
+                <textarea id="f-correcoes" rows="6" placeholder="Uma linha por item."></textarea>
+              </label>
+
+              <label class="field">
+                <span>Texto do botao</span>
+                <input id="f-cta-label" type="text" placeholder="Ex: Abrir plataforma" />
+              </label>
+
+              <label class="field">
+                <span>Link do botao</span>
+                <input id="f-cta-url" type="url" placeholder="https://..." />
+              </label>
+            </div>
+          </div>
+
+          <div class="card patch-card">
+            <div class="patch-card__head">
+              <div>
+                <h2>Destinatarios</h2>
+                <p>Selecione quem vai receber antes de disparar o email.</p>
+              </div>
+              <span class="pill" id="recipient-count-pill">0 selecionados</span>
+            </div>
+
+            <div class="recipient-mode">
+              <label><input type="radio" name="audience" value="manual" checked /> Selecao manual</label>
+              <label><input type="radio" name="audience" value="all_active" /> Todos os ativos</label>
+              <label><input type="radio" name="audience" value="admins" /> Apenas admins</label>
+            </div>
+
+            <div id="manual-recipient-block">
+              <div class="search-box patch-search">
+                <input id="recipient-search" type="text" placeholder="Buscar por nome ou email..." />
+                <button id="btn-recipient-clear" type="button" class="search-clear" title="Limpar">Fechar</button>
+              </div>
+
+              <div class="recipient-toolbar">
+                <button id="btn-select-all-recipients" class="btn-lite" type="button">Selecionar todos os visiveis</button>
+                <button id="btn-clear-recipients" class="btn-lite" type="button">Limpar selecao</button>
+              </div>
+
+              <div class="recipient-list" id="recipient-list">
+                <div class="table-empty">Carregando destinatarios...</div>
+              </div>
+
+              <label class="field field--full">
+                <span>Emails extras (opcional)</span>
+                <textarea id="f-manual-emails" rows="3" placeholder="Um email por linha para incluir destinatarios fora da lista ativa."></textarea>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <aside class="patch-side">
+          <div class="card patch-card">
+            <div class="patch-card__head">
+              <div>
+                <h2>Preview</h2>
+                <p>Use o botao <strong>Visualizar</strong> para gerar o HTML final antes do envio.</p>
+              </div>
+            </div>
+
+            <div class="preview-meta">
+              <div><strong>Assunto:</strong> <span id="preview-subject"></span></div>
+              <div><strong>Status:</strong> <span id="preview-status">Ainda nao gerado</span></div>
+            </div>
+
+            <iframe id="preview-frame" class="preview-frame" title="Preview do patch notes"></iframe>
+          </div>
+
+          <div class="card patch-card">
+            <div class="patch-card__head">
+              <div>
+                <h2>Historico recente</h2>
+                <p>Selecione, abra, visualize ou exclua patch notes salvos.</p>
+              </div>
+              <div class="history-actions">
+                <button id="btn-delete-selected" class="btn-lite" type="button">Excluir selecionados</button>
+              </div>
+            </div>
+
+            <div class="history-table-wrap">
+              <table class="table history-table">
+                <thead>
+                  <tr>
+                    <th style="width:44px; text-align:center;">
+                      <input id="history-check-all" type="checkbox" aria-label="Selecionar todos os patch notes" />
+                    </th>
+                    <th>Versao</th>
+                    <th>Titulo</th>
+                    <th>Status</th>
+                    <th>Atualizado</th>
+                    <th style="width:170px;">Acoes</th>
+                  </tr>
+                </thead>
+                <tbody id="history-list">
+                  <tr>
+                    <td colspan="6" class="table-empty">Carregando historico...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="toast" id="toast" style="display:none;"></div>
+    </section>
+  </main>
+<script src="/ml/js/admin-patch-notes.js?v=1"></script>
+</body>
+</html>

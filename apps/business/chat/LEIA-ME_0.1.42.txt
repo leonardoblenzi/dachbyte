@@ -1,0 +1,29 @@
+VoltChat 0.1.42
+
+Correcoes principais:
+1. Corrige "Manifesto do atualizador Cloudflare nao configurado".
+   - electron/main.js passa a aceitar updater-config.json com BOM.
+   - build-desktop.ps1 grava updater-config.json em UTF-8 sem BOM.
+2. Ponte temporaria de recuperacao para clientes 0.1.39-0.1.41:
+   - se o Electron antigo nao conseguir ler o manifesto, o frontend consulta o endpoint de compatibilidade.
+   - esse endpoint le latest.json no R2 e devolve URL pre-assinada do R2.
+   - nenhum release e consultado ou gravado no Neon; o EXE continua R2 -> PC.
+3. Verificacao forcada para todos os usuarios online:
+   - novo POST /admin/desktop-updates/force-check (somente admin).
+   - novo evento WebSocket force_update_check.
+   - script backend/scripts/force_desktop_update_check.ps1.
+4. Estabilidade WebSocket:
+   - reconecta inclusive quando servidor/proxy fecha com codigo 1000, salvo desconexao manual.
+   - heartbeat a cada 25s e recuperacao de conexao sem pong por 90s.
+   - jitter na reconexao para evitar todos os clientes reconectarem no mesmo milissegundo.
+   - logs de codigo/reason das quedas no frontend e codigo no backend.
+5. Clientes antigos <=0.1.41 ignoram o bloqueio de 24h durante a recuperacao para chegar na 0.1.42.
+
+Sem migration de banco.
+
+Disparo forçado após deploy:
+PowerShell:
+cd C:\Users\USER\PycharmProjects\davanttiSuite\business\volt_chat\backend\scripts
+.\force_desktop_update_check.ps1
+
+O script solicita usuario/e-mail e senha de administrador e informa quantos usuarios/conexoes online receberam o disparo.

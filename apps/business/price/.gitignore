@@ -1,0 +1,27 @@
+# VoltPrice secrets/local state
+.env
+.env.*
+!.env.example
+
+node_modules/
+coverage/
+dist/
+build/
+.next/
+.cache/
+.npm-cache/
+.pytest_cache/
+__pycache__/
+*.pyc
+
+*.db
+*.sqlite
+*.sqlite3
+*.log
+*.tmp
+tmp_*
+
+*.pem
+*.key
+*.p12
+*.pfx

@@ -1,0 +1,273 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/ml/css/ml-app.css?v=7" />
+<title>Admin - Auditoria</title>
+
+  <link rel="stylesheet" href="/ml/css/admin-usuarios.css?v=5" />
+  <link rel="stylesheet" href="/ml/css/admin-auditoria.css?v=2" />
+    <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/ml/css/ml-master-theme.css?v=2026081301" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+<main class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar__brand">
+        <div class="admin-sidebar__logo">DACHBYTE</div>
+        <div class="admin-sidebar__sub">Administracao</div>
+      </div>
+
+      <nav class="admin-menu" aria-label="Menu Administracao">
+        <a class="admin-menu__item" href="/ml/admin/usuarios">
+          <span class="ico">U</span>
+          <span>Usuarios</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/empresas">
+          <span class="ico">E</span>
+          <span>Empresas</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/vinculos">
+          <span class="ico">V</span>
+          <span>Vinculos</span>
+        </a>
+
+        <a class="admin-menu__item active" href="/ml/admin/auditoria">
+          <span class="ico">A</span>
+          <span>Auditoria</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/contas-ml">
+          <span class="ico">M</span>
+          <span>Contas ML</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/relatorios-ml"><span class="ico">R</span><span>Relatorios ML</span></a>
+
+        <a class="admin-menu__item" href="/ml/admin/tokens-ml">
+          <span class="ico">T</span>
+          <span>Tokens ML</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/oauth-states">
+          <span class="ico">O</span>
+          <span>OAuth States</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/migracoes">
+          <span class="ico">G</span>
+          <span>Migracoes</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/patch-notes">
+          <span class="ico">P</span>
+          <span>Patch Notes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/jobs">
+          <span class="ico">J</span>
+          <span>Automacoes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/backup">
+          <span class="ico">B</span>
+          <span>Backup</span>
+        </a>
+      </nav>
+
+      <div class="admin-sidebar__footer">
+        <small>Area restrita</small>
+      </div>
+    </aside>
+
+    <section class="admin-content">
+      <div class="admin-content__header">
+        <div>
+          <h1 class="admin-title">Auditoria</h1>
+          <p class="admin-subtitle">
+            Consulte eventos de autenticacao, ajuste a retencao e rode a limpeza manual quando precisar.
+          </p>
+        </div>
+
+        <div class="admin-actions">
+          <button id="btn-refresh-events" class="btn-lite" type="button">Atualizar eventos</button>
+          <button id="btn-run-cleanup" class="btn-primary" type="button">Rodar limpeza agora</button>
+        </div>
+      </div>
+
+      <div class="tab-strip" role="tablist" aria-label="Abas de Auditoria">
+        <button id="tab-eventos" class="tab-btn active" type="button" role="tab" aria-selected="true">Auditoria</button>
+        <button id="tab-retencao" class="tab-btn" type="button" role="tab" aria-selected="false">Retencao</button>
+      </div>
+
+      <section id="panel-eventos" class="tab-panel">
+        <div class="card filters-card">
+          <div class="filters-grid">
+            <div class="form-group">
+              <label for="f-search">Busca</label>
+              <input id="f-search" type="text" placeholder="Email, nome, IP, evento ou detalhe" />
+            </div>
+
+            <div class="form-group form-group--identifier">
+              <label for="f-mlb">MLB</label>
+              <input id="f-mlb" type="text" placeholder="MLB4575877101 ou uma lista" autocomplete="off" />
+              <span class="field-hint">Separe varios codigos por virgula ou espaco.</span>
+            </div>
+
+            <div class="form-group form-group--identifier">
+              <label for="f-promotion-id">ID da promocao</label>
+              <input id="f-promotion-id" type="text" placeholder="P-MLB17679134, C-MLB4587012 ou LGH-MLB1000" autocomplete="off" />
+            </div>
+
+            <div class="form-group">
+              <label for="f-evento">Evento</label>
+              <select id="f-evento">
+                <option value="">Todos</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="f-status">Status</label>
+              <select id="f-status">
+                <option value="">Todos</option>
+                <option value="success">Success</option>
+                <option value="info">Info</option>
+                <option value="warn">Warn</option>
+                <option value="error">Error</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="f-date-from">De</label>
+              <input id="f-date-from" type="date" />
+            </div>
+
+            <div class="form-group">
+              <label for="f-time-from">Hora inicial</label>
+              <input id="f-time-from" type="time" step="60" />
+            </div>
+
+            <div class="form-group">
+              <label for="f-date-to">Ate</label>
+              <input id="f-date-to" type="date" />
+            </div>
+
+            <div class="form-group">
+              <label for="f-time-to">Hora final</label>
+              <input id="f-time-to" type="time" step="60" />
+            </div>
+
+            <div class="filters-actions">
+              <button id="btn-apply-filters" class="btn-primary" type="button">Aplicar filtros</button>
+              <button id="btn-export-audit-xlsx" class="btn-lite" type="button">Exportar Excel</button>
+              <button id="btn-clear-filters" class="btn-lite" type="button">Limpar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-toolbar compact">
+          <div class="toolbar-right">
+            <span class="pill" id="audit-count-pill">0 eventos</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th style="width:180px;">Quando</th>
+                  <th>Email</th>
+                  <th style="width:160px;">Evento</th>
+                  <th style="width:120px;">Status</th>
+                  <th style="width:150px;">IP</th>
+                  <th>Detalhes</th>
+                </tr>
+              </thead>
+              <tbody id="audit-tbody">
+                <tr>
+                  <td colspan="6" class="table-empty">Carregando...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-footer">
+            <div class="table-footer__left" id="audit-range-info">-</div>
+            <div class="table-footer__right">
+              <button class="btn-lite" id="btn-audit-prev" type="button">Anterior</button>
+              <span class="page-info" id="audit-page-info">1 / 1</span>
+              <button class="btn-lite" id="btn-audit-next" type="button">Proxima</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-retencao" class="tab-panel" hidden>
+        <div class="card retention-card">
+          <div class="retention-header">
+            <div>
+              <h2>Retencao</h2>
+              <p>Edite o prazo de permanencia por evento. A regra <strong>*</strong> vale como padrao.</p>
+            </div>
+
+            <div class="admin-actions">
+              <button id="btn-reload-rules" class="btn-lite" type="button">Recarregar regras</button>
+              <button id="btn-save-rules" class="btn-primary" type="button">Salvar prazos</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th style="width:180px;">Evento</th>
+                  <th>Descricao</th>
+                  <th style="width:180px;">Permanencia (dias)</th>
+                </tr>
+              </thead>
+              <tbody id="retention-tbody">
+                <tr>
+                  <td colspan="3" class="table-empty">Carregando regras...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="hint">
+            A limpeza manual respeita estes prazos. Somente <code>admin_master</code> pode alterar as regras ou executar a limpeza.
+          </div>
+        </div>
+
+        <div class="card cleanup-result-card">
+          <div class="cleanup-result__header">
+            <h2>Ultima limpeza manual</h2>
+            <p id="cleanup-summary">Nenhuma limpeza executada nesta sessao.</p>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Evento</th>
+                  <th style="width:180px;">Retencao (dias)</th>
+                  <th style="width:180px;">Registros removidos</th>
+                </tr>
+              </thead>
+              <tbody id="cleanup-tbody">
+                <tr>
+                  <td colspan="3" class="table-empty">Execute a limpeza para ver o detalhamento.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" style="display:none;"></div>
+<script src="/ml/js/admin-auditoria.js?v=11"></script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "OrderGeoAddress" ALTER COLUMN "city" DROP NOT NULL,
+ALTER COLUMN "cityNorm" DROP NOT NULL;

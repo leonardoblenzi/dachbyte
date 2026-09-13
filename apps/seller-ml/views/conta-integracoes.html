@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Integrações da empresa | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/conta-usuarios.css?v=5" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <script src="/ml/js/conta-integracoes.js?v=2" defer></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="account-app account-integrations-app">
+  <main class="page-wrap account-users-page">
+    <section class="account-users-hero">
+      <div>
+        <span class="account-users-kicker">Conta / Integracoes</span>
+        <h1>Integracoes da empresa</h1>
+        <p>
+          Configure conectores externos por empresa. As contas Mercado Livre da
+          mesma empresa usam a mesma integracao e enviam o nome da conta junto
+          com os MLBs quando algum fluxo externo for acionado.
+        </p>
+      </div>
+      <button class="au-btn au-btn-primary" id="btn-refresh-integrations" type="button">
+        Atualizar
+      </button>
+    </section>
+
+    <section class="au-summary" aria-label="Resumo de integracoes">
+      <article class="au-stat">
+        <span>Conectores</span>
+        <strong id="stat-total">0</strong>
+      </article>
+      <article class="au-stat">
+        <span>Conectados</span>
+        <strong id="stat-active">0</strong>
+      </article>
+      <article class="au-stat">
+        <span>Com erro</span>
+        <strong id="stat-error">0</strong>
+      </article>
+      <article class="au-stat">
+        <span>Planejados</span>
+        <strong id="stat-planned">0</strong>
+      </article>
+    </section>
+
+    <section class="au-toolbar">
+      <label class="au-search">
+        <span>Buscar integracao</span>
+        <input id="integration-search" type="search" placeholder="MarkFlow, Trello, webhook..." />
+      </label>
+      <p class="au-note">
+        A configuracao abaixo e da empresa inteira. O envio futuro de tarefas
+        inclui a conta ML de origem, o lote e os MLBs correspondentes.
+      </p>
+    </section>
+
+    <section class="au-list-shell">
+      <div class="au-list-head">
+        <div>
+          <h2>Conectores disponiveis</h2>
+          <p id="integrations-counter">Carregando integracoes...</p>
+        </div>
+      </div>
+      <div id="integrations-grid" class="au-integrations-grid"></div>
+    </section>
+
+    <dialog class="au-dialog" id="integration-dialog">
+      <form method="dialog" class="au-dialog-card">
+        <header class="au-dialog-head">
+          <div>
+            <span class="account-users-kicker">Conector externo</span>
+            <h2 id="dialog-title">Configurar integracao</h2>
+            <p id="dialog-subtitle"></p>
+          </div>
+          <button class="au-icon-btn" value="cancel" aria-label="Fechar" type="submit">x</button>
+        </header>
+
+        <div class="au-dialog-body">
+          <section class="au-edit-block au-edit-block--wide">
+            <div>
+              <h3>Status</h3>
+              <p>Ative somente depois de validar a URL e o token no sistema externo.</p>
+            </div>
+            <select id="integration-status" class="au-input">
+              <option value="disabled">Desativada</option>
+              <option value="active">Ativa</option>
+            </select>
+          </section>
+
+          <section class="au-edit-block au-edit-block--wide" id="section-api-url">
+            <div>
+              <h3 id="integration-url-title">API externa</h3>
+              <p id="integration-url-help">Use a URL base do sistema externo. Ex.: https://markflow.vercel.app</p>
+            </div>
+            <input id="integration-url" class="au-input" type="url" placeholder="https://..." />
+          </section>
+
+          <section class="au-edit-block au-edit-block--wide" id="section-api-key" hidden>
+            <div>
+              <h3>Chave da API</h3>
+              <p id="api-key-help">Cole a API Key da sua conta Trello.</p>
+            </div>
+            <input id="integration-api-key" class="au-input" type="password" placeholder="API key do Trello" autocomplete="off" />
+          </section>
+
+          <section class="au-edit-block au-edit-block--wide" id="section-token">
+            <div>
+              <h3 id="token-title">Token de integracao</h3>
+              <p id="token-help">Cole um novo token somente quando quiser substituir o atual.</p>
+            </div>
+            <input id="integration-token" class="au-input" type="password" placeholder="Token da API externa" autocomplete="off" />
+          </section>
+
+          <section class="au-edit-block au-edit-block--wide" id="section-automation">
+            <div>
+              <h3>Automacao</h3>
+              <p>Controla quais setores enviam tarefas automaticamente para esta integracao.</p>
+            </div>
+            <div class="au-check-grid au-check-grid--stacked">
+              <label class="au-check"><input id="auto-send" type="checkbox" /><span>Enviar tarefas automaticamente</span></label>
+              <div class="au-sector-trigger-box">
+                <strong>Setores que disparam envio</strong>
+                <p>Ao criar um lote com qualquer setor marcado abaixo, o Davantti envia os MLBs para o sistema externo.</p>
+                <div id="auto-send-sector-list" class="au-sector-trigger-list"></div>
+              </div>
+              <label class="au-check"><input id="manual-sync" type="checkbox" /><span>Permitir sincronizacao manual</span></label>
+            </div>
+          </section>
+
+          <section class="au-edit-block au-edit-block--wide" id="section-webhook">
+            <div>
+              <h3>Webhook Davantti</h3>
+              <p>Configure este endpoint no sistema externo para devolver status, responsavel e links de fotos/clips.</p>
+            </div>
+            <div class="au-webhook-box">
+              <code id="webhook-url">-</code>
+              <button class="au-btn au-btn-secondary" id="btn-rotate-secret" type="button">Gerar novo secret</button>
+            </div>
+            <p class="au-note" id="webhook-secret-help"></p>
+          </section>
+
+          <section class="au-edit-block au-edit-block--wide" id="guide-markflow">
+            <div>
+              <h3>Como configurar no MarkFlow</h3>
+              <p>Envie estas instrucoes ao dev do MarkFlow para criar a fila Davantti e devolver as entregas de marketing.</p>
+            </div>
+            <div class="au-integration-guide">
+              <article>
+                <strong>1. Healthcheck para teste de conexao</strong>
+                <p>O MarkFlow deve expor um endpoint autenticado para o Davantti validar URL e token.</p>
+                <code>GET /api/integrations/davantti/health</code>
+                <small>Header esperado: Authorization: Bearer &lt;token cadastrado no Davantti&gt;</small>
+              </article>
+
+              <article>
+                <strong>2. Receber tarefas do Davantti</strong>
+                <p>Quando o lote exigir Marketing, o Davantti enviara a conta ML de origem, o lote e os MLBs.</p>
+                <code>POST /api/integrations/davantti/tasks</code>
+                <pre>{
+  "company_id": 13,
+  "account_id": 5,
+  "account_label": "DROSSI INTERIORES",
+  "batch_id": "lote-123",
+  "batch_name": "Visitas sem vendas",
+  "priority": "high",
+  "due_date": "2026-05-18",
+  "items": [
+    {
+      "davantti_task_id": 123,
+      "mlb": "MLB421719149",
+      "sku": "SV5654011",
+      "title": "Produto X",
+      "thumbnail": "https://...",
+      "materials_required": {
+        "photos": true,
+        "clips_video": true
+      },
+      "notes": "Criar fotos e clips para o anuncio"
+    }
+  ]
+}</pre>
+              </article>
+
+              <article>
+                <strong>3. Responder criacao da tarefa</strong>
+                <p>O MarkFlow deve retornar o ID/link externo para o Davantti manter o vinculo.</p>
+                <pre>{
+  "success": true,
+  "tasks": [
+    {
+      "davantti_task_id": 123,
+      "external_task_id": "MF-152973",
+      "external_url": "https://markflow.app/tasks/MF-152973",
+      "status": "todo"
+    }
+  ]
+}</pre>
+              </article>
+
+              <article>
+                <strong>4. Devolver status e materiais ao Davantti</strong>
+                <p>Ao concluir ou atualizar uma tarefa, o MarkFlow chama o webhook abaixo com assinatura HMAC-SHA256.</p>
+                <code id="guide-webhook-url">-</code>
+                <small>Header: X-Davantti-Signature: &lt;hmac_sha256_do_json_com_webhook_secret&gt;</small>
+                <pre>{
+  "event_id": "evt_MF_152973_done",
+  "event": "task.completed",
+  "external_task_id": "MF-152973",
+  "davantti_task_id": 123,
+  "mlb": "MLB421719149",
+  "account_label": "DROSSI INTERIORES",
+  "status": "completed",
+  "responsible": {
+    "name": "Joana",
+    "email": "joana@empresa.com"
+  },
+  "materials": {
+    "photos": true,
+    "photos_url": "https://drive.google.com/...",
+    "clips_video": true,
+    "clips_url": "https://drive.google.com/..."
+  },
+  "notes": "Fotos e clips entregues.",
+  "completed_at": "2026-05-18T15:30:00-03:00"
+}</pre>
+              </article>
+            </div>
+          </section>
+
+          <section class="au-edit-block au-edit-block--wide" id="guide-trello" hidden>
+            <div>
+              <h3>Como configurar no Trello</h3>
+              <p>Conecte via API key + token para habilitar importacao de cards/listas no modulo Estrategicos.</p>
+            </div>
+            <div class="au-integration-guide">
+              <article>
+                <strong>1. Gere credenciais no Trello</strong>
+                <p>Crie a chave e o token da conta que possui acesso aos boards que serao importados.</p>
+                <small>Use a mesma conta/usuario que sua equipe usa no dia a dia para evitar bloqueio de permissao.</small>
+              </article>
+              <article>
+                <strong>2. Salve e teste a conexao</strong>
+                <p>Com status ativo, chave e token preenchidos, use "Testar conexao". O Davantti valida a conta em <code>/members/me</code>.</p>
+              </article>
+              <article>
+                <strong>3. Importacao na tela Estrategicos</strong>
+                <p>Depois da conexao ativa, o admin podera importar boards/listas para criar lotes e distribuir por setor.</p>
+                <small>A configuracao do Trello vale para toda a empresa (todas as contas ML vinculadas).</small>
+              </article>
+            </div>
+          </section>
+        </div>
+
+        <footer class="au-dialog-actions">
+          <button class="au-btn au-btn-secondary" id="btn-test-integration" type="button">Testar conexao</button>
+          <button class="au-btn au-btn-secondary" value="cancel" type="submit">Cancelar</button>
+          <button class="au-btn au-btn-primary" id="btn-save-integration" type="button">Salvar integracao</button>
+        </footer>
+      </form>
+    </dialog>
+  </main>
+</body>
+</html>

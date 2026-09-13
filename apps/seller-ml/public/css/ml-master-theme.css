@@ -1,0 +1,1089 @@
+/*
+ * Painel Master — camada única de tema
+ * -----------------------------------
+ * Carregada por último somente nas rotas administrativas e na Seleção global.
+ * O objetivo é centralizar White/Dark sem reescrever a lógica ou os CSS legados.
+ */
+
+/* =====================================================
+   TOKENS CENTRAIS — WHITE POR PADRÃO
+   ===================================================== */
+body.ml-shell-ready,
+body.ml-oauth-page{
+  --master-bg: #f3f7fc;
+  --master-bg-deep: #eaf1f9;
+  --master-surface: #ffffff;
+  --master-surface-soft: #f8fbff;
+  --master-surface-muted: #eef4fb;
+  --master-surface-raised: #ffffff;
+  --master-border: #d8e2ef;
+  --master-border-strong: #c4d2e4;
+  --master-text: #0f172a;
+  --master-text-soft: #334155;
+  --master-muted: #64748b;
+  --master-muted-strong: #475569;
+  --master-brand: #3483fa;
+  --master-brand-strong: #2563eb;
+  --master-brand-soft: #eaf2ff;
+  --master-orange: #ff7a24;
+  --master-orange-strong: #ea580c;
+  --master-orange-soft: #fff1e8;
+  --master-success: #059669;
+  --master-success-soft: #ecfdf5;
+  --master-warning: #b45309;
+  --master-warning-soft: #fff7ed;
+  --master-danger: #b42318;
+  --master-danger-soft: #fff1f2;
+  --master-info: #1d4ed8;
+  --master-info-soft: #eff6ff;
+  --master-code-bg: #0f172a;
+  --master-code-text: #dbeafe;
+  --master-shadow-sm: 0 10px 24px rgba(15, 23, 42, .05);
+  --master-shadow: 0 18px 40px rgba(15, 23, 42, .08);
+  --master-shadow-lg: 0 28px 64px rgba(15, 23, 42, .14);
+  --master-radius-sm: 12px;
+  --master-radius: 18px;
+  --master-radius-lg: 24px;
+
+  /* Compatibilidade com os componentes legados do Master. */
+  --admin-bg: var(--master-bg);
+  --admin-card: var(--master-surface);
+  --admin-border: var(--master-border);
+  --admin-text: var(--master-text);
+  --admin-muted: var(--master-muted);
+  --accent: var(--master-brand-strong);
+  --accent-soft: var(--master-brand-soft);
+  --master-ink: var(--master-text);
+}
+
+body.theme-dark.ml-shell-ready,
+body.theme-dark.ml-oauth-page{
+  --master-bg: #08111f;
+  --master-bg-deep: #050c17;
+  --master-surface: #101b2d;
+  --master-surface-soft: #14233a;
+  --master-surface-muted: #0d1728;
+  --master-surface-raised: #172840;
+  --master-border: rgba(148, 163, 184, .16);
+  --master-border-strong: rgba(148, 163, 184, .27);
+  --master-text: #eef4fb;
+  --master-text-soft: #cbd7e8;
+  --master-muted: #93a4ba;
+  --master-muted-strong: #afbdd0;
+  --master-brand: #60a5fa;
+  --master-brand-strong: #93c5fd;
+  --master-brand-soft: rgba(59, 130, 246, .16);
+  --master-orange: #ff8a3d;
+  --master-orange-strong: #fb7a2b;
+  --master-orange-soft: rgba(249, 115, 22, .13);
+  --master-success: #5ee0b4;
+  --master-success-soft: rgba(16, 185, 129, .13);
+  --master-warning: #fdba74;
+  --master-warning-soft: rgba(245, 158, 11, .13);
+  --master-danger: #fca5a5;
+  --master-danger-soft: rgba(127, 29, 29, .18);
+  --master-info: #93c5fd;
+  --master-info-soft: rgba(59, 130, 246, .14);
+  --master-code-bg: #070e1b;
+  --master-code-text: #dbeafe;
+  --master-shadow-sm: 0 10px 24px rgba(2, 6, 23, .18);
+  --master-shadow: 0 18px 40px rgba(2, 6, 23, .25);
+  --master-shadow-lg: 0 28px 64px rgba(2, 6, 23, .36);
+}
+
+/* Faz os tokens usados pelo shell e pelos módulos antigos apontarem para a mesma fonte. */
+body.ml-shell-ready{
+  --ml-page-surface: var(--master-surface);
+  --ml-page-surface-soft: var(--master-surface-soft);
+  --ml-page-surface-muted: var(--master-surface-muted);
+  --ml-page-border: var(--master-border);
+  --ml-page-border-strong: var(--master-border-strong);
+  --ml-page-text: var(--master-text);
+  --ml-page-muted: var(--master-muted);
+  --ml-page-brand: var(--master-brand);
+  --ml-page-brand-strong: var(--master-brand-strong);
+  --ml-page-shadow: var(--master-shadow);
+  --ml-page-radius: var(--master-radius);
+}
+
+/* =====================================================
+   SHELL MASTER
+   ===================================================== */
+body.ml-shell-ready .ml-shell__admin-logout{
+  min-height: 42px;
+  border: 1px solid #fecaca !important;
+  background: linear-gradient(180deg, #fff7f7, #fff1f2) !important;
+  color: #b42318 !important;
+  box-shadow: none !important;
+  transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+}
+
+body.ml-shell-ready .ml-shell__admin-logout:hover{
+  border-color: #fca5a5 !important;
+  background: #ffe8eb !important;
+  transform: translateY(-1px);
+}
+
+body.theme-dark.ml-shell-ready .ml-shell__admin-logout{
+  border-color: rgba(248, 113, 113, .24) !important;
+  background: linear-gradient(180deg, rgba(127, 29, 29, .20), rgba(69, 10, 10, .13)) !important;
+  color: #fecaca !important;
+}
+
+body.theme-dark.ml-shell-ready .ml-shell__admin-logout:hover{
+  border-color: rgba(248, 113, 113, .42) !important;
+  background: rgba(127, 29, 29, .30) !important;
+  color: #fee2e2 !important;
+}
+
+body.ml-shell-ready .ml-shell__admin-logout:focus-visible{
+  outline: 3px solid rgba(239, 68, 68, .20);
+  outline-offset: 2px;
+}
+
+/* =====================================================
+   SELEÇÃO GLOBAL / OAUTH — WHITE E DARK REAIS
+   ===================================================== */
+body.ml-oauth-page{
+  --oauth-ink: var(--master-bg);
+  --oauth-card: var(--master-surface);
+  --oauth-card-strong: var(--master-surface-raised);
+  --oauth-line: var(--master-border);
+  --oauth-line-strong: var(--master-border-strong);
+  --oauth-text: var(--master-text);
+  --oauth-muted: var(--master-muted);
+  --oauth-muted-2: var(--master-muted-strong);
+  --oauth-signal: var(--master-orange);
+  --oauth-signal-2: var(--master-orange-strong);
+  --oauth-mint: #0ea87d;
+  --oauth-blue: var(--master-brand);
+  --oauth-rose: #e54861;
+  color: var(--master-text) !important;
+  background:
+    radial-gradient(circle at 13% 9%, rgba(255, 122, 36, .10), transparent 19rem),
+    radial-gradient(circle at 84% 13%, rgba(14, 168, 125, .10), transparent 22rem),
+    linear-gradient(180deg, #f6f9fd 0%, #edf3f9 100%) !important;
+}
+
+body.theme-dark.ml-oauth-page{
+  --oauth-ink: #07101d;
+  --oauth-card: var(--master-surface);
+  --oauth-card-strong: var(--master-surface-raised);
+  --oauth-line: var(--master-border);
+  --oauth-line-strong: var(--master-border-strong);
+  --oauth-text: var(--master-text);
+  --oauth-muted: var(--master-muted);
+  --oauth-muted-2: var(--master-text-soft);
+  --oauth-signal: #ff8a3f;
+  --oauth-signal-2: #ffb37a;
+  --oauth-mint: #2dd9a8;
+  --oauth-blue: #6c93ff;
+  --oauth-rose: #ff7187;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(255, 138, 63, .12), transparent 18rem),
+    radial-gradient(circle at 82% 14%, rgba(45, 217, 168, .09), transparent 22rem),
+    linear-gradient(180deg, #08111f 0%, #0b1627 52%, #08111f 100%) !important;
+}
+
+body.ml-oauth-page::before{
+  opacity: .45 !important;
+  background-image:
+    linear-gradient(rgba(51, 65, 85, .055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(51, 65, 85, .055) 1px, transparent 1px) !important;
+}
+
+body.theme-dark.ml-oauth-page::before{
+  opacity: .34 !important;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, .028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .028) 1px, transparent 1px) !important;
+}
+
+body.ml-oauth-page :is(.oauth-topbar, .oauth-hero, .oauth-accounts-panel, .oauth-connect-card, .oauth-flow-card){
+  border-color: var(--master-border) !important;
+  background:
+    radial-gradient(circle at top right, rgba(52, 131, 250, .055), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, .98), rgba(248, 251, 255, .96)) !important;
+  color: var(--master-text) !important;
+  box-shadow: var(--master-shadow-lg) !important;
+  backdrop-filter: blur(12px);
+}
+
+body.theme-dark.ml-oauth-page :is(.oauth-topbar, .oauth-hero, .oauth-accounts-panel, .oauth-connect-card, .oauth-flow-card){
+  background:
+    radial-gradient(circle at top right, rgba(45, 217, 168, .07), transparent 30%),
+    linear-gradient(180deg, #101b2d, #0d1728) !important;
+}
+
+body.ml-oauth-page :is(.oauth-brand__word, .oauth-hero h1, .oauth-connect-card h1, .master-panel__head h2, .global-account-card__top strong, .global-account-card__meta dd, .oauth-status-card strong, .oauth-flow-card h2){
+  color: var(--master-text) !important;
+}
+
+body.ml-oauth-page :is(.oauth-brand small, .oauth-hero p, .oauth-connect-card p, .master-panel__meta, .global-account-card__top small, .master-pagination, .oauth-flow-step span){
+  color: var(--master-muted) !important;
+}
+
+body.ml-oauth-page :is(.master-search span, .master-check span){
+  color: var(--master-muted-strong) !important;
+}
+
+body.ml-oauth-page .oauth-status-card{
+  border-color: var(--master-border) !important;
+  background:
+    radial-gradient(circle at top right, rgba(255, 122, 36, .08), transparent 45%),
+    var(--master-surface-soft) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45);
+}
+
+body.ml-oauth-page .oauth-status-card--current{
+  background:
+    radial-gradient(circle at top right, rgba(14, 168, 125, .10), transparent 45%),
+    var(--master-surface-soft) !important;
+}
+
+body.theme-dark.ml-oauth-page .oauth-status-card{
+  background:
+    radial-gradient(circle at top right, rgba(255, 138, 63, .08), transparent 45%),
+    rgba(20, 35, 58, .72) !important;
+  box-shadow: none;
+}
+
+body.theme-dark.ml-oauth-page .oauth-status-card--current{
+  background:
+    radial-gradient(circle at top right, rgba(45, 217, 168, .10), transparent 45%),
+    rgba(20, 35, 58, .72) !important;
+}
+
+body.ml-oauth-page .oauth-status-card span,
+body.ml-oauth-page .global-account-card__meta dt{
+  color: var(--master-muted) !important;
+}
+
+body.ml-oauth-page .oauth-status-card small{
+  color: var(--master-muted) !important;
+}
+
+body.ml-oauth-page .master-toolbar{
+  color: var(--master-text) !important;
+}
+
+body.ml-oauth-page .master-search input{
+  border-color: var(--master-border) !important;
+  background: var(--master-surface) !important;
+  color: var(--master-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .62);
+}
+
+body.theme-dark.ml-oauth-page .master-search input{
+  background: #0b1525 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
+}
+
+body.ml-oauth-page .master-search input::placeholder{
+  color: var(--master-muted) !important;
+  opacity: .82;
+}
+
+body.ml-oauth-page .master-check{
+  border-color: var(--master-border) !important;
+  background: var(--master-surface-soft) !important;
+  color: var(--master-text) !important;
+}
+
+body.ml-oauth-page input[type="checkbox"]{
+  accent-color: var(--master-brand-strong);
+}
+
+body.ml-oauth-page .global-account-card{
+  border-color: var(--master-border) !important;
+  background:
+    radial-gradient(circle at top right, rgba(14, 168, 125, .075), transparent 44%),
+    linear-gradient(180deg, var(--master-surface), var(--master-surface-soft)) !important;
+  color: var(--master-text) !important;
+  box-shadow: var(--master-shadow-sm) !important;
+}
+
+body.theme-dark.ml-oauth-page .global-account-card{
+  background:
+    radial-gradient(circle at top right, rgba(45, 217, 168, .08), transparent 44%),
+    linear-gradient(180deg, #17283f, #101b2d) !important;
+  box-shadow: none !important;
+}
+
+body.ml-oauth-page .global-account-card.is-current{
+  border-color: rgba(5, 150, 105, .34) !important;
+  box-shadow: 0 16px 36px rgba(5, 150, 105, .08) !important;
+}
+
+body.theme-dark.ml-oauth-page .global-account-card.is-current{
+  border-color: rgba(45, 217, 168, .36) !important;
+  box-shadow: 0 16px 36px rgba(45, 217, 168, .06) !important;
+}
+
+body.ml-oauth-page .account-avatar{
+  border-color: var(--master-border) !important;
+  color: #0f172a !important;
+}
+
+body.ml-oauth-page :is(.oauth-link, .oauth-btn, .master-btn){
+  border-color: var(--master-border-strong) !important;
+  background: var(--master-surface-soft) !important;
+  color: var(--master-text) !important;
+  box-shadow: none !important;
+}
+
+body.ml-oauth-page :is(.oauth-link, .oauth-btn, .master-btn):hover{
+  border-color: rgba(255, 122, 36, .40) !important;
+  background: var(--master-orange-soft) !important;
+}
+
+body.ml-oauth-page :is(.oauth-btn--primary, .master-btn--primary){
+  border-color: rgba(234, 88, 12, .42) !important;
+  background: linear-gradient(135deg, #ff8a3f, #ff6b1a) !important;
+  color: #221207 !important;
+  box-shadow: 0 13px 28px rgba(234, 88, 12, .16) !important;
+}
+
+body.ml-oauth-page :is(.status-pill, .token-pill, .billing-pill){
+  border-color: var(--master-border) !important;
+  background: var(--master-surface-muted) !important;
+  color: var(--master-text-soft) !important;
+}
+
+body.ml-oauth-page :is(.token-pill.is-ok, .billing-pill.is-ok){
+  border-color: rgba(5, 150, 105, .25) !important;
+  background: var(--master-success-soft) !important;
+  color: #047857 !important;
+}
+
+body.theme-dark.ml-oauth-page :is(.token-pill.is-ok, .billing-pill.is-ok){
+  color: #9bf1d4 !important;
+}
+
+body.ml-oauth-page :is(.token-pill.is-warn, .billing-pill.is-warn){
+  border-color: rgba(180, 83, 9, .24) !important;
+  background: var(--master-warning-soft) !important;
+  color: #9a4a0a !important;
+}
+
+body.theme-dark.ml-oauth-page :is(.token-pill.is-warn, .billing-pill.is-warn){
+  color: #fed7aa !important;
+}
+
+body.ml-oauth-page :is(.token-pill.is-err, .billing-pill.is-err){
+  border-color: rgba(190, 24, 93, .22) !important;
+  background: var(--master-danger-soft) !important;
+  color: #be123c !important;
+}
+
+body.theme-dark.ml-oauth-page :is(.token-pill.is-err, .billing-pill.is-err){
+  color: #fecdd3 !important;
+}
+
+body.ml-oauth-page .master-alert{
+  border-color: rgba(37, 99, 235, .20) !important;
+  background: var(--master-info-soft) !important;
+  color: var(--master-info) !important;
+}
+
+body.ml-oauth-page .master-alert[data-tone="ok"]{
+  border-color: rgba(5, 150, 105, .24) !important;
+  background: var(--master-success-soft) !important;
+  color: #047857 !important;
+}
+
+body.ml-oauth-page .master-alert[data-tone="err"]{
+  border-color: rgba(190, 24, 93, .22) !important;
+  background: var(--master-danger-soft) !important;
+  color: #be123c !important;
+}
+
+body.theme-dark.ml-oauth-page .master-alert[data-tone="ok"]{ color: #a7f3d0 !important; }
+body.theme-dark.ml-oauth-page .master-alert[data-tone="err"]{ color: #fecdd3 !important; }
+
+/* =====================================================
+   PAINEL MASTER (DASHBOARD)
+   ===================================================== */
+body[data-master-page="dashboard"].ml-shell-ready .master-accounts-page{
+  color: var(--master-text) !important;
+}
+
+body[data-master-page="dashboard"].ml-shell-ready :is(
+  .master-hero__main,
+  .master-hero__stats,
+  .master-kpi,
+  .master-panel,
+  .login-chart,
+  .company-bar-chart,
+  .company-card,
+  .usage-card
+){
+  border-color: var(--master-border) !important;
+  background:
+    radial-gradient(circle at top right, rgba(52, 131, 250, .055), transparent 34%),
+    linear-gradient(180deg, var(--master-surface), var(--master-surface-soft)) !important;
+  color: var(--master-text) !important;
+  box-shadow: var(--master-shadow) !important;
+}
+
+body[data-master-page="dashboard"].ml-shell-ready :is(
+  .master-hero h1,
+  .master-hero__stats strong,
+  .master-kpi strong,
+  .master-panel__head h2,
+  .company-bar-row__label strong,
+  .company-card__head strong,
+  .company-card__footer strong,
+  .usage-card__head strong,
+  .usage-events strong
+){
+  color: var(--master-text) !important;
+}
+
+body[data-master-page="dashboard"].ml-shell-ready :is(
+  .master-hero p,
+  .master-hero__stats span,
+  .master-kpi span,
+  .master-kpi small,
+  .master-panel__meta,
+  .company-bar-row__label span,
+  .company-card__head small,
+  .company-card.is-empty,
+  .company-empty,
+  .usage-card.is-empty
+){
+  color: var(--master-muted) !important;
+}
+
+body[data-master-page="dashboard"].ml-shell-ready :is(.company-bar-track, .usage-track){
+  background: var(--master-surface-muted) !important;
+}
+
+body[data-master-page="dashboard"].ml-shell-ready .login-chart__value{
+  fill: var(--master-text) !important;
+}
+
+body[data-master-page="dashboard"].ml-shell-ready .login-chart__label{
+  fill: var(--master-muted) !important;
+}
+
+/* =====================================================
+   CRUDs / TABELAS / FORMULÁRIOS DO ADMIN MASTER
+   ===================================================== */
+body.ml-shell-ready .admin-layout{
+  color: var(--master-text) !important;
+}
+
+body.ml-shell-ready .admin-content{
+  color: var(--master-text) !important;
+}
+
+body.ml-shell-ready .admin-content__header,
+body.ml-shell-ready .admin-toolbar,
+body.ml-shell-ready .admin-content > .card,
+body.ml-shell-ready .admin-content > .hint,
+body.ml-shell-ready .admin-content :is(.job-card, .patch-card, .filters-card, .retention-card, .cleanup-result-card),
+body.ml-shell-ready .admin-content .grid-2 > .card{
+  border-color: var(--master-border) !important;
+  background:
+    radial-gradient(circle at top right, rgba(52, 131, 250, .045), transparent 30%),
+    linear-gradient(180deg, var(--master-surface), var(--master-surface-soft)) !important;
+  color: var(--master-text) !important;
+  box-shadow: var(--master-shadow) !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-content__header,
+body.theme-dark.ml-shell-ready .admin-toolbar,
+body.theme-dark.ml-shell-ready .admin-content > .card,
+body.theme-dark.ml-shell-ready .admin-content > .hint,
+body.theme-dark.ml-shell-ready .admin-content :is(.job-card, .patch-card, .filters-card, .retention-card, .cleanup-result-card),
+body.theme-dark.ml-shell-ready .admin-content .grid-2 > .card{
+  background:
+    radial-gradient(circle at top right, rgba(96, 165, 250, .065), transparent 30%),
+    linear-gradient(180deg, #101b2d, #0d1728) !important;
+}
+
+body.ml-shell-ready .admin-content :is(h1, h2, h3, h4, strong, .admin-title, .field > span, .recipient-row__name, .history-item__title, .job-meta strong),
+body.ml-shell-ready .admin-layout ~ .modal :is(h1, h2, h3, h4, strong){
+  color: var(--master-text) !important;
+}
+
+body.ml-shell-ready .admin-content :is(
+  .admin-subtitle,
+  .muted,
+  .hint,
+  .help,
+  .field-help,
+  .field-hint,
+  .hint-mini,
+  .job-card p,
+  .job-field label,
+  .job-meta span,
+  .job-meta-row,
+  .job-count,
+  .patch-card__head p,
+  .recipient-row__email,
+  .history-item__summary,
+  .history-item__meta,
+  .retention-header p,
+  .cleanup-result__header p,
+  .meta-block,
+  .page-info
+){
+  color: var(--master-muted) !important;
+}
+
+body.ml-shell-ready .admin-content :is(label, .job-check-row label, .job-periods label, .recipient-mode label){
+  color: var(--master-text-soft) !important;
+}
+
+body.ml-shell-ready .admin-content :is(
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea,
+  .input,
+  .retention-input,
+  .job-field input,
+  .job-field select,
+  .job-field textarea
+),
+body.ml-shell-ready .admin-layout ~ .modal :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea){
+  border: 1px solid var(--master-border) !important;
+  background: var(--master-surface) !important;
+  color: var(--master-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .32) !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-content :is(
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea,
+  .input,
+  .retention-input,
+  .job-field input,
+  .job-field select,
+  .job-field textarea
+),
+body.theme-dark.ml-shell-ready .admin-layout ~ .modal :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea){
+  background: #0b1525 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025) !important;
+}
+
+body.ml-shell-ready .admin-content :is(input, select, textarea)::placeholder,
+body.ml-shell-ready .admin-layout ~ .modal :is(input, textarea)::placeholder{
+  color: var(--master-muted) !important;
+  opacity: .82;
+}
+
+body.ml-shell-ready .admin-content :is(input, select, textarea):focus,
+body.ml-shell-ready .admin-layout ~ .modal :is(input, select, textarea):focus{
+  border-color: rgba(52, 131, 250, .56) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(52, 131, 250, .12) !important;
+}
+
+body.ml-shell-ready .admin-content :is(input[type="checkbox"], input[type="radio"]),
+body.ml-shell-ready .admin-layout ~ .modal :is(input[type="checkbox"], input[type="radio"]){
+  accent-color: var(--master-brand-strong);
+}
+
+body.ml-shell-ready .admin-content input[type="file"]{
+  width: 100%;
+  padding: 9px !important;
+  border-radius: 14px !important;
+}
+
+body.ml-shell-ready .admin-content input[type="file"]::file-selector-button{
+  min-height: 34px;
+  margin-right: 10px;
+  border: 1px solid var(--master-border);
+  border-radius: 10px;
+  background: var(--master-surface-soft);
+  color: var(--master-text);
+  padding: 0 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+/* Botões */
+body.ml-shell-ready .admin-content :is(.btn-lite, .icon-btn),
+body.ml-shell-ready .admin-layout ~ .modal :is(.btn-lite, .icon-btn){
+  border-color: var(--master-border) !important;
+  background: linear-gradient(180deg, var(--master-surface), var(--master-surface-soft)) !important;
+  color: var(--master-text) !important;
+  box-shadow: none !important;
+}
+
+body.ml-shell-ready .admin-content :is(.btn-lite, .icon-btn):hover,
+body.ml-shell-ready .admin-layout ~ .modal :is(.btn-lite, .icon-btn):hover{
+  border-color: var(--master-border-strong) !important;
+  background: var(--master-surface-muted) !important;
+}
+
+body.ml-shell-ready .admin-content .btn-primary,
+body.ml-shell-ready .admin-layout ~ .modal .btn-primary{
+  border-color: rgba(37, 99, 235, .34) !important;
+  background: linear-gradient(135deg, #2563eb, #3483fa) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, .14) !important;
+}
+
+body.ml-shell-ready .admin-content :is(.btn-primary.danger, .btn-lite.danger),
+body.ml-shell-ready .admin-layout ~ .modal :is(.btn-primary.danger, .btn-lite.danger){
+  border-color: rgba(190, 24, 93, .22) !important;
+  background: var(--master-danger-soft) !important;
+  color: var(--master-danger) !important;
+  box-shadow: none !important;
+}
+
+/* Tabelas */
+body.ml-shell-ready .admin-content :is(.table-wrap, .job-table-wrap, .history-table-wrap){
+  border-color: var(--master-border) !important;
+  background: var(--master-surface) !important;
+}
+
+body.ml-shell-ready .admin-content :is(.table, .admin-table, .job-table, .history-table){
+  color: var(--master-text) !important;
+}
+
+body.ml-shell-ready .admin-content :is(.table, .admin-table, .job-table, .history-table) th{
+  border-color: var(--master-border) !important;
+  background: var(--master-surface-soft) !important;
+  color: var(--master-muted-strong) !important;
+}
+
+body.ml-shell-ready .admin-content :is(.table, .admin-table, .job-table, .history-table) td{
+  border-color: var(--master-border) !important;
+  background: transparent !important;
+  color: var(--master-text-soft) !important;
+}
+
+body.ml-shell-ready .admin-content :is(.table, .admin-table, .job-table, .history-table) tbody tr:nth-child(even) td{
+  background: rgba(52, 131, 250, .025) !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-content :is(.table, .admin-table, .job-table, .history-table) tbody tr:nth-child(even) td{
+  background: rgba(96, 165, 250, .035) !important;
+}
+
+body.ml-shell-ready .admin-content :is(.table, .admin-table, .job-table, .history-table) tbody tr:hover td{
+  background: rgba(52, 131, 250, .07) !important;
+  color: var(--master-text) !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-content :is(.table, .admin-table, .job-table, .history-table) tbody tr:hover td{
+  background: rgba(96, 165, 250, .10) !important;
+}
+
+body.ml-shell-ready .admin-content .table-empty{
+  color: var(--master-muted) !important;
+}
+
+body.ml-shell-ready .admin-content .table-footer{
+  border-color: var(--master-border) !important;
+  background: var(--master-surface-soft) !important;
+  color: var(--master-muted) !important;
+}
+
+/* Modal / wizard / acesso */
+body.ml-shell-ready .admin-layout ~ .modal{
+  background: rgba(2, 6, 23, .56) !important;
+  backdrop-filter: blur(5px);
+}
+
+body.ml-shell-ready .admin-layout ~ .modal .modal-content{
+  border-color: var(--master-border) !important;
+  background: var(--master-surface) !important;
+  color: var(--master-text) !important;
+  box-shadow: var(--master-shadow-lg) !important;
+}
+
+body.ml-shell-ready .admin-layout ~ .modal :is(
+  .modal-header,
+  .modal-footer,
+  .wizard-head,
+  .wizard-summary,
+  .master-access-panel,
+  .access-module-group,
+  .access-module-group__head,
+  .access-module-item,
+  .access-check,
+  .access-editor,
+  .access-admin-note
+){
+  border-color: var(--master-border) !important;
+  background: var(--master-surface-soft) !important;
+  color: var(--master-text) !important;
+}
+
+body.ml-shell-ready .admin-layout ~ .modal .close{
+  color: var(--master-muted-strong) !important;
+}
+
+body.ml-shell-ready .admin-layout ~ .modal .close:hover{
+  color: var(--master-text) !important;
+}
+
+/* Tabs / filtros / pequenos estados */
+body.ml-shell-ready .admin-content .tab-btn{
+  border-color: var(--master-border) !important;
+  background: var(--master-surface) !important;
+  color: var(--master-text-soft) !important;
+}
+
+body.ml-shell-ready .admin-content .tab-btn.active{
+  border-color: rgba(52, 131, 250, .28) !important;
+  background: var(--master-brand-soft) !important;
+  color: var(--master-brand-strong) !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-content .tab-btn.active{
+  color: #bfdbfe !important;
+}
+
+body.ml-shell-ready .admin-content :is(.pill, .event-badge, .mini-badge){
+  border: 1px solid var(--master-border) !important;
+  background: var(--master-surface-muted) !important;
+  color: var(--master-text-soft) !important;
+}
+
+/* Semântica legível nos dois temas. */
+body.ml-shell-ready .admin-content :is(.badge.success, .badge.ok, .status-pill.status-success, .job-badge.ok){
+  border-color: rgba(5, 150, 105, .22) !important;
+  background: var(--master-success-soft) !important;
+  color: #047857 !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-content :is(.badge.success, .badge.ok, .status-pill.status-success, .job-badge.ok){
+  color: #9bf1d4 !important;
+}
+
+body.ml-shell-ready .admin-content :is(.badge.warn, .status-pill.status-warn, .job-badge.warn){
+  border-color: rgba(180, 83, 9, .22) !important;
+  background: var(--master-warning-soft) !important;
+  color: #9a4a0a !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-content :is(.badge.warn, .status-pill.status-warn, .job-badge.warn){
+  color: #fed7aa !important;
+}
+
+body.ml-shell-ready .admin-content :is(.badge.danger, .status-pill.status-error, .job-badge.off){
+  border-color: rgba(190, 24, 93, .20) !important;
+  background: var(--master-danger-soft) !important;
+  color: #be123c !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-content :is(.badge.danger, .status-pill.status-error, .job-badge.off){
+  color: #fecdd3 !important;
+}
+
+body.ml-shell-ready .admin-content :is(.badge.user, .badge.admin, .status-pill.status-info){
+  border-color: rgba(37, 99, 235, .22) !important;
+  background: var(--master-info-soft) !important;
+  color: var(--master-info) !important;
+}
+
+/* =====================================================
+   TELAS ESPECÍFICAS DO MASTER
+   ===================================================== */
+
+/* Migrações — código e detalhes técnicos continuam intencionalmente escuros. */
+body.ml-shell-ready .admin-content .codebox,
+body.ml-shell-ready .admin-content .report-log,
+body.ml-shell-ready .admin-content pre.meta-block{
+  border: 1px solid var(--master-border) !important;
+  background: var(--master-code-bg) !important;
+  color: var(--master-code-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .03);
+}
+
+/* Auditoria */
+body.ml-shell-ready .admin-content .audit-detail-field{
+  color: var(--master-text-soft) !important;
+}
+
+body.ml-shell-ready .admin-content .audit-json summary{
+  color: var(--master-brand-strong) !important;
+}
+
+/* Patch Notes / Automações */
+body.ml-shell-ready .admin-content :is(.recipient-list, .history-item, .job-table-wrap, .history-table-wrap){
+  border-color: var(--master-border) !important;
+  background: var(--master-surface-soft) !important;
+  color: var(--master-text) !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-content :is(.recipient-list, .history-item, .job-table-wrap, .history-table-wrap){
+  background: #0b1525 !important;
+}
+
+body.ml-shell-ready .admin-content .recipient-row{
+  border-color: var(--master-border) !important;
+}
+
+/* Preview de e-mail é conteúdo externo e permanece branco por fidelidade. */
+body.ml-shell-ready .admin-content .preview-frame{
+  border-color: var(--master-border) !important;
+  background: #ffffff !important;
+}
+
+/* Relatórios ML */
+body.ml-shell-ready .admin-content .report-retention-notice{
+  border-color: rgba(234, 88, 12, .22) !important;
+  background: var(--master-warning-soft) !important;
+  box-shadow: none !important;
+}
+
+body.ml-shell-ready .admin-content .report-retention-notice strong{
+  color: #9a3412 !important;
+}
+
+body.ml-shell-ready .admin-content .report-retention-notice .muted{
+  color: #9a4a0a !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-content .report-retention-notice strong,
+body.theme-dark.ml-shell-ready .admin-content .report-retention-notice .muted{
+  color: #fed7aa !important;
+}
+
+body.ml-shell-ready .admin-content .report-progress{
+  height: 10px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--master-surface-muted) !important;
+}
+
+body.ml-shell-ready .admin-content .report-progress__bar{
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb, #60a5fa) !important;
+}
+
+body.ml-shell-ready .admin-content .report-log{
+  margin: 12px 0 0;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+/* Backup */
+body.ml-shell-ready .admin-content .backup-message{
+  display: none;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--master-border) !important;
+  border-radius: 12px;
+  background: var(--master-surface-soft);
+  color: var(--master-text-soft);
+}
+
+/* Toasts */
+body.ml-shell-ready :is(.toast, .job-toast){
+  border: 1px solid var(--master-border-strong) !important;
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  box-shadow: var(--master-shadow-lg) !important;
+}
+
+/* =====================================================
+   RESPONSIVIDADE
+   ===================================================== */
+@media (max-width: 820px){
+  body.ml-oauth-page .oauth-page{
+    padding-inline: 8px;
+  }
+
+  body.ml-shell-ready .admin-content :is(.filters-grid, .job-form-grid, .patch-grid){
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Backup — estados e resultado de restore sem cores inline. */
+body.ml-shell-ready .admin-content .backup-message[data-tone="ok"]{
+  border-color: rgba(5, 150, 105, .24) !important;
+  background: var(--master-success-soft) !important;
+  color: #047857 !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-content .backup-message[data-tone="ok"]{
+  color: #a7f3d0 !important;
+}
+
+body.ml-shell-ready .admin-content .backup-message[data-tone="warn"]{
+  border-color: rgba(180, 83, 9, .22) !important;
+  background: var(--master-warning-soft) !important;
+  color: #9a4a0a !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-content .backup-message[data-tone="warn"]{
+  color: #fed7aa !important;
+}
+
+body.ml-shell-ready .admin-content .backup-message[data-tone="err"]{
+  border-color: rgba(190, 24, 93, .22) !important;
+  background: var(--master-danger-soft) !important;
+  color: #be123c !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-content .backup-message[data-tone="err"]{
+  color: #fecdd3 !important;
+}
+
+body.ml-shell-ready .admin-content .backup-result{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+body.ml-shell-ready .admin-content .backup-result__head{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+body.ml-shell-ready .admin-content .backup-result__title-wrap{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+body.ml-shell-ready .admin-content .backup-result__title{
+  color: currentColor !important;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+body.ml-shell-ready .admin-content .backup-result__meta,
+body.ml-shell-ready .admin-content .backup-result__more,
+body.ml-shell-ready .admin-content .backup-result__empty{
+  color: currentColor !important;
+  font-size: 12px;
+  opacity: .88;
+}
+
+body.ml-shell-ready .admin-content .backup-result__pill,
+body.ml-shell-ready .admin-content .backup-result__count{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(37, 99, 235, .20);
+  border-radius: 999px;
+  background: var(--master-brand-soft);
+  color: var(--master-info);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+body.ml-shell-ready .admin-content .backup-result__pill{
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+body.ml-shell-ready .admin-content .backup-result__section{
+  margin-top: 2px;
+}
+
+body.ml-shell-ready .admin-content .backup-result__section-title{
+  margin-bottom: 8px;
+  color: currentColor !important;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+body.ml-shell-ready .admin-content .backup-result__list{
+  display: grid;
+  gap: 8px;
+}
+
+body.ml-shell-ready .admin-content .backup-result__row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--master-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .52);
+}
+
+body.theme-dark.ml-shell-ready .admin-content .backup-result__row{
+  background: rgba(8, 17, 31, .42);
+}
+
+body.ml-shell-ready .admin-content .backup-result__table{
+  color: var(--master-text) !important;
+  font-weight: 850;
+}
+
+body.ml-shell-ready .admin-content .backup-result__count{
+  min-width: 42px;
+  min-height: 26px;
+  padding: 0 8px;
+}
+
+body.ml-shell-ready .admin-content .backup-result__more,
+body.ml-shell-ready .admin-content .backup-result__empty{
+  margin-top: 8px;
+}
+
+body.ml-shell-ready .admin-content .backup-result__warning{
+  margin-top: 2px;
+  padding: 10px 12px;
+  border: 1px solid rgba(180, 83, 9, .20);
+  border-radius: 12px;
+  background: var(--master-warning-soft);
+  color: #9a4a0a !important;
+  font-size: 12px;
+}
+
+body.theme-dark.ml-shell-ready .admin-content .backup-result__warning{
+  color: #fed7aa !important;
+}
+
+body.ml-shell-ready .admin-content .backup-result__warning-list{
+  margin-top: 6px;
+  font-weight: 900;
+}
+
+/* Usuários — wizard e controle de acesso. */
+body.ml-shell-ready .admin-layout ~ .modal .wizard-bar{
+  background: var(--master-surface-muted) !important;
+}
+
+body.ml-shell-ready .admin-layout ~ .modal .wizard-bar__fill{
+  background: linear-gradient(90deg, #2563eb, #60a5fa) !important;
+}
+
+body.ml-shell-ready .admin-layout ~ .modal .access-empty{
+  border-color: var(--master-border-strong) !important;
+  background: var(--master-surface) !important;
+  color: var(--master-muted) !important;
+}
+
+body.ml-shell-ready .admin-layout ~ .modal .access-admin-note{
+  border-color: rgba(37, 99, 235, .20) !important;
+  background: var(--master-info-soft) !important;
+  color: var(--master-info) !important;
+}
+
+body.theme-dark.ml-shell-ready .admin-layout ~ .modal .access-admin-note{
+  color: #bfdbfe !important;
+}
+
+body.ml-shell-ready .admin-layout ~ .modal :is(.form-error, .field-msg){
+  color: var(--master-danger) !important;
+}
+
+body.ml-shell-ready .admin-layout ~ .modal .form-error{
+  border-color: rgba(190, 24, 93, .20) !important;
+  background: var(--master-danger-soft) !important;
+}

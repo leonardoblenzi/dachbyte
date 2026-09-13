@@ -1,0 +1,224 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=7" />
+  <title>Admin - Empresas</title>
+  <link rel="stylesheet" href="/ml/css/admin-usuarios.css?v=8">
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/ml/css/ml-master-theme.css?v=2026081301" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+  <main class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar__brand">
+        <div class="admin-sidebar__logo">DACHBYTE</div>
+        <div class="admin-sidebar__sub">Administracao</div>
+      </div>
+
+      <nav class="admin-menu">
+        <a class="admin-menu__item" href="/ml/admin/usuarios">
+          <span class="ico">U</span>
+          <span>Usuarios</span>
+        </a>
+
+        <a class="admin-menu__item active" href="/ml/admin/empresas">
+          <span class="ico">E</span>
+          <span>Empresas</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/vinculos">
+          <span class="ico">V</span>
+          <span>Vinculos</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/contas-ml">
+          <span class="ico">M</span>
+          <span>Contas ML</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/relatorios-ml"><span class="ico">R</span><span>Relatorios ML</span></a>
+
+        <a class="admin-menu__item" href="/ml/admin/tokens-ml">
+          <span class="ico">T</span>
+          <span>Tokens ML</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/oauth-states">
+          <span class="ico">O</span>
+          <span>OAuth States</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/migracoes">
+          <span class="ico">G</span>
+          <span>Migracoes</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/patch-notes">
+          <span class="ico">P</span><span>Patch Notes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/jobs">
+          <span class="ico">J</span><span>Automacoes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/backup">
+          <span class="ico">B</span><span>Backup</span>
+        </a>
+      </nav>
+
+      <div class="admin-sidebar__footer">
+        <small>area restrita</small>
+      </div>
+    </aside>
+
+    <section class="admin-content">
+      <div class="admin-content__header">
+        <div>
+          <h1 class="admin-title">Listagem de empresas</h1>
+          <p class="admin-subtitle">Crie, edite e remova empresas do sistema.</p>
+        </div>
+
+        <div class="admin-actions">
+          <button id="btn-refresh" class="btn-lite" type="button">Atualizar</button>
+          <button id="btn-create" class="btn-primary" type="button">+ Cadastrar</button>
+        </div>
+      </div>
+
+      <div class="admin-toolbar">
+        <div class="search-box">
+          <input id="search" type="text" placeholder="Pesquisar por nome, documento, tenant global ou ID..." />
+          <button id="btn-clear" type="button" class="search-clear" title="Limpar"></button>
+        </div>
+
+        <div class="toolbar-right">
+          <span class="pill" id="count-pill">0 empresas</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="table" id="empresas-table">
+            <thead>
+              <tr>
+                <th style="width:72px;">ID</th>
+                <th style="min-width:220px;">Nome</th>
+                <th style="min-width:150px;">Documento</th>
+                <th style="min-width:220px;">Tenant global</th>
+                <th style="width:110px; text-align:center;">Usuarios</th>
+                <th style="width:110px; text-align:center;">Contas ML</th>
+                <th style="width:170px;">Criado</th>
+                <th style="width:120px; text-align:right;">Acoes</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr>
+                <td colspan="8" class="table-empty">Carregando...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer">
+          <div class="table-footer__left" id="range-info"></div>
+
+          <div class="table-footer__right">
+            <button class="btn-lite" id="btn-prev" type="button"><</button>
+            <span class="page-info" id="page-info">1 / 1</span>
+            <button class="btn-lite" id="btn-next" type="button">></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="hint">
+        Exclusoes com vinculos exigem confirmacao: a tela mostra usuarios, contas ML e o impacto antes de remover.
+      </div>
+    </section>
+  </main>
+
+  <div class="modal" id="modal-empresa" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">Cadastrar empresa</h3>
+        <button class="close" id="modal-close" type="button"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label>Nome *</label>
+            <input id="f-nome" type="text" placeholder="Ex: Empresa DACHBYTE" />
+          </div>
+
+          <div class="form-group">
+            <label>Tipo de documento</label>
+            <select id="f-document-type">
+              <option value="">Selecione</option>
+              <option value="CNPJ">CNPJ</option>
+              <option value="CPF">CPF</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Documento</label>
+            <input id="f-document-number" type="text" inputmode="numeric" placeholder="Somente numeros ou valor com mascara" />
+          </div>
+
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label>Tenant global</label>
+            <input id="f-tenant-global-id" type="text" placeholder="Preenchido pelo hub ou definido manualmente" />
+          </div>
+        </div>
+
+        <div class="form-error" id="form-error" style="display:none;"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-lite" id="btn-cancel" type="button">Cancelar</button>
+        <button class="btn-primary" id="btn-save" type="button">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-delete" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="delete-title">Confirmar exclusao</h3>
+        <button class="close" id="delete-close" type="button"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-error" id="delete-error" style="display:none;"></div>
+        <div class="hint" id="delete-summary">Carregando impacto da exclusao...</div>
+
+        <div class="card" style="margin-top:14px;">
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Impacto</th>
+                </tr>
+              </thead>
+              <tbody id="delete-impact-body">
+                <tr><td colspan="2" class="table-empty">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="hint" style="margin-top:12px;">
+          A exclusao remove a empresa, contas ML e dados vinculados por cascata. Usuarios que pertencem apenas a esta empresa tambem serao excluidos.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-lite" id="delete-cancel" type="button">Cancelar</button>
+        <button class="btn-primary danger" id="delete-confirm" type="button">Excluir em cascata</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" style="display:none;"></div>
+  <script src="/ml/js/admin-empresas.js?v=3"></script>
+</body>
+</html>

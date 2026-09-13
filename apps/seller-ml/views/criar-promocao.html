@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <title>Promoções | DACHBYTE Mercado Livre</title>
+
+  <link rel="stylesheet" href="/ml/css/promo-jobs.css?v=2026080701">
+  <link rel="stylesheet" href="/ml/css/criar-promocao.css?v=2026081201">
+  <link rel="stylesheet" href="/ml/css/promocoes.css?v=2026080702">
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="promo-app promo-create-page">
+  <main class="page-wrap promo-page">
+    <div class="wrap promo-shell">
+      <section class="promo-module-header">
+        <div class="promo-module-header__copy">
+          <span class="promo-module-eyebrow">Promoções</span>
+          <h1>Promoções</h1>
+          <p>Crie, otimize e acompanhe campanhas do Mercado Livre em um único lugar, mantendo cada fluxo separado e auditável.</p>
+        </div>
+      </section>
+
+      <nav class="promo-module-nav" aria-label="Navegação de promoções">
+        <a class="is-active" href="criar-promocao" data-promo-module="create" aria-current="page">Criar promoções</a>
+        <a href="criar-promocao?modulo=inteligencia" data-promo-module="intelligence">Inteligência</a>
+        <a href="remover-promocao">Remover promoções</a>
+        <a href="#" class="is-disabled" aria-disabled="true" tabindex="-1" title="Métricas de promoções — em breve">Métricas <span class="promo-module-nav__soon">Em breve</span></a>
+      </nav>
+
+      <div id="promoCreateModule" class="promo-module-view">
+      <div class="promo-flow-stepper" aria-label="Fluxo de criação de promoção">
+        <div class="promo-flow-step is-active"><span class="promo-flow-step__number">1</span><div><strong>Campanha</strong><span>Escolha a promoção</span></div></div>
+        <div class="promo-flow-step"><span class="promo-flow-step__number">2</span><div><strong>Itens</strong><span>Filtre os anúncios</span></div></div>
+        <div class="promo-flow-step"><span class="promo-flow-step__number">3</span><div><strong>Configuração</strong><span>Defina desconto e escopo</span></div></div>
+        <div class="promo-flow-step"><span class="promo-flow-step__number">4</span><div><strong>Aplicar</strong><span>Envie e acompanhe</span></div></div>
+      </div>
+
+      <section id="promo-toolbar" class="promo-toolbar">
+        <div class="promo-toolbar__intro">
+          <div>
+            <span class="promo-toolbar__eyebrow">Descoberta</span>
+            <h2 class="promo-toolbar__title">Encontre a campanha certa</h2>
+            <p class="promo-toolbar__text">Parta de uma campanha existente ou use uma lista de MLBs para encontrar campanhas compatíveis com o desconto desejado.</p>
+          </div>
+          <div class="promo-toolbar__actions">
+            <button id="btnOpenSellerCampaignModal" class="btn promo-toolbar__cta" type="button">Nova Seller Campaign</button>
+          </div>
+        </div>
+
+        <div class="promo-mode-switch" aria-label="Modo de aplicacao">
+          <button class="promo-mode-switch__btn is-active" type="button" data-promo-mode="campaign">
+            <strong>Por campanha</strong>
+            <span>Padrao: selecione a campanha e depois filtre os itens.</span>
+          </button>
+          <button class="promo-mode-switch__btn" type="button" data-promo-mode="list">
+            <strong>Por lista de MLBs</strong>
+            <span>Cole os anuncios e encontre campanhas compativeis.</span>
+          </button>
+        </div>
+
+        <div id="campaignModeDiscovery" class="promo-toolbar__search">
+          <label for="mlbFilter" class="block-label">Buscar item (MLB)</label>
+          <div class="inline">
+            <input id="mlbFilter" type="text" placeholder="MLB1234567890"/>
+            <button id="btnFiltrarItem" class="btn" type="button">Buscar item</button>
+            <button id="btnLimparItem" class="btn ghost" type="button">Limpar</button>
+          </div>
+        </div>
+
+        <small class="muted">
+          Ao buscar, a tela passa a mostrar apenas as campanhas que oferecem promocao para esse item.
+        </small>
+      </section>
+
+      <section id="listModePanel" class="promo-list-mode hidden" aria-live="polite">
+        <div class="promo-list-mode__head">
+          <div>
+            <span class="promo-list-mode__eyebrow">Aplicacao por lista</span>
+            <h2>Buscar campanhas compativeis</h2>
+            <p>Cole os MLBs, informe o desconto e veja quais campanhas Deal ou Seller aceitam esses anuncios. Nada e aplicado no ML nesta etapa.</p>
+          </div>
+          <span class="promo-list-mode__pill">Recomendado para listas prontas</span>
+        </div>
+
+        <div class="promo-list-mode__grid">
+          <label class="promo-list-mode__field promo-list-mode__field--wide" for="listModeMlbsInput">
+            <span>Lista de MLBs</span>
+            <textarea id="listModeMlbsInput" rows="8" placeholder="MLB1234567890&#10;MLB0987654321&#10;Ou cole separados por virgula, espaco ou linha"></textarea>
+            <small>Limite inicial: ate 80 MLBs por consulta para evitar travar a API do Mercado Livre.</small>
+          </label>
+
+          <div class="promo-list-mode__side">
+            <label class="promo-list-mode__field" for="listModePercentInput">
+              <span>Desconto desejado (%)</span>
+              <input id="listModePercentInput" type="number" min="0.01" max="60" step="0.01" placeholder="Ex: 5">
+            </label>
+
+            <label class="promo-list-mode__field" for="listModeTypeFilter">
+              <span>Tipo de campanha</span>
+              <select id="listModeTypeFilter">
+                <option value="SELLER_CAMPAIGN">Seller campaign (mais flexivel)</option>
+                <option value="DEAL">Deal</option>
+                <option value="ALL">Seller + Deal</option>
+              </select>
+            </label>
+
+            <button id="btnListModeSearch" class="btn promo-list-mode__search" type="button">
+              Buscar campanhas compativeis
+            </button>
+          </div>
+        </div>
+
+        <div id="listModeStatus" class="promo-list-mode__status">
+          Informe a lista e o percentual para iniciar a validacao.
+        </div>
+
+        <div id="listModeResults" class="promo-list-mode__results hidden"></div>
+      </section>
+
+      <section id="promo-debug-panel" class="promo-debug-panel hidden" hidden aria-hidden="true">
+        <div class="promo-debug-panel__head">
+          <div>
+            <strong>Debug MLB</strong>
+            <p class="muted">Informe um MLB manualmente para comparar listagem da promocao, snapshot do item e merge final da tela.</p>
+          </div>
+        </div>
+        <div class="promo-debug-panel__controls">
+          <input id="debugMlbInput" type="text" placeholder="MLB5831879446" />
+          <button id="btnDebugMlb" class="btn" type="button">Executar debug</button>
+          <button id="btnDebugMlbClear" class="btn ghost" type="button">Limpar</button>
+        </div>
+        <div id="debugMlbMeta" class="promo-debug-panel__meta muted">Selecione uma campanha e informe um MLB.</div>
+        <pre id="debugMlbOutput" class="promo-debug-panel__output">Aguardando debug.</pre>
+      </section>
+
+      <section class="promo-tabs is-loading" id="campaignModeTabs">
+        <div class="promo-tabs__row" id="promoTypeTabs" role="tablist" aria-label="Tipos de promocao">
+          <button class="promo-tab active" type="button" data-type="DEAL" role="tab" aria-selected="true">
+            Deal <span class="count" data-count="DEAL">0</span>
+          </button>
+          <button class="promo-tab" type="button" data-type="SMART" role="tab" aria-selected="false">
+            Smart <span class="count" data-count="SMART">0</span>
+          </button>
+          <button class="promo-tab" type="button" data-type="PRE_NEGOTIATED" role="tab" aria-selected="false">
+            Pre-acordo <span class="count" data-count="PRE_NEGOTIATED">0</span>
+          </button>
+          <button class="promo-tab" type="button" data-type="SELLER_CAMPAIGN" role="tab" aria-selected="false">
+            Seller <span class="count" data-count="SELLER_CAMPAIGN">0</span>
+          </button>
+          <button class="promo-tab" type="button" data-type="DOD" role="tab" aria-selected="false">
+            DOD <span class="count" data-count="DOD">0</span>
+          </button>
+          <button class="promo-tab" type="button" data-type="LIGHTNING" role="tab" aria-selected="false">
+            Lightning <span class="count" data-count="LIGHTNING">0</span>
+          </button>
+          <button class="promo-tab" type="button" data-type="OTHER" role="tab" aria-selected="false">
+            Outros <span class="count" data-count="OTHER">0</span>
+          </button>
+        </div>
+
+        <div class="promo-tabs__hint muted" id="promoTabsHint">
+          Mostrando: <strong id="promoTabsLabel">Deal</strong>
+          <span class="sep">|</span>
+          <span id="promoTabsMeta"></span>
+        </div>
+      </section>
+
+      <section class="promo-campaigns-shell" id="campaignModeCampaigns">
+        <div class="promo-section-head">
+          <div>
+            <span class="promo-section-head__eyebrow">Campanhas</span>
+            <h2 class="promo-section-head__title">Selecione a promocao ativa</h2>
+            <p class="promo-section-head__text">Selecione a campanha para carregar os itens e liberar a configuração de aplicação.</p>
+          </div>
+        </div>
+
+        <div class="promo-campaign-grid" id="cards">
+          <div class="promo-empty-state">
+            <h3>Carregando promocoes...</h3>
+            <div class="muted">Aguarde</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="campaignEmptyState" class="promo-empty-state promo-campaign-empty-state" aria-live="polite">
+        <h3>Selecione uma campanha para continuar</h3>
+        <div class="muted">Escolha um dos cards acima para carregar os itens e configurar a aplicação da promoção.</div>
+      </section>
+
+      <section id="campaignWorkspace" class="promo-workspace hidden" aria-hidden="true">
+        <div id="campaignWorkspaceHeader" class="promo-workspace__header">
+          <div class="promo-workspace__title-wrap">
+            <span class="promo-workspace__eyebrow">Campanha ativa</span>
+            <div id="campName" class="promo-workspace__title"></div>
+          </div>
+        </div>
+
+        <div id="campaignWorkspaceFilters" class="promo-workspace__filters">
+          <div class="promo-workspace__filters-primary">
+            <div class="promo-workspace__filter-copy">
+              <span>Mostrar itens</span>
+              <small>Escolha o recorte da campanha antes de verificar os elegiveis.</small>
+            </div>
+            <div class="promo-workspace__segmented" role="radiogroup" aria-label="Filtrar itens da campanha">
+              <label><input type="radio" name="filtro" value="all" checked> Todos</label>
+              <label><input type="radio" name="filtro" value="non"> Nao participantes</label>
+              <label><input type="radio" name="filtro" value="yes"> Participantes</label>
+              <label><input type="radio" name="filtro" value="prog"> Programados</label>
+            </div>
+          </div>
+        </div>
+
+        <div id="manualApplyWizard" class="manual-apply-wizard hidden" aria-live="polite">
+          <div class="manual-apply-wizard__head">
+            <div>
+              <span class="manual-apply-wizard__eyebrow">Aplicacao guiada</span>
+              <h3 id="manualWizardTitle">Aplicar desconto na campanha</h3>
+            </div>
+            <div class="manual-apply-stepper" aria-label="Passo a passo da aplicacao">
+              <span class="manual-apply-step manual-apply-step--done"><b>1</b> <span id="manualWizardStepFilterLabel">Filtrar elegiveis</span></span>
+              <span class="manual-apply-step manual-apply-step--active"><b>2</b> <span id="manualWizardStepPercentLabel">Definir desconto</span></span>
+              <span class="manual-apply-step" id="manualWizardStepApply"><b>3</b> Aplicar no ML</span>
+            </div>
+          </div>
+
+          <div class="manual-apply-wizard__status" id="manualWizardStatus">
+            Informe a porcentagem desejada para verificar quais anuncios aceitam esse desconto.
+          </div>
+          <div class="manual-apply-wizard__field">
+            <div class="manual-apply-wizard__input-row">
+              <div class="manual-apply-wizard__input-field">
+                <label id="manualWizardPercentLabel" for="manualWizardPercentInput">Qual % voce deseja aplicar?</label>
+                <input id="manualWizardPercentInput" type="number" min="0.01" max="60" step="0.01" placeholder="Ex: 16">
+              </div>
+              <div id="manualWizardQuantityField" class="manual-apply-wizard__input-field hidden">
+                <label for="manualWizardQuantityInput">Quantas unidades deseja?</label>
+                <input id="manualWizardQuantityInput" type="number" min="5" step="1" placeholder="Min. 5">
+              </div>
+              <button id="btnManualWizardVerify" class="btn" type="button">Verificar elegiveis</button>
+            </div>
+            <small id="manualWizardHint">A verificacao considera a faixa minima e maxima aceita pelo Mercado Livre para cada anuncio.</small>
+          </div>
+
+          <details id="manualWizardAdvanced" class="manual-apply-advanced hidden">
+            <summary>Aplicacao avancada</summary>
+            <div class="manual-apply-advanced__fields">
+              <div class="manual-apply-wizard__input-field">
+                <label for="manualWizardStockMinInput">Mostrar anuncios com estoque total a partir de: <small>minimo 5</small></label>
+                <input id="manualWizardStockMinInput" type="number" min="5" step="1" placeholder="Min. 5">
+              </div>
+              <div class="manual-apply-wizard__input-field">
+                <label for="manualWizardStockMaxInput">Opcional: Ate:</label>
+                <input id="manualWizardStockMaxInput" type="number" min="5" step="1" placeholder="Sem limite">
+              </div>
+            </div>
+            <small>O filtro considera o estoque total dos anuncios elegiveis. A quantidade promocional continua sendo definida no campo acima.</small>
+          </details>
+
+          <details id="manualWizardMlbList" class="manual-apply-list hidden">
+            <summary>Aplicar somente em uma lista de MLBs</summary>
+            <div class="manual-apply-list__body">
+              <label for="manualWizardMlbListInput">Cole os MLBs para verificar nesta campanha</label>
+              <textarea id="manualWizardMlbListInput" rows="4" placeholder="MLB123&#10;MLB456&#10;MLB789"></textarea>
+              <div class="manual-apply-list__footer">
+                <span id="manualWizardMlbListCounter">0 MLBs identificados</span>
+                <div class="manual-apply-list__actions">
+                  <button id="manualWizardMlbListCsv" class="btn ghost hidden" type="button">Baixar CSV da lista</button>
+                  <button id="manualWizardMlbListClear" class="btn ghost" type="button">Limpar lista</button>
+                </div>
+              </div>
+              <small>Ate 5.000 MLBs por job. Listas grandes podem levar alguns minutos.</small>
+            </div>
+          </details>
+
+          <div class="manual-apply-scope" id="manualWizardScope">
+            <label class="manual-apply-scope__option is-active">
+              <input type="radio" name="manualWizardScope" value="all" checked>
+              <span>
+                <strong id="manualWizardScopeAllTitle">Aplicar em todos os elegiveis</strong>
+                <small id="manualWizardScopeAllDesc">Todos os itens que passaram na verificacao</small>
+              </span>
+              <b id="manualWizardScopeAllCount">0 itens</b>
+            </label>
+            <label class="manual-apply-scope__option">
+              <input type="radio" name="manualWizardScope" value="selected">
+              <span>
+                <strong id="manualWizardScopeSelectedTitle">Aplicar apenas nos selecionados na tabela</strong>
+                <small id="manualWizardScopeSelectedDesc">Somente os itens marcados manualmente abaixo</small>
+              </span>
+              <b id="manualWizardScopeSelectedCount">0 marcados</b>
+            </label>
+            <label class="manual-apply-scope__option">
+              <input type="radio" name="manualWizardScope" value="page">
+              <span>
+                <strong id="manualWizardScopePageTitle">Aplicar apenas nesta pagina</strong>
+                <small id="manualWizardScopePageDesc">Somente os elegiveis visiveis na pagina atual</small>
+              </span>
+              <b id="manualWizardScopePageCount">0 itens</b>
+            </label>
+          </div>
+
+          <div class="manual-apply-wizard__badges">
+            <span id="manualWizardEligibleBadge" class="manual-apply-badge">Elegiveis: nao verificado</span>
+            <span id="manualWizardDiscountBadge" class="manual-apply-badge">Desconto: nao definido</span>
+            <span id="manualWizardQuantityBadge" class="manual-apply-badge hidden">Unidades: nao definido</span>
+            <span id="manualWizardSelectedBadge" class="manual-apply-badge">Selecionados: 0</span>
+          </div>
+
+          <div class="manual-apply-wizard__actions">
+            <button id="manualWizardApplyBtn" class="btn success" type="button" disabled>Aplicar no ML</button>
+            <button id="manualWizardRemoveBtn" class="btn danger ghost" type="button" disabled>Remover da campanha</button>
+            <span id="manualWizardActionHint">Marque itens na tabela ou verifique elegiveis por percentual para liberar a aplicacao.</span>
+          </div>
+        </div>
+
+        <div id="selectionBar" class="selection-bar hidden">
+          <div class="selection-main selection-panel">
+            <div class="selection-panel__label">Selecao</div>
+            <div id="selectionStatusPill" class="selection-status-pill">Fluxo: filtre a lista, salve o desconto e depois prepare o lote.</div>
+            <div class="selection-metrics" aria-label="Resumo da selecao atual">
+              <div class="selection-metric">
+                <span class="selection-metric__label">Marcados nesta pagina</span>
+                <strong id="selectionPageCount" class="selection-metric__value">0 itens</strong>
+              </div>
+              <div class="selection-metric">
+                <span class="selection-metric__label">Elegiveis pelo filtro</span>
+                <strong id="selectionFilteredCount" class="selection-metric__value">Calculando...</strong>
+              </div>
+              <div class="selection-metric">
+                <span class="selection-metric__label">Desconto pronto</span>
+                <strong id="selectionDiscountValue" class="selection-metric__value">Nao definido</strong>
+              </div>
+            </div>
+            <div id="selMsg" class="selection-text">Nenhum item selecionado.</div>
+            <div id="selHint" class="selection-hint muted">
+              Use o checkbox da tabela para selecionar a pagina atual
+              ou clique em <strong>"Preparar lote filtrado"</strong> para montar o lote completo dos itens que atendem aos filtros atuais.
+            </div>
+          </div>
+
+          <div class="selection-actions">
+            <div class="action-group action-group--primary">
+              <div class="action-group__label">Acoes</div>
+              <button id="selAllCampaignBtn" class="btn ghost" type="button" title="Prepara no backend o lote completo dos itens que atendem aos filtros atuais. Isso ainda nao aplica o desconto no ML.">Preparar lote filtrado</button>
+              <button id="selApplyBtn" class="btn success" type="button" disabled title="Inicia o envio do desconto aos itens selecionados nesta pagina ou ao lote filtrado preparado.">Aplicar desconto</button>
+              <button id="selRemoveBtn" class="btn danger" type="button" disabled title="Remove os itens selecionados da promocao atual.">Remover da campanha</button>
+              <small id="selectionActionHint" class="action-group__hint">Preparar lote apenas separa os itens elegiveis. O desconto so e enviado ao ML quando voce clicar em "Aplicar desconto".</small>
+            </div>
+
+            <div class="action-group action-group--secondary inline-options">
+              <div class="action-group__label">Execucao</div>
+              <label title="Simula a aplicacao sem enviar ao ML">
+                <input id="dryRunToggle" type="checkbox"> Simular
+              </label>
+              <label>
+                Delay (ms)
+                <input id="bulkDelayMs" type="number" min="0" step="50" value="900">
+              </label>
+            </div>
+
+            <div id="sellerCampaignControls" class="action-group action-group--seller hidden">
+              <div class="manual-flow__header">
+                <div>
+                  <div class="action-group__label">Aplicacao manual da seller</div>
+                  <p class="manual-flow__text">Use primeiro o filtro da lista acima. Depois salve o desconto que sera enviado ao ML na aplicacao em massa.</p>
+                </div>
+                <div class="manual-flow__badges">
+                  <span id="sellerCampaignFilterBadge" class="manual-flow__badge">Filtro da lista: nao definido</span>
+                  <span id="sellerCampaignApplyBadge" class="manual-flow__badge">Aplicar no ML: nao definido</span>
+                </div>
+              </div>
+              <div class="manual-flow__grid" aria-label="Resumo do fluxo da seller">
+                <div class="manual-flow__step">
+                  <span class="manual-flow__step-number">1</span>
+                  <div>
+                    <strong class="manual-flow__step-title">Filtre a lista</strong>
+                    <p>Escolha <em>Todos</em> ou <em>Nao participantes</em> e use o campo superior para deixar somente os itens dentro da faixa desejada.</p>
+                  </div>
+                </div>
+                <div class="manual-flow__step">
+                  <span class="manual-flow__step-number">2</span>
+                  <div>
+                    <strong class="manual-flow__step-title">Defina o desconto a aplicar</strong>
+                    <p>Essa % abaixo e a que sera enviada ao ML. O sistema valida item por item antes do lote.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="seller-controls__row">
+                <label for="sellerManualPercentInput">Desconto a aplicar (%)</label>
+                <input
+                  id="sellerManualPercentInput"
+                  type="number"
+                  min="0.01"
+                  max="60"
+                  step="0.01"
+                  placeholder="Ex: 10"
+                >
+                <button id="btnSellerManualPercent" class="btn" type="button" title="Salva a porcentagem manual que sera usada na aplicacao em massa da seller campaign.">Salvar desconto</button>
+                <button id="btnSellerManualPercentClear" class="btn ghost" type="button" title="Limpa a porcentagem manual configurada para esta seller campaign.">Limpar</button>
+              </div>
+              <small class="manual-flow__helper">O filtro da lista reduz os itens exibidos. O desconto salvo aqui e o que o lote realmente tenta aplicar.</small>
+              <small id="sellerCampaignPercentHint" class="muted"></small>
+            </div>
+
+            <div id="dealControls" class="action-group action-group--seller hidden">
+              <div class="manual-flow__header">
+                <div>
+                  <div class="action-group__label">Aplicacao manual da deal</div>
+                  <p class="manual-flow__text">Na deal, o filtro da lista mostra os itens cuja faixa aceita a % desejada. O campo abaixo define a % enviada no lote.</p>
+                </div>
+                <div class="manual-flow__badges">
+                  <span id="dealFilterBadge" class="manual-flow__badge">Filtro da lista: nao definido</span>
+                  <span id="dealApplyBadge" class="manual-flow__badge">Aplicar no ML: nao definido</span>
+                </div>
+              </div>
+              <div class="manual-flow__grid" aria-label="Resumo do fluxo da deal">
+                <div class="manual-flow__step">
+                  <span class="manual-flow__step-number">1</span>
+                  <div>
+                    <strong class="manual-flow__step-title">Filtre pelos elegiveis</strong>
+                    <p>Use o filtro superior para mostrar apenas os itens cuja faixa permite a % desejada na deal.</p>
+                  </div>
+                </div>
+                <div class="manual-flow__step">
+                  <span class="manual-flow__step-number">2</span>
+                  <div>
+                    <strong class="manual-flow__step-title">Salve a % do lote</strong>
+                    <p>Essa % precisa caber na faixa do item e nao pode passar do filtro da lista.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="seller-controls__row">
+                <label for="dealManualPercentInput">Desconto a aplicar (%)</label>
+                <input
+                  id="dealManualPercentInput"
+                  type="number"
+                  min="0.01"
+                  max="60"
+                  step="0.01"
+                  placeholder="Ex: 15"
+                >
+                <button id="btnDealManualPercent" class="btn" type="button" title="Salva a porcentagem manual que sera usada na aplicacao em massa da deal.">Salvar desconto</button>
+                <button id="btnDealManualPercentClear" class="btn ghost" type="button" title="Limpa a porcentagem manual configurada para esta deal.">Limpar</button>
+              </div>
+              <small class="manual-flow__helper">Se o filtro estiver em 16%, a aplicacao abaixo tambem precisa ser de ate 16%.</small>
+              <small id="dealPercentHint" class="muted"></small>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="itemsTableCard" class="promo-table-card hidden" aria-hidden="true">
+        <div class="promo-table-card__head">
+          <div>
+            <span class="promo-section-head__eyebrow">Itens</span>
+            <h2 class="promo-section-head__title">Itens da campanha</h2>
+            <p class="promo-section-head__text">Revise os anúncios, selecione o escopo e confira os limites antes de executar a promoção.</p>
+          </div>
+          <button id="btnExportFilteredCsv" class="btn ghost" type="button">Exportar itens (CSV)</button>
+        </div>
+
+        <div class="promo-table-wrap">
+          <table class="promo-items-table" id="tabela">
+            <thead>
+              <tr>
+                <th style="width:44px;text-align:center">
+                  <input
+                    type="checkbox"
+                    id="checkAll"
+                    aria-label="Selecionar pagina"
+                    onchange="toggleTodos(this); window.PromoBulk && window.PromoBulk.onHeaderToggle(this.checked)"
+                  >
+                </th>
+                <th>Anuncio</th>
+                <th>Estoque</th>
+                <th>SKU</th>
+                <th>Preco atual</th>
+                <th>Desc.</th>
+                <th>Novo preco</th>
+                <th>Status</th>
+                <th>Acoes</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr>
+                <td colspan="9" class="muted">Sem itens. Clique em um card de promocao.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="paginacao" class="pagination" aria-label="Paginacao"></div>
+      </section>
+
+      <section id="itemsProgressCard" class="promo-progress-card hidden" aria-hidden="true">
+        <div id="progressText" class="muted" aria-live="polite">Selecione uma campanha para carregar os itens.</div>
+        <div class="progress" aria-hidden="true"><div id="progressFill" class="fill"></div></div>
+        <a id="downloadLink" href="#" style="display:none;margin-top:8px">Baixar CSV do processamento</a>
+      </section>
+      </div>
+
+      <section id="promoIntelligenceModule" class="promo-intelligence hidden" aria-labelledby="promoIntelligenceTitle">
+        <div id="promoIntelligenceHub" class="promo-intelligence__hub">
+          <div class="promo-intelligence__intro">
+            <div>
+              <span class="promo-module-eyebrow">Inteligência de promoções</span>
+              <h2 id="promoIntelligenceTitle">Encontre oportunidades antes de alterar campanhas</h2>
+              <p>As ferramentas desta área analisam o cenário atual e só executam mudanças depois da sua revisão e confirmação.</p>
+            </div>
+            <span class="promo-intelligence__safety">Análise não altera anúncios</span>
+          </div>
+
+          <div class="promo-intelligence-tools">
+            <article class="promo-intelligence-tool promo-intelligence-tool--featured">
+              <div class="promo-intelligence-tool__icon">S</div>
+              <div class="promo-intelligence-tool__body">
+                <span class="promo-intelligence-tool__eyebrow">SMART</span>
+                <h3>Otimizar Smart por rebate</h3>
+                <p>Identifique Smart ativas ou programadas que se sobrepõem e mantenha apenas a condição equivalente com maior participação do Mercado Livre.</p>
+                <ul>
+                  <li>Não reduz o desconto ao comprador nos casos automáticos.</li>
+                  <li>Não altera Deal, Seller ou Lightning.</li>
+                  <li>Revalida tudo novamente antes de qualquer remoção.</li>
+                </ul>
+              </div>
+              <button id="btnOpenSmartOptimizer" class="btn promo-intelligence-tool__action" type="button">Analisar Smart</button>
+            </article>
+
+            <article class="promo-intelligence-tool is-disabled" aria-disabled="true">
+              <div class="promo-intelligence-tool__icon">!</div>
+              <div class="promo-intelligence-tool__body">
+                <span class="promo-intelligence-tool__eyebrow">Futuro</span>
+                <h3>Conflitos de campanhas</h3>
+                <p>Mapeie sobreposições e condições concorrentes entre diferentes tipos de promoção.</p>
+              </div>
+              <span class="promo-intelligence-tool__soon">Em breve</span>
+            </article>
+
+            <article class="promo-intelligence-tool is-disabled" aria-disabled="true">
+              <div class="promo-intelligence-tool__icon">+</div>
+              <div class="promo-intelligence-tool__body">
+                <span class="promo-intelligence-tool__eyebrow">Futuro</span>
+                <h3>Oportunidades</h3>
+                <p>Encontre anúncios sem promoção ou com condições que podem ser melhor aproveitadas.</p>
+              </div>
+              <span class="promo-intelligence-tool__soon">Em breve</span>
+            </article>
+          </div>
+        </div>
+
+        <div id="smartOptimizerWorkspace" class="smart-optimizer hidden">
+          <div class="smart-optimizer__head">
+            <button id="btnBackIntelligenceHub" class="btn ghost" type="button">← Inteligência</button>
+            <div class="smart-optimizer__head-copy">
+              <span class="promo-module-eyebrow">Otimização Smart</span>
+              <h2>Priorize a melhor participação do Mercado Livre</h2>
+              <p>Comparamos somente promoções SMART que realmente se sobrepõem. A otimização automática exige condição equivalente ao comprador e cobertura integral da vigência removida.</p>
+            </div>
+          </div>
+
+          <div class="smart-optimizer-stepper" aria-label="Fluxo da otimização Smart">
+            <div class="smart-optimizer-step is-active" data-smart-step="analyze"><span>1</span><div><strong>Analisar</strong><small>Mapear Smart</small></div></div>
+            <div class="smart-optimizer-step" data-smart-step="review"><span>2</span><div><strong>Revisar</strong><small>Comparar condições</small></div></div>
+            <div class="smart-optimizer-step" data-smart-step="optimize"><span>3</span><div><strong>Otimizar</strong><small>Confirmar remoções</small></div></div>
+          </div>
+
+          <section id="smartOptimizerAnalyze" class="smart-optimizer-card">
+            <div class="smart-optimizer-card__head">
+              <div>
+                <span class="promo-module-eyebrow">Escopo</span>
+                <h3>Analisar Smart ativas e programadas</h3>
+                <p>O sistema varre as campanhas SMART da conta selecionada, identifica sobreposições e compara participação ML x vendedor.</p>
+              </div>
+              <div class="smart-optimizer-account">
+                <span>Conta selecionada</span>
+                <strong id="smartOptimizerAccountLabel">—</strong>
+              </div>
+            </div>
+
+            <div class="smart-optimizer-policy">
+              <div><strong>Regra automática</strong><span>Mesmo desconto/preço ao comprador</span></div>
+              <div><strong>Vigência</strong><span>A vencedora precisa cobrir todo o período removido</span></div>
+              <div><strong>Rebate</strong><span>Menor participação do vendedor e maior participação ML</span></div>
+              <div><strong>Segurança</strong><span>Cenários diferentes vão para revisão, sem remoção automática</span></div>
+            </div>
+
+            <div class="smart-optimizer-actions">
+              <button id="btnRunSmartAnalysis" class="btn" type="button">Iniciar análise</button>
+              <span id="smartOptimizerAnalyzeHint" class="muted">Nenhuma promoção será alterada nesta etapa.</span>
+            </div>
+
+            <div id="smartOptimizerProgress" class="smart-optimizer-progress hidden" aria-live="polite">
+              <div class="smart-optimizer-progress__row"><strong id="smartOptimizerProgressText">Preparando análise…</strong><span id="smartOptimizerProgressPct">0%</span></div>
+              <div class="progress"><div id="smartOptimizerProgressFill" class="fill"></div></div>
+              <small id="smartOptimizerProgressMeta">Aguardando o worker.</small>
+            </div>
+          </section>
+
+          <section id="smartOptimizerReview" class="smart-optimizer-card hidden">
+            <div class="smart-optimizer-card__head">
+              <div>
+                <span class="promo-module-eyebrow">Resultado</span>
+                <h3>Oportunidades encontradas</h3>
+                <p>Somente oportunidades classificadas como seguras vêm pré-selecionadas. Casos ambíguos ficam disponíveis apenas para revisão.</p>
+              </div>
+              <button id="btnRerunSmartAnalysis" class="btn ghost" type="button">Analisar novamente</button>
+            </div>
+
+            <div class="smart-optimizer-stats">
+              <div><span>Campanhas</span><strong id="smartStatCampaigns">0</strong></div>
+              <div><span>Anúncios analisados</span><strong id="smartStatItems">0</strong></div>
+              <div class="is-positive"><span>Remoções seguras</span><strong id="smartStatSafe">0</strong></div>
+              <div class="is-warning"><span>Precisam revisar</span><strong id="smartStatReview">0</strong></div>
+            </div>
+
+            <div class="smart-optimizer-reviewbar">
+              <div class="smart-optimizer-filter" role="tablist" aria-label="Filtro do resultado Smart">
+                <button type="button" class="is-active" data-smart-filter="safe">Oportunidades <span id="smartFilterSafeCount">0</span></button>
+                <button type="button" data-smart-filter="review">Revisar <span id="smartFilterReviewCount">0</span></button>
+              </div>
+              <label class="smart-optimizer-selectall"><input id="smartSelectAllSafe" type="checkbox" checked> Selecionar todas as seguras</label>
+            </div>
+
+            <div id="smartOptimizerResults" class="smart-optimizer-results"></div>
+
+            <div class="smart-optimizer-footer">
+              <div>
+                <strong id="smartOptimizerSelectedCount">0 selecionadas</strong>
+                <span>Antes de executar, cada condição será consultada novamente no Mercado Livre.</span>
+              </div>
+              <button id="btnPrepareSmartOptimization" class="btn success" type="button" disabled>Otimizar selecionadas</button>
+            </div>
+          </section>
+
+          <section id="smartOptimizerConfirm" class="smart-optimizer-card smart-optimizer-confirm hidden">
+            <div class="smart-optimizer-confirm__icon">!</div>
+            <div>
+              <span class="promo-module-eyebrow">Confirmação</span>
+              <h3 id="smartOptimizerConfirmTitle">Confirmar otimização</h3>
+              <p id="smartOptimizerConfirmText">As Smart menos vantajosas selecionadas serão removidas de forma direcionada. A condição recomendada será revalidada antes de cada remoção.</p>
+              <div class="smart-optimizer-confirm__guards">
+                <span>✓ Somente SMART</span>
+                <span>✓ Revalidação por MLB</span>
+                <span>✓ XLSX e auditoria</span>
+                <span>✓ Cancelamento no painel lateral</span>
+              </div>
+            </div>
+            <div class="smart-optimizer-confirm__actions">
+              <button id="btnCancelSmartOptimization" class="btn ghost" type="button">Voltar</button>
+              <button id="btnConfirmSmartOptimization" class="btn success" type="button">Confirmar otimização</button>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div id="hudPanel" class="processos-panel hidden"></div>
+  <div id="bulkJobsPanel" class="processos-panel"></div>
+
+  <div id="sellerCampaignModal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="sellerCampaignModalTitle">
+      <span class="modal-kicker">Seller Campaign</span>
+      <h3 id="sellerCampaignModalTitle">Criar seller campaign</h3>
+      <p class="modal-desc">A campanha e criada primeiro. Depois ela aparece nos cards para voce clicar, filtrar os elegiveis e aplicar o desconto manualmente.</p>
+      <div class="modal-grid">
+        <label class="modal-field">
+          <span>Nome da promocao</span>
+          <input id="sellerCampaignNameInput" type="text" maxlength="25" placeholder="Ex: Semana do quarto">
+        </label>
+        <div></div>
+        <label class="modal-field">
+          <span>Data de inicio</span>
+          <input id="sellerCampaignStartInput" type="date">
+        </label>
+        <label class="modal-field">
+          <span>Data de fim</span>
+          <input id="sellerCampaignFinishInput" type="date">
+        </label>
+      </div>
+      <div class="modal-note muted" id="sellerCampaignModalHint">
+        A duracao maxima agora e de ate 31 dias. A aplicacao do desconto continua sendo feita depois, diretamente nos itens elegiveis da campanha.
+      </div>
+      <div class="modal-actions">
+        <button id="btnCloseSellerCampaignModal" class="btn ghost seller-modal__close" type="button">Fechar</button>
+        <button id="btnCreateSellerCampaign" class="btn seller-modal__submit" type="button">Criar seller campaign</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.notifyPromocoes = window.notifyPromocoes || function(message, tone) {
+      var text = String(message || "").trim();
+      if (!text) return;
+      var level = tone === "error" || tone === "warn" ? "warn" : "log";
+      if (window.console && typeof window.console[level] === "function") {
+        window.console[level]("[criar-promocao] " + text);
+      }
+    };
+  </script>
+  <script src="/ml/js/promo-http.js?v=2026080701" defer></script>
+  <script src="/ml/js/promo-state.js?v=2026082101" defer></script>
+  <script src="/ml/js/promo-jobs-watcher.js?v=2026081902" defer></script>
+  <script src="/ml/js/promo-actions.js?v=2026081902" defer></script>
+  <script src="/ml/js/promo-seller-campaign.js?v=2026070701" defer></script>
+  <script src="/ml/js/promo-table.js?v=2026052206" defer></script>
+  <script src="/ml/js/promo-cards.js?v=2026081201" defer></script>
+  <script src="/ml/js/promo-bulk-bridge.js?v=2026070702" defer></script>
+  <script src="/ml/js/jobs-panel-adapters.js?v=2026081902" defer></script>
+  <script src="/ml/js/jobs-panel.js?v=2026082101" defer></script>
+  <script src="/ml/js/criar-promocao.js?v=2026082101" defer></script>
+  <script src="/ml/js/promo-bulk.js?v=2026081902" defer></script>
+  <script src="/ml/js/promo-intelligence.js?v=2026081402" defer></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        window.JobsPanel?.show?.();
+
+        const acc = await (window.AccountBar?.ensure?.() || Promise.resolve(window.__ACCOUNT__));
+        const ctx = {
+          key: acc?.key || '',
+          label: acc?.label || ''
+        };
+
+        if (window.PromoBulk?.setAccountContext) {
+          window.PromoBulk.setAccountContext(ctx);
+        }
+      } catch (e) {}
+    });
+  </script>
+</body>
+</html>

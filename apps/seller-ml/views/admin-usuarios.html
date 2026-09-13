@@ -1,0 +1,337 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="stylesheet" href="/ml/css/ml-app.css?v=7" />
+<title>Admin - Usuarios</title>
+
+  <link rel="stylesheet" href="/ml/css/admin-usuarios.css?v=7">
+    <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/ml/css/ml-master-theme.css?v=2026081301" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body>
+<main class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar__brand">
+        <div class="admin-sidebar__logo">DACHBYTE</div>
+        <div class="admin-sidebar__sub">Administracao</div>
+      </div>
+
+      <nav class="admin-menu" aria-label="Menu Administracao">
+        <a class="admin-menu__item active" href="/ml/admin/usuarios">
+          <span class="ico">U</span>
+          <span>Usuarios</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/empresas">
+          <span class="ico">E</span>
+          <span>Empresas</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/vinculos">
+          <span class="ico">V</span>
+          <span>Vinculos</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/contas-ml">
+          <span class="ico">M</span>
+          <span>Contas ML</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/relatorios-ml"><span class="ico">R</span><span>Relatorios ML</span></a>
+
+        <a class="admin-menu__item" href="/ml/admin/tokens-ml">
+          <span class="ico">T</span>
+          <span>Tokens ML</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/oauth-states">
+          <span class="ico">O</span>
+          <span>OAuth States</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/migracoes">
+          <span class="ico">G</span>
+          <span>Migracoes</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/auditoria">
+          <span class="ico">A</span>
+          <span>Auditoria</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/jobs">
+          <span class="ico">J</span>
+          <span>Automacoes</span>
+        </a>
+
+        <a class="admin-menu__item" href="/ml/admin/patch-notes">
+          <span class="ico">P</span><span>Patch Notes</span>
+        </a>
+        <a class="admin-menu__item" href="/ml/admin/backup">
+          <span class="ico">B</span><span>Backup</span>
+        </a>
+      </nav>
+
+      <div class="admin-sidebar__footer">
+        <small>Area restrita</small>
+      </div>
+    </aside>
+
+    <section class="admin-content">
+      <div class="admin-content__header">
+        <div>
+          <h1 class="admin-title">Usuarios</h1>
+          <p class="admin-subtitle">Crie acessos por convite, acompanhe status e reenvie links de ativacao quando precisar.</p>
+        </div>
+
+        <div class="admin-actions">
+          <button id="btn-refresh" class="btn-lite" type="button">Atualizar</button>
+          <button id="btn-create" class="btn-primary" type="button">Convidar usuario</button>
+        </div>
+      </div>
+
+      <div class="admin-toolbar">
+        <div class="search-box">
+          <input
+            id="search"
+            name="admin_users_filter"
+            type="search"
+            placeholder="Pesquisar por nome, email, nivel ou status..."
+            autocomplete="off"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+          />
+          <button id="btn-clear" type="button" class="search-clear" title="Limpar">Limpar</button>
+        </div>
+
+        <div class="toolbar-right">
+          <span class="pill" id="count-pill">0 usuarios</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="table" id="users-table">
+            <thead>
+              <tr>
+                <th style="width:80px;">ID</th>
+                <th>Nome</th>
+                <th>Email</th>
+                <th style="width:160px;">Nivel</th>
+                <th style="width:180px;">Status</th>
+                <th style="width:180px;">Criado</th>
+                <th style="width:180px;">Ult. login</th>
+                <th style="width:160px; text-align:right;">Acoes</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr>
+                <td colspan="8" class="table-empty">Carregando...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer">
+          <div class="table-footer__left" id="range-info"></div>
+
+          <div class="table-footer__right">
+            <button class="btn-lite" id="btn-prev" type="button"><</button>
+            <span class="page-info" id="page-info">1 / 1</span>
+            <button class="btn-lite" id="btn-next" type="button">></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="hint">
+        Para liberar as telas do Mercado Livre, ajuste o Nivel do usuario aqui. O papel no vinculo define a relacao com a empresa; use Vinculos apenas quando precisar trocar a empresa ou o papel (owner/admin/operador).
+      </div>
+    </section>
+  </main>
+
+  <div class="modal" id="modal-user" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">Convidar usuario</h3>
+        <button class="close" id="modal-close" type="button"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="wizard-head" id="wizard-head" style="display:none;">
+          <div class="wizard-top">
+            <div class="wizard-steptext" id="wizard-steptext">Passo 1/2</div>
+            <div class="wizard-stepsmall" id="wizard-stepsmall">Dados do usuario</div>
+          </div>
+          <div class="wizard-bar">
+            <div class="wizard-bar__fill" id="wizard-bar-fill" style="width:50%;"></div>
+          </div>
+        </div>
+
+        <div id="step-1" class="wizard-step">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nome</label>
+              <input id="f-nome" type="text" placeholder="Ex: Leonardo" />
+              <small class="field-msg" id="err-nome"></small>
+            </div>
+
+            <div class="form-group">
+              <label>Email *</label>
+              <input id="f-email" name="admin_user_email" type="email" placeholder="email@dominio.com" autocomplete="off" />
+              <small class="field-msg" id="err-email"></small>
+            </div>
+
+            <div class="form-group">
+              <label>Nivel</label>
+              <select id="f-nivel">
+                <option value="usuario">Usuario</option>
+                <option value="administrador">Administrador</option>
+              </select>
+              <small class="field-msg" id="err-nivel"></small>
+            </div>
+
+            <div class="form-group" id="senha-group">
+              <label id="lbl-senha">Nova senha (opcional)</label>
+              <input id="f-senha" name="admin_user_password" type="password" placeholder="Digite uma senha" autocomplete="new-password" />
+              <small class="help" id="senha-help">No editar, deixe vazio para manter a senha atual.</small>
+              <small class="field-msg" id="err-senha"></small>
+            </div>
+          </div>
+
+          <div class="hint" id="invite-note" style="margin-top:10px; display:none;">
+            No cadastro, a senha nao e pedida aqui. O sistema gera um convite e o cliente define a senha no primeiro acesso.
+          </div>
+        </div>
+
+        <div id="master-access-panel" class="master-access-panel" style="display:none;">
+          <div class="access-head">
+            <div>
+              <h4>Acessos por empresa</h4>
+              <p>Controle setores e modulos liberados para usuarios comuns. Nivel ADMIN continua com acesso completo.</p>
+            </div>
+            <button class="btn-lite btn-sm" id="btn-access-reload" type="button">Recarregar</button>
+          </div>
+
+          <div class="access-empty" id="access-empty" style="display:none;"></div>
+
+          <div class="access-editor" id="access-editor" style="display:none;">
+            <div class="access-row">
+              <div class="form-group">
+                <label>Empresa / vinculo</label>
+                <select id="access-company"></select>
+              </div>
+              <div class="form-group">
+                <label>Papel na empresa</label>
+                <select id="access-role">
+                  <option value="owner">Owner</option>
+                  <option value="admin">Admin</option>
+                  <option value="operador">Operador</option>
+                </select>
+                <small class="help">Rotulo operacional. Nao libera telas sozinho.</small>
+              </div>
+              <div class="form-group">
+                <label>Filtrar grupo</label>
+                <select id="access-group-filter">
+                  <option value="">Todos os grupos</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="access-block">
+              <div class="access-block__title">
+                <strong>Setores</strong>
+                <span>Use para direcionar tarefas e pendencias.</span>
+              </div>
+              <div class="access-sector-list" id="access-sector-list"></div>
+            </div>
+
+            <div class="access-block">
+              <div class="access-block__title">
+                <strong>Modulos e telas</strong>
+                <span>Marque visualizar para liberar a tela; marque editar para liberar acoes de alteracao.</span>
+              </div>
+              <div class="access-modules" id="access-modules"></div>
+            </div>
+
+            <div class="access-actions">
+              <button class="btn-lite" id="btn-access-clear" type="button">Remover acessos</button>
+              <button class="btn-primary" id="btn-access-save" type="button">Salvar acessos</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="step-2" class="wizard-step" style="display:none;">
+          <div class="wizard-summary" id="wizard-summary">
+            <div class="wizard-summary__label">Voce esta criando:</div>
+            <div class="wizard-summary__value" id="wizard-summary-value"></div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Empresa *</label>
+              <select id="f-empresa">
+                <option value="">Carregando empresas...</option>
+              </select>
+              <small class="field-msg" id="err-empresa"></small>
+            </div>
+
+            <div class="form-group">
+              <label>Papel na empresa *</label>
+              <select id="f-papel">
+                <option value="admin">Admin</option>
+                <option value="operador">Operador</option>
+                <option value="owner">Owner</option>
+              </select>
+              <small class="field-msg" id="err-papel"></small>
+            </div>
+          </div>
+
+          <div class="hint" style="margin-top:10px;">
+            Nivel Administrador libera telas restritas do ML. Papel owner/admin no vinculo e um rotulo de relacionamento com a empresa.
+          </div>
+        </div>
+
+        <div class="form-error" id="form-error" style="display:none;"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-lite" id="btn-cancel" type="button">Cancelar</button>
+        <button class="btn-lite" id="btn-wiz-back" type="button" style="display:none;">Voltar</button>
+        <button class="btn-primary" id="btn-wiz-next" type="button" style="display:none;">Proximo</button>
+        <button class="btn-primary" id="btn-save" type="button">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" style="display:none;"></div>
+
+  <script>
+    (async () => {
+      try {
+        const r = await fetch("/ml/api/auth/me", { credentials: "include", cache: "no-store" });
+        const data = await r.json().catch(() => null);
+
+        const nivel =
+          data?.user?.nivel ||
+          data?.user?.user?.nivel ||
+          data?.nivel ||
+          null;
+
+        const isMaster = data?.is_master === true || nivel === "admin_master";
+
+        document.querySelectorAll("[data-master-only='1']").forEach((el) => {
+          el.style.display = isMaster ? "" : "none";
+        });
+      } catch (_) {
+        document.querySelectorAll("[data-master-only='1']").forEach((el) => {
+          el.style.display = "none";
+        });
+      }
+    })();
+  </script>
+<script src="/ml/js/admin-usuarios.js?v=6"></script>
+</body>
+</html>

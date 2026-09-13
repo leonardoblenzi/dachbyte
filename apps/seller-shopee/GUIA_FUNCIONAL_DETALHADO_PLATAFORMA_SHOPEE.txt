@@ -1,0 +1,435 @@
+GUIA FUNCIONAL DETALHADO - PLATAFORMA SHOPEE (FOCO EM USO)
+
+Objetivo deste material
+- Explicar cada função da plataforma do ponto de vista operacional.
+- Mostrar como usar cada módulo no dia a dia.
+- Não inclui detalhes técnicos de estrutura, login, admin ou gestão de usuários.
+
+==================================================
+1) PAINEL DE CONTROLE (CONTROL PANEL)
+==================================================
+O que faz
+- Mostra a saúde operacional/comercial da loja em visão executiva.
+
+Como funciona
+- Consolida KPIs de faturamento, ticket médio, pedidos, taxa de pagamento, vendas e qualidade da operação.
+- Prioriza leitura rápida para tomada de decisão.
+
+Como usar
+1. Abra a aba "Painel de Controle".
+2. Confira KPIs principais (mês atual).
+3. Analise cards de alerta/saúde.
+4. Use como base para priorizar ações em Produtos, Ads e Logística.
+
+Resultado esperado
+- Entender rapidamente se o mês está dentro da meta.
+
+==================================================
+2) DASHBOARD
+==================================================
+O que faz
+- Mostra desempenho geral com visão temporal e evolução.
+
+Como funciona
+- Exibe receita, pedidos, tendências e comparativos por período.
+
+Como usar
+1. Acesse "Dashboard".
+2. Selecione modo (mês/dia quando aplicável).
+3. Compare tendência vs período anterior.
+4. Valide impacto de campanhas e ações recentes.
+
+==================================================
+3) MÉTRICAS
+==================================================
+O que faz
+- Aprofunda indicadores de performance de vendas e catálogo.
+
+Como funciona
+- Divide análise entre visão geral, movers (ganhos/perdas) e produtos.
+
+Como usar
+1. Entre em "Métricas".
+2. Navegue entre subtabs.
+3. Identifique itens com queda de conversão/volume.
+4. Encaminhe ajuste para Produtos, Preço, Ads ou Logística.
+
+==================================================
+4) QUALIDADE DE CATÁLOGO
+==================================================
+O que faz
+- Mostra índice de qualidade dos anúncios e gaps de ficha técnica.
+
+Como funciona
+- Analisa atributos obrigatórios, consistência de dados e completude por item.
+
+Como usar
+1. Abra "Qualidade de Catálogo".
+2. Filtre itens com baixa qualidade.
+3. Abra item e complete atributos pendentes.
+4. Salve e acompanhe evolução do score.
+
+Boas práticas
+- Priorizar itens com maior venda potencial e baixo score.
+
+==================================================
+5) PRODUTOS (GESTÃO CENTRAL)
+==================================================
+O que faz
+- Lista e permite editar produtos e variações.
+
+Como funciona
+- Reúne dados de preço, estoque, status, vendas e imagens.
+
+Como usar
+1. Acesse "Produtos".
+2. Use filtros de status e busca por SKU(s) separados por vírgula.
+3. Abra o item para editar título, descrição, atributos, imagens e variações.
+4. Use ações rápidas:
+- Abrir produto no canal.
+- Abrir edição no canal.
+- Editar produto dentro do módulo.
+
+Exportação
+- Gere relatório filtrado com SKU, nome, ID, preço, estoque e status.
+
+==================================================
+6) CURVA ABC
+==================================================
+O que faz
+- Classifica produtos por relevância de vendas/receita.
+
+Como funciona
+- Separa itens em classes (A/B/C) para priorização comercial.
+
+Como usar
+1. Entre em "Curva ABC".
+2. Avalie itens da classe A (prioridade máxima).
+3. Use para decidir investimento em Ads e reposição.
+
+==================================================
+7) RELANÇAMENTO
+==================================================
+O que faz
+- Apoia estratégia de pausar/reativar/ajustar itens para recuperar tração.
+
+Como funciona
+- Lista oportunidades de relançamento com base em performance.
+
+Como usar
+1. Abra "Relançamento".
+2. Selecione itens sugeridos.
+3. Ajuste preço, mídia, título e atributos.
+4. Reative e monitore impacto.
+
+==================================================
+8) CLONAR ANÚNCIO
+==================================================
+O que faz
+- Clona anúncio de Shopee/Mercado Livre para novo lançamento.
+
+Como funciona
+- Lê URL pública, extrai dados e abre editor completo para revisão.
+
+Como usar
+1. Cole o link do anúncio.
+2. Gere prévia de clonagem.
+3. Revise e edite:
+- Título, descrição, preço, imagens, características, variações e logística.
+4. Escolha:
+- Confirmar lançamento.
+- Salvar como rascunho.
+- Cancelar clonagem.
+
+Regras de validação antes do lançamento
+- Mínimo de 3 imagens.
+- Marca preenchida.
+- Atributos obrigatórios preenchidos.
+- Logística válida para dimensões/regras SPX.
+
+Rascunhos
+- Retomar, excluir ou seguir com lançamento posteriormente.
+
+==================================================
+9) CLIPS (OPERAÇÃO DE VÍDEO EM MASSA)
+==================================================
+O que faz
+- Publica o mesmo clip em múltiplos produtos.
+
+Como funciona
+- Seleção por IDs (lista ou vírgula) com validação de requisitos Shopee.
+
+Como usar
+1. Selecione os IDs alvo.
+2. Faça upload do MP4.
+3. Confirme envio em massa.
+
+Requisitos do vídeo
+- Tamanho máximo: 30MB.
+- Duração: 10s a 60s.
+- Resolução mínima: 1x1 px.
+- Formato: MP4.
+
+==================================================
+10) PREENCHIMENTO MASSIVO DE FICHA
+==================================================
+O que faz
+- Aplica atributos técnicos em lote para vários itens compatíveis.
+
+Como funciona
+- Garante preenchimento apenas quando os produtos compartilham o mesmo campo de atributo.
+
+Como usar
+1. Selecione IDs/SKUs.
+2. Escolha atributo da ficha.
+3. Defina valor padrão.
+4. Aplique em massa.
+
+==================================================
+11) LANÇAMENTOS
+==================================================
+O que faz
+- Mostra itens recém-lançados e desempenho inicial.
+
+Como funciona
+- Consolida janelas de lançamento para leitura de tração.
+
+Como usar
+1. Acesse "Lançamentos".
+2. Avalie vendas iniciais.
+3. Corrija rapidamente título, mídia e preço nos itens com baixa saída.
+
+==================================================
+12) ANALYTICS IA
+==================================================
+O que faz
+- Oferece leitura assistida de performance com recomendações.
+
+Como funciona
+- Cruza sinais de catálogo, vendas e operação para sugerir otimizações.
+
+Como usar
+1. Entre em "Analytics IA".
+2. Selecione item/recorte.
+3. Rode análise.
+4. Execute ações propostas e acompanhe resultado.
+
+==================================================
+13) SALES SHARE (PARTICIPAÇÃO DE VENDAS)
+==================================================
+O que faz
+- Mostra participação relativa dos produtos no total vendido.
+
+Como funciona
+- Distribui contribuição por item/categoria para detectar concentração de receita.
+
+Como usar
+1. Abra "Sales Share".
+2. Veja itens com maior participação.
+3. Reduza dependência excessiva criando plano para itens secundários.
+
+==================================================
+14) PEDIDOS
+==================================================
+O que faz
+- Opera pedidos de ponta a ponta com detalhamento comercial/financeiro.
+
+Como funciona
+- Lista pedidos, status, itens, valores e alertas operacionais.
+
+Como usar
+1. Entre em "Pedidos".
+2. Filtre por status/período.
+3. Abra pedido para detalhes.
+4. Use ação "Abrir pedido no canal" para atendimento direto no Seller Center.
+
+Complementos
+- Alertas de endereço.
+- Sincronização de pedidos sob demanda.
+
+==================================================
+15) ADS (PUBLICIDADE)
+==================================================
+O que faz
+- Gerencia desempenho de campanhas e produtos anunciados.
+
+Como funciona
+- Exibe impressões, cliques, gasto, vendas atribuídas, ROAS e CTR.
+
+Como usar
+1. Acesse "Ads".
+2. Selecione período.
+3. Abra campanha para detalhes por produto.
+4. Aplique ajustes em campanhas com baixa eficiência.
+
+Alertas recomendados
+- ROAS abaixo da meta.
+- CTR baixo.
+- Sem vendas há muito tempo.
+- Poucas impressões em anúncios com tempo suficiente de veiculação.
+
+==================================================
+16) IMPULSIONAR (BOOST)
+==================================================
+O que faz
+- Impulsiona produtos em janelas da Shopee (5 IDs por ciclo).
+
+Como funciona
+- Permite boost manual e automático com controle de fila, cooldown e histórico.
+
+Como usar
+1. Entre em "Impulsionar".
+2. Selecione IDs por busca ou lista.
+3. Rode manualmente ou ative auto boost.
+4. Monitore cards:
+- Fila usada.
+- Próxima vaga.
+- Auto boost ativo/pausado.
+- Histórico de lotes.
+
+Automação
+- Quando fila está ocupada, o sistema reage pela próxima janela disponível.
+- Reimpulsiona IDs selecionados conforme liberação da fila.
+
+==================================================
+17) GEO VENDAS
+==================================================
+O que faz
+- Mostra vendas por estado e cidade.
+
+Como funciona
+- Consolida distribuição geográfica para planejamento comercial/logístico.
+
+Como usar
+1. Abra "Geo Vendas".
+2. Analise estados com maior giro.
+3. Entre no estado para detalhar cidades.
+4. Use na estratégia de estoque e frete.
+
+==================================================
+18) SEO
+==================================================
+O que faz
+- Apoia otimização de termos e comparação de palavras-chave.
+
+Como funciona
+- Sugere e compara termos para melhoria de descoberta.
+
+Como usar
+1. Acesse "SEO".
+2. Pesquise termo base.
+3. Compare termos candidatos.
+4. Atualize títulos/descrições nos produtos priorizados.
+
+==================================================
+19) MARGEM DE VENDA (BETA)
+==================================================
+O que faz
+- Calcula margem operacional por pedido e por produto.
+
+Como funciona
+- Combina receita com custos de comissão, frete, descontos, devoluções e impostos.
+
+Como usar
+1. Abra "Margem".
+2. Veja resumo geral e pedidos detalhados.
+3. Identifique itens com margem baixa/negativa.
+4. Ajuste preço, custo e logística.
+
+Observação exibida ao usuário
+- "Ainda em elaboração, números podem estar diferentes do real!"
+
+==================================================
+20) CUSTOS
+==================================================
+O que faz
+- Mantém custo por item/SKU e taxa para cálculo de margem.
+
+Como funciona
+- Permite cadastro manual, edição em lote e importação/exportação.
+
+Como usar
+1. Entre em "Custos".
+2. Busque produto/SKU.
+3. Atualize custo e parâmetros.
+4. Exporte para auditoria interna.
+
+==================================================
+21) PROMOÇÕES
+==================================================
+O que faz
+- Cria e gerencia campanhas promocionais de preço.
+
+Como funciona
+- Define período, produtos, preço promocional e estoque promocional.
+
+Como usar
+1. Acesse "Promoções".
+2. Crie campanha com datas e regras.
+3. Adicione itens e preços.
+4. Publique/sincronize e acompanhe status.
+
+==================================================
+22) FLASH SALE
+==================================================
+O que faz
+- Opera campanhas de Flash Sale com controle de slots e itens.
+
+Como funciona
+- Permite criar, duplicar, ativar e editar itens por evento.
+
+Como usar
+1. Abra "Flash Sale".
+2. Escolha janela/slot.
+3. Adicione itens elegíveis.
+4. Ative e monitore desempenho.
+
+==================================================
+23) LOGÍSTICA (SPX E FULFILLMENT)
+==================================================
+O que faz
+- Gerencia canais logísticos e elegibilidade Shopee Xpress.
+
+Como funciona
+- Valida dimensões, canais disponíveis e regras para ativação SPX.
+
+Como usar
+1. Entre em "Logística".
+2. Selecione produtos alvo.
+3. Rode validação de elegibilidade.
+4. Aplique ação para habilitar SPX conforme estratégia.
+
+Opção operacional importante
+- "Desativar logística do vendedor ao habilitar Shopee Xpress?"
+- Marcado: desativa logística do vendedor e mantém SPX/rede definida.
+- Desmarcado: apenas habilita SPX sem desativar logística do vendedor.
+
+==================================================
+24) SUPORTE (ATENDIMENTO INTERNO)
+==================================================
+O que faz
+- Centraliza solicitações e dúvidas operacionais da equipe.
+
+Como usar
+1. Acesse "Suporte".
+2. Registre solicitação com contexto e prioridade.
+3. Acompanhe retorno.
+
+==================================================
+BOAS PRÁTICAS DE USO DA PLATAFORMA
+==================================================
+- Revisar Painel de Controle diariamente (visão mês atual).
+- Tratar primeiro itens de alto impacto: classe A, baixo estoque, baixa margem e baixo CTR.
+- Usar Clonar Anúncio + Rascunhos para padronizar lançamentos.
+- Manter custos atualizados para decisões corretas de preço e Ads.
+- Ativar auto boost com carteira de IDs curada e monitorar histórico.
+- Validar logística/SPX antes de mudanças em massa.
+
+==================================================
+ROTEIRO CURTO PARA APRESENTAÇÃO COM IA (SUGESTÃO)
+==================================================
+1. Visão geral da plataforma.
+2. Jornada operacional completa (Produto -> Pedido -> Ads -> Margem).
+3. Demonstração dos módulos-chave.
+4. Automações e ganho de produtividade.
+5. Indicadores de resultado e próximos passos.

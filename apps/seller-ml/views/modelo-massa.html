@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <title>Modelo em Massa | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/promo-jobs.css?v=2026081101" />
+  <link rel="stylesheet" href="/ml/css/modelo-massa.css?v=20260618" />
+  <link rel="stylesheet" href="/ml/css/operacoes.css?v=2026080702" />
+  <script src="/ml/js/ml-base.js?v=10"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="modelo-page-app ops-app">
+  <main class="page-wrap modelo-page ops-page">
+    <section class="tab-page active">
+      <div class="container modelo-shell">
+        <header class="hero ops-hero">
+          <div class="ops-hero__content">
+            <div class="hero-eyebrow">Operações</div>
+            <h1>Modelo em massa</h1>
+            <p class="subtitle">Defina o modelo, analise os MLBs e aplique apenas nos anúncios elegíveis. Itens de catálogo ficam separados para revisão manual.</p>
+          </div>
+          <div class="hero-actions ops-hero-actions">
+            <button id="btnAnalyze" class="btn-primary">Analisar anúncios</button>
+            <button id="btnClear" class="btn-secondary">Limpar</button>
+          </div>
+        </header>
+
+        <div class="ops-stepper" aria-label="Etapas do fluxo">
+          <div class="ops-step is-active"><span class="ops-step__number">1</span><div><strong>Configurar</strong><span>Modelo e MLBs</span></div></div>
+          <div class="ops-step"><span class="ops-step__number">2</span><div><strong>Analisar</strong><span>Elegibilidade por anúncio</span></div></div>
+          <div class="ops-step"><span class="ops-step__number">3</span><div><strong>Revisar</strong><span>Filtrar e selecionar</span></div></div>
+          <div class="ops-step"><span class="ops-step__number">4</span><div><strong>Aplicar</strong><span>Acompanhar no painel</span></div></div>
+        </div>
+
+        <div class="grid-top">
+          <section class="panel modelo-padrao-panel">
+            <div class="modelo-padrao-head panel-head">
+              <div>
+                <h2>Modelos padrão</h2>
+                <p class="small-muted">Valores compartilhados entre os colaboradores da empresa.</p>
+              </div>
+              <button id="btnManageDefaultModels" class="btn-secondary btn-compact" type="button">Gerenciar</button>
+            </div>
+            <div class="modelo-padrao-row">
+              <input id="defaultModelSearch" type="search" placeholder="Buscar modelo: Poltrona, Sofá, Cadeira..." autocomplete="off" />
+              <button id="btnSaveDefaultModel" class="btn-secondary btn-compact" type="button">Salvar atual</button>
+            </div>
+            <div id="defaultModelsList" class="modelo-padrao-list">
+              <span class="small-muted">Carregando modelos padrão...</span>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Configuração do lote</h2>
+                <p class="small-muted">Informe o modelo alvo e os anúncios que deseja analisar.</p>
+              </div>
+              <span class="badge badge-accent">Etapa 1</span>
+            </div>
+            <div class="form-stack">
+              <label>Novo valor do campo modelo
+                <input id="targetModel" type="text" placeholder="Ex.: Roma, Monte Carlo, 3 Lugares" />
+                <small id="targetModelHint" class="small-muted">O limite real depende da categoria de cada anúncio no Mercado Livre.</small>
+              </label>
+              <label>MLBs do lote
+                <textarea id="itemIds" rows="8" placeholder="MLB123456789&#10;MLB234567891&#10;MLB345678912"></textarea>
+              </label>
+            </div>
+            <div class="checks">
+              <label><input id="dryRun" type="checkbox" /> Simular sem aplicar no Mercado Livre</label>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Resumo da análise</h2>
+              <p class="small-muted">Veja rapidamente o que pode seguir por API e o que exige revisão.</p>
+            </div>
+            <span class="badge badge-neutral">Lote atual</span>
+          </div>
+          <div class="summary-row">
+            <div class="stat-card"><strong id="statTotal">0</strong><span>MLBs analisados</span></div>
+            <div class="stat-card"><strong id="statEligible">0</strong><span>elegíveis para API</span></div>
+            <div class="stat-card"><strong id="statCatalog">0</strong><span>catálogo / manual</span></div>
+            <div class="stat-card"><strong id="statBlocked">0</strong><span>bloqueados</span></div>
+          </div>
+          <div id="analysisStatus" class="load-status">Nenhum lote analisado ainda.</div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div><h2>Revisar e aplicar</h2><p class="small-muted">Filtre os resultados, selecione os elegíveis e aplique somente o que foi revisado.</p></div>
+            <span class="badge badge-neutral">Etapas 3 e 4</span>
+          </div>
+          <div class="toolbar">
+            <input id="searchInput" class="search-input" type="text" placeholder="Buscar por MLB, título, SKU ou motivo" />
+            <select id="filterType" class="select-input">
+              <option value="all">Todos</option>
+              <option value="eligible">Somente elegíveis</option>
+              <option value="catalog">Somente catálogo</option>
+              <option value="blocked">Somente bloqueados</option>
+            </select>
+            <button id="btnSelectEligible" class="btn-secondary" disabled>Selecionar elegíveis</button>
+            <button id="btnApplySelected" class="btn-primary" disabled>Aplicar selecionados</button>
+          </div>
+          <button id="btnApplyEligible" type="button" hidden disabled aria-hidden="true"></button>
+        </section>
+
+        <section class="panel panel-table">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th><input id="checkPage" type="checkbox" /></th><th>MLB</th><th>Título</th><th>Tipo</th><th>Status</th><th>Modelo atual</th><th>Modelo alvo</th><th>Ação</th><th>Observação</th></tr></thead>
+              <tbody id="tableBody"><tr><td colspan="9" class="empty-row">Analise um lote para começar.</td></tr></tbody>
+            </table>
+          </div>
+          <div class="table-footer"><div id="tableInfo" class="small-muted">0 resultados</div><div id="pagination" class="pagination"></div></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><h2>Retorno do processamento</h2><p class="small-muted">Os detalhes completos continuam disponíveis no painel de processos.</p></div><span class="badge badge-neutral">Lote atual</span></div>
+          <div id="applySummary" class="apply-summary">Aguardando análise do lote.</div>
+          <div id="applyResults" class="results-list"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div id="defaultModelsModal" class="modelo-modal" aria-hidden="true">
+    <div class="modelo-modal__content" role="dialog" aria-modal="true" aria-labelledby="defaultModelsTitle">
+      <div class="modelo-modal__head">
+        <div><h3 id="defaultModelsTitle">Modelos padrão</h3><p class="small-muted">Crie grupos e cadastre os valores de modelo disponíveis para a equipe.</p></div>
+        <button id="btnCloseDefaultModels" class="modal-icon-btn" type="button" aria-label="Fechar">&times;</button>
+      </div>
+      <form id="defaultModelForm" class="modelo-modal__form">
+        <input id="defaultModelInput" type="text" maxlength="120" placeholder="Novo grupo: Poltrona, Sofá, Cadeira..." />
+        <button id="btnSubmitDefaultModel" class="btn-primary btn-compact" type="submit">Adicionar grupo</button>
+      </form>
+      <input id="defaultModelManagerSearch" class="search-input" type="search" placeholder="Buscar na lista" />
+      <div id="defaultModelManagerList" class="modelo-manager-list"></div>
+      <div id="defaultModelStatus" class="small-muted"></div>
+    </div>
+  </div>
+
+  <div id="bulkJobsPanel" class="processos-panel"></div>
+  <script src="/ml/js/jobs-panel-adapters.js?v=2026080701" defer></script>
+  <script src="/ml/js/jobs-panel.js?v=2026080701" defer></script>
+  <script src="/ml/js/modelo-massa.js?v=2026080702" defer></script>
+</body>
+</html>

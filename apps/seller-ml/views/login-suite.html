@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | DACHBYTE Seller</title>
+    <link rel="icon" type="image/svg+xml" href="/ml/img/dachbyte-seller-mark.svg?v=1" />
+    <link rel="stylesheet" href="/ml/css/login.css?v=2" />
+    <style>
+      body.auth-page {
+        --ml-bg:
+          radial-gradient(circle at 11% 15%, rgba(134, 76, 255, 0.18), transparent 22%),
+          radial-gradient(circle at 86% 16%, rgba(94, 54, 199, 0.16), transparent 20%),
+          linear-gradient(180deg, #f8f3ff 0%, #f3efff 50%, #ece9ff 100%);
+      }
+      .theme-suite .auth-kicker { color: #5d33c8; background: #f1eaff; border-color: #dfd0ff; }
+      .theme-suite .auth-kicker__dot { background: linear-gradient(135deg, #8f5dff, #5d33c8); box-shadow: 0 0 0 4px rgba(120, 78, 235, 0.14); }
+      .theme-suite .auth-btn--primary { color: #fff; background: linear-gradient(135deg, #7c4dff, #5f35cb); box-shadow: 0 18px 30px rgba(110, 67, 220, 0.33); }
+      .theme-suite .auth-btn--primary.is-loading { position: relative; color: transparent; pointer-events: none; }
+      .theme-suite .auth-btn--primary.is-loading::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 22px;
+        height: 22px;
+        margin: -11px 0 0 -11px;
+        border-radius: 999px;
+        border: 3px solid rgba(255,255,255,.38);
+        border-top-color: #fff;
+        animation: suiteLoginSpin .82s linear infinite;
+      }
+      .theme-suite .login-wait {
+        display: none;
+        margin-top: 10px;
+        color: #5f35cb;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .theme-suite .login-wait.is-visible { display: block; }
+      @keyframes suiteLoginSpin { to { transform: rotate(360deg); } }
+      .theme-suite .auth-links a { color: #5f35cb; }
+      .theme-suite .auth-visual {
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.26), transparent 28%),
+          linear-gradient(145deg, #37206f, #5f35cb 54%, #7c4dff 100%);
+      }
+      @media (min-width: 981px) {
+        .theme-suite .auth-shell { grid-template-columns: minmax(360px, .92fr) minmax(0, 1fr); }
+      }
+    </style>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+  </head>
+  <body class="auth-page theme-suite">
+    <button class="auth-back" id="btn-back" title="Voltar para landing">
+      <span>&larr;</span>
+      <span>Voltar</span>
+    </button>
+
+    <main class="auth-stage">
+      <div class="auth-shell">
+        <aside class="auth-visual">
+          <div class="auth-visual__card">
+            <span class="auth-visual__badge">Operacao centralizada</span>
+            <h2 class="auth-visual__title">Commerce controlado com mais clareza</h2>
+            <p class="auth-visual__text">
+              Acesse sua suite, veja os modulos liberados e mantenha sua operacao comercial em um fluxo unico.
+            </p>
+
+            <div class="auth-visual__stack">
+              <div class="auth-feature">
+                <div class="auth-feature__icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 7h18"></path>
+                    <path d="M6 7V5h12v2"></path>
+                    <rect x="4" y="7" width="16" height="12" rx="2"></rect>
+                  </svg>
+                </div>
+                <div>
+                  <span class="auth-feature__title">Fluxo unico de acesso</span>
+                  <span class="auth-feature__meta">Um login para entrar e seguir para os modulos liberados.</span>
+                </div>
+              </div>
+
+              <div class="auth-feature">
+                <div class="auth-feature__icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 15l4-4 3 3 6-6"></path>
+                    <path d="M18 8h-5v5"></path>
+                  </svg>
+                </div>
+                <div>
+                  <span class="auth-feature__title">Modulos por permissao</span>
+                  <span class="auth-feature__meta">A visualizacao respeita os modulos ativos da sua conta no hub.</span>
+                </div>
+              </div>
+
+              <div class="auth-feature">
+                <div class="auth-feature__icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12h18"></path>
+                    <path d="M12 3v18"></path>
+                    <circle cx="12" cy="12" r="9"></circle>
+                  </svg>
+                </div>
+                <div>
+                  <span class="auth-feature__title">Sessao simplificada</span>
+                  <span class="auth-feature__meta">Menos atrito de login e mais foco na operacao diaria.</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </aside>
+
+        <section class="auth-panel">
+          <div class="auth-kicker">
+            <span class="auth-kicker__dot"></span>
+            <span>DACHBYTE Seller</span>
+          </div>
+
+          <h1 class="auth-title">Entrar na plataforma</h1>
+          <p class="auth-subtitle">
+            Entre com seu acesso para abrir os modulos disponiveis e continuar sua rotina comercial.
+          </p>
+
+          <div id="login-msg" class="login-msg"></div>
+
+          <form class="auth-form" id="login-form" method="post" autocomplete="on">
+            <label class="auth-field">
+              <span class="auth-field__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 6h16v12H4z"></path>
+                  <path d="M4 7l8 6 8-6"></path>
+                </svg>
+              </span>
+              <input id="email" name="email" type="email" placeholder="E-mail" class="auth-field__input" autocomplete="email" required />
+            </label>
+
+            <label class="auth-field">
+              <span class="auth-field__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="5" y="11" width="14" height="9" rx="2"></rect>
+                  <path d="M8 11V8a4 4 0 0 1 8 0v3"></path>
+                </svg>
+              </span>
+              <input id="senha" name="senha" type="password" placeholder="Senha" class="auth-field__input" autocomplete="current-password" required />
+            </label>
+
+            <div class="auth-actions">
+              <button class="auth-btn auth-btn--primary" id="btn-entrar" type="submit">Entrar</button>
+            </div>
+            <div class="login-wait" id="login-wait" aria-live="polite">
+              Validando modulos liberados no Hub...
+            </div>
+          </form>
+
+          <div class="auth-links">
+            <div>Acesso liberado somente por convite ou contratacao do servico.</div>
+            <a href="/ml/esqueci-senha">Esqueci minha senha</a>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+        const form = document.getElementById("login-form");
+        const msg = document.getElementById("login-msg");
+        const btn = document.getElementById("btn-entrar");
+        const wait = document.getElementById("login-wait");
+        const btnBack = document.getElementById("btn-back");
+        const AUTH_BASE = "";
+        const MIN_LOGIN_LOADING_MS = 650;
+
+        if (btnBack) {
+          btnBack.addEventListener("click", function (e) {
+            e.preventDefault();
+            window.location.href = "/landing";
+          });
+        }
+
+        function showMsg(text, type) {
+          msg.style.display = "block";
+          msg.textContent = text;
+          msg.className = "login-msg";
+          if (type === "ok") msg.classList.add("is-success");
+          else if (type === "info") msg.classList.add("is-info");
+          else msg.classList.add("is-error");
+        }
+
+        function setLoading(isLoading) {
+          btn.disabled = isLoading;
+          btn.classList.toggle("is-loading", isLoading);
+          btn.setAttribute("aria-busy", isLoading ? "true" : "false");
+          btn.textContent = isLoading ? "Validando..." : "Entrar";
+          if (wait) wait.classList.toggle("is-visible", isLoading);
+        }
+
+        function rememberSessionBootstrap(data) {
+          try {
+            window.sessionStorage.setItem("suite_session_bootstrap", JSON.stringify({
+              user: data && data.user ? data.user : null,
+              entitlements: data && data.entitlements ? data.entitlements : null,
+              savedAt: Date.now(),
+            }));
+          } catch (_) {}
+        }
+
+        function waitLoginMinimum(startedAt) {
+          const elapsed = Date.now() - startedAt;
+          const remaining = Math.max(0, MIN_LOGIN_LOADING_MS - elapsed);
+          return new Promise((resolve) => window.setTimeout(resolve, remaining));
+        }
+
+        form.addEventListener("submit", async function (e) {
+          e.preventDefault();
+          const email = document.getElementById("email").value.trim();
+          const senha = document.getElementById("senha").value;
+          const startedAt = Date.now();
+          let redirecting = false;
+          msg.style.display = "none";
+
+          if (!email || !senha) {
+            showMsg("Preencha e-mail e senha.", "err");
+            return;
+          }
+
+          try {
+            window.sessionStorage.removeItem("suite_session_bootstrap");
+          } catch (_) {}
+
+          setLoading(true);
+          try {
+            const resp = await fetch(AUTH_BASE + "/api/auth/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ email: email, senha: senha }),
+            });
+
+            let data = null;
+            try { data = await resp.json(); } catch (_) {}
+
+            if (!resp.ok || !data || data.ok !== true) {
+              const baseMessage = data && (data.message || data.error) ? (data.message || data.error) : "Falha no login.";
+              const reason = data && data.reason ? String(data.reason) : "";
+              const m = reason ? (baseMessage + " (" + reason + ")") : baseMessage;
+              showMsg(m, "err");
+              return;
+            }
+
+            rememberSessionBootstrap(data);
+            await waitLoginMinimum(startedAt);
+            redirecting = true;
+            window.location.href = data.redirect || "/selecao-plataforma";
+          } catch (_err) {
+            showMsg("Erro de rede ao tentar logar. Verifique o servidor e tente novamente.", "err");
+          } finally {
+            if (!redirecting) setLoading(false);
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
