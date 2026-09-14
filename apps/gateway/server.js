@@ -674,10 +674,10 @@ async function main() {
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: true }));
 
-  // Public DACHBYTE Seller URLs forward to the existing product mounts. This
-  // deliberately leaves OAuth callbacks, sessions and legacy URLs untouched.
+  // Canonical Seller routes are registered below the public landing pages.
+  // This lets the commercial roots remain pages while nested product paths
+  // continue to redirect to their existing application mounts.
   const { registerCanonicalRoutes } = require("../../platform/gateway");
-  registerCanonicalRoutes(app, "seller");
 
   // The gateway owns the public Seller pages, not the Seller application.
   // Keep the landing-page mark available without mounting the product's app or
@@ -688,6 +688,13 @@ async function main() {
     );
   });
   app.use("/images", express.static(path.join(__dirname, "..", "..", "images")));
+  app.use(
+    "/seller-assets",
+    express.static(path.join(__dirname, "..", "seller-ml", "public"), {
+      immutable: true,
+      maxAge: "7d",
+    }),
+  );
   app.use("/brand", express.static(path.join(__dirname, "..", "..", "public", "brand"), {
     immutable: true,
     maxAge: "7d",
@@ -741,6 +748,20 @@ async function main() {
     return res.redirect(302, `/ml/api/meli/oauth/callback${query}`);
   });
 
+  function sendSellerLanding(fileName) {
+    return (_req, res) =>
+      res.sendFile(path.join(__dirname, "..", "seller-ml", "views", fileName));
+  }
+
+  app.get(["/seller", "/seller/", "/dach/seller", "/dach/seller/"], sendSellerLanding("landing-general.html"));
+  app.get(["/seller/mercado-livre", "/seller/mercado-livre/", "/dach/seller/mercado-livre", "/dach/seller/mercado-livre/"], sendSellerLanding("landing-mercado-livre.html"));
+  app.get(["/seller/shopee", "/seller/shopee/", "/dach/seller/shopee", "/dach/seller/shopee/"], sendSellerLanding("landing-shopee.html"));
+  app.get(["/seller/rastreio", "/seller/rastreio/", "/seller/tracking", "/seller/tracking/", "/dach/seller/rastreio", "/dach/seller/rastreio/", "/dach/seller/tracking", "/dach/seller/tracking/"], sendSellerLanding("landing-tracking.html"));
+
+  // Preserve old links and authenticated product routes after the public
+  // landing roots have had a chance to match.
+  registerCanonicalRoutes(app, "seller");
+
   app.get("/", (req, res) => {
     if (hasShopeeOauthQuery(req.query)) {
       const queryString = buildShopeeOauthCallbackQuery(req.query);
@@ -750,7 +771,7 @@ async function main() {
       return res.redirect(nextUrl);
     }
 
-    return res.sendFile(path.join(__dirname, "..", "seller-ml", "views", "landing.html"));
+    return res.sendFile(path.join(__dirname, "..", "seller-ml", "views", "landing-general.html"));
   });
 
   app.get("/landing", (req, res) => {
@@ -762,7 +783,7 @@ async function main() {
       return res.redirect(nextUrl);
     }
 
-    return res.sendFile(path.join(__dirname, "..", "seller-ml", "views", "landing.html"));
+    return res.sendFile(path.join(__dirname, "..", "seller-ml", "views", "landing-general.html"));
   });
 
   app.get("/login", (_req, res) => {
