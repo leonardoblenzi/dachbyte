@@ -14,11 +14,6 @@ async function createBusinessApp() {
   app.set("trust proxy", 1);
   app.disable("x-powered-by");
 
-  // Public DACHBYTE Business URLs forward to stable module paths until each
-  // application can own a new base path without breaking internal links.
-  const { registerCanonicalRoutes } = require("../../platform/gateway");
-  registerCanonicalRoutes(app, "business");
-
   app.get(["/health", "/healthz"], (_req, res) => {
     res.json({
       ok: true,
@@ -53,6 +48,12 @@ async function createBusinessApp() {
   app.get("/price", (_req, res) => {
     res.sendFile(path.join(__dirname, "public", "price.html"));
   });
+
+  // Public DACHBYTE Business URLs forward to stable module paths until each
+  // application can own a new base path without breaking internal links.
+  // Keep explicit public landings above this compatibility middleware.
+  const { registerCanonicalRoutes } = require("../../platform/gateway");
+  registerCanonicalRoutes(app, "business");
 
   app.get("/favicon.ico", (_req, res) => {
     res.sendFile(path.join(__dirname, "public", "favicon.ico"));

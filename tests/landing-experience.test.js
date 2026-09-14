@@ -71,4 +71,8 @@ test("Business gains an integrated scenario and a public Price landing", () => {
   assert.match(price, /DACHBYTE Price/);
   assert.match(price, /href="\/volt-price"/);
   assert.match(app, /["']\/price["']/);
+  assert.ok(
+    app.indexOf('app.get("/price"') < app.indexOf('registerCanonicalRoutes(app, "business")'),
+    "the public Price landing must be registered before legacy canonical redirects",
+  );
 });
