@@ -49,7 +49,7 @@ async function createBusinessApp() {
   app.use((req, res, next) => {
     if (req.method !== "GET" && req.method !== "HEAD") return next();
     const requestPath = String(req.originalUrl || req.url).split("?")[0].replace(/\/+$/, "") || "/";
-    if (!priceLandingPaths.includes(requestPath)) return next();
+    if (!priceLandingPaths.includes(requestPath) && !requestPath.endsWith("/price")) return next();
     return res.sendFile(path.join(__dirname, "public", "price.html"));
   });
 
