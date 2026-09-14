@@ -39,9 +39,14 @@ test("Seller exposes a compact general landing and three module landings", () =>
   }
 });
 
-test("every Seller landing exposes direct module navigation", () => {
-  const pageNames = [
-    "landing-general.html",
+test("Seller navigation separates visual chapters from dedicated module landings", () => {
+  const generalHtml = fs.readFileSync(view("landing-general.html"), "utf8");
+  assert.match(generalHtml, /aria-label="Módulos Seller"/);
+  for (const chapter of ["#mercado-livre", "#shopee", "#rastreio"]) {
+    assert.match(generalHtml, new RegExp(`href="${chapter}"`));
+  }
+
+  const modulePages = [
     "landing-mercado-livre.html",
     "landing-shopee.html",
     "landing-tracking.html",
@@ -52,7 +57,7 @@ test("every Seller landing exposes direct module navigation", () => {
     "/seller/rastreio",
   ];
 
-  for (const pageName of pageNames) {
+  for (const pageName of modulePages) {
     const html = fs.readFileSync(view(pageName), "utf8");
     assert.match(html, /aria-label="Módulos Seller"/);
     for (const route of moduleRoutes) {
@@ -64,8 +69,21 @@ test("every Seller landing exposes direct module navigation", () => {
 test("general Seller landing keeps useful comparison depth", () => {
   const html = fs.readFileSync(view("landing-general.html"), "utf8");
   assert.equal((html.match(/seller-card__features/g) || []).length, 3);
-  assert.equal((html.match(/seller-journey__step/g) || []).length, 3);
+  assert.equal((html.match(/data-seller-demo>/g) || []).length, 3);
+  assert.equal((html.match(/data-seller-demo-tab=/g) || []).length, 9);
+  assert.equal((html.match(/>Conhecer mais</g) || []).length, 3);
+  for (const appEntry of ["/ml/login", "/shopee", "/avantracking"]) {
+    assert.match(html, new RegExp(`href="${appEntry}"`));
+  }
   assert.match(html, /seller-ticker/);
+});
+
+test("Business visual chapters offer learn-more and product-entry actions", () => {
+  const html = fs.readFileSync(path.join(root, "apps", "business", "public", "landing.html"), "utf8");
+  for (const destination of ["/voltstock", "/voltstock/login", "/chat", "/core", "/core/app"]) {
+    assert.match(html, new RegExp(`href="${destination.replaceAll("/", "\\/")}"`));
+  }
+  assert.ok((html.match(/>Conhecer mais</g) || []).length >= 3);
 });
 
 test("gateway serves marketing routes before redirecting nested product paths", () => {
