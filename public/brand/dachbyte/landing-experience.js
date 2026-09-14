@@ -1,8 +1,17 @@
 (function (root) {
   'use strict';
   const products = {
-    seller: [['Mercado Livre', '/seller/mercado-livre'], ['Shopee', '/seller/shopee'], ['Rastreio', '/seller/rastreio']],
-    business: [['Stock', '/voltstock'], ['Core', '/core'], ['Chat', '/chat/'], ['Price', '/business/price']]
+    seller: [
+      { label: 'Mercado Livre', href: '/seller/mercado-livre', login: '/ml/login', key: 'ml' },
+      { label: 'Shopee', href: '/seller/shopee', login: '/shopee', key: 'shopee' },
+      { label: 'Rastreio', href: '/seller/rastreio', login: '/avantracking', key: 'tracking' }
+    ],
+    business: [
+      { label: 'Stock', href: '/voltstock', login: '/voltstock/login', key: 'stock' },
+      { label: 'Core', href: '/core', login: '/core/app', key: 'core' },
+      { label: 'Chat', href: '/chat/', login: '/login', key: 'chat' },
+      { label: 'Price', href: '/business/price', login: '/volt-price', key: 'price' }
+    ]
   };
   function margin(price, discount, ads) {
     const revenue = price * (1 - discount / 100);
@@ -36,16 +45,39 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = { margin, nextStep, orders, deliveries, businessSteps };
   if (!root.document) return;
   const money = value => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  const linkList = family => products[family].map(([label, href]) => `<a href="${href}">${label}</a>`).join('');
+  const linkList = (family, activeKey) => products[family].map(({ label, href, key }) => `<a href="${href}"${key === activeKey ? ' aria-current="page"' : ''}>${label}</a>`).join('');
+  const moduleKey = (family, moduleName) => {
+    const normalized = String(moduleName || '').toLowerCase();
+    if (family === 'seller') return ({ 'mercado livre': 'ml', shopee: 'shopee', rastreio: 'tracking', tracking: 'tracking' })[normalized];
+    return normalized === 'business' ? undefined : normalized;
+  };
+  const pageActions = (family, moduleName) => {
+    const active = products[family].find(product => product.key === moduleKey(family, moduleName));
+    const contactSection = document.querySelector('#contato, #cta, .final-cta');
+    return {
+      login: active ? active.login : '/login',
+      contact: contactSection && contactSection.id ? '#' + contactSection.id : `mailto:contato@davanttisuite.com.br?subject=${encodeURIComponent('Demonstração DACHBYTE ' + (moduleName || family))}`
+    };
+  };
+  const hideLegacyNavigation = () => {
+    document.querySelectorAll('.seller-nav, .navbar, body > nav, body > header').forEach(element => {
+      if (element.closest('.dx-global')) return;
+      element.classList.add('dx-legacy-nav');
+      element.setAttribute('aria-hidden', 'true');
+    });
+  };
   const mount = (host, family, moduleName) => {
     if (!host || host.dataset.mounted) return () => {};
     host.dataset.mounted = 'true';
     document.body.classList.add('dx-marketing');
     document.body.dataset.dxFamily = family;
+    const activeKey = moduleKey(family, moduleName);
+    const actions = pageActions(family, moduleName);
     const nav = document.createElement('div');
     nav.className = 'dx-global';
-    nav.innerHTML = `<div class="dx-global-inner"><a class="dx-home" href="/${family}">DACHBYTE <span>${family === 'seller' ? 'Seller' : 'Business'}</span></a><nav aria-label="Famílias DACHBYTE"><a href="/seller" ${family === 'seller' ? 'aria-current="page"' : ''}>Seller</a><a href="/business" ${family === 'business' ? 'aria-current="page"' : ''}>Business</a></nav><details class="dx-products"><summary>Explorar produtos</summary><div><strong>Seller · marketplaces</strong>${linkList('seller')}<strong>Business · gestão</strong>${linkList('business')}</div></details></div></div>`;
+    nav.innerHTML = `<div class="dx-global-inner"><a class="dx-home" href="/${family}">DACHBYTE <span>${family === 'seller' ? 'Seller' : 'Business'}</span></a><nav aria-label="Famílias DACHBYTE"><a href="/seller" ${family === 'seller' ? 'aria-current="page"' : ''}>Seller</a><a href="/business" ${family === 'business' ? 'aria-current="page"' : ''}>Business</a></nav><details class="dx-products"><summary>Explorar produtos</summary><div><strong>Seller · marketplaces</strong>${linkList('seller', activeKey)}<strong>Business · gestão</strong>${linkList('business', activeKey)}</div></details><div class="dx-global-actions"><a class="dx-login" href="${actions.login}">Entrar</a><a class="dx-talk" href="${actions.contact}">Falar com a DACHBYTE</a></div></div></div>`;
     host.append(nav);
+    hideLegacyNavigation();
     const contact = document.createElement('section');
     contact.id = 'dachbyte-contact';
     contact.className = 'dx-contact';

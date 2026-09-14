@@ -24,7 +24,7 @@
   }
   if (!document.querySelector('script[src*="landing-experience.js"]')) {
     const script = document.createElement('script');
-    script.src = '/brand/dachbyte/landing-experience.js?v=20260914';
+    script.src = '/brand/dachbyte/landing-experience.js?v=20260914.2';
     document.body.append(script);
   }
   const button = document.querySelector('[data-seller-menu]');
