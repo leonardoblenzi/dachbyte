@@ -50,6 +50,10 @@ async function createBusinessApp() {
     res.sendFile(path.join(__dirname, "public", "landing.html"));
   });
 
+  app.get("/price", (_req, res) => {
+    res.sendFile(path.join(__dirname, "public", "price.html"));
+  });
+
   app.get("/favicon.ico", (_req, res) => {
     res.sendFile(path.join(__dirname, "public", "favicon.ico"));
   });

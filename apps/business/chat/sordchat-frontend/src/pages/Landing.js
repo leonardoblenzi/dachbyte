@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
@@ -33,9 +33,16 @@ const moduleCards = [
 ];
 
 const Landing = () => {
+  const shellRef = useRef(null);
+
+  useEffect(() => {
+    if (!window.DachbyteLanding || !shellRef.current) return undefined;
+    return window.DachbyteLanding.mount(shellRef.current, 'business', 'Chat');
+  }, []);
 
   return (
     <main className="landing-page landing-page--neon" id="top">
+      <div ref={shellRef} data-dx-shell="business" data-dx-module="Chat" />
       <div className="landing-noise" aria-hidden="true" />
 
       <header className="lp-nav-wrap">
