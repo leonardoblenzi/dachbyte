@@ -33,7 +33,6 @@ const CANONICAL_ROUTE_GROUPS = Object.freeze({
     Object.freeze({ canonical: "/business/core", legacy: "/core" }),
     Object.freeze({ canonical: "/business/stock", legacy: "/voltstock" }),
     Object.freeze({ canonical: "/business/chat", legacy: "/chat" }),
-    Object.freeze({ canonical: "/business/price", legacy: "/volt-price" }),
   ]),
 });
 

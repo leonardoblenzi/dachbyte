@@ -26,11 +26,13 @@ test("business canonical paths target the current mounts and preserve suffix/que
     "/core/app/dashboard?company=42",
   );
   assert.equal(getCanonicalRedirect("/business/stock/locations", "?view=map", "business"), "/voltstock/locations?view=map");
+  assert.equal(getCanonicalRedirect("/business/price", "", "business"), null);
+  assert.equal(getCanonicalRedirect("/dach/business/price", "", "business"), "/volt-price");
 });
 
 test("canonical route tables expose both public product families", () => {
   assert.equal(CANONICAL_ROUTE_GROUPS.seller.length, 15);
-  assert.equal(CANONICAL_ROUTE_GROUPS.business.length, 10);
+  assert.equal(CANONICAL_ROUTE_GROUPS.business.length, 9);
   assert.equal(getCanonicalRedirect("/seller/unknown", "", "seller"), null);
   assert.equal(getCanonicalRedirect("/other", "", "business"), null);
 });
