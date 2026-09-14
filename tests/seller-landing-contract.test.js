@@ -39,6 +39,35 @@ test("Seller exposes a compact general landing and three module landings", () =>
   }
 });
 
+test("every Seller landing exposes direct module navigation", () => {
+  const pageNames = [
+    "landing-general.html",
+    "landing-mercado-livre.html",
+    "landing-shopee.html",
+    "landing-tracking.html",
+  ];
+  const moduleRoutes = [
+    "/seller/mercado-livre",
+    "/seller/shopee",
+    "/seller/rastreio",
+  ];
+
+  for (const pageName of pageNames) {
+    const html = fs.readFileSync(view(pageName), "utf8");
+    assert.match(html, /aria-label="Módulos Seller"/);
+    for (const route of moduleRoutes) {
+      assert.match(html, new RegExp(`href="${route}"`));
+    }
+  }
+});
+
+test("general Seller landing keeps useful comparison depth", () => {
+  const html = fs.readFileSync(view("landing-general.html"), "utf8");
+  assert.equal((html.match(/seller-card__features/g) || []).length, 3);
+  assert.equal((html.match(/seller-journey__step/g) || []).length, 3);
+  assert.match(html, /seller-ticker/);
+});
+
 test("gateway serves marketing routes before redirecting nested product paths", () => {
   const source = fs.readFileSync(path.join(root, "apps", "gateway", "server.js"), "utf8");
   const landingRoute = source.indexOf('"/seller/mercado-livre"');
