@@ -106,6 +106,9 @@ test("Business portal and nested canonical links keep query strings", async () =
     const portal = await fetch(base + "/business", {redirect: "manual"});
     assert.equal(portal.status, 200);
     assert.match(await portal.text(), /DACHBYTE/);
+    const priceLanding = await fetch(base + "/business/price", {redirect: "manual"});
+    assert.equal(priceLanding.status, 200);
+    assert.match(await priceLanding.text(), /data-dx-module="Price"/);
     const response = await fetch(base + "/business/core/app?x=1", {redirect: "manual"});
     assert.equal(response.headers.get("location"), "/core/app?x=1");
   } finally {

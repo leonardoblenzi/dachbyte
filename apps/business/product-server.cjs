@@ -11,6 +11,7 @@ async function createProductApp(product) {
   app.use("/brand", express.static(path.resolve(__dirname, "../../public/brand")));
   if (product === "portal") {
     app.get(["/business", "/business/"], (_req, res) => res.sendFile(path.join(__dirname, "public/landing.html")));
+    app.get(["/business/price", "/business/price/"], (_req, res) => res.sendFile(path.join(__dirname, "public/price.html")));
     for (const [alias, target] of [["/voltchat", "/chat"], ["/volt_chat", "/chat"], ["/stock", "/voltstock"]]) {
       app.use(alias, (req, res, next) => {
         if (!["GET", "HEAD"].includes(req.method)) return next();
