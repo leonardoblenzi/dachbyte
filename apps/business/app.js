@@ -45,8 +45,12 @@ async function createBusinessApp() {
     res.sendFile(path.join(__dirname, "public", "landing.html"));
   });
 
-  app.get("/price", (_req, res) => {
-    res.sendFile(path.join(__dirname, "public", "price.html"));
+  const priceLandingPaths = ["/price", "/business/price", "/dach/business/price"];
+  app.use((req, res, next) => {
+    if (req.method !== "GET" && req.method !== "HEAD") return next();
+    const requestPath = String(req.originalUrl || req.url).split("?")[0].replace(/\/+$/, "") || "/";
+    if (!priceLandingPaths.includes(requestPath)) return next();
+    return res.sendFile(path.join(__dirname, "public", "price.html"));
   });
 
   // Public DACHBYTE Business URLs forward to stable module paths until each
