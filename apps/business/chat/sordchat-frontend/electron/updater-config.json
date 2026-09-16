@@ -1,4 +1,5 @@
 {
-    "manifestUrl":  "https://pub-5669b0b3ef2a4bd0a464d39669f3643d.r2.dev/desktop/releases/windows/latest.json",
-    "source":  "cloudflare-r2"
+  "channel": "production",
+  "manifestUrl": "https://pub-5669b0b3ef2a4bd0a464d39669f3643d.r2.dev/desktop/releases/windows/latest.json",
+  "source": "cloudflare-r2"
 }

@@ -1,0 +1,15 @@
+services:
+  business-staging-smoke:
+    profiles: [validation]
+    build:
+      context: ".."
+      dockerfile: infra/docker/chat-api.Dockerfile
+    image: dachbyte/chat-api:local
+    entrypoint: ["python", "/validation/staging-smoke.py"]
+    env_file: ["./env/staging-validation.env", "./env/hub.env"]
+    environment:
+      PYTHONUNBUFFERED: "1"
+    networks: [edge, data]
+    volumes:
+      - ./scripts/staging-smoke.py:/validation/staging-smoke.py:ro
+    restart: "no"

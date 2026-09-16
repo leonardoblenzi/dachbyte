@@ -13,9 +13,10 @@ function count(haystack, needle) {
   return haystack.split(needle).length - 1;
 }
 
-test("bootstrap master atualiza o password_hash quando o email ja existe", () => {
+test("bootstrap master e create-only e nao sobrescreve senha de usuario existente", () => {
   const auth = read("src/auth.js");
-  assert.match(
+  assert.match(auth, /ON CONFLICT \(email\) DO NOTHING/i);
+  assert.doesNotMatch(
     auth,
     /ON CONFLICT \(email\) DO UPDATE SET[^;`]*password_hash\s*=\s*EXCLUDED\.password_hash/i,
   );

@@ -6,12 +6,23 @@ const { validateProductionEnvironment } = require("../../../scripts/preflight");
 
 const strongSecret = "a-strong-secret-with-more-than-32-characters";
 
-test("production preflight requires separate application and migration databases", () => {
+test("production runtime preflight requires app database and JWT but not migration credential", () => {
   const result = validateProductionEnvironment({ NODE_ENV: "production", HUB_LOGIN_MODE: "disabled" });
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((item) => item.includes("VOLT_CORE_APP_DATABASE_URL")));
-  assert.ok(result.errors.some((item) => item.includes("VOLT_CORE_DIRECT_DATABASE_URL")));
   assert.ok(result.errors.some((item) => item.includes("VOLT_CORE_JWT_SECRET")));
+  assert.equal(result.errors.some((item) => item.includes("VOLT_CORE_DIRECT_DATABASE_URL")), false);
+});
+
+test("production runtime accepts app-only database credential", () => {
+  const result = validateProductionEnvironment({
+    NODE_ENV: "production",
+    VOLT_CORE_APP_DATABASE_URL: "postgres://volt_core_app:app-secret@example.invalid/volt",
+    VOLT_CORE_JWT_SECRET: strongSecret,
+    HUB_LOGIN_MODE: "disabled",
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
 });
 
 test("production preflight accepts separate app NOBYPASS role URL and owner migration URL", () => {

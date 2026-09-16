@@ -101,7 +101,7 @@ test("Admin Master cria um link OAuth para tenant ativo sem expor token em audit
   });
   assert.equal(error, undefined);
   assert.equal(res.statusCode, 201);
-  assert.deepEqual(res.body, { authorizationUrl: "https://volt.example/volt-price/api/integrations/link/raw-token-only-for-response", expiresAt: "2026-08-17T12:15:00Z" });
+  assert.deepEqual(res.body, { authorizationUrl: "https://volt.example/business/price/api/integrations/link/raw-token-only-for-response", expiresAt: "2026-08-17T12:15:00Z" });
   assert.deepEqual(audits, [{ tenantId: "tenant-1", actorUserId: "master-1", actorType: "platform_admin", action: "integration.link.create", resourceType: "integration_authorization_link", resourceId: "link-1", metadata: { channel: "meli", reason: "Conta principal" }, ip: "203.0.113.8", userAgent: "admin-provisioning-test" }]);
   assert.equal(JSON.stringify(audits).includes("raw-token-only-for-response"), false);
 });

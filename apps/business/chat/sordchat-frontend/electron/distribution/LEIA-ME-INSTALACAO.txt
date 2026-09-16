@@ -60,4 +60,4 @@ pela sua empresa. Antes de confirmar, verifique se o certificado identifica
 "Volt Corp Internal Code Signing" e se a impressao digital SHA-1 e:
 D4 71 99 F2 1D 88 25 42 DD 1B 6D D4 53 04 BF C1 15 98 4D 65
 
-Suporte: acesse https://www.voltcorporation.com.br/chat
+Suporte: acesse o endereco corporativo do DACHBYTE Chat informado pela sua empresa.

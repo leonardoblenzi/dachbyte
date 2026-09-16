@@ -28,11 +28,11 @@ test("Tray card renders only safe connection lifecycle metadata", () => {
   assert.doesNotMatch(source, /trayConsumerSecret|consumer_secret|refreshToken.*trayHost|accessToken.*trayHost/i);
 });
 
-test("Tray OAuth deployment instructions name the Render variables and callback", () => {
+test("Tray OAuth deployment instructions name the VPS variables and canonical callback", () => {
   assert.match(envExample, /^VOLT_PRICE_TRAY_CONSUMER_KEY=/m);
   assert.match(envExample, /^VOLT_PRICE_TRAY_CONSUMER_SECRET=/m);
   assert.match(readme, /VOLT_PRICE_PUBLIC_BASE_URL/);
-  assert.match(readme, /\/volt-price\/api\/integrations\/tray\/callback/);
+  assert.match(readme, /\/business\/price\/api\/integrations\/tray\/callback/);
   assert.match(readme, /n[aã]o.*(?:exibe|envia).*token/i);
   assert.match(readme, /renova.*automaticamente/i);
 });

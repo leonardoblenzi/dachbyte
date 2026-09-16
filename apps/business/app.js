@@ -92,13 +92,13 @@ async function createBusinessApp() {
   app.use("/chat-api", proxyVoltChatApi);
 
   app.get("/stock", (_req, res) => {
-    res.redirect(302, "/voltstock");
+    res.redirect(308, "/business/stock");
   });
 
   app.use(["/voltchat", "/volt_chat"], (req, res, next) => {
     if (req.method !== "GET" && req.method !== "HEAD") return next();
     const targetPath = req.path === "/" ? "" : req.path;
-    res.redirect(302, `/chat${targetPath}`);
+    res.redirect(308, `/business/chat${targetPath}`);
   });
 
   app.post("/api/auth/logout", (_req, res) => {

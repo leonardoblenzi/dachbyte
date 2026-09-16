@@ -12,14 +12,21 @@ function boolEnv(name, fallback = false) {
   return ["1", "true", "yes", "on"].includes(value);
 }
 
+function normalizePublicPath(value, fallback = "/business/price") {
+  const raw = String(value || fallback || "").trim();
+  if (!raw || raw === "/") return "";
+  return `/${raw.replace(/^\/+|\/+$/g, "")}`;
+}
+
 const config = {
   nodeEnv: env("NODE_ENV", "development"),
   isProduction: env("NODE_ENV", "development").toLowerCase() === "production",
-  // Runtime uses a pooled Neon connection. Migrations prefer the direct URL.
-  // Legacy names remain supported during rollout.
+  // Runtime and migrations use separate PostgreSQL roles on the VPS.
+  // Legacy variable names remain supported during rollout.
   databaseUrl: env("DB_VOLTPRICE") || env("VOLT_PRICE_DATABASE_URL") || env("DATABASE_URL"),
   directDatabaseUrl: env("DB_VOLTPRICE_DIRECT") || env("VOLT_PRICE_DIRECT_DATABASE_URL") || env("DB_VOLTPRICE") || env("VOLT_PRICE_DATABASE_URL") || env("DATABASE_URL"),
   publicBaseUrl: env("VOLT_PRICE_PUBLIC_BASE_URL"),
+  publicPath: normalizePublicPath(env("VOLT_PRICE_PUBLIC_PATH"), "/business/price"),
   sessionCookie: env("VOLT_PRICE_SESSION_COOKIE", "volt_price_session"),
   sessionTtlHours: Number(env("VOLT_PRICE_SESSION_TTL_HOURS", "24")),
   encryptionKey: env("VOLT_PRICE_ENCRYPTION_KEY"),
@@ -57,8 +64,14 @@ function baseUrl(req) {
   return `${proto}://${host}`;
 }
 
+function publicPath(suffix = "") {
+  const tail = String(suffix || "");
+  if (!tail) return config.publicPath || "/";
+  return `${config.publicPath}${tail.startsWith("/") ? tail : `/${tail}`}` || "/";
+}
+
 function requestId(req) {
   return String(req.headers["x-request-id"] || crypto.randomUUID());
 }
 
-module.exports = { config, baseUrl, requestId };
+module.exports = { config, baseUrl, publicPath, requestId };

@@ -32,29 +32,60 @@ const CHAT_ARCHIVE_JOURNAL_COMPACT_AT = 250;
 
 const isDev = process.env.ELECTRON_START_URL;
 const appIcon = path.join(__dirname, "assets", "icon.ico");
-const productionWebUrl =
-  process.env.VOLTCHAT_WEB_URL ||
-  process.env.VOLTCORP_WEB_URL ||
-  "https://www.voltcorporation.com.br/chat/";
-const productionApiUrl =
-  process.env.VOLTCHAT_API_URL ||
-  process.env.VOLTCORP_API_URL ||
-  "https://www.voltcorporation.com.br/chat-api";
 
-const loadUpdaterConfig = () => {
+const loadJsonConfig = (filename) => {
   try {
-    const configPath = path.join(__dirname, "updater-config.json");
-    // Windows PowerShell 5 pode gravar UTF-8 com BOM. JSON.parse nao aceita
-    // esse caractere no inicio, o que fazia o desktop enxergar o manifesto
-    // como nao configurado mesmo quando o build havia escrito a URL correta.
+    const configPath = path.join(__dirname, filename);
     const raw = fsSync.readFileSync(configPath, "utf8").replace(/^\uFEFF/, "");
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch (error) {
-    console.error("Falha ao carregar updater-config.json:", error);
+    console.error(`Falha ao carregar ${filename}:`, error);
     return {};
   }
 };
+
+const runtimeConfig = loadJsonConfig("runtime-config.json");
+const desktopChannel = String(
+  process.env.VOLTCHAT_DESKTOP_CHANNEL || runtimeConfig.channel || "production",
+).trim().toLowerCase();
+if (!["staging", "production"].includes(desktopChannel)) {
+  throw new Error(`Canal desktop invalido: ${desktopChannel}`);
+}
+const isStagingDesktop = desktopChannel === "staging";
+const desktopWindowTitle = isStagingDesktop ? "DACHBYTE Chat — STAGING" : "DACHBYTE Chat";
+app.setName(isStagingDesktop ? "VoltChat Staging" : "VoltChat");
+
+if (isStagingDesktop) {
+  // Staging must never reuse production cookies, auth-session.vcs, archives or Chromium data.
+  app.setPath("userData", path.join(app.getPath("appData"), "VoltChat Staging"));
+}
+
+const normalizeRuntimeUrl = (value, fallback, { trailingSlash = false } = {}) => {
+  const configured = String(value || fallback || "").trim();
+  const target = new URL(configured);
+  if (target.protocol !== "https:") {
+    throw new Error(`VoltChat desktop exige URL HTTPS: ${configured}`);
+  }
+  target.hash = "";
+  target.search = "";
+  let normalized = target.toString();
+  if (trailingSlash && !normalized.endsWith("/")) normalized += "/";
+  if (!trailingSlash) normalized = normalized.replace(/\/$/, "");
+  return normalized;
+};
+
+const productionWebUrl = normalizeRuntimeUrl(
+  process.env.VOLTCHAT_WEB_URL || process.env.VOLTCORP_WEB_URL || runtimeConfig.webUrl,
+  "https://www.voltcorporation.com.br/business/chat/",
+  { trailingSlash: true },
+);
+const productionApiUrl = normalizeRuntimeUrl(
+  process.env.VOLTCHAT_API_URL || process.env.VOLTCORP_API_URL || runtimeConfig.apiUrl,
+  "https://www.voltcorporation.com.br/business/chat/api",
+);
+
+const loadUpdaterConfig = () => loadJsonConfig("updater-config.json");
 
 const updaterConfig = loadUpdaterConfig();
 const desktopUpdateManifestUrl = String(
@@ -152,7 +183,7 @@ ipcMain.handle("voltchat:save-session", (_event, payload = {}) => saveDesktopSes
 ipcMain.handle("voltchat:clear-saved-session", () => clearDesktopSession());
 const getVoltChatDownloadsDirectory = async () => {
   const downloads = app.getPath("downloads");
-  const voltChatDir = path.join(downloads, "VoltChat");
+  const voltChatDir = path.join(downloads, isStagingDesktop ? "VoltChat Staging" : "VoltChat");
 
   try {
     await fs.mkdir(voltChatDir, { recursive: true });
@@ -267,7 +298,10 @@ ipcMain.handle("voltchat:archive-chat-history", async (_event, payload = {}) => 
     if (!byCompany.has(companyId)) byCompany.set(companyId, []);
     byCompany.get(companyId).push(message);
   }
-  const root = path.join(app.getPath("documents"), "VoltChatArchives");
+  const root = path.join(
+    app.getPath("documents"),
+    isStagingDesktop ? "VoltChatStagingArchives" : "VoltChatArchives",
+  );
   const saved = [];
   for (const [companyId, companyMessages] of byCompany.entries()) {
     const directory = path.join(root, `company-${companyId}`, `user-${userId}`);
@@ -316,6 +350,12 @@ ipcMain.handle("voltchat:archive-chat-history", async (_event, payload = {}) => 
   return { root, saved };
 });
 ipcMain.handle("voltchat:get-app-version", () => app.getVersion());
+ipcMain.handle("voltchat:get-runtime-info", () => ({
+  channel: desktopChannel,
+  webUrl: productionWebUrl,
+  apiUrl: productionApiUrl,
+  updateManifestUrl: desktopUpdateManifestUrl,
+}));
 
 ipcMain.handle("voltchat:open-external", async (_event, value) => {
   try {
@@ -334,7 +374,7 @@ ipcMain.handle("voltchat:show-notification", (_event, payload = {}) => {
   }
   if (!Notification.isSupported()) return { shown: false };
   const notification = new Notification({
-    title: String(payload.title || "DACHBYTE Chat").slice(0, 120),
+    title: String(payload.title || desktopWindowTitle).slice(0, 120),
     body: String(payload.body || "").slice(0, 500),
     icon: payload.icon || appIcon,
     silent: false,
@@ -357,7 +397,12 @@ ipcMain.handle("voltchat:show-notification", (_event, payload = {}) => {
 
 const getUpdateInstallerPath = (filename) => {
   const safeFilename = path.basename(filename || "VoltChat-Setup.exe");
-  return path.join(app.getPath("temp"), "VoltChat", "updates", safeFilename);
+  return path.join(
+    app.getPath("temp"),
+    isStagingDesktop ? "VoltChat-Staging" : "VoltChat",
+    "updates",
+    safeFilename,
+  );
 };
 
 const isAuthorizedUpdateUrl = (value) => {
@@ -415,6 +460,12 @@ const fetchDesktopReleaseManifest = async () => {
     throw new Error("Manifesto de atualizacao redirecionado para origem nao autorizada.");
   }
   const manifest = await response.json();
+  const manifestChannel = String(manifest.channel || "production").trim().toLowerCase();
+  if (manifestChannel !== desktopChannel) {
+    throw new Error(
+      `Canal de atualizacao invalido: desktop=${desktopChannel} manifesto=${manifestChannel}.`,
+    );
+  }
   const validated = validateUpdatePayload({
     url: manifest.download_url,
     filename: manifest.filename,
@@ -467,7 +518,7 @@ const fetchDesktopUpdateWithRetry = async (url) => {
       if (attempt === 2) throw error;
     }
 
-    // O Render pode levar alguns segundos para voltar após um deploy.
+    // A VPS pode levar alguns segundos para voltar apos um deploy.
     await sleep(1500 * (attempt + 1));
   }
 
@@ -655,7 +706,7 @@ const getLocalAppUrl = () => {
 };
 
 if (process.platform === "win32") {
-  app.setAppUserModelId("com.voltcorp.app");
+  app.setAppUserModelId(isStagingDesktop ? "com.voltcorp.app.staging" : "com.voltcorp.app");
 }
 
 function createSplashWindow() {
@@ -689,7 +740,7 @@ function createWindow() {
       height: 44,
     },
     backgroundColor: "#f6f7f9",
-    title: "DACHBYTE Chat",
+    title: desktopWindowTitle,
     icon: appIcon,
     webPreferences: {
       contextIsolation: true,
@@ -729,7 +780,7 @@ function createWindow() {
         `Falha ao carregar ${validatedURL}: ${errorCode} ${errorDescription}`,
       );
       if (!isDev && isMainFrame && validatedURL.startsWith(productionWebUrl)) {
-        // Durante um deploy o Render pode responder temporariamente 502. Nao
+        // Durante um deploy a VPS pode responder temporariamente 502. Nao
         // carregue o bundle local antigo: ele deixaria o desktop sem recursos
         // novos. Mantemos a mesma tela e tentamos a versao online novamente.
         scheduleProductionRetry();

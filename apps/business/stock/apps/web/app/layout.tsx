@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 
-const basePath = process.env.NEXT_PUBLIC_VOLTSTOCK_BASE_PATH ?? '/voltstock';
+const basePath = process.env.NEXT_PUBLIC_VOLTSTOCK_BASE_PATH ?? '/business/stock';
 
 export const metadata: Metadata = {
   title: 'DACHBYTE Stock',

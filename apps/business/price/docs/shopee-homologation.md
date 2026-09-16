@@ -16,7 +16,7 @@ Na validacao local desta entrega, `npm --prefix business run test:volt-price` co
 
 ## Pre-requisitos externos
 
-No web service do Render que serve o VoltPrice, configure os valores secretos:
+No ambiente seguro do container `business-price` na VPS, configure os valores secretos:
 
 ```ini
 VOLT_PRICE_PUBLIC_BASE_URL=https://<host-publico>
@@ -27,7 +27,7 @@ VOLT_PRICE_SHOPEE_PARTNER_KEY=<partner-key>
 No Shopee Console do mesmo app, registre exatamente:
 
 ```text
-https://<host-publico>/volt-price/api/integrations/shopee/callback
+https://<host-publico>/business/price/api/integrations/shopee/callback
 ```
 
 Tambem confirme no console autenticado da Shopee que o app/regiao selecionado permite autorizacao de loja, pedidos e financeiro/escrow. Os paths V2 e a base possuem defaults no `.env.example`; somente altere as variaveis opcionais quando o console do app determinar uma rota/regiao diferente.
@@ -43,7 +43,7 @@ Use uma empresa de teste com permissao de gerenciar integracoes e duas lojas Sho
 | 1. Configuracao | Faca deploy em staging com as tres variaveis acima e `NODE_ENV=production`. | Em Integracoes, **Adicionar loja Shopee** abre o consentimento; nenhum segredo aparece no HTML, URL final, resposta ou log. |
 | 2. OAuth Loja A | Autorize a Loja A e volte ao VoltPrice. | Retorno em Integracoes com uma linha `Shopee <shop_id_A>` ativa. Reabrir a mesma URL de callback nao cria conexao nem troca token outra vez. |
 | 3. OAuth Loja B | Use **Adicionar loja Shopee** novamente e autorize a Loja B. | Duas linhas ativas, com `shop_id` distintos; agir em B nao modifica A. |
-| 4. Refresh | Em cada linha, use **Renovar agora** uma vez. Mantenha ambas conectadas. | A acao atualiza somente a linha selecionada e permanece ativa. Em seguida, confirme nos logs do Render que a manutencao de token renova conexoes proximas do vencimento sem registrar token. |
+| 4. Refresh | Em cada linha, use **Renovar agora** uma vez. Mantenha ambas conectadas. | A acao atualiza somente a linha selecionada e permanece ativa. Em seguida, confirme nos logs do container `business-price` que a manutencao de token renova conexoes proximas do vencimento sem registrar token. |
 | 5. Sync inicial | Em Pedidos, selecione Loja A e execute a sincronizacao. Repita selecionando Loja B. | Cada execucao cria/atualiza seu proprio status e checkpoint; pedidos mostram `Shopee / loja <shop_id>` correspondente. |
 | 6. Sync incremental | Execute uma segunda sincronizacao para cada loja apos uma alteracao real de pedido, ou apos o intervalo operacional. | O status informa sucesso e o checkpoint avanca; a consulta incremental usa atualizacao do pedido, sem duplicar registros. |
 | 7. Pedido para taxa | Para um pedido sincronizado de cada loja, consulte a taxa na tela de Pedidos/Profit. | A requisicao usa o UUID interno do pedido. O escrow vem da mesma loja ligada ao pedido; trocar loja no navegador nao direciona a consulta para outra conta. |
@@ -60,7 +60,7 @@ Durante as etapas 5 e 6, confirme que um pedido de cada loja permanece separado 
 ## Dependencias que nao podem ser validadas localmente
 
 - credenciais Partner validas e app liberado no Shopee Console;
-- callback HTTPS cadastrado para o host real do Render;
+- callback HTTPS cadastrado para o dominio real da VPS;
 - permissoes e disponibilidade dos endpoints para cada loja autorizada;
 - emissao, duracao e rotacao reais dos tokens;
 - retorno real de pedidos e escrow de cada conta.

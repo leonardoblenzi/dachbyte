@@ -1,5 +1,26 @@
 {$DACHBYTE_SITE:http://localhost} {
   encode zstd gzip
+  # Only legacy-route requests are written to this access logger. `no_hostname`
+  # prevents automatic logging for every request; legacy handlers opt in with
+  # `log_name legacy_routes`. Capture only the original request path (no query
+  # string), redact Chat WebSocket tokens and drop request metadata we do not
+  # need for retirement metrics.
+  log legacy_routes {
+    output stdout
+    format filter {
+      legacy_path regexp /messages/ws/[^/]+ /messages/ws/REDACTED
+      request>uri delete
+      request>headers delete
+      request>remote_ip delete
+      request>client_ip delete
+      wrap json
+    }
+    no_hostname
+  }
+  log_append <legacy_path {http.request.uri.path}
+  # Synthetic staging/production smoke probes must not count as real legacy use.
+  @legacy-validation-probe header X-Dachbyte-Validation-Probe legacy-smoke
+  log_skip @legacy-validation-probe
   @seller-ml-web path /ml /ml/*
   handle @seller-ml-web {
     reverse_proxy seller-ml-web:3000
@@ -28,37 +49,219 @@
   handle @dach-seller {
     reverse_proxy gateway:3000
   }
-  @business-stock path /voltstock /voltstock/* /icon.png /logo-volt-chat.png
-  handle @business-stock {
-    reverse_proxy business-stock:3000
+  # Canonical Business product routes. Product containers now serve these
+  # paths natively. Legacy routes remain active below as compatibility aliases.
+  @business-core-api-canonical path /business/core/api /business/core/api/*
+  handle @business-core-api-canonical {
+    reverse_proxy business-core:3000
   }
-  @business-price path /volt-price /volt-price/*
-  handle @business-price {
-    reverse_proxy business-price:3000
+  @business-core-canonical path /business/core /business/core/*
+  handle @business-core-canonical {
+    reverse_proxy business-core:3000
   }
-  @business-chat path /chat /chat/*
-  handle @business-chat {
+  @business-chat-api-canonical path /business/chat/api /business/chat/api/*
+  handle @business-chat-api-canonical {
+    uri strip_prefix /business/chat/api
+    reverse_proxy business-chat-api:8001
+  }
+  @business-chat-canonical path /business/chat /business/chat/*
+  handle @business-chat-canonical {
     reverse_proxy business-chat:3000
   }
-  @chatApi path /chat-api /chat-api/*
-  handle @chatApi {
+  @business-stock-api-canonical path /business/stock/api /business/stock/api/*
+  handle @business-stock-api-canonical {
+    reverse_proxy business-stock:3000
+  }
+  @business-stock-canonical path /business/stock /business/stock/*
+  handle @business-stock-canonical {
+    reverse_proxy business-stock:3000
+  }
+  @business-price-api-canonical path /business/price/api /business/price/api/*
+  handle @business-price-api-canonical {
+    reverse_proxy business-price:3000
+  }
+  @business-price-canonical path /business/price /business/price/*
+  handle @business-price-canonical {
+    reverse_proxy business-price:3000
+  }
+
+  # Legacy API compatibility. Keep these as direct proxies during the
+  # deprecation window: API clients, OAuth callbacks and old desktop builds
+  # must not depend on HTTP redirects. Every response advertises the
+  # canonical successor path.
+  @legacy-core-api path /api/core /api/core/*
+  handle @legacy-core-api {
+    log_name legacy_routes
+    header {
+      Deprecation "true"
+      Link "</business/core/api>; rel=\"successor-version\""
+      X-Dachbyte-Legacy-Route "true"
+      X-Dachbyte-Canonical-Path "/business/core/api"
+    }
+    reverse_proxy business-core:3000
+  }
+  @legacy-chat-api path /chat-api /chat-api/*
+  handle @legacy-chat-api {
+    log_name legacy_routes
+    header {
+      Deprecation "true"
+      Link "</business/chat/api>; rel=\"successor-version\""
+      X-Dachbyte-Legacy-Route "true"
+      X-Dachbyte-Canonical-Path "/business/chat/api"
+    }
     uri strip_prefix /chat-api
     reverse_proxy business-chat-api:8001
   }
-  @businessChatApi path /business/chat-api /business/chat-api/*
-  handle @businessChatApi {
+  @legacy-business-chat-api path /business/chat-api /business/chat-api/*
+  handle @legacy-business-chat-api {
+    log_name legacy_routes
+    header {
+      Deprecation "true"
+      Link "</business/chat/api>; rel=\"successor-version\""
+      X-Dachbyte-Legacy-Route "true"
+      X-Dachbyte-Canonical-Path "/business/chat/api"
+    }
     uri strip_prefix /business/chat-api
     reverse_proxy business-chat-api:8001
   }
-  @core path /core /core/* /api/core /api/core/* /assets/* /status /health
-  handle @core {
+  @legacy-stock-api path /voltstock/api /voltstock/api/*
+  handle @legacy-stock-api {
+    log_name legacy_routes
+    header {
+      Deprecation "true"
+      Link "</business/stock/api>; rel=\"successor-version\""
+      X-Dachbyte-Legacy-Route "true"
+      X-Dachbyte-Canonical-Path "/business/stock/api"
+    }
+    reverse_proxy business-stock:3000
+  }
+  @legacy-price-api path /volt-price/api /volt-price/api/*
+  handle @legacy-price-api {
+    log_name legacy_routes
+    header {
+      Deprecation "true"
+      Link "</business/price/api>; rel=\"successor-version\""
+      X-Dachbyte-Legacy-Route "true"
+      X-Dachbyte-Canonical-Path "/business/price/api"
+    }
+    reverse_proxy business-price:3000
+  }
+  @legacy-price-health path /volt-price/health
+  handle @legacy-price-health {
+    log_name legacy_routes
+    header {
+      Deprecation "true"
+      Link "</business/price/health>; rel=\"successor-version\""
+      X-Dachbyte-Legacy-Route "true"
+      X-Dachbyte-Canonical-Path "/business/price/health"
+    }
+    reverse_proxy business-price:3000
+  }
+
+  # Legacy UI aliases now converge on the canonical public URLs. APIs above
+  # intentionally remain proxied so POST/WebSocket/OAuth clients are not
+  # forced through redirect semantics.
+  @legacy-core-ui path /core /core/*
+  handle @legacy-core-ui {
+    log_name legacy_routes
+    route {
+      uri strip_prefix /core
+      redir /business/core{uri} 308
+    }
+  }
+  @legacy-chat-ui path /chat /chat/*
+  handle @legacy-chat-ui {
+    log_name legacy_routes
+    route {
+      uri strip_prefix /chat
+      redir /business/chat{uri} 308
+    }
+  }
+  @legacy-stock-ui path /voltstock /voltstock/*
+  handle @legacy-stock-ui {
+    log_name legacy_routes
+    route {
+      uri strip_prefix /voltstock
+      redir /business/stock{uri} 308
+    }
+  }
+  @legacy-price-ui path /volt-price /volt-price/*
+  handle @legacy-price-ui {
+    log_name legacy_routes
+    route {
+      uri strip_prefix /volt-price
+      redir /business/price{uri} 308
+    }
+  }
+  @legacy-voltchat path /voltchat /voltchat/*
+  handle @legacy-voltchat {
+    log_name legacy_routes
+    route {
+      uri strip_prefix /voltchat
+      redir /business/chat{uri} 308
+    }
+  }
+  @legacy-volt-chat path /volt_chat /volt_chat/*
+  handle @legacy-volt-chat {
+    log_name legacy_routes
+    route {
+      uri strip_prefix /volt_chat
+      redir /business/chat{uri} 308
+    }
+  }
+  @legacy-stock-short path /stock /stock/*
+  handle @legacy-stock-short {
+    log_name legacy_routes
+    route {
+      uri strip_prefix /stock
+      redir /business/stock{uri} 308
+    }
+  }
+
+  # Compatibility assets used by old Core/Stock builds and desktop clients.
+  @legacy-stock-assets path /icon.png /logo-volt-chat.png
+  handle @legacy-stock-assets {
+    log_name legacy_routes
+    header {
+      Deprecation "true"
+      X-Dachbyte-Legacy-Route "true"
+    }
+    reverse_proxy business-stock:3000
+  }
+  @legacy-core-assets path /assets/*
+  handle @legacy-core-assets {
+    log_name legacy_routes
+    header {
+      Deprecation "true"
+      X-Dachbyte-Legacy-Route "true"
+      X-Dachbyte-Canonical-Path "/business/core/assets"
+    }
     reverse_proxy business-core:3000
   }
-  @chatVersion path /version.json
-  handle @chatVersion {
+  @legacy-core-health path /health /status
+  handle @legacy-core-health {
+    log_name legacy_routes
+    header {
+      Deprecation "true"
+      Link "</business/core/api/health>; rel=\"successor-version\""
+      X-Dachbyte-Legacy-Route "true"
+      X-Dachbyte-Canonical-Path "/business/core/api/health"
+    }
+    reverse_proxy business-core:3000
+  }
+  @legacy-chat-version path /version.json
+  handle @legacy-chat-version {
+    log_name legacy_routes
+    header {
+      Deprecation "true"
+      Link "</business/chat/version.json>; rel=\"successor-version\""
+      X-Dachbyte-Legacy-Route "true"
+      X-Dachbyte-Canonical-Path "/business/chat/version.json"
+    }
     reverse_proxy business-chat:3000
   }
-  @business path /business /business/* /voltchat /voltchat/* /volt_chat /volt_chat/* /stock /stock/*
+
+  @business path /business /business/*
   handle @business {
     reverse_proxy business-portal:3000
   }

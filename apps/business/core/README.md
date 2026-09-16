@@ -4,16 +4,14 @@ App de controle empresarial da linha Davantti Business.
 
 ## Banco e migrations
 
-O runtime real usa Postgres/Neon com duas roles e duas URLs separadas em producao:
+O runtime de producao usa PostgreSQL local na VPS com duas roles e duas URLs separadas:
 
 ```text
-VOLT_CORE_APP_DATABASE_URL=postgres direto usando a role exclusiva da aplicacao
-VOLT_CORE_DIRECT_DATABASE_URL=postgres direto usando a role administrativa de migrations
+VOLT_CORE_APP_DATABASE_URL=postgresql://<role_runtime>@postgres:5432/dachbyte_core
+VOLT_CORE_DIRECT_DATABASE_URL=postgresql://<role_migration>@postgres:5432/dachbyte_core
 ```
 
-Nesta implementacao, as duas URLs devem usar o endpoint direto do Neon, sem `-pooler`. O contexto de tenant do RLS e aplicado por sessao, portanto o pooler em modo transacional nao deve ser usado pelo runtime.
-
-A role configurada em `VOLT_CORE_APP_DATABASE_URL` deve ser exclusiva da aplicacao e nao pode possuir `SUPERUSER`, `BYPASSRLS` nem herdar `neon_superuser`. O runtime valida essas restricoes no startup e recusa iniciar com uma role administrativa. `npm run migrate` usa a URL direta administrativa, cria ou endurece a role da aplicacao e concede somente os acessos necessarios ao banco, schema, tabelas e sequences.
+A role configurada em `VOLT_CORE_APP_DATABASE_URL` e exclusiva da aplicacao e nao pode possuir `SUPERUSER` nem `BYPASSRLS`. O runtime valida essas restricoes no startup e recusa iniciar com uma role administrativa. A URL `VOLT_CORE_DIRECT_DATABASE_URL` pertence somente ao job one-shot de migration/administracao e nao deve ficar exposta ao container web persistente.
 
 Comandos:
 
@@ -24,7 +22,7 @@ npm --prefix apps/business/core run seed:qa
 
 Sem banco configurado, o login e as telas operacionais ficam indisponiveis. O Volt Core nao cria usuarios, empresas ou registros ficticios como fallback.
 
-No Render, o `preDeployCommand` executa `npm run preflight` e `npm run migrate`. O `npm start` apenas inicia o servico; alteracoes de schema devem continuar em uma etapa explicita de pre-deploy. O seed de QA e manual e deve ser usado apenas em staging/homologacao. Variaveis aceitas pelo seed:
+Na VPS, migrations sao executadas explicitamente pelo fluxo de banco em `infra/business-db-ops.sh`; o `npm start` apenas inicia o servico. O seed de QA e manual e deve ser usado apenas em staging/homologacao. Variaveis aceitas pelo seed:
 
 ```text
 VOLT_CORE_QA_EMAIL=qa@voltcore.local
@@ -42,20 +40,22 @@ Migrations de fundacao pre-go-live:
 019_stock_reservations.sql -> reserva estoque de vendas com entrega futura sem baixar o saldo fisico
 ```
 
-Antes de producao, execute tambem:
+Antes de producao, valide o produto e execute a migration pela infraestrutura:
 
 ```bash
 npm run preflight
 npm test
-npm run migrate
 npm run build
+cd ../../../infra
+./business-db-ops.sh migrate
+./business-db-ops.sh verify
 ```
 
 Os registros de QA e observacoes de casos legados ficam em `docs/` e devem ser preservados como historico operacional.
 
 ## Autenticacao e admin master
 
-O master inicial pode ser provisionado no startup pelas variaveis globais do Render:
+O master inicial pode ser provisionado temporariamente pelas variaveis de ambiente do Core:
 
 ```text
 VOLT_CORE_JWT_SECRET=segredo forte
@@ -64,23 +64,29 @@ VOLT_CORE_BOOTSTRAP_MASTER_EMAIL=...
 VOLT_CORE_BOOTSTRAP_MASTER_PASSWORD=...
 ```
 
-Tambem e aceito `VOLT_CORE_BOOTSTRAP_MASTER_PASSWORD_HASH`. Quando o Hub estiver configurado, o Volt Core usa `HUB_BASE_URL`, `HUB_INTERNAL_TOKEN` e `HUB_LOGIN_MODE` para login e provisionamento global. Com `HUB_LOGIN_MODE=fallback`, `mirror` ou `strict`, usuarios comuns sempre precisam ser autenticados pelo Hub com permissao para o modulo `volt_core`; o master continua com autenticacao local.
+Tambem e aceito `VOLT_CORE_BOOTSTRAP_MASTER_PASSWORD_HASH`. Depois do primeiro provisionamento, mantenha obrigatoriamente `VOLT_CORE_BOOTSTRAP_MASTER_ENABLED=false`; o bootstrap e create-only e nao deve fazer parte do ciclo normal de startup. Quando o Hub estiver configurado, o Volt Core usa `HUB_BASE_URL`, `HUB_INTERNAL_TOKEN` e `HUB_LOGIN_MODE` para login e provisionamento global. Com `HUB_LOGIN_MODE=fallback`, `mirror` ou `strict`, usuarios comuns sempre precisam ser autenticados pelo Hub com permissao para o modulo `volt_core`; o master continua com autenticacao local.
 
 O provisionamento e sob demanda: nenhuma empresa, usuario ou vinculo e criado apenas por existir no Hub. A sincronizacao acontece dentro do primeiro login autorizado no Volt Core. O primeiro usuario autorizado de um tenant novo recebe o papel de admin da empresa; os seguintes entram como operadores. Papeis e permissoes ja configurados no Volt Core sao preservados nos proximos logins. Se o Hub nao enviar nome ou documento da empresa, o primeiro admin confirma o cadastro antes de escolher o setor.
 
 O isolamento por empresa e o RBAC sao obrigatorios em todas as rotas operacionais. Leituras e escritas consultam o vinculo persistido da empresa, com os perfis `owner`, `manager`, `operator`, `stock` e `finance`, alem de permissoes explicitas e overrides por usuario.
 
-O runtime persistente tambem aplica permissoes por acao nas rotas `/api/core/runtime/...`. O admin master Davantti tem acesso total. O admin da empresa controla usuarios da propria conta, telas visiveis e permissoes de escrita/leitura por modulo. As permissoes e telas ficam no vinculo `volt_core.user_companies`, permitindo que um usuario tenha acesso diferente em empresas diferentes.
+O runtime persistente tambem aplica permissoes por acao nas rotas `/business/core/api/runtime/...`. O admin master Davantti tem acesso total. O admin da empresa controla usuarios da propria conta, telas visiveis e permissoes de escrita/leitura por modulo. As permissoes e telas ficam no vinculo `volt_core.user_companies`, permitindo que um usuario tenha acesso diferente em empresas diferentes.
 
-## Deploy no Render
+## Deploy na VPS
 
-O blueprint standalone esta em `apps/business/core/render.yaml`. Ele executa build, migration via URL direta e inicia o servidor Express que serve o frontend compilado. As URLs e segredos permanecem `sync: false` para serem fornecidos pelo ambiente do Render.
+O Core e executado pelo container `business-core` definido em `infra/compose.vps.yml`. Caddy publica os caminhos canonicos `/business/core` e `/business/core/api`. Build, runtime e migrations devem usar os arquivos de ambiente da VPS; credenciais administrativas de banco ficam restritas ao job one-shot de migration.
 
-Quando o Volt Core roda dentro do webservice compartilhado `business`, use `node start.js` como **Start Command**. Esse entrypoint inicia os modulos do agregador e fixa explicitamente o subprocesso Uvicorn do Volt Chat em um unico worker (`--workers 1`), evitando que `WEB_CONCURRENCY` multiplique processos Python, pools e estado WebSocket. Mantenha tambem:
+Fluxo operacional:
 
-```text
-WEB_CONCURRENCY=1
+```bash
+cd infra
+./business-db-ops.sh verify
+./business-db-ops.sh migrate
+./business-staging-ops.sh up     # staging
+# ou business-production-ops.sh durante o corte controlado
 ```
+
+O Core nao inicia subprocessos do Chat e nao depende mais do antigo webservice agregado.
 
 ### Worker de integracoes e logs HTTP
 
@@ -116,33 +122,19 @@ Recovery e maintenance conservam sua periodicidade propria; o backoff altera ape
 
 ## Rotas publicas e dominio
 
-O Volt Core esta preparado para rodar futuramente dentro do dominio da Volt Corp com tres camadas:
+Rotas publicas canonicas na VPS:
 
 ```text
-/core      -> landing publica do produto
-/core/app  -> app logado do cliente
-/api/core  -> API consumida pelo app
+/business/core      -> landing publica do produto
+/business/core/app  -> app logado do cliente
+/business/core/api  -> API consumida pelo app
 ```
 
-Dominio principal e rotas publicas:
+O frontend e compilado com `VOLT_CORE_PUBLIC_BASE_PATH=/business/core`, `VOLT_CORE_APP_BASE_PATH=/business/core/app` e `VOLT_CORE_API_BASE_PATH=/business/core/api`. O Caddy encaminha essas rotas diretamente para `business-core`.
 
-```text
-https://www.voltcorporation.com.br/                 -> landing institucional futura da Volt Corporation
-https://www.voltcorporation.com.br/core             -> landing publica do Volt Core
-https://www.voltcorporation.com.br/core/app         -> app logado do Volt Core
-https://www.voltcorporation.com.br/core/app/dashboard
-https://www.voltcorporation.com.br/api/core/auth/login
-https://www.voltcorporation.com.br/api/core/runtime/companies/:companyId/workspace
-```
+`/core/*` redireciona com HTTP 308 para a interface canonica. `/api/core/*` continua temporariamente como proxy de compatibilidade para clientes antigos e recebe headers de deprecacao; nao use esse prefixo em novas integracoes.
 
-O dominio raiz `voltcorporation.com.br` deve redirecionar permanentemente para `www.voltcorporation.com.br`. Enquanto a landing institucional nao for criada, a raiz `/` permanece reservada; o produto deve ser divulgado pela URL `/core`.
-
-A API publica usa exclusivamente `/api/core/...`, evitando conflito com a landing `/core` e o app `/core/app`. O app React normaliza chamadas antigas internas para `/api/core/...` por padrao. Para mudar a base sem alterar codigo, use:
-
-```text
-VOLT_CORE_APP_BASE_PATH=/core/app
-VITE_VOLT_CORE_API_BASE=/api/core
-```
+A URL publicada deve sempre usar `/business/core`; os aliases antigos existem apenas durante a janela descrita em `infra/LEGACY_DEPRECATION.md`.
 
 ## Produto operacional
 
@@ -200,24 +192,24 @@ A unica API operacional publica e persistente usa o namespace `runtime`. A antig
 Contratos principais:
 
 ```text
-GET  /api/core/runtime/companies
-POST /api/core/runtime/companies                         -> master
-GET  /api/core/runtime/companies/:companyId/workspace
-POST /api/core/runtime/companies/:companyId/apply-segment -> master
-PATCH /api/core/runtime/companies/:companyId/configuration/overrides -> master
+GET  /business/core/api/runtime/companies
+POST /business/core/api/runtime/companies                         -> master
+GET  /business/core/api/runtime/companies/:companyId/workspace
+POST /business/core/api/runtime/companies/:companyId/apply-segment -> master
+PATCH /business/core/api/runtime/companies/:companyId/configuration/overrides -> master
 
-POST/PATCH/DELETE /api/core/runtime/companies/:companyId/customers/...
-POST/PATCH/DELETE /api/core/runtime/companies/:companyId/products/...
-POST              /api/core/runtime/companies/:companyId/inventory/movements
-POST               /api/core/runtime/companies/:companyId/sales
-POST               /api/core/runtime/companies/:companyId/sales/:saleId/cancel
-POST               /api/core/runtime/companies/:companyId/cash/...
-POST               /api/core/runtime/companies/:companyId/receivables/...
-POST/PATCH          /api/core/runtime/companies/:companyId/service-orders/...
-POST/PATCH          /api/core/runtime/companies/:companyId/prescriptions/...
-POST/PATCH          /api/core/runtime/companies/:companyId/optical-...
-POST/PATCH          /api/core/runtime/companies/:companyId/fiscal-documents/...
-POST/PATCH          /api/core/runtime/companies/:companyId/users/...
+POST/PATCH/DELETE /business/core/api/runtime/companies/:companyId/customers/...
+POST/PATCH/DELETE /business/core/api/runtime/companies/:companyId/products/...
+POST              /business/core/api/runtime/companies/:companyId/inventory/movements
+POST               /business/core/api/runtime/companies/:companyId/sales
+POST               /business/core/api/runtime/companies/:companyId/sales/:saleId/cancel
+POST               /business/core/api/runtime/companies/:companyId/cash/...
+POST               /business/core/api/runtime/companies/:companyId/receivables/...
+POST/PATCH          /business/core/api/runtime/companies/:companyId/service-orders/...
+POST/PATCH          /business/core/api/runtime/companies/:companyId/prescriptions/...
+POST/PATCH          /business/core/api/runtime/companies/:companyId/optical-...
+POST/PATCH          /business/core/api/runtime/companies/:companyId/fiscal-documents/...
+POST/PATCH          /business/core/api/runtime/companies/:companyId/users/...
 ```
 
 Cada escrita e protegida por acesso a empresa + permissao e, quando aplicavel, capability do modulo. Vendas aceitam `Idempotency-Key` para retry seguro.

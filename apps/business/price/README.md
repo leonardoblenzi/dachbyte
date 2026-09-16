@@ -1,6 +1,6 @@
 # VoltPrice
 
-VoltPrice e um modulo do webservice VoltCorp/DavanttiSuite. Ele e montado pelo `apps/business/app.js` em `/volt-price` e usa o mesmo processo Render existente. Nao possui `render.yaml` proprio.
+VoltPrice e um produto do DACHBYTE Business executado no container `business-price` da VPS. Caddy publica a interface em `/business/price` e a API em `/business/price/api`; o servidor agregado antigo permanece apenas como compatibilidade.
 
 ## Referencia visual e invariantes
 
@@ -18,7 +18,7 @@ Fundacao pronta para producao controlada:
 - sessoes opacas no servidor em cookie HttpOnly/Secure;
 - CSRF nas mutacoes;
 - rate limit de login;
-- PostgreSQL/Neon com RLS e `tenant_id` obrigatorio nas tabelas operacionais;
+- PostgreSQL local na VPS com RLS e `tenant_id` obrigatorio nas tabelas operacionais;
 - audit log append-only;
 - criptografia AES-256-GCM para tokens OAuth;
 - minimizacao/redacao de PII antes de persistir payloads externos;
@@ -32,15 +32,15 @@ Fundacao pronta para producao controlada:
 - marketing com fontes multicanal, importacao idempotente/versionada, ROAS/ACOS/TACOS e custos de cupons, moedas e afiliados integrados ao Profit.
 - Market com histórico competitivo, matching revisável, faixas de preço, rupturas e sinais persistidos para o Decision Engine.
 
-## Montagem no webservice
+## Publicacao na VPS
 
-`apps/business/app.js` monta:
+`product-server.cjs` executa o produto em `business-price` e o Caddy publica:
 
-- UI: `/volt-price`
-- API: `/volt-price/api/*`
-- health: `/volt-price/health`
+- UI: `/business/price`
+- API: `/business/price/api/*`
+- health: `/business/price/health`
 
-O Render executa `npm run migrate:all` no pre-deploy. O script dedicado `npm run migrate:volt-price` usa `DB_VOLTPRICE_DIRECT`; o runtime usa a conexao pooled `DB_VOLTPRICE`. `business/start.js` nao executa DDL.
+Na VPS, migrations sao executadas por job one-shot e nunca pelo startup normal. `DB_VOLTPRICE_DIRECT` pertence ao fluxo de migration; o runtime usa `DB_VOLTPRICE` com role restrita. `business/start.js` nao executa DDL.
 
 Para executar somente a migration VoltPrice com uma conexao direta, a partir da raiz do repositorio:
 
@@ -50,23 +50,23 @@ DB_VOLTPRICE_DIRECT="postgresql://..." node apps/business/price/db/migrate.js
 
 ## Primeiro deploy
 
-1. Copie as variaveis de `.env.example` para o ambiente do Render.
-2. Configure `DB_VOLTPRICE` com a URL pooled do Neon e `DB_VOLTPRICE_DIRECT` com a URL direta de migration.
+1. Copie `infra/env/business-price.env.example` e `infra/env/business-price-migrate.env.example` para os arquivos reais da VPS.
+2. Configure `DB_VOLTPRICE` com a role de runtime do PostgreSQL local e `DB_VOLTPRICE_DIRECT` com a role de migration.
 3. Defina `VOLT_PRICE_ENCRYPTION_KEY` com 32 bytes aleatorios.
 4. Configure as credenciais do app Tray existente, Mercado Livre e Shopee. Para Shopee, `VOLT_PRICE_SHOPEE_PARTNER_ID` e `VOLT_PRICE_SHOPEE_PARTNER_KEY` sao obrigatorias.
 5. Configure `VOLT_PRICE_PUBLIC_BASE_URL` com a URL publica real do webservice.
 6. Para criar o primeiro Admin Master, ative temporariamente `VOLT_PRICE_BOOTSTRAP_MASTER_ENABLED=true`, defina `VOLT_PRICE_BOOTSTRAP_MASTER_EMAIL` e uma `VOLT_PRICE_BOOTSTRAP_MASTER_PASSWORD` forte (minimo de 16 caracteres em producao).
 7. Faça o deploy. A migration cria o schema `volt_price`.
 8. Entre no Admin Master com e-mail e senha, crie a primeira empresa e owner. O owner recebe uma senha temporaria e precisa troca-la no primeiro acesso.
-9. Depois do bootstrap, recomenda-se desligar `VOLT_PRICE_BOOTSTRAP_MASTER_ENABLED` e manter o usuario criado no banco.
+9. Depois do bootstrap, desligue `VOLT_PRICE_BOOTSTRAP_MASTER_ENABLED=false`; o bootstrap nao deve permanecer habilitado em producao.
 
 ## Login, primeiro acesso e provisionamento
 
-O login do VoltPrice envia somente `email` e `password` para `POST /volt-price/api/auth/login`. Um usuario regular deve ter exatamente uma associacao ativa; uma conta legada com mais de uma associacao ativa e rejeitada no login.
+O login do VoltPrice envia somente `email` e `password` para `POST /business/price/api/auth/login`. Um usuario regular deve ter exatamente uma associacao ativa; uma conta legada com mais de uma associacao ativa e rejeitada no login.
 
-Quando a sessao informa `passwordChangeRequired`, o aplicativo mostra somente o formulario de primeiro acesso. A pessoa informa a senha temporaria, a nova senha e sua confirmacao. O navegador atualiza o CSRF em `GET /volt-price/api/auth/csrf` e envia `currentPassword` e `newPassword` para `POST /volt-price/api/auth/change-password`. A resposta substitui a sessao e libera o shell normal do aplicativo.
+Quando a sessao informa `passwordChangeRequired`, o aplicativo mostra somente o formulario de primeiro acesso. A pessoa informa a senha temporaria, a nova senha e sua confirmacao. O navegador atualiza o CSRF em `GET /business/price/api/auth/csrf` e envia `currentPassword` e `newPassword` para `POST /business/price/api/auth/change-password`. A resposta substitui a sessao e libera o shell normal do aplicativo.
 
-O Admin Master provisiona um usuario regular por `POST /volt-price/api/admin/tenants/:tenantId/users`, com CSRF valido e o contrato:
+O Admin Master provisiona um usuario regular por `POST /business/price/api/admin/tenants/:tenantId/users`, com CSRF valido e o contrato:
 
 ```json
 {
@@ -81,7 +81,7 @@ Os perfis permitidos sao `admin`, `finance`, `pricing`, `marketing`, `analyst` e
 
 ### Console do Admin Master
 
-Em **Admin Master**, selecione **Gerenciar usuarios** na empresa desejada. A tela consulta `GET /volt-price/api/admin/tenants/:tenantId/users` e mostra somente nome, e-mail, perfil, status e indicacao de primeiro acesso. Informe nome, e-mail, perfil e uma senha temporaria para criar um usuario; entregue a senha temporaria manualmente por um canal seguro. O VoltPrice nao envia e-mail automaticamente, e a pessoa deve trocar essa senha no primeiro acesso.
+Em **Admin Master**, selecione **Gerenciar usuarios** na empresa desejada. A tela consulta `GET /business/price/api/admin/tenants/:tenantId/users` e mostra somente nome, e-mail, perfil, status e indicacao de primeiro acesso. Informe nome, e-mail, perfil e uma senha temporaria para criar um usuario; entregue a senha temporaria manualmente por um canal seguro. O VoltPrice nao envia e-mail automaticamente, e a pessoa deve trocar essa senha no primeiro acesso.
 
 Para um usuario operacional existente, selecione **Redefinir senha** e informe uma nova senha temporaria. A confirmacao esclarece que a redefinicao encerra as sessoes atuais. A senha nunca aparece em listas, auditoria ou mensagens de sucesso.
 
@@ -102,7 +102,7 @@ SELECT set_config('app.vp_platform_admin', 'false', true);
 COMMIT;
 ```
 
-O contexto e transaction-local para funcionar corretamente mesmo em conexao Neon pooled/PgBouncer.
+O contexto e transaction-local para impedir que o tenant vaze entre transacoes quando conexoes do pool da aplicacao sao reutilizadas.
 
 ## Tray
 
@@ -123,12 +123,12 @@ Por segurança, a URL da loja e o `api_address` retornado pela Tray precisam usa
 
 ### Conectar Tray por OAuth
 
-No Render, configure somente `VOLT_PRICE_TRAY_CONSUMER_KEY`, `VOLT_PRICE_TRAY_CONSUMER_SECRET` e `VOLT_PRICE_PUBLIC_BASE_URL`. Não cadastre Consumer Key, Consumer Secret, access token ou refresh token na interface ou no banco manualmente.
+Na VPS, configure somente no ambiente seguro do `business-price` as variaveis `VOLT_PRICE_TRAY_CONSUMER_KEY`, `VOLT_PRICE_TRAY_CONSUMER_SECRET` e `VOLT_PRICE_PUBLIC_BASE_URL`. Não cadastre Consumer Key, Consumer Secret, access token ou refresh token na interface ou no banco manualmente.
 
 No console do aplicativo Tray, registre exatamente o callback:
 
 ```text
-${VOLT_PRICE_PUBLIC_BASE_URL}/volt-price/api/integrations/tray/callback
+${VOLT_PRICE_PUBLIC_BASE_URL}/business/price/api/integrations/tray/callback
 ```
 
 Depois do deploy, entre na empresa correta, abra **Integrações**, informe a URL HTTPS verificada da loja e selecione **Autorizar na Tray**. Ao concluir o consentimento, o VoltPrice retorna para a tela de Integrações e informa o estado da conexão. O navegador não exibe nem envia token; o refresh renova automaticamente a conexão antes da expiração enquanto o refresh token for válido.
@@ -139,15 +139,15 @@ Use a URL HTTPS oficial da loja. Em caso de falha ou consentimento negado, recom
 
 OAuth usa Authorization Code + PKCE. O refresh e protegido por `SELECT ... FOR UPDATE`, pois o Mercado Livre documenta que o refresh token e de uso unico e que somente o ultimo refresh token emitido permanece valido.
 
-### Cadastro do app e ambiente Render
+### Cadastro do app e ambiente VPS
 
 No app Mercado Livre, cadastre o callback HTTPS exato abaixo (substitua somente o dominio pelo valor publico real de `VOLT_PRICE_PUBLIC_BASE_URL`):
 
 ```text
-https://SEU_DOMINIO/volt-price/api/integrations/meli/callback
+https://SEU_DOMINIO/business/price/api/integrations/meli/callback
 ```
 
-No Render, configure estes tres valores sem aspas e sem expor valores em logs, issues ou commits:
+No ambiente seguro da VPS, configure estes tres valores sem aspas e sem expor valores em logs, issues ou commits:
 
 - `VOLT_PRICE_PUBLIC_BASE_URL`: URL publica HTTPS do webservice, sem barra final;
 - `VOLT_PRICE_MELI_CLIENT_ID`: Client ID do app Mercado Livre;
@@ -170,12 +170,12 @@ O endpoint de billing e cacheado localmente para evitar chamadas repetidas. O us
 
 O conector implementa o padrao de assinatura HMAC da Open Platform V2, token exchange, refresh, chamadas shop-level, sincronizacao incremental de pedidos e consulta de escrow por `order_sn`. Cada empresa pode autorizar varias lojas Shopee, identificadas pelo `shop_id`; a renovacao, sincronizacao e desconexao sempre operam sobre a loja selecionada.
 
-### Configuracao no Render
+### Configuracao na VPS
 
 Declare no ambiente seguro do mesmo webservice que monta o VoltPrice:
 
 ```ini
-VOLT_PRICE_PUBLIC_BASE_URL=https://seu-webservice.onrender.com
+VOLT_PRICE_PUBLIC_BASE_URL=https://SEU_DOMINIO
 VOLT_PRICE_SHOPEE_PARTNER_ID=<partner_id_do_app>
 VOLT_PRICE_SHOPEE_PARTNER_KEY=<partner_key_do_app>
 ```
@@ -183,7 +183,7 @@ VOLT_PRICE_SHOPEE_PARTNER_KEY=<partner_key_do_app>
 O callback a cadastrar no console do app Shopee e exatamente:
 
 ```text
-${VOLT_PRICE_PUBLIC_BASE_URL}/volt-price/api/integrations/shopee/callback
+${VOLT_PRICE_PUBLIC_BASE_URL}/business/price/api/integrations/shopee/callback
 ```
 
 Os valores abaixo sao opcionais e ja possuem os defaults mostrados em `.env.example`. Altere-os somente se o console autenticado da Shopee indicar outra regiao ou rota para o app:
@@ -196,7 +196,7 @@ Os valores abaixo sao opcionais e ja possuem os defaults mostrados em `.env.exam
 - `VOLT_PRICE_SHOPEE_ORDER_LIST_PATH`
 - `VOLT_PRICE_SHOPEE_ORDER_DETAIL_PATH`
 
-Mantenha o pre-deploy existente com `npm run migrate:all` (ou execute `npm run migrate:volt-price` com `DB_VOLTPRICE_DIRECT` ao operar somente o modulo). O runtime usa `DB_VOLTPRICE` pooled; nao execute DDL pelo processo de start.
+Na VPS, execute migrations pelo job one-shot definido na infraestrutura (`infra/business-db-ops.sh migrate`). O runtime persistente usa `DB_VOLTPRICE`; `DB_VOLTPRICE_DIRECT` fica reservado ao processo controlado de migration/administracao. Nao execute DDL pelo processo de start.
 
 ### Autorizacao e operacao multi-loja
 
@@ -241,12 +241,12 @@ Permite:
 - nunca grave Client Secret/Partner Key no frontend;
 - rotacione `VOLT_PRICE_ENCRYPTION_KEY` por procedimento controlado, pois trocar a chave sem recriptografar tokens os torna ilegíveis;
 - use HTTPS em todos os callbacks;
-- mantenha `NODE_ENV=production` no Render;
+- mantenha `NODE_ENV=production` no container `business-price`;
 - o runtime de autenticacao usa somente e-mail e senha; TOTP legado nao deve ser reativado sem uma mudanca de seguranca aprovada;
 - use acesso assistido com motivo, nunca compartilhamento de senha de cliente;
 - o audit log nao aceita UPDATE/DELETE;
 - payloads persistidos de integrações passam por redacao de dados sensiveis;
-- mantenha backups/PITR do Neon conforme seu plano e politica de retencao.
+- mantenha snapshots e backups do PostgreSQL local conforme `infra/DB_MIGRATION_VPS.md` e a politica de retencao da VPS.
 
 ## Fontes oficiais usadas no conector
 

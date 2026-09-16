@@ -1,59 +1,77 @@
-# Davantti Business
+# DACHBYTE Business
 
-Linha de produtos para gestao interna de empresas.
+Suite operacional com produtos independentes por container na VPS.
 
-## Produtos
+## Produtos e containers
 
-- `volt_core`: vendas, estoque, clientes, ordens de servico, relatorios e modulos por segmento.
-- `volt_stock`: estoque operacional, enderecamento, bipagem, inventario e auditoria.
-- `volt_chat`: workspace de chat, tickets, kanban e operacao interna.
-- `volt-corp`: suite operacional. Deve manter os produtos irmaos no mesmo padrao visual e de navegacao.
+- `business-core`: Core, gestao operacional e extensoes por segmento.
+- `business-chat`: frontend web/desktop do Chat.
+- `business-chat-api`: FastAPI do Chat, Uvicorn com um worker.
+- `business-stock`: Stock web/API.
+- `business-price`: Price web/API.
+- `business-portal`: portal Business.
 
-## Servidor Volt Corp
+O edge publico e o Caddy versionado em `infra/Caddyfile`. O deploy da VPS usa `infra/compose.vps.yml`; `app.js`/`server.js` permanecem apenas como compatibilidade do modelo agregado antigo e nao fazem parte do caminho normal do Chat API na VPS.
 
-O diretorio `business` e a entrada geral do Render para a marca Volt Corp.
-Ele possui `server.js` e `app.js`, seguindo a ideia do servidor raiz da suite:
+## Rotas canonicas
 
-- `/` fica reservado para a landing institucional da Volt Corp.
-- `/health` e `/healthz` validam o servico geral.
-- `/core`, `/core/app` e `/api/core` sao entregues pelo produto `volt_core`.
-- `/stock` direciona para `/voltstock`, que entrega a landing do `volt_stock`; telas internas protegidas exigem sessao.
-- `/chat` entrega a landing e o frontend compilado do `volt_chat`; `/voltchat` e `/volt_chat` direcionam para `/chat`.
-- `/voltstock/login` e `/chat/login` ficam como entradas diretas de autenticacao dos modulos.
-- O `volt_chat` usa `/chat-api`, que encaminha HTTP e WebSocket para a API FastAPI interna do mesmo servico `volt-corp`.
+| Produto | Interface | API |
+| --- | --- | --- |
+| Core | `/business/core` | `/business/core/api` |
+| Chat | `/business/chat` | `/business/chat/api` |
+| Stock | `/business/stock` | `/business/stock/api` |
+| Price | `/business/price` | `/business/price/api` |
 
-No Render, o servico central da Volt Corp deve apontar para:
+As interfaces antigas `/core`, `/chat`, `/voltstock` e `/volt-price` redirecionam com HTTP 308 para as rotas canonicas. APIs antigas continuam temporariamente em proxy para compatibilidade; consulte `infra/LEGACY_DEPRECATION.md`.
 
-- Root Directory: `business`
-- Build Command: `python3 -m venv .venv-voltchat && .venv-voltchat/bin/pip install -r volt_chat/backend/requirements.txt && npm install --workspaces=false --package-lock=false --no-save && npm run build`
-- Start Command: `npm start`
-- Health Check Path: `/health`
+## Banco
 
-O `npm start` aplica as migrations do Volt Core e inicia a API FastAPI do VoltChat internamente em `127.0.0.1:8001`. O processo Node entrega o frontend em `/chat`, encaminha a API em `/chat-api` e tambem encaminha os upgrades WebSocket. Nao existe servico Render separado para o VoltChat.
+A arquitetura alvo usa PostgreSQL local na VPS. O provisionamento, import inicial e migrations ficam separados do startup da aplicacao:
 
-No build central, o `volt_core` e obrigatorio. `volt_stock` e `volt_chat` podem ser marcados como obrigatorios no Render:
+```bash
+cd infra
+./business-db-ops.sh provision
+./business-db-ops.sh import
+./business-db-ops.sh migrate
+./business-db-ops.sh verify
+```
 
-- `VOLT_STOCK_REQUIRED=true`
-- `VOLT_CHAT_REQUIRED=true`
+Nao habilite migration automatica no runtime de producao. Core, Stock e Price separam credenciais de runtime e migration; a aplicacao nao deve receber a role administrativa.
 
-Para acelerar um deploy inicial somente com Volt Core, desative o build dos produtos opcionais:
+## Staging e producao
 
-- `VOLT_STOCK_BUILD=false`
-- `VOLT_CHAT_BUILD=false`
+Staging:
 
-O comando `npm run migrate` no diretorio `business` aplica as migrations do Volt Core. O backend do VoltChat aplica suas migrations idempotentes no startup com `AUTO_MIGRATE_DB=true`.
+```bash
+cd infra
+./business-staging-ops.sh config
+./business-staging-ops.sh status
+./business-staging-ops.sh db
+./business-staging-ops.sh smoke
+```
 
-Configuracao do VoltChat dentro de `volt-corp`:
+Producao:
 
-- `VOLT_CHAT_DATABASE_URL`: banco exclusivo do chat; obrigatorio em producao.
-- `VOLT_CHAT_SECRET_KEY`: segredo JWT exclusivo do chat; obrigatorio em producao.
-- `VOLT_CHAT_UPSTREAM_URL=http://127.0.0.1:8001`: destino interno do proxy.
-- `VOLT_CHAT_PUBLIC_API_URL=/chat-api`
-- `VOLT_CHAT_PUBLIC_WS_URL`: opcional; por padrao e calculada a partir do host atual.
-- `VOLT_CHAT_DESKTOP_DOWNLOAD_URL`: URL HTTPS publica do instalador em armazenamento externo. Quando configurada, o site e a API redirecionam o download sem carregar o binario no Render.
-- `VOLT_CHAT_DESKTOP_PACKAGE_URL`: URL HTTPS publica do ZIP com instalador, certificado e guia. O botao da landing page redireciona para esta URL.
-- `VOLT_CHAT_PUBLIC_PATH` quando o modulo nao for servido em `/chat`
+```bash
+./business-production-ops.sh preflight
+./business-production-ops.sh prepare
+./business-production-ops.sh cutover
+./business-production-ops.sh smoke
+```
 
-## Direcao
+O corte nao importa banco, nao executa migrations e nao publica desktop automaticamente.
 
-`business` centraliza produtos operacionais. Cada produto pode ter app, banco, modulos e deploy proprios, mas deve compartilhar conceitos de ecossistema quando fizer sentido: empresas, usuarios, planos, billing e identidade Davantti.
+## Chat desktop
+
+O desktop possui canais separados de staging e production. Build/publicacao continuam no Windows e o updater permanece no R2, independente da VPS. Veja `chat/DESKTOP_RELEASE_CHANNELS.md`.
+
+## Legado
+
+O Caddy registra um access log JSON isolado para medir somente rotas antigas. Ele guarda apenas o path sanitizado (`legacy_path`), sem query string, headers ou IPs, e redige para `REDACTED` o token presente no caminho dos WebSockets do Chat:
+
+```bash
+cd infra
+./business-legacy-ops.sh report
+```
+
+APIs legadas so devem ser removidas depois de uma janela de observacao representativa sem trafego e com retencao de logs suficiente.

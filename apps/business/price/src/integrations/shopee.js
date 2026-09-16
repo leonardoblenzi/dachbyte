@@ -1,6 +1,6 @@
 "use strict";
 const crypto=require("crypto");
-const {config,baseUrl}=require("../config");
+const {config,baseUrl,publicPath}=require("../config");
 const {fetchJson}=require("./http");
 const {getConnection,tokenValues,upsertConnection,markConnectionError}=require("./tokenStore");
 const {withTenant}=require("../db");
@@ -10,7 +10,7 @@ function createShopeeClient({shopeeConfig=config.shopee,getConnectionFn=getConne
  const now=()=>Number(clock()),timestamp=()=>Math.floor(now()/1000);
  const hmac=(base)=>{if(!shopeeConfig.partnerKey)throw Object.assign(new Error("SHOPEE_PARTNER_KEY nao configurada."),{statusCode:503});return crypto.createHmac("sha256",shopeeConfig.partnerKey).update(base).digest("hex");};
  const publicSign=(path,value)=>hmac(`${shopeeConfig.partnerId}${path}${value}`),shopSign=(path,value,access,shop)=>hmac(`${shopeeConfig.partnerId}${path}${value}${access}${shop}`);
- const callbackUrl=(req)=>`${baseUrlFn(req)}/volt-price/api/integrations/shopee/callback`;
+ const callbackUrl=(req)=>`${baseUrlFn(req)}${publicPath("/api/integrations/shopee/callback")}`;
  function buildAuthUrl(req,state){if(!shopeeConfig.partnerId)throw Object.assign(new Error("SHOPEE_PARTNER_ID nao configurado."),{statusCode:503});if(!state)throw Object.assign(new Error("OAuth state Shopee ausente."),{statusCode:400});const value=timestamp(),path=shopeeConfig.authPartnerPath,url=new URL(`${shopeeConfig.apiBase}${path}`);url.searchParams.set("partner_id",shopeeConfig.partnerId);url.searchParams.set("timestamp",String(value));url.searchParams.set("sign",publicSign(path,value));url.searchParams.set("redirect",callbackUrl(req));url.searchParams.set("state",String(state));return url.toString();}
  async function tokenRequest(path,body){const value=timestamp(),url=new URL(`${shopeeConfig.apiBase}${path}`);url.searchParams.set("partner_id",shopeeConfig.partnerId);url.searchParams.set("timestamp",String(value));url.searchParams.set("sign",publicSign(path,value));return fetchJsonFn(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
  async function exchangeCode(code,shopId){if(!code||!positive(shopId))throw Object.assign(new Error("Callback Shopee invalido."),{statusCode:400});return tokenRequest(shopeeConfig.tokenPath,{code:String(code),shop_id:Number(shopId),partner_id:Number(shopeeConfig.partnerId)});}

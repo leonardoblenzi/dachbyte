@@ -54,7 +54,7 @@ test("callback ML persiste uma conex\u00e3o por user_id e redireciona sem tokens
 
   const { res } = await invoke(handler, request({ query: { state: "opaque", code: "provider-code" } }));
 
-  assert.equal(res.redirectedTo, "/volt-price/app/integrations?connected=meli");
+  assert.equal(res.redirectedTo, "/business/price/app/integrations?connected=meli");
   assert.equal(stored[0].value.externalAccountId, "987");
   assert.doesNotMatch(JSON.stringify({ res, stored: [] }), /secret-a|secret-r|provider-code/);
   assert.doesNotMatch(JSON.stringify(audits), /secret-a|secret-r|provider-code/);
@@ -74,8 +74,8 @@ test("callback ML aceita cada estado OAuth uma \u00fanica vez", async () => {
   const first = await invoke(handler, request({ query: { state: "opaque", code: "provider-code" } }));
   const second = await invoke(handler, request({ query: { state: "opaque", code: "provider-code" } }));
 
-  assert.equal(first.res.redirectedTo, "/volt-price/app/integrations?connected=meli");
-  assert.equal(second.res.redirectedTo, "/volt-price/app/integrations?meli=error");
+  assert.equal(first.res.redirectedTo, "/business/price/app/integrations?connected=meli");
+  assert.equal(second.res.redirectedTo, "/business/price/app/integrations?meli=error");
   assert.equal(exchanges, 1);
 });
 
@@ -94,12 +94,12 @@ for (const field of ["access_token", "refresh_token", "user_id"]) {
 
     const { res } = await invoke(handler, request({ query: { state: "opaque", code: "provider-code" } }));
 
-    assert.equal(res.redirectedTo, "/volt-price/app/integrations?meli=error");
+    assert.equal(res.redirectedTo, "/business/price/app/integrations?meli=error");
     assert.equal(persisted, false);
   });
 }
 
 test("callback ML inv\u00e1lido redireciona para erro gen\u00e9rico", async () => {
   const { res } = await invoke(createMeliCallbackHandler({ consumeOAuthState: async () => null }), request());
-  assert.equal(res.redirectedTo, "/volt-price/app/integrations?meli=error");
+  assert.equal(res.redirectedTo, "/business/price/app/integrations?meli=error");
 });

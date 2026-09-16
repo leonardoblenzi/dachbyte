@@ -33,10 +33,16 @@ export const checkDesktopRelease = async (currentVersion = '') => {
   try {
     return await window.voltChatDesktop.checkForUpdate();
   } catch (error) {
-    // Ponte temporária apenas para desktops 0.1.39-0.1.41 que foram
-    // empacotados com updater-config.json UTF-8/BOM. A fonte continua sendo
-    // o latest.json do Cloudflare e o EXE é baixado diretamente do R2.
+    // Ponte temporária apenas para desktops oficiais antigos (0.1.39-0.1.41)
+    // que foram empacotados com updater-config.json UTF-8/BOM. O backend
+    // aponta para o canal oficial; staging nunca pode usar esse fallback.
     if (!isLegacyManifestConfigError(error)) throw error;
+    const runtimeInfo = window.voltChatDesktop?.getRuntimeInfo
+      ? await window.voltChatDesktop.getRuntimeInfo().catch(() => null)
+      : null;
+    if (runtimeInfo?.channel === 'staging') {
+      throw new Error('Manifesto do atualizador interno de staging não configurado.');
+    }
     return fetchCompatibilityRelease(currentVersion);
   }
 };

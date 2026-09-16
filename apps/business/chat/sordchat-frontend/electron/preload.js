@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('voltChatDesktop', {
   downloadFile: (payload) => ipcRenderer.invoke('voltchat:download-file', payload),
   archiveChatHistory: (payload) => ipcRenderer.invoke('voltchat:archive-chat-history', payload),
   getAppVersion: () => ipcRenderer.invoke('voltchat:get-app-version'),
+  getRuntimeInfo: () => ipcRenderer.invoke('voltchat:get-runtime-info'),
   checkForUpdate: () => ipcRenderer.invoke('voltchat:check-desktop-update'),
   installUpdate: (payload) => ipcRenderer.invoke('voltchat:install-update', payload),
   prepareUpdate: (payload) => ipcRenderer.invoke('voltchat:prepare-update', payload),

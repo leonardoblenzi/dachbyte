@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 process.env.NEXT_PRIVATE_BUILD_WORKER ??= '1';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const basePath = process.env.NEXT_PUBLIC_VOLTSTOCK_BASE_PATH ?? '/voltstock';
+const basePath = process.env.NEXT_PUBLIC_VOLTSTOCK_BASE_PATH ?? '/business/stock';
 
 const nextConfig = {
   basePath,

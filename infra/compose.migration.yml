@@ -1,0 +1,38 @@
+services:
+  business-db-import:
+    profiles: [migration]
+    image: postgres:18-bookworm
+    env_file: ["./env/migration.env"]
+    entrypoint: ["/bin/bash", "/usr/local/bin/migrate-business-from-neon"]
+    networks: [edge, data]
+    volumes:
+      - ./scripts/migrate-business-from-neon.sh:/usr/local/bin/migrate-business-from-neon:ro
+      - ./backups/migration:/migration-backups
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  business-db-snapshot:
+    profiles: [migration]
+    image: postgres:18-bookworm
+    env_file: ["./env/migration.env"]
+    entrypoint: ["/bin/bash", "/usr/local/bin/snapshot-business-local"]
+    networks: [data]
+    volumes:
+      - ./scripts/snapshot-business-local.sh:/usr/local/bin/snapshot-business-local:ro
+      - ./backups/migration:/migration-backups
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  business-db-verify:
+    profiles: [migration]
+    image: postgres:18-bookworm
+    env_file: ["./env/migration.env"]
+    entrypoint: ["/bin/bash", "/usr/local/bin/verify-business-databases"]
+    networks: [data]
+    volumes:
+      - ./scripts/verify-business-databases.sh:/usr/local/bin/verify-business-databases:ro
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"

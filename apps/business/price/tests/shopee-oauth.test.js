@@ -16,7 +16,7 @@ test("aceita resposta de token Shopee encapsulada em response", () => {
 });
 
 
-const CALLBACK_PATH = "/volt-price/api/integrations/shopee/callback";
+const CALLBACK_PATH = "/business/price/api/integrations/shopee/callback";
 
 function request({ query = {}, cookies = {}, vpAuth = { tenantId: "tenant-1", userId: "user-1" } } = {}) {
   return { query, cookies, vpAuth, headers: {}, get: () => "app.test" };
@@ -75,7 +75,7 @@ test("Shopee callback checks the provider state against the callback-only cookie
   assert.equal(error, undefined);
   assert.equal(consumeCount, 0);
   assert.equal(exchangeCount, 0);
-  assert.equal(res.redirectedTo, "/volt-price/app/integrations?shopee=error");
+  assert.equal(res.redirectedTo, "/business/price/app/integrations?shopee=error");
   assert.deepEqual(res.cleared, [{ name: "vp_shopee_oauth_state", options: { path: CALLBACK_PATH } }]);
   assert.doesNotMatch(res.redirectedTo, /provider-state|provider-code|other-state/i);
 });
@@ -105,8 +105,8 @@ test("Shopee callback consumes state once, persists one connection per numeric s
   const first = await invoke(handler, input);
   const second = await invoke(handler, input);
 
-  assert.equal(first.res.redirectedTo, "/volt-price/app/integrations?connected=shopee");
-  assert.equal(second.res.redirectedTo, "/volt-price/app/integrations?shopee=error");
+  assert.equal(first.res.redirectedTo, "/business/price/app/integrations?connected=shopee");
+  assert.equal(second.res.redirectedTo, "/business/price/app/integrations?shopee=error");
   assert.equal(stored.length, 1);
   assert.equal(stored[0].channel, "shopee");
   assert.equal(stored[0].data.externalAccountId, "42");
@@ -130,7 +130,7 @@ for (const query of [
     });
     const { res } = await invoke(handler, request({ query, cookies: { vp_shopee_oauth_state: "opaque-state" } }));
     assert.equal(exchanges, 0);
-    assert.equal(res.redirectedTo, "/volt-price/app/integrations?shopee=error");
+    assert.equal(res.redirectedTo, "/business/price/app/integrations?shopee=error");
   });
 }
 
@@ -142,7 +142,7 @@ test("Shopee client adds state and canonical callback to the signed authorizatio
   });
   const url = new URL(client.buildAuthUrl(request(), "opaque-state"));
   assert.equal(url.searchParams.get("state"), "opaque-state");
-  assert.equal(url.searchParams.get("redirect"), "https://canonical.example/volt-price/api/integrations/shopee/callback");
+  assert.equal(url.searchParams.get("redirect"), "https://canonical.example/business/price/api/integrations/shopee/callback");
   assert.equal(url.searchParams.get("sign"), "8be68f44082a64f7f2692d9b8b634e6a9ca47b28306a130b4e41a516ff7e138f");
 });
 

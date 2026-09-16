@@ -45,8 +45,11 @@ const fetchJsonNoCache = async (url) => {
 const resolveWebVersionUrl = () => {
   const publicUrl = process.env.PUBLIC_URL || '';
   if (publicUrl) return `${publicUrl}/version.json`;
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/business/chat')) {
+    return '/business/chat/version.json';
+  }
   if (typeof window !== 'undefined' && window.location.pathname.startsWith('/chat')) {
-    return '/chat/version.json';
+    return '/business/chat/version.json';
   }
   return '/version.json';
 };

@@ -9,7 +9,23 @@ const errorHandler = require("./middlewares/errorHandler");
 const requestObservability = require("./middlewares/requestObservability");
 const { registerBuiltInExtensions } = require("./extensions/registerBuiltIns");
 
-const appRoutePattern = /^\/core\/app(?:\/.*)?$/;
+function normalizeBasePath(value, fallback) {
+  const raw = String(value || fallback || "").trim();
+  if (!raw || raw === "/") return "";
+  return `/${raw.replace(/^\/+|\/+$/g, "")}`;
+}
+
+function routePattern(basePath) {
+  const escaped = String(basePath || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${escaped}(?:/.*)?$`);
+}
+
+const publicBasePath = normalizeBasePath(process.env.VOLT_CORE_PUBLIC_BASE_PATH, "/business/core");
+const appBasePath = normalizeBasePath(process.env.VOLT_CORE_APP_BASE_PATH, `${publicBasePath}/app`);
+const legacyPublicBasePath = "/core";
+const legacyAppBasePath = "/core/app";
+const appRoutePatterns = [routePattern(appBasePath)];
+if (legacyAppBasePath !== appBasePath) appRoutePatterns.push(routePattern(legacyAppBasePath));
 
 function createApp() {
   registerBuiltInExtensions();
@@ -76,18 +92,27 @@ function createApp() {
   const publicPath = path.join(__dirname, "..", "public");
   const landingPath = path.join(publicPath, "landing.html");
   if (fs.existsSync(landingPath)) {
-    app.use(express.static(publicPath, { index: false }));
-    app.get("/core", (_req, res) => res.sendFile("landing.html", { root: publicPath }));
+    app.use(publicBasePath, express.static(publicPath, { index: false }));
+    app.use(legacyPublicBasePath, express.static(publicPath, { index: false }));
+    app.get([publicBasePath, `${publicBasePath}/`, legacyPublicBasePath, `${legacyPublicBasePath}/`], (_req, res) =>
+      res.sendFile("landing.html", { root: publicPath }),
+    );
     app.get("/landing", (_req, res) => res.sendFile("landing.html", { root: publicPath }));
   }
 
   const distPath = path.join(__dirname, "..", "dist");
   const indexPath = path.join(distPath, "index.html");
   if (fs.existsSync(indexPath)) {
+    // Root static remains as a compatibility bridge for cached legacy Core builds
+    // that still request /assets/*. New builds use /business/core/assets/*.
     app.use(express.static(distPath, { index: false }));
-    app.get(appRoutePattern, (_req, res) => {
-      res.sendFile(indexPath);
-    });
+    app.use(publicBasePath, express.static(distPath, { index: false }));
+    app.use(legacyPublicBasePath, express.static(distPath, { index: false }));
+    for (const pattern of appRoutePatterns) {
+      app.get(pattern, (_req, res) => {
+        res.sendFile(indexPath);
+      });
+    }
     app.get(["/login", "/dashboard"], (_req, res) => {
       res.sendFile(indexPath);
     });

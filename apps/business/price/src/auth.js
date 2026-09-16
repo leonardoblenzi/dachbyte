@@ -1,7 +1,7 @@
 "use strict";
 
 const bcrypt = require("bcryptjs");
-const { config } = require("./config");
+const { config, publicPath } = require("./config");
 const { query, withClient } = require("./db");
 const { sha256, randomToken, encrypt } = require("./crypto");
 const { audit } = require("./audit");
@@ -34,8 +34,14 @@ function validatePasswordForChange(value, { isProduction = config.isProduction }
   }
   return password;
 }
-function cookieOptions() {
-  return { httpOnly: true, secure: config.isProduction, sameSite: "lax", path: "/volt-price", maxAge: config.sessionTtlHours * 3600 * 1000 };
+function cookiePath(req) {
+  const originalUrl = String(req?.originalUrl || "");
+  return originalUrl === "/volt-price" || originalUrl.startsWith("/volt-price/")
+    ? "/volt-price"
+    : publicPath();
+}
+function cookieOptions(req) {
+  return { httpOnly: true, secure: config.isProduction, sameSite: "lax", path: cookiePath(req), maxAge: config.sessionTtlHours * 3600 * 1000 };
 }
 
 function loginAttemptKey(req) {
@@ -185,14 +191,17 @@ async function login(req, res) {
       await client.query("COMMIT"); return created;
     } catch (e) { await client.query("ROLLBACK"); throw e; }
   });
-  res.cookie(config.sessionCookie, session.token, cookieOptions());
+  res.cookie(config.sessionCookie, session.token, cookieOptions(req));
   return res.json({ success:true, csrfToken:session.csrf, user:{ id:user.id,email:user.email,fullName:user.full_name,role,isPlatformAdmin:scope.isPlatformAdmin,passwordChangeRequired:Boolean(user.must_change_password),tenant:tenant?{id:tenant.tenant_id,name:tenant.name,slug:tenant.slug}:null } });
 }
 
 async function logout(req, res) {
   const token = req.cookies?.[config.sessionCookie];
   if (token) await query("UPDATE volt_price.sessions SET revoked_at=now() WHERE token_hash=$1 AND revoked_at IS NULL", [sha256(token)]).catch(()=>{});
-  res.clearCookie(config.sessionCookie, { path:"/volt-price" }).status(204).end();
+  res.clearCookie(config.sessionCookie, { path: cookiePath(req) });
+  if (cookiePath(req) !== publicPath()) res.clearCookie(config.sessionCookie, { path: publicPath() });
+  if (cookiePath(req) !== "/volt-price") res.clearCookie(config.sessionCookie, { path: "/volt-price" });
+  res.status(204).end();
 }
 
 function authUser(vpAuth) {
@@ -269,7 +278,7 @@ async function changePassword(req, res) {
     ? { ...req.vpAuth, tenantId: null, tenantName: null, tenantSlug: null, supportReason: null }
     : req.vpAuth;
   const user = authUser({ ...responseAuth, email: session.user.email, fullName: session.user.full_name, passwordChangeRequired: false });
-  res.cookie(config.sessionCookie, session.created.token, cookieOptions());
+  res.cookie(config.sessionCookie, session.created.token, cookieOptions(req));
   return res.json({ success: true, csrfToken: session.created.csrf, passwordChangeRequired: false, user });
 }
 
@@ -280,16 +289,34 @@ async function ensureBootstrapMaster() {
     await client.query("BEGIN");
     try {
       const passwordHash = await bcrypt.hash(config.bootstrapMasterPassword, 12);
-      const user = (await client.query(
+      const inserted = await client.query(
         `INSERT INTO volt_price.users (email,full_name,password_hash,status)
          VALUES ($1,'VoltPrice Admin Master',$2,'active')
-         ON CONFLICT (email) DO UPDATE SET password_hash=EXCLUDED.password_hash,status='active',updated_at=now() RETURNING id,email`,
-        [config.bootstrapMasterEmail,passwordHash])).rows[0];
+         ON CONFLICT (email) DO NOTHING
+         RETURNING id,email`,
+        [config.bootstrapMasterEmail,passwordHash]);
+
+      if (!inserted.rows[0]) {
+        const existing = await client.query(
+          "SELECT id,email FROM volt_price.users WHERE email=$1 LIMIT 1",
+          [config.bootstrapMasterEmail],
+        );
+        await client.query("COMMIT");
+        return existing.rows[0] ? { ...existing.rows[0], bootstrap_created: false } : null;
+      }
+
+      const user = inserted.rows[0];
       const totpCipher = config.bootstrapMasterTotpSecret ? encrypt(config.bootstrapMasterTotpSecret) : null;
-      await client.query(`INSERT INTO volt_price.platform_admins (user_id,platform_role,status,totp_secret_cipher,mfa_confirmed) VALUES ($1,'platform_super_admin','active',$2,$3) ON CONFLICT (user_id) DO UPDATE SET platform_role='platform_super_admin',status='active',totp_secret_cipher=COALESCE(EXCLUDED.totp_secret_cipher,volt_price.platform_admins.totp_secret_cipher),mfa_confirmed=volt_price.platform_admins.mfa_confirmed OR EXCLUDED.mfa_confirmed`, [user.id, totpCipher, Boolean(totpCipher)]);
-      await client.query("COMMIT"); return user;
+      await client.query(
+        `INSERT INTO volt_price.platform_admins (user_id,platform_role,status,totp_secret_cipher,mfa_confirmed)
+         VALUES ($1,'platform_super_admin','active',$2,$3)
+         ON CONFLICT (user_id) DO NOTHING`,
+        [user.id, totpCipher, Boolean(totpCipher)],
+      );
+      await client.query("COMMIT");
+      return { ...user, bootstrap_created: true };
     } catch (e) { await client.query("ROLLBACK"); if (e.code === "42P01") return null; throw e; }
   });
 }
 
-module.exports = { authenticate, authenticateForPasswordChange, requirePasswordChangeComplete, requireCsrf, login, logout, changePassword, authUser, createSession, cookieOptions, ensureBootstrapMaster, normalizeEmail, validateEmail, validatePassword, validatePasswordForChange, assertLoginAllowed, recordLoginFailure, clearLoginFailures };
+module.exports = { authenticate, authenticateForPasswordChange, requirePasswordChangeComplete, requireCsrf, login, logout, changePassword, authUser, createSession, cookieOptions, cookiePath, ensureBootstrapMaster, normalizeEmail, validateEmail, validatePassword, validatePasswordForChange, assertLoginAllowed, recordLoginFailure, clearLoginFailures };

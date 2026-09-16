@@ -170,17 +170,21 @@ async function ensureMasterUser() {
   const result = await query(
     `insert into volt_core.users (id, name, email, password_hash, role, status, user_global_id)
      values ($1, $2, $3, $4, 'admin_master', 'active', $5)
-     on conflict (email) do update
-     set name = excluded.name,
-         password_hash = excluded.password_hash,
-         role = 'admin_master',
-         status = 'active',
-         user_global_id = coalesce(volt_core.users.user_global_id, excluded.user_global_id),
-         updated_at = now()
+     on conflict (email) do nothing
      returning id, name, email, role, status, user_global_id`,
     [createId("usr"), name, email, passwordHash, `volt_core_master_${email}`],
   );
-  return { ok: true, user: result.rows[0] };
+
+  if (result.rows[0]) return { ok: true, created: true, user: result.rows[0] };
+
+  const existing = await query(
+    `select id, name, email, role, status, user_global_id
+       from volt_core.users
+      where email = $1
+      limit 1`,
+    [email],
+  );
+  return { ok: true, created: false, skipped: true, reason: "already_exists", user: existing.rows[0] || null };
 }
 
 async function findUserByEmail(email) {

@@ -19,12 +19,22 @@ FROM base AS business-base
 RUN npm --prefix apps/business ci --ignore-scripts --workspaces=false
 
 FROM business-base AS core
+ARG VOLT_CORE_PUBLIC_BASE_PATH=/business/core
+ARG VOLT_CORE_API_BASE_PATH=/business/core/api
+ENV VOLT_CORE_PUBLIC_BASE_PATH=${VOLT_CORE_PUBLIC_BASE_PATH} \
+    VOLT_CORE_API_BASE_PATH=${VOLT_CORE_API_BASE_PATH} \
+    VITE_VOLT_CORE_API_BASE=${VOLT_CORE_API_BASE_PATH}
+ENV VOLT_CORE_APP_BASE_PATH=${VOLT_CORE_PUBLIC_BASE_PATH}/app
 RUN npm --prefix apps/business/core ci --workspaces=false && npm --prefix apps/business/core run build
 ENV NODE_ENV=production PORT=3000 DACHBYTE_PRODUCT=core
 USER node
 CMD ["node", "apps/business/product-server.cjs"]
 
 FROM business-base AS stock
+ARG VOLT_STOCK_PUBLIC_BASE_PATH=/business/stock
+ARG VOLT_STOCK_PUBLIC_API_URL=/business/stock/api
+ENV NEXT_PUBLIC_VOLTSTOCK_BASE_PATH=${VOLT_STOCK_PUBLIC_BASE_PATH} \
+    NEXT_PUBLIC_API_URL=${VOLT_STOCK_PUBLIC_API_URL}
 RUN npm --prefix apps/business/stock ci --include=dev \
  && npm --prefix apps/business/stock run build
 RUN chown -R node:node apps/business/stock/apps/web/.next
@@ -33,7 +43,11 @@ USER node
 CMD ["node", "apps/business/product-server.cjs"]
 
 FROM business-base AS chat
-ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
+ARG VOLT_CHAT_PUBLIC_PATH=/business/chat
+ARG VOLT_CHAT_PUBLIC_API_URL=/business/chat/api
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
+    VOLT_CHAT_PUBLIC_PATH=${VOLT_CHAT_PUBLIC_PATH} \
+    VOLT_CHAT_PUBLIC_API_URL=${VOLT_CHAT_PUBLIC_API_URL}
 RUN node apps/business/scripts/build-volt-chat.js
 ENV NODE_ENV=production PORT=3000 DACHBYTE_PRODUCT=chat
 USER node

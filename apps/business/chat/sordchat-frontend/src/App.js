@@ -104,12 +104,19 @@ const ProtectedApp = () => (
 function App() {
   const Router =
     window.location.protocol === "file:" ? HashRouter : BrowserRouter;
-  const routerBaseName =
-    window.location.protocol === "file:" ||
-    !process.env.PUBLIC_URL ||
-    process.env.PUBLIC_URL === "."
+  const configuredPublicUrl =
+    !process.env.PUBLIC_URL || process.env.PUBLIC_URL === "."
       ? undefined
-      : process.env.PUBLIC_URL;
+      : process.env.PUBLIC_URL.replace(/\/+$/, "");
+  const browserPath = window.location.pathname || "/";
+  const routerBaseName =
+    window.location.protocol === "file:"
+      ? undefined
+      : browserPath === "/chat" || browserPath.startsWith("/chat/")
+        ? "/chat"
+        : browserPath === "/business/chat" || browserPath.startsWith("/business/chat/")
+          ? "/business/chat"
+          : configuredPublicUrl;
 
   useEffect(() => {
     const themeMode = localStorage.getItem("voltchat:themeMode") || "light";

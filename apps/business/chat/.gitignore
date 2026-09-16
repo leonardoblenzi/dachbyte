@@ -27,8 +27,11 @@ node_modules/
 sordchat-frontend/build/
 sordchat-frontend/dist/
 sordchat-frontend/dist-desktop/
+sordchat-frontend/dist-desktop-staging/
 sordchat-frontend/.cache/
 sordchat-frontend/.npm-cache/
+sordchat-frontend/.env.desktop
+sordchat-frontend/.electron-builder.generated.json
 
 # Logs
 *.log

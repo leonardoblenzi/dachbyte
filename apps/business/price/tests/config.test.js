@@ -60,7 +60,7 @@ test("configura??o Mercado Livre informa credenciais e callback exato", () => {
   assert.match(envExample, /^VOLT_PRICE_MELI_CLIENT_ID=/m);
   assert.match(envExample, /^VOLT_PRICE_MELI_CLIENT_SECRET=/m);
   assert.match(readme, /VOLT_PRICE_PUBLIC_BASE_URL/);
-  assert.match(readme, /\/volt-price\/api\/integrations\/meli\/callback/);
+  assert.match(readme, /\/business\/price\/api\/integrations\/meli\/callback/);
   assert.match(readme, /n?o.*(?:access token|refresh token|senha).*manual/i);
 });
 

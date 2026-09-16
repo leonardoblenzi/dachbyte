@@ -15,12 +15,9 @@ Esta base segue a documentação em `Volt_Stock_Documentacao_Completa_Atualizada
 - `packages/shared`: contratos, permissões e schemas compartilhados.
 - `scripts/run-sql.mjs`: executor direto de migrations/seeds via `pg`.
 
-## Login base
+## Seed de demonstracao
 
-- E-mail: `admin@voltstock.com`
-- Senha inicial: `Stock@172839`
-
-Use este login apenas para bootstrap e altere a senha em produção.
+O seed historico contem credenciais de demonstracao e **nao deve ser executado em producao**. `npm run db:seed` e bloqueado quando `NODE_ENV=production`, salvo autorizacao excepcional explicita com `ALLOW_DEMO_SEED=YES`. Provisionamento de usuarios reais deve seguir o fluxo da suite/Hub.
 
 ## Comandos
 
@@ -32,6 +29,16 @@ npm.cmd run dev
 ```
 
 No PowerShell desta máquina, use `npm.cmd` porque `npm.ps1` está bloqueado pela política de execução.
+
+
+## Rotas publicas
+
+```text
+/business/stock      -> interface canonica
+/business/stock/api  -> API canonica
+```
+
+`/voltstock/*` redireciona para a interface canonica, exceto `/voltstock/api/*`, que permanece temporariamente como proxy de compatibilidade com headers de deprecacao.
 
 ## Segurança e banco
 

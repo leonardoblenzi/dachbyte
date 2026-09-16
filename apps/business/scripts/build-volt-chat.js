@@ -29,13 +29,13 @@ if (!fs.existsSync(path.join(frontendDir, "node_modules"))) {
 
 run(["run", "build"], {
   ...npmEnv,
-  PUBLIC_URL: process.env.VOLT_CHAT_PUBLIC_PATH || "/chat",
-  REACT_APP_API_URL: process.env.VOLT_CHAT_PUBLIC_API_URL || "/chat-api",
+  PUBLIC_URL: process.env.VOLT_CHAT_PUBLIC_PATH || "/business/chat",
+  REACT_APP_API_URL: process.env.VOLT_CHAT_PUBLIC_API_URL || "/business/chat/api",
   REACT_APP_WS_URL: process.env.VOLT_CHAT_PUBLIC_WS_URL || "",
   REACT_APP_DESKTOP_DOWNLOAD_URL:
     process.env.VOLT_CHAT_DESKTOP_DOWNLOAD_URL ||
-    "https://www.voltcorporation.com.br/chat-api/downloads/desktop/latest",
+    "https://www.voltcorporation.com.br/business/chat/api/downloads/desktop/latest",
   REACT_APP_DESKTOP_PACKAGE_DOWNLOAD_URL:
     process.env.VOLT_CHAT_DESKTOP_PACKAGE_URL ||
-    "https://www.voltcorporation.com.br/chat-api/downloads/desktop/package",
+    "https://www.voltcorporation.com.br/business/chat/api/downloads/desktop/package",
 });

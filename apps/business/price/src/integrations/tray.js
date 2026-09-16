@@ -1,6 +1,6 @@
 "use strict";
 
-const { config, baseUrl } = require("../config");
+const { config, baseUrl, publicPath } = require("../config");
 const { fetchJson, formBody } = require("./http");
 const { getConnection, tokenValues, upsertConnection } = require("./tokenStore");
 const { withTenant } = require("../db");
@@ -36,7 +36,7 @@ function createTrayClient({
   }
 
   function callbackUrl(req, state = "") {
-    const url = new URL(`${baseUrlFn(req)}/volt-price/api/integrations/tray/callback`);
+    const url = new URL(`${baseUrlFn(req)}${publicPath("/api/integrations/tray/callback")}`);
     if (state) url.searchParams.set("state", state);
     return url.toString();
   }

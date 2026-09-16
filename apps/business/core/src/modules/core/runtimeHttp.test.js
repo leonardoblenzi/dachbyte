@@ -72,9 +72,35 @@ test("runtime HTTP is available under the public /api/core prefix", async () => 
   });
 });
 
+test("runtime HTTP is available under the canonical /business/core/api prefix", async () => {
+  await withServer(async (baseUrl) => {
+    const authToken = token({
+      uid: "usr-1",
+      role: "operator",
+      companies: [{ id: "company-a", name: "Empresa A" }],
+    });
+    const response = await fetch(`${baseUrl}/business/core/api/runtime/companies/company-a/workspace`, {
+      headers: { cookie: `auth_token=${authToken}` },
+    });
+    const payload = await response.json();
+    assert.equal(response.status, 503);
+    assert.equal(payload.error.code, "VOLT_CORE_DATABASE_DISABLED");
+  });
+});
+
 test("public /core route serves the product landing instead of the API", async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/core`);
+    const body = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type") || "", /text\/html/);
+    assert.match(body, /DACHBYTE Core/i);
+  });
+});
+
+test("public /business/core route serves the canonical product landing", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/business/core`);
     const body = await response.text();
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type") || "", /text\/html/);

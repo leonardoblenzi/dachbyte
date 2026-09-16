@@ -1,13 +1,13 @@
 # VoltPrice - checklist antes do primeiro deploy
 
 - [ ] Fazer commit/backup da branch atual antes de mesclar.
-- [ ] Copiar `volt-price/.env.example` para as variaveis do Render, nunca para um `.env` versionado.
-- [ ] Definir `VOLT_PRICE_ENCRYPTION_KEY` forte e guardar em secret manager/Render.
+- [ ] Usar `price/.env.example` como referencia para o arquivo de ambiente seguro da VPS, nunca versionando secrets.
+- [ ] Definir `VOLT_PRICE_ENCRYPTION_KEY` forte e guardar somente no ambiente seguro da VPS.
 - [ ] Confirmar `VOLT_PRICE_PUBLIC_BASE_URL` com a URL HTTPS publica real.
 - [ ] Cadastrar callbacks OAuth:
-  - Tray: `<BASE>/volt-price/api/integrations/tray/callback`
-  - Mercado Livre: `<BASE>/volt-price/api/integrations/meli/callback`
-  - Shopee: `<BASE>/volt-price/api/integrations/shopee/callback`
+  - Tray: `<BASE>/business/price/api/integrations/tray/callback`
+  - Mercado Livre: `<BASE>/business/price/api/integrations/meli/callback`
+  - Shopee: `<BASE>/business/price/api/integrations/shopee/callback`
 - [ ] Inserir consumer key/secret do app Tray ja existente.
 - [ ] Validar se o host da API Tray retornado termina em `.commercesuite.com.br`; caso use host customizado confiavel, incluir explicitamente em `VOLT_PRICE_TRAY_ALLOWED_HOSTS`.
 - [ ] Inserir Client ID/Secret Mercado Livre.
@@ -15,12 +15,12 @@
 - [ ] Inserir Partner ID/Key Shopee.
 - [ ] Conferir no console oficial Shopee os paths V2 e permissoes Order/Payment antes de conectar loja real.
 - [ ] Habilitar bootstrap Admin Master somente no primeiro deploy/recuperacao.
-- [ ] Configurar TOTP do Admin Master e senha >=16 caracteres em producao.
+- [ ] Configurar senha forte (>=16 caracteres) para o Admin Master inicial; TOTP legado nao faz parte do runtime atual.
 - [ ] Apos criar o master, desligar `VOLT_PRICE_BOOTSTRAP_MASTER_ENABLED`.
-- [ ] Confirmar que `DB_VOLTPRICE` aponta para a URL pooled do Neon correto.
-- [ ] Confirmar que `DB_VOLTPRICE_DIRECT` aponta para a URL direta do mesmo banco.
-- [ ] Deploy: o pre-deploy executara `npm run migrate:all`; `business/start.js` nao executa DDL.
-- [ ] Abrir `/volt-price/health`.
+- [ ] Confirmar que `DB_VOLTPRICE` aponta para `postgres:5432/dachbyte_price` usando a role de runtime sem `SUPERUSER/BYPASSRLS`.
+- [ ] Confirmar que `DB_VOLTPRICE_DIRECT` e fornecida somente ao job one-shot de migration com a role administrativa do mesmo banco.
+- [ ] Executar `cd infra && ./business-db-ops.sh backup && ./business-db-ops.sh migrate && ./business-db-ops.sh verify` antes do corte. O runtime nao executa DDL.
+- [ ] Abrir `/business/price/health`.
 - [ ] Criar tenant de teste pelo Admin Master.
 - [ ] Testar login owner em tenant separado.
 - [ ] Conectar Tray e sincronizar periodo curto primeiro.

@@ -96,13 +96,13 @@ function createHarness(respond) {
     console,
     document,
     fetch: async (url, options = {}) => {
-      const request = { path: url.replace("/volt-price/api", ""), options };
+      const request = { path: url.replace("/business/price/api", ""), options };
       requests.push(request);
       const result = await respond(request);
       return response(result?.body ?? result, result?.status ?? 200);
     },
     history: { pushState: (_state, _title, url) => history.push(url) },
-    location: { pathname: "/volt-price/app/admin" },
+    location: { pathname: "/business/price/app/admin" },
     window: { addEventListener() {} },
     prompt: () => "Auditoria solicitada",
     confirm: () => true,
@@ -183,7 +183,7 @@ test("support start rotates CSRF and refreshes /auth/me before navigating", asyn
   assert.equal(harness.requests[2].options.headers["X-CSRF-Token"], "initial-csrf");
   assert.equal(vm.runInContext("state.csrf", harness.context), "support-csrf");
   assert.equal(vm.runInContext("state.me.tenantId", harness.context), "tenant-1");
-  assert.equal(harness.history.at(-1), "/volt-price/app/dashboard");
+  assert.equal(harness.history.at(-1), "/business/price/app/dashboard");
 });
 
 test("support exit uses /admin/exit-support, rotates CSRF, and refreshes /auth/me before navigation", async () => {
@@ -215,7 +215,7 @@ test("support exit uses /admin/exit-support, rotates CSRF, and refreshes /auth/m
   ]);
   assert.equal(vm.runInContext("state.csrf", harness.context), "global-csrf");
   assert.equal(vm.runInContext("state.me.tenantId", harness.context), null);
-  assert.equal(harness.history.at(-1), "/volt-price/app/admin");
+  assert.equal(harness.history.at(-1), "/business/price/app/admin");
   assert.equal(harness.requests.some(({ path: requestPath }) => requestPath === "/admin/support-session/exit"), false);
 });
 

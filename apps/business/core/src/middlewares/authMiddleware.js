@@ -11,7 +11,7 @@ function readToken(req) {
 }
 
 function appRedirect(path = "") {
-  const base = String(process.env.VOLT_CORE_APP_BASE_PATH || "/core/app")
+  const base = String(process.env.VOLT_CORE_APP_BASE_PATH || "/business/core/app")
     .trim()
     .replace(/\/+$/, "");
   const suffix = String(path || "").startsWith("/") ? path : `/${path}`;

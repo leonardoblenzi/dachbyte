@@ -20,7 +20,7 @@ import {
   Tags,
   Users
 } from 'lucide-react';
-import { BASE_PATH, ensureSession, readSession, type StoredSession } from '@/lib/api';
+import { BASE_PATH, apiFetch, ensureSession, readSession, type StoredSession } from '@/lib/api';
 import { useEffect, useState } from 'react';
 
 const navItems = [
@@ -55,7 +55,7 @@ export function AppShell({ children, title, action }: { children: React.ReactNod
 
   function logout() {
     window.localStorage.removeItem('voltstock.session');
-    fetch('/api/auth/logout', { method: 'POST' }).finally(() => {
+    apiFetch('/v1/auth/logout', { method: 'POST', body: '{}' }).catch(() => null).finally(() => {
       window.location.href = `${BASE_PATH}/login`;
     });
   }

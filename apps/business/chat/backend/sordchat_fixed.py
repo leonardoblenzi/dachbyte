@@ -40,11 +40,19 @@ from sqlalchemy.pool import NullPool
 import uvicorn
 
 
-SECRET_KEY = os.getenv("SECRET_KEY", "voltcorp_secret_key_super_secure_2024")
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
+SECRET_KEY = (os.getenv("SECRET_KEY") or "").strip()
+if not SECRET_KEY:
+    if IS_PRODUCTION:
+        raise RuntimeError("SECRET_KEY e obrigatoria em producao.")
+    # Development/test must not silently share a predictable JWT secret.
+    SECRET_KEY = secrets.token_urlsafe(48)
+elif IS_PRODUCTION and len(SECRET_KEY) < 32:
+    raise RuntimeError("SECRET_KEY deve ter pelo menos 32 caracteres em producao.")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 REMEMBERED_ACCESS_TOKEN_EXPIRE_DAYS = int(os.getenv("REMEMBERED_ACCESS_TOKEN_EXPIRE_DAYS", "30"))
-IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
 APP_VERSION = os.getenv("APP_VERSION") or os.getenv("RENDER_GIT_COMMIT") or "local"
 APP_BUILD_TIME = os.getenv("APP_BUILD_TIME")
 DESKTOP_RELEASE_EXTERNAL_URL = os.getenv("VOLT_CHAT_DESKTOP_DOWNLOAD_URL", "").strip()
@@ -82,7 +90,7 @@ BREVO_SENDER_NAME = os.getenv("BREVO_SENDER_NAME", "VoltChat").strip() or "VoltC
 PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = max(10, min(int(os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES", "30")), 1440))
 PASSWORD_RESET_URL = (
     os.getenv("VOLT_CHAT_PASSWORD_RESET_URL", "").strip()
-    or "https://www.voltcorporation.com.br/chat/reset-password"
+    or "https://www.voltcorporation.com.br/business/chat/reset-password"
 )
 
 BIRTHDAY_PATTERN = re.compile(r"^(0[1-9]|[12][0-9]|3[01])[-/](0[1-9]|1[0-2])[-/](\d{2}|\d{4})$")
@@ -2721,49 +2729,56 @@ manager = ConnectionManager()
 DEFAULT_ADMIN_USERNAME = "admin"
 DEFAULT_ADMIN_EMAIL = "admin@voltcorp.com"
 DEFAULT_ADMIN_NAME = "Volt Admin"
-DEFAULT_ADMIN_PASSWORD = os.getenv("VOLT_CHAT_ADMIN_PASSWORD", "VoltAdmin@172839")
+DEFAULT_ADMIN_PASSWORD = (os.getenv("VOLT_CHAT_ADMIN_PASSWORD") or "").strip()
+
+if IS_PRODUCTION and not DEFAULT_ADMIN_PASSWORD:
+    raise RuntimeError("VOLT_CHAT_ADMIN_PASSWORD e obrigatoria em producao.")
 
 
 def ensure_default_admin_account():
+    """Create the bootstrap admin once; never mutate an existing account at startup."""
     with SessionLocal() as db:
         admin = db.query(User).filter(
             or_(User.username == DEFAULT_ADMIN_USERNAME, User.email == DEFAULT_ADMIN_EMAIL)
         ).first()
-        if not admin:
-            admin = User(
-                username=DEFAULT_ADMIN_USERNAME,
-                uuid=str(uuid.uuid4()),
-                email=DEFAULT_ADMIN_EMAIL,
-                full_name=DEFAULT_ADMIN_NAME,
-                hashed_password=get_password_hash(DEFAULT_ADMIN_PASSWORD),
-                phone="1000",
-                is_platform_admin=True,
-                must_change_password=False,
-                status=ACTIVE_STATUS,
-                is_active=True,
-                access_level="master",
-                department="Administracao",
-                role_title="Administrador do sistema",
-                phone_extension="1000",
-                birthday="01-01-90",
-            )
-            db.add(admin)
-        else:
-            admin.username = DEFAULT_ADMIN_USERNAME
-            admin.email = DEFAULT_ADMIN_EMAIL
-            admin.full_name = DEFAULT_ADMIN_NAME
-            admin.is_platform_admin = True
-            admin.must_change_password = False
-            admin.status = ACTIVE_STATUS
-            admin.is_active = True
-            admin.access_level = "master"
-            if not verify_password(DEFAULT_ADMIN_PASSWORD, admin.hashed_password):
-                admin.hashed_password = get_password_hash(DEFAULT_ADMIN_PASSWORD)
-            admin.updated_at = datetime.utcnow()
+        if admin:
+            return {"created": False, "user_id": admin.id}
+
+        if not DEFAULT_ADMIN_PASSWORD:
+            # In production this is rejected during import. Development can run
+            # without an implicit/predictable admin account.
+            print("[voltchat] Bootstrap admin ignorado: VOLT_CHAT_ADMIN_PASSWORD nao definida.")
+            return {"created": False, "reason": "password_not_configured"}
+
+        admin = User(
+            username=DEFAULT_ADMIN_USERNAME,
+            uuid=str(uuid.uuid4()),
+            email=DEFAULT_ADMIN_EMAIL,
+            full_name=DEFAULT_ADMIN_NAME,
+            hashed_password=get_password_hash(DEFAULT_ADMIN_PASSWORD),
+            phone="1000",
+            is_platform_admin=True,
+            must_change_password=False,
+            status=ACTIVE_STATUS,
+            is_active=True,
+            access_level="master",
+            department="Administracao",
+            role_title="Administrador do sistema",
+            phone_extension="1000",
+            birthday="01-01-90",
+        )
+        db.add(admin)
         db.commit()
+        db.refresh(admin)
+        return {"created": True, "user_id": admin.id}
 
 
 def create_default_users():
+    if IS_PRODUCTION:
+        raise RuntimeError("AUTO_SEED_USERS/default user seed e bloqueado em producao.")
+    if not DEFAULT_ADMIN_PASSWORD:
+        raise RuntimeError("Defina VOLT_CHAT_ADMIN_PASSWORD antes de executar o seed de usuarios padrao.")
+
     default_users = [
         {
             "username": DEFAULT_ADMIN_USERNAME,
@@ -3947,8 +3962,13 @@ def run_startup_migrations():
 
 @app.on_event("startup")
 async def startup_event():
+    if IS_PRODUCTION and DATABASE_URL.startswith("sqlite"):
+        raise RuntimeError("SQLite nao e permitido em producao; configure DATABASE_URL PostgreSQL/Neon.")
+    if IS_PRODUCTION and os.getenv("AUTO_SEED_USERS", "false").lower() == "true":
+        raise RuntimeError("AUTO_SEED_USERS=true e bloqueado em producao.")
+
     run_startup_migrations()
-    if DATABASE_URL.startswith("sqlite") or os.getenv("AUTO_SEED_USERS", "false").lower() == "true":
+    if os.getenv("AUTO_SEED_USERS", "false").lower() == "true":
         create_default_users()
     ensure_default_admin_account()
     ensure_default_tenant_records()
@@ -10117,7 +10137,6 @@ async def company_admin_user_import_confirm(payload: dict, current_user: User = 
         }
 
 if __name__ == "__main__":
-    create_default_users()
     uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8001")))
 
 # WhatsApp control center routes are intentionally metadata-only; Meta remains the message source of truth.

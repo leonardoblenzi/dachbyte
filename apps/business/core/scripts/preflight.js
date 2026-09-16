@@ -32,7 +32,9 @@ function validateProductionEnvironment(environment = process.env) {
 
   if (production) {
     if (!appDatabaseUrl) errors.push("Defina VOLT_CORE_APP_DATABASE_URL com uma role exclusiva da aplicacao e NOBYPASSRLS.");
-    if (!migrationDatabaseUrl) errors.push("Defina VOLT_CORE_DIRECT_DATABASE_URL (ou VOLT_CORE_MIGRATION_DATABASE_URL) somente para migrations.");
+    // Runtime production must not need the owner/migration credential. The one-shot
+    // migration command validates VOLT_CORE_DIRECT_DATABASE_URL itself. When a
+    // migration URL is present (for CLI/pre-deploy checks), still enforce separation.
     if (appDatabaseUrl && migrationDatabaseUrl) {
       const appUser = databaseUser(appDatabaseUrl);
       const migrationUser = databaseUser(migrationDatabaseUrl);
@@ -66,7 +68,7 @@ function validateProductionEnvironment(environment = process.env) {
     if (isPlaceholder(get("VOLT_CORE_BOOTSTRAP_MASTER_PASSWORD"))) {
       errors.push("Substitua o placeholder da senha do bootstrap master.");
     }
-    warnings.push("Desative VOLT_CORE_BOOTSTRAP_MASTER_ENABLED depois de provisionar o master definitivo.");
+    warnings.push(`${production ? "PRODUCAO: " : ""}VOLT_CORE_BOOTSTRAP_MASTER_ENABLED deve ser temporario; desative depois de provisionar o master definitivo.`);
   }
 
   if (!get("VOLT_CORE_ALLOWED_ORIGINS")) {

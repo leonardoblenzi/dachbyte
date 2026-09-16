@@ -1,13 +1,13 @@
 "use strict";
 
 const crypto = require("crypto");
-const { config, baseUrl } = require("../config");
+const { config, baseUrl, publicPath } = require("../config");
 const { fetchJson, formBody } = require("./http");
 const { getConnection, tokenValues, upsertConnection } = require("./tokenStore");
 const { withTenant } = require("../db");
 
 function callbackUrl(req) {
-  return `${baseUrl(req)}/volt-price/api/integrations/meli/callback`;
+  return `${baseUrl(req)}${publicPath("/api/integrations/meli/callback")}`;
 }
 
 function pkce() {

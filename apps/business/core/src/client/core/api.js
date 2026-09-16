@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_PATH = "/api/core";
+const DEFAULT_API_BASE_PATH = "/business/core/api";
 
 function normalizeBasePath(value, fallback) {
   const raw = String(value || fallback || "").trim();

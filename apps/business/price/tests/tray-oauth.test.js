@@ -52,7 +52,7 @@ test("Tray connect creates an opaque state cookie and returns only an authorizat
   assert.equal(res.cookies.length, 1);
   assert.deepEqual(res.cookies[0], {
     name: "vp_tray_oauth_state", value: "opaque-state",
-    options: { httpOnly: true, secure: false, sameSite: "lax", path: "/volt-price/api/integrations/tray/callback", maxAge: 15 * 60_000 },
+    options: { httpOnly: true, secure: false, sameSite: "lax", path: "/business/price/api/integrations/tray/callback", maxAge: 15 * 60_000 },
   });
   assert.doesNotMatch(JSON.stringify(res.body), /consumer|secret|access_token|refresh_token|code/i);
 });
@@ -75,7 +75,7 @@ test("Tray callback persists exchanged tokens but redirects and audits only safe
   const { res, error } = await invoke(handler, request({ query: { state: "opaque-state", code: "provider-code", api_address: "https://api.commercesuite.com.br" } }));
 
   assert.equal(error, undefined);
-  assert.equal(res.redirectedTo, "/volt-price/app/integrations?connected=tray");
+  assert.equal(res.redirectedTo, "/business/price/app/integrations?connected=tray");
   assert.equal(res.body, null);
   assert.equal(res.cleared.length, 1);
   assert.equal(stored.length, 1);
@@ -96,7 +96,7 @@ test("Tray callback redirects to a constant generic failure route without provid
   const { res, error } = await invoke(handler, request({ query: { state: "bad-secret", code: "provider-code", api_address: "https://evil.example" } }));
 
   assert.equal(error, undefined);
-  assert.equal(res.redirectedTo, "/volt-price/app/integrations?tray=error");
+  assert.equal(res.redirectedTo, "/business/price/app/integrations?tray=error");
   assert.doesNotMatch(res.redirectedTo, /bad-secret|provider-code|evil/i);
   assert.deepEqual(diagnostics, [{ stage: "state", code: null, statusCode: null, upstreamStatus: null }]);
 });

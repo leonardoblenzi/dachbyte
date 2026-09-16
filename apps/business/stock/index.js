@@ -34,6 +34,16 @@ function loadEnvironment(rootDir) {
   );
 }
 
+
+function normalizeNextRequestUrl(originalUrl) {
+  const canonicalBase = String(process.env.NEXT_PUBLIC_VOLTSTOCK_BASE_PATH || "/business/stock").replace(/\/+$/, "");
+  const legacyBase = "/voltstock";
+  const value = String(originalUrl || "/");
+  if (value === legacyBase) return canonicalBase || "/";
+  if (value.startsWith(`${legacyBase}/`)) return `${canonicalBase}${value.slice(legacyBase.length)}` || "/";
+  return value;
+}
+
 function resolveApiBuild(rootDir) {
   const apiBuildPath = path.join(rootDir, "apps", "api", "dist", "server.js");
   if (!fs.existsSync(apiBuildPath)) {
@@ -75,7 +85,10 @@ async function createVoltStockApp() {
   await nextApp.prepare();
 
   router.use((req, res) => {
-    req.url = req.originalUrl;
+    // Next.js is compiled with the canonical basePath. Legacy /voltstock URLs
+    // are normalized only for the upstream Next handler; the public alias is
+    // still accepted by the edge during the migration window.
+    req.url = normalizeNextRequestUrl(req.originalUrl);
     return handle(req, res);
   });
 

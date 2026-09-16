@@ -1,0 +1,9 @@
+# Runtime secrets
+/env/*.env
+!/env/*.env.example
+
+# Database transfer/snapshot artifacts
+/backups/
+
+# Production cutover runtime state / rollback tags
+/.cutover/

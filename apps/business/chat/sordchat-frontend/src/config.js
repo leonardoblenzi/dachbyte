@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://www.voltcorporation.com.br/chat-api';
+export const API_BASE_URL = process.env.REACT_APP_API_URL || '/business/chat/api';
 
 const resolveWebSocketBaseUrl = () => {
   if (process.env.REACT_APP_WS_URL) return process.env.REACT_APP_WS_URL;

@@ -191,7 +191,13 @@ services:
       start_period: 120s
   business-core:
     <<: *runtime
-    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: core}
+    build:
+      context: ".."
+      dockerfile: infra/docker/node.Dockerfile
+      target: core
+      args:
+        VOLT_CORE_PUBLIC_BASE_PATH: /business/core
+        VOLT_CORE_API_BASE_PATH: /business/core/api
     image: dachbyte/core:local
     command: ["node", "apps/business/product-server.cjs"]
     env_file: ["./env/business-core.env", "./env/hub.env"]
@@ -203,14 +209,20 @@ services:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     healthcheck:
-      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/core/healthz"]
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/business/core/api/health"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 120s
   business-stock:
     <<: *runtime
-    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: stock}
+    build:
+      context: ".."
+      dockerfile: infra/docker/node.Dockerfile
+      target: stock
+      args:
+        VOLT_STOCK_PUBLIC_BASE_PATH: /business/stock
+        VOLT_STOCK_PUBLIC_API_URL: /business/stock/api
     image: dachbyte/stock:local
     command: ["node", "apps/business/product-server.cjs"]
     env_file: ["./env/business-stock.env", "./env/hub.env"]
@@ -222,14 +234,20 @@ services:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     healthcheck:
-      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/voltstock/healthz"]
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/business/stock/api/health"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 120s
   business-chat:
     <<: *runtime
-    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: chat}
+    build:
+      context: ".."
+      dockerfile: infra/docker/node.Dockerfile
+      target: chat
+      args:
+        VOLT_CHAT_PUBLIC_PATH: /business/chat
+        VOLT_CHAT_PUBLIC_API_URL: /business/chat/api
     image: dachbyte/chat:local
     command: ["node", "apps/business/product-server.cjs"]
     env_file: ["./env/business-chat.env", "./env/hub.env"]
@@ -241,7 +259,7 @@ services:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     healthcheck:
-      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/chat/healthz"]
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/business/chat/healthz"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -260,7 +278,7 @@ services:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     healthcheck:
-      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/volt-price/healthz"]
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/business/price/health"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -268,6 +286,7 @@ services:
   business-chat-api:
     <<: *runtime
     build: {context: "..", dockerfile: infra/docker/chat-api.Dockerfile}
+    image: dachbyte/chat-api:local
     env_file: ["./env/business-chat-api.env", "./env/hub.env"]
     volumes: ["chat_uploads:/data/uploads"]
     depends_on:
@@ -278,12 +297,92 @@ services:
       timeout: 5s
       retries: 5
       start_period: 120s
+  business-chat-migrate:
+    profiles: [ops]
+    build: {context: "..", dockerfile: infra/docker/chat-api.Dockerfile}
+    image: dachbyte/chat-api:local
+    command: ["python", "scripts/deploy_db.py"]
+    env_file: ["./env/business-chat-api.env"]
+    environment:
+      ENVIRONMENT: production
+      AUTO_MIGRATE_DB: "false"
+      AUTO_SEED_USERS: "false"
+    networks: [data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  business-core-migrate:
+    profiles: [ops]
+    build:
+      context: ".."
+      dockerfile: infra/docker/node.Dockerfile
+      target: core
+      args:
+        VOLT_CORE_PUBLIC_BASE_PATH: /business/core
+        VOLT_CORE_API_BASE_PATH: /business/core/api
+    image: dachbyte/core:local
+    command: ["npm", "--prefix", "apps/business/core", "run", "migrate"]
+    env_file: ["./env/business-core.env", "./env/business-core-migrate.env"]
+    environment:
+      NODE_ENV: production
+    networks: [data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  business-stock-migrate:
+    profiles: [ops]
+    build:
+      context: ".."
+      dockerfile: infra/docker/node.Dockerfile
+      target: stock
+      args:
+        VOLT_STOCK_PUBLIC_BASE_PATH: /business/stock
+        VOLT_STOCK_PUBLIC_API_URL: /business/stock/api
+    image: dachbyte/stock:local
+    command: ["npm", "--prefix", "apps/business/stock", "run", "db:migrate"]
+    env_file: ["./env/business-stock.env", "./env/business-stock-migrate.env"]
+    environment:
+      NODE_ENV: production
+    networks: [data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  business-price-migrate:
+    profiles: [ops]
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: business}
+    image: dachbyte/business:local
+    command: ["node", "apps/business/price/db/migrate.js"]
+    env_file: ["./env/business-price.env", "./env/business-price-migrate.env"]
+    environment:
+      NODE_ENV: production
+    networks: [data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  postgres-provision:
+    profiles: [ops]
+    image: postgres:18-bookworm
+    env_file: ["./env/postgres.env"]
+    entrypoint: ["/bin/bash", "/usr/local/bin/provision-business"]
+    networks: [data]
+    volumes:
+      - ./postgres/provision-business.sh:/usr/local/bin/provision-business:ro
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
   postgres:
     <<: *runtime
     image: postgres:18-bookworm
     networks: [data]
     env_file: ["./env/postgres.env"]
-    volumes: ["postgres_data:/var/lib/postgresql"]
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./postgres/provision-business.sh:/docker-entrypoint-initdb.d/20-business-databases.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s

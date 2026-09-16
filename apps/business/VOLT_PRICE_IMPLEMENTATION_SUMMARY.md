@@ -2,8 +2,8 @@
 
 ## Arquivos da business alterados
 
-- `app.js`: monta VoltPrice em `/volt-price` e inclui `voltprice` no health.
-- `package.json`/Render: executam migrations Core e VoltPrice no pre-deploy; `start.js` apenas inicia o webservice.
+- `product-server.cjs`: executa VoltPrice no container `business-price`; Caddy publica `/business/price` e `/business/price/api`.
+- `infra/compose.vps.yml` executa o produto em `business-price`; migrations ficam em jobs one-shot separados do runtime.
 - `package.json`: adiciona `pg`, `bcryptjs` e `cookie-parser` usados pelo modulo.
 
 ## Novo modulo
@@ -16,6 +16,6 @@
 - `volt-price/.env.example`
 - `volt-price/README.md`
 
-## Sem alteracoes de infraestrutura Render
+## Infraestrutura atual
 
-Nao foi criado `render.yaml` para VoltPrice. O modulo usa o webservice `business` ja existente.
+VoltPrice roda em container proprio (`business-price`) na VPS. Caddy publica `/business/price` e `/business/price/api`; PostgreSQL local usa banco/roles dedicados, e as migrations sao controladas por `infra/business-db-ops.sh`. O antigo modelo agregado/Render deve ser tratado somente como historico de migracao.

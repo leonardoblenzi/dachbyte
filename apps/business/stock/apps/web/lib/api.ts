@@ -1,4 +1,4 @@
-export const BASE_PATH = process.env.NEXT_PUBLIC_VOLTSTOCK_BASE_PATH ?? '/voltstock';
+export const BASE_PATH = process.env.NEXT_PUBLIC_VOLTSTOCK_BASE_PATH ?? '/business/stock';
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? `${BASE_PATH}/api`;
 
 export type SessionUser = {
