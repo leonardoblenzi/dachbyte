@@ -1,6 +1,7 @@
 /* Public marketing components. App screens do not load this stylesheet. */
 .dx-marketing { --dx-accent:#ff8a3f; --dx-ink:#090b10; --dx-muted:#b5becd; --dx-line:#344050; padding-top:60px; }
 .dx-marketing[data-dx-family="business"] { --dx-accent:#30d6dc; }
+.dx-marketing[data-dx-family="ads"] { --dx-accent:#8b8cff; }
 .dx-global,.dx-experience,.dx-contact,.dx-footer { box-sizing:border-box; font-family:Inter,system-ui,sans-serif; color:#f4f2ec; line-height:1.6; }
 .dx-global *, .dx-experience *, .dx-contact *, .dx-footer * { box-sizing:border-box; }
 .dx-global { position:fixed; inset:0 0 auto; z-index:999; background:#090e16; border-bottom:1px solid #344050; font-size:13px; }
@@ -38,6 +39,7 @@
 .dx-marketing section[id] { scroll-margin-top:150px; }
 .dx-experience { width:min(1180px,calc(100% - 48px)); margin:88px auto; --dx-accent:#ff8a3f; }
 [data-dx-family="business"] .dx-experience { --dx-accent:#30d6dc; }
+[data-dx-family="ads"] .dx-experience { --dx-accent:#8b8cff; }
 .dx-section-head { position:static; display:block; background:none; border:0; padding:0; height:auto; max-width:760px; margin:0 0 32px; text-align:left; }
 .dx-eyebrow { display:block; color:var(--dx-accent); font:600 12px/1.6 ui-monospace,monospace; text-transform:uppercase; letter-spacing:.09em; margin-bottom:12px; }
 .dx-section-head h2,.dx-contact h2 { font-family:'Exo 2',system-ui,sans-serif; font-size:clamp(28px,3.3vw,44px); line-height:1.15; letter-spacing:-.03em; margin:0 0 18px; color:#f4f2ec; }

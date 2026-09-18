@@ -56,6 +56,11 @@
   --dachbyte-line-accent-strong: #ff9a4d;
 }
 
+[data-dachbyte-line="ads"] {
+  --dachbyte-line-accent: #8b8cff;
+  --dachbyte-line-accent-strong: #6f63ff;
+}
+
 .dachbyte-wordmark {
   color: var(--dachbyte-text-primary);
   font-family: var(--dachbyte-font-display);

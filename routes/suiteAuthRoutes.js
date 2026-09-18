@@ -29,6 +29,7 @@ const MODULE_MATRIX = [
   { id: "davanttilog", hubModule: "davanttilog" },
   { id: "madeiramadeira", hubModule: "madeira" },
   { id: "skuleader", hubModule: "skuleader" },
+  { id: "dach_ads", hubModule: "dach_ads" },
 ];
 const HUB_AUTH_MODULE_CANDIDATES = [
   "suite",
@@ -38,6 +39,7 @@ const HUB_AUTH_MODULE_CANDIDATES = [
   "davanttilog",
   "madeira",
   "skuleader",
+  "dach_ads",
 ];
 const HUB_ACCESS_RETRY_ATTEMPTS = Number(
   process.env.HUB_ACCESS_RETRY_ATTEMPTS || 3,

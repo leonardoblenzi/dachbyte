@@ -16,6 +16,10 @@ html[data-dachbyte-line="business"] {
   --dachbyte-line-accent: #48dfe7;
   --dachbyte-line-accent-strong: #72e2a5;
 }
+html[data-dachbyte-line="ads"] {
+  --dachbyte-line-accent: #8b8cff;
+  --dachbyte-line-accent-strong: #6f63ff;
+}
 html[data-dachbyte-line] body {
   font-family: var(--dachbyte-font-body, "Inter", "Segoe UI", Arial, sans-serif);
 }
@@ -65,6 +69,12 @@ html[data-dachbyte-line]:is(.theme-dark, .dark) :focus-visible { outline-color: 
   object-fit: contain;
   object-position: center;
   border-radius: 0;
+}
+
+/* Ads: shell próprio, mantendo a linguagem visual do ecossistema sem acoplamento ao Seller. */
+html[data-dachbyte-app="ads"] {
+  --dachbyte-line-accent: #8b8cff;
+  --dachbyte-line-accent-strong: #6f63ff;
 }
 
 /* Seller: all ML views and administrative shell, including async shell CSS. */

@@ -95,6 +95,10 @@ function hasModuleAccess(payload, moduleId) {
     davanlog: "davanttilog",
     volt_stock: "voltstock",
     voltstock: "voltstock",
+    ads: "dach_ads",
+    dachads: "dach_ads",
+    dach_ads: "dach_ads",
+    "dach-ads": "dach_ads",
   };
   const allowed = Array.isArray(payload?.allowed_modules)
     ? payload.allowed_modules
@@ -142,6 +146,10 @@ function hubModuleFromSuiteModule(moduleId) {
     logsync: "davanttilog",
     "davantti-log": "davanttilog",
     davantti_log: "davanttilog",
+    ads: "dach_ads",
+    dachads: "dach_ads",
+    dach_ads: "dach_ads",
+    "dach-ads": "dach_ads",
   };
   const normalized = String(moduleId || "").trim().toLowerCase();
   return aliases[normalized] || normalized;
@@ -838,6 +846,7 @@ async function main() {
   app.get("/go/tracking", createSuiteGoHandler("tracking", "/avantracking"));
   app.get("/go/davanttilog", createSuiteGoHandler("davanttilog", "/davanttilog"));
   app.get("/go/skuleader", createSuiteGoHandler("skuleader", "/skuleader"));
+  app.get("/go/ads", createSuiteGoHandler("dach_ads", "/ads/app"));
   app.get("/go/voltstock", createExternalVoltStockHandler());
 
   app.use((req, res) => {

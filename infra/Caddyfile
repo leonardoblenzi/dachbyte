@@ -261,6 +261,14 @@
     reverse_proxy business-chat:3000
   }
 
+  # DACH Ads owns its public landing and application surface. Hub-backed
+  # authorization is enforced inside the product once that integration stage
+  # is connected; the landing remains public.
+  @ads path /ads /ads/*
+  handle @ads {
+    reverse_proxy ads-api:3000
+  }
+
   @business path /business /business/*
   handle @business {
     reverse_proxy business-portal:3000

@@ -15,6 +15,7 @@ test("legacy branding adapter exposes the platform branding object", () => {
   assert.equal(platformBranding.DACHBYTE_BRAND.products.chat, "Dach Chat");
   assert.equal(platformBranding.DACHBYTE_BRAND.products.price, "Dach Price");
   assert.equal(platformBranding.DACHBYTE_BRAND.products.hub, "Dach Hub");
+  assert.equal(platformBranding.DACHBYTE_BRAND.products.ads, "Dach Ads");
   assert.ok(Object.isFrozen(platformBranding.DACHBYTE_BRAND));
 });
 

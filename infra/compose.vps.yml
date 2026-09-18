@@ -170,6 +170,59 @@ services:
       timeout: 5s
       retries: 5
       start_period: 120s
+  ads-api:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: ads}
+    image: dachbyte/ads:local
+    command: ["node", "apps/ads/start.js"]
+    env_file: ["./env/ads.env", "./env/ads-google.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      ADS_AUTH_MODE: hub
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/ads/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  ads-worker:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: ads}
+    image: dachbyte/ads:local
+    command: ["node", "apps/ads/worker.js"]
+    env_file: ["./env/ads.env", "./env/ads-google.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      ADS_AUTH_MODE: hub
+    networks: [data]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/apps/ads/scripts/worker-health.cjs"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  ads-migrate:
+    profiles: [ops]
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: ads}
+    image: dachbyte/ads:local
+    command: ["node", "apps/ads/infrastructure/db/migrate.js"]
+    env_file: ["./env/ads-migrate.env"]
+    environment:
+      NODE_ENV: production
+    networks: [data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
   business-portal:
     <<: *runtime
     build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: business}

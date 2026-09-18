@@ -69,7 +69,7 @@ test("Business gains an integrated scenario and a public Price landing", () => {
   assert.doesNotMatch(business, /href="#"/);
   assert.match(price, /data-dx-shell="business"/);
   assert.match(price, /DACHBYTE Price/);
-  assert.match(price, /href="\/volt-price"/);
+  assert.match(price, /href="\/business\/price"/);
   assert.match(app, /["']\/price["']/);
   assert.match(app, /req\.originalUrl/);
   assert.match(app, /["']\/business\/price["']/);
@@ -78,4 +78,16 @@ test("Business gains an integrated scenario and a public Price landing", () => {
     app.indexOf("const priceLandingPaths") < app.indexOf('registerCanonicalRoutes(app, "business")'),
     "the public Price landing must be registered before legacy canonical redirects",
   );
+});
+
+test("shared navigation exposes Ads as a first-class DACHBYTE family", () => {
+  const source = read("public", "brand", "dachbyte", "landing-experience.js");
+  const adsLanding = read("apps", "ads", "public", "landing.html");
+
+  assert.match(source, /ads:\s*Object\.freeze\(\{ label: 'Ads'/);
+  assert.match(source, /label: 'DACH Ads', href: '\/ads'/);
+  assert.match(source, /familyNav\(family\)/);
+  assert.match(source, /productMenu\(activeKey\)/);
+  assert.match(adsLanding, /data-dx-shell="ads"/);
+  assert.match(adsLanding, /landing-experience\.js/);
 });

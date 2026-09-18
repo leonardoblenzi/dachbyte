@@ -10,9 +10,10 @@ const compose = parse(read("infra/compose.vps.yml"), {merge: true});
 
 test("only Caddy publishes ports and data stores are isolated", () => {
   for (const [name, service] of Object.entries(compose.services)) {
-    assert.equal(service.restart, "unless-stopped", name);
+    const isOps = Array.isArray(service.profiles) && service.profiles.includes("ops");
+    assert.equal(service.restart, isOps ? "no" : "unless-stopped", name);
     if (name !== "caddy") assert.equal(service.ports, undefined, name);
-    assert.ok(service.healthcheck, name);
+    if (!isOps) assert.ok(service.healthcheck, name);
   }
   assert.equal(compose.networks.data.internal, true);
   for (const name of ["postgres", "redis"]) {
@@ -23,7 +24,8 @@ test("only Caddy publishes ports and data stores are isolated", () => {
 
 test("VPS PostgreSQL matches the newest Neon source major version", () => {
   assert.equal(compose.services.postgres.image, "postgres:18-bookworm");
-  assert.deepEqual(compose.services.postgres.volumes, ["postgres_data:/var/lib/postgresql"]);
+  assert.equal(compose.services.postgres.volumes[0], "postgres_data:/var/lib/postgresql");
+  assert.ok(compose.services.postgres.volumes.some(volume => String(volume).includes("provision-business.sh")));
 });
 
 test("service commands, Dockerfiles and environment examples exist", () => {
@@ -58,6 +60,8 @@ test("Hub shared environment overrides service-specific legacy settings", () => 
     "business-chat",
     "business-price",
     "business-chat-api",
+    "ads-api",
+    "ads-worker",
   ];
 
   for (const name of applicationServices) {
@@ -80,7 +84,7 @@ test("Business products run separately and Python is private", () => {
 
 test("Caddy preserves route boundaries, Core assets and websocket API", () => {
   const source = read("infra/Caddyfile");
-  for (const prefix of ["ml", "shopee", "madeiramadeira", "avantracking", "davanttilog", "skuleader", "voltstock", "volt-price", "chat", "business"]) {
+  for (const prefix of ["ml", "shopee", "madeiramadeira", "avantracking", "davanttilog", "skuleader", "voltstock", "volt-price", "chat", "business", "ads"]) {
     assert.ok(source.includes(`path /${prefix} /${prefix}/*`), prefix);
   }
   assert.match(source, /\/api\/core/);
@@ -115,4 +119,14 @@ test("Business portal and nested canonical links keep query strings", async () =
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
   }
+});
+
+test("DACH Ads runs as API + worker with an ops-only migrator", () => {
+  assert.equal(compose.services["ads-api"].build.target, "ads");
+  assert.equal(compose.services["ads-worker"].build.target, "ads");
+  assert.deepEqual(compose.services["ads-worker"].networks, ["data"]);
+  assert.deepEqual(compose.services["ads-migrate"].profiles, ["ops"]);
+  assert.equal(compose.services["ads-migrate"].restart, "no");
+  assert.match(read("infra/postgres/provision-business.sh"), /DACHBYTE_ADS_DB/);
+  assert.match(read("infra/env/postgres.env.example"), /DACHBYTE_ADS_WORKER_ROLE/);
 });

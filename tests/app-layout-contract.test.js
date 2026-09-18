@@ -14,6 +14,7 @@ const moves = {
   davanttilog: "apps/seller-log",
   LeaderSku: "apps/seller-leader",
   business: "apps/business",
+  ads: "apps/ads",
 };
 
 test("DACHBYTE products live under apps with no legacy product directories", () => {

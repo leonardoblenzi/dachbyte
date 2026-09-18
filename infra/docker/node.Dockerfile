@@ -57,3 +57,12 @@ FROM business-base AS business
 ENV NODE_ENV=production PORT=3000
 USER node
 CMD ["node", "apps/business/product-server.cjs"]
+
+# DACH Ads starts as a modular Node bounded context. It deliberately reuses
+# the root dependency graph in this first stage so the repository keeps one
+# lockfile; Google/Meta-specific dependencies can move to a dedicated image
+# when the connectors are introduced.
+FROM base AS ads
+ENV NODE_ENV=production PORT=3000
+USER node
+CMD ["node", "apps/ads/start.js"]

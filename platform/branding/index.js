@@ -11,6 +11,7 @@ const DACHBYTE_BRAND = Object.freeze({
   name: "DachByte",
   seller: "Dach Seller",
   business: "Dach Business",
+  ads: "Dach Ads",
   support: "Suporte DachByte",
   sac: "SAC DachByte",
   products: Object.freeze({
@@ -22,6 +23,7 @@ const DACHBYTE_BRAND = Object.freeze({
     log: "Dach Log",
     leader: "Dach Leader",
     hub: "Dach Hub",
+    ads: "Dach Ads",
   }),
 });
 
