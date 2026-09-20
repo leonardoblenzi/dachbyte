@@ -16,14 +16,14 @@ function requireIdentity(provider) {
         });
       }
       if (resolution.status === "anonymous") {
-        if (wantsHtml(req)) return res.redirect(302, "/login");
+        if (wantsHtml(req)) return res.redirect(302, "/ads/login");
         return res.status(401).json({
           success: false,
           error: "authentication_required",
         });
       }
       if (resolution.status === "forbidden") {
-        if (wantsHtml(req)) return res.redirect(302, "/selecao-plataforma?module=denied&product=dach_ads");
+        if (wantsHtml(req)) return res.redirect(302, "/ads/access-denied");
         return res.status(403).json({
           success: false,
           error: "dach_ads_access_denied",

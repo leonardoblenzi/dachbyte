@@ -69,6 +69,14 @@ function createAdsApp() {
     res.sendFile(path.join(publicRoot, "landing.html"));
   });
 
+  app.get("/ads/login", (_req, res) => {
+    res.sendFile(path.join(publicRoot, "login.html"));
+  });
+
+  app.get("/ads/access-denied", (_req, res) => {
+    res.status(403).sendFile(path.join(publicRoot, "access-denied.html"));
+  });
+
   app.get("/ads/api/session", protectedRoute, (req, res) => {
     res.json({ success: true, identity: req.adsIdentity });
   });

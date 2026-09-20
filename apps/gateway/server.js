@@ -211,15 +211,17 @@ function clearModuleCookies(res) {
   });
 }
 
-function createSuiteGoHandler(moduleId, targetPath) {
+function createSuiteGoHandler(moduleId, targetPath, options = {}) {
+  const loginPath = options.loginPath || "/login";
+  const deniedPath = options.deniedPath || "/selecao-plataforma";
   return async (req, res) => {
     const payload = readSuitePayload(req);
     if (!payload) {
-      return res.redirect("/login");
+      return res.redirect(loginPath);
     }
 
     if (isLegacySuitePayload(payload) && !hasSessionModuleReference(payload, moduleId)) {
-      return res.redirect("/selecao-plataforma?module=denied");
+      return res.redirect(`${deniedPath}?module=denied`);
     }
 
     const access = await checkSuiteModuleAccess(payload, moduleId).catch((error) => ({
@@ -229,6 +231,7 @@ function createSuiteGoHandler(moduleId, targetPath) {
 
     if (!access.allow) {
       clearModuleCookies(res);
+      if (options.deniedPath) return res.redirect(deniedPath);
       return res.redirect(
         `/selecao-plataforma?subscription=${encodeURIComponent(access.status || access.reason || "blocked")}&renew=${encodeURIComponent(
           renewalUrlFromSuitePayload(payload),
@@ -846,7 +849,10 @@ async function main() {
   app.get("/go/tracking", createSuiteGoHandler("tracking", "/avantracking"));
   app.get("/go/davanttilog", createSuiteGoHandler("davanttilog", "/davanttilog"));
   app.get("/go/skuleader", createSuiteGoHandler("skuleader", "/skuleader"));
-  app.get("/go/ads", createSuiteGoHandler("dach_ads", "/ads/app"));
+  app.get("/go/ads", createSuiteGoHandler("dach_ads", "/ads/app", {
+    loginPath: "/ads/login",
+    deniedPath: "/ads/access-denied",
+  }));
   app.get("/go/voltstock", createExternalVoltStockHandler());
 
   app.use((req, res) => {

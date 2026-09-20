@@ -27,13 +27,13 @@ test("cookie parser extracts the shared suite session", () => {
   assert.equal(readCookie("foo=1", "suite_auth_token"), "");
 });
 
-test("protected Ads HTML redirects anonymous users to the shared login", async () => {
+test("protected Ads HTML redirects anonymous users to the dedicated Ads login", async () => {
   const middleware = requireIdentity({ resolve: async () => ({ status: "anonymous" }) });
   const req = { method: "GET", originalUrl: "/ads/app" };
   const res = fakeResponse();
   await middleware(req, res, () => assert.fail("next must not run"));
   assert.equal(res.redirectStatus, 302);
-  assert.equal(res.redirectUrl, "/login");
+  assert.equal(res.redirectUrl, "/ads/login");
 });
 
 test("protected Ads API returns 403 when Hub denies dach_ads", async () => {
@@ -51,5 +51,7 @@ test("suite login, gateway and platform selector expose dach_ads", () => {
   const selector = fs.readFileSync(path.join(root, "apps/seller-ml/views/selecao-plataforma.html"), "utf8");
   assert.match(suiteAuth, /id:\s*"dach_ads",\s*hubModule:\s*"dach_ads"/);
   assert.match(gateway, /\/go\/ads/);
+  assert.match(gateway, /loginPath:\s*"\/ads\/login"/);
+  assert.match(gateway, /deniedPath:\s*"\/ads\/access-denied"/);
   assert.match(selector, /data-module="dach_ads"/);
 });

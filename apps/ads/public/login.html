@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Acesso ao DACH Ads." />
+  <title>Entrar no DACH Ads</title>
+  <link rel="stylesheet" href="/brand/dachbyte/landing-experience.css?v=20260920.1" />
+  <link rel="stylesheet" href="/ads/assets/ads.css?v=20260920.1" />
+</head>
+<body class="ads-landing ads-auth-page">
+  <main class="ads-auth-card" aria-labelledby="ads-login-title">
+    <a class="ads-auth-card__brand" href="/ads">DACH<span>Ads</span></a>
+    <p class="ads-marketing__eyebrow">Performance Intelligence</p>
+    <h1 id="ads-login-title">Entre no seu painel.</h1>
+    <p>Use o acesso da sua empresa. O DACH Ads valida sua permissão diretamente no Hub.</p>
+    <form id="ads-login-form" class="ads-auth-form">
+      <label for="email">E-mail de acesso</label>
+      <input id="email" name="email" type="email" autocomplete="email" required />
+      <label for="senha">Senha</label>
+      <input id="senha" name="senha" type="password" autocomplete="current-password" required />
+      <p id="ads-login-message" class="ads-auth-message" role="alert" hidden></p>
+      <button type="submit">Entrar no DACH Ads</button>
+    </form>
+    <a class="ads-auth-card__help" href="/esqueci-senha">Esqueci minha senha</a>
+    <a class="ads-auth-card__back" href="/ads">← Voltar para a apresentação</a>
+  </main>
+  <script>
+    (() => {
+      const form = document.getElementById("ads-login-form");
+      const message = document.getElementById("ads-login-message");
+      const submit = form.querySelector('button[type="submit"]');
+      const show = (text) => { message.textContent = text; message.hidden = false; };
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        message.hidden = true;
+        submit.disabled = true;
+        submit.textContent = "Validando acesso…";
+        try {
+          const response = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ email: form.email.value.trim(), senha: form.senha.value }),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok || payload.ok !== true) {
+            show(payload.message || payload.error || "Não foi possível entrar. Confira seus dados.");
+            return;
+          }
+          window.location.assign("/go/ads");
+        } catch (_error) {
+          show("Erro de conexão. Tente novamente em instantes.");
+        } finally {
+          submit.disabled = false;
+          submit.textContent = "Entrar no DACH Ads";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
