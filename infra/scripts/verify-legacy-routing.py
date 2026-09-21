@@ -63,14 +63,11 @@ def handler_block(matcher: str) -> str:
 
 
 for matcher in ("legacy-core-ui", "legacy-chat-ui", "legacy-stock-ui", "legacy-price-ui", "legacy-voltchat", "legacy-volt-chat", "legacy-stock-short"):
-    route_marker = f"route @{matcher} {{"
-    route_start = text.find(route_marker)
-    if route_start < 0:
-        errors.append(f"{matcher} must use a top-level matcher route")
+    body = handler_block(matcher)
+    if not body:
+        errors.append(f"{matcher} must use a terminal handle")
         continue
-    route_end = text.find("\n  }", route_start)
-    route_body = text[route_start:] if route_end < 0 else text[route_start:route_end]
-    if " 308" not in route_body:
+    if "route {" not in body or " 308" not in body:
         errors.append(f"{matcher} must use HTTP 308")
     if f"log_name @{matcher} legacy_routes" not in text:
         errors.append(f"{matcher} must opt into the isolated legacy access logger")

@@ -106,10 +106,10 @@ test("legacy UI aliases log and redirect from one terminal route", () => {
     const matcher = alias === "volt-price" ? "legacy-price-ui" : alias === "voltstock" ? "legacy-stock-ui" : `legacy-${alias}-ui`;
     assert.match(
       source,
-      new RegExp(`log_name @${matcher} legacy_routes\\s+route @${matcher} \\{\\s+uri strip_prefix /${alias}\\s+redir /${canonical}\\{uri\\} 308`, "s"),
+      new RegExp(`log_name @${matcher} legacy_routes\\s+handle @${matcher} \\{\\s+route \\{\\s+uri strip_prefix /${alias}\\s+redir /${canonical}\\{uri\\} 308`, "s"),
       alias,
     );
-    assert.doesNotMatch(source, new RegExp(`handle @${matcher} \\{[\\s\\S]*?route \\{`), alias);
+    assert.doesNotMatch(source, new RegExp(`handle @${matcher} \\{\\s+log_name`), alias);
   }
 });
 
