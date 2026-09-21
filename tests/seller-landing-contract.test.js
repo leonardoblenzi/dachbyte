@@ -80,7 +80,7 @@ test("general Seller landing keeps useful comparison depth", () => {
 
 test("Business visual chapters offer learn-more and product-entry actions", () => {
   const html = fs.readFileSync(path.join(root, "apps", "business", "public", "landing.html"), "utf8");
-  for (const destination of ["/voltstock", "/voltstock/login", "/chat", "/core", "/core/app"]) {
+  for (const destination of ["/business/stock", "/business/stock/login", "/business/chat", "/business/core", "/business/core/app"]) {
     assert.match(html, new RegExp(`href="${destination.replaceAll("/", "\\/")}"`));
   }
   assert.ok((html.match(/>Conhecer mais</g) || []).length >= 3);

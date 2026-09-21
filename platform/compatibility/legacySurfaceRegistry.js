@@ -9,9 +9,9 @@
  * the cleanup evidence described in docs/architecture/migration-dachbyte.md.
  */
 const LEGACY_SURFACE_REGISTRY = Object.freeze({
-  version: 1,
-  status: "pre-canonical-domain",
-  removalBlockedUntil: "A DACHBYTE canonical domain is configured and post-rollout telemetry is approved.",
+  version: 2,
+  status: "canonical-domain-active",
+  removalBlockedUntil: "Post-rollout telemetry and retirement evidence are approved.",
   routes: Object.freeze([
     "/ml", "/shopee", "/madeiramadeira", "/avantracking", "/davanttilog", "/skuleader",
     "/volt-price", "/voltstock", "/chat", "/voltchat", "/volt_chat", "/stock",

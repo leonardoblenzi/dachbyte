@@ -670,41 +670,6 @@
             <div class="module-action">Entrar <span>→</span></div>
           </a>
 
-          <a class="module-card" href="/go/davanttilog" data-module="davanttilog" aria-disabled="false">
-            <div class="module-card__top">
-              <div class="module-mark">DL</div>
-              <span class="module-badge">Disponível</span>
-            </div>
-            <div class="module-name">DACHBYTE Log</div>
-            <div class="module-action">Entrar <span>→</span></div>
-          </a>
-
-          <a class="module-card" href="/go/madeiramadeira" data-module="madeiramadeira" aria-disabled="false">
-            <div class="module-card__top">
-              <div class="module-mark" aria-hidden="true">MD</div>
-              <span class="module-badge">Disponível</span>
-            </div>
-            <div class="module-name">DACHBYTE Madeira</div>
-            <div class="module-action">Entrar <span>→</span></div>
-          </a>
-
-          <a class="module-card" href="/go/skuleader" data-module="skuleader" aria-disabled="false">
-            <div class="module-card__top">
-              <div class="module-mark">SK</div>
-              <span class="module-badge">Disponível</span>
-            </div>
-            <div class="module-name">DACHBYTE Leader</div>
-            <div class="module-action">Entrar <span>→</span></div>
-          </a>
-
-          <a class="module-card" href="/go/ads" data-module="dach_ads" aria-disabled="false">
-            <div class="module-card__top">
-              <div class="module-mark">AD</div>
-              <span class="module-badge">Disponível</span>
-            </div>
-            <div class="module-name">DACHBYTE Ads</div>
-            <div class="module-action">Entrar <span>→</span></div>
-          </a>
         </div>
 
         <div class="empty-state" id="empty-state">Nenhum módulo foi encontrado para esta sessão. Verifique as permissões vinculadas à conta no Hub.</div>
@@ -806,11 +771,7 @@
         const aliases = {
           ml: ["ml", "meli", "mercadolivre", "mercado_livre", "mercado-livre", "mercado livre"],
           shopee: ["shopee"],
-          tracking: ["tracking", "rastreio", "logistica", "logística", "correios", "avantracking"],
-          davanttilog: ["davanttilog", "davantti-log", "davantti_log", "davanlog", "davantti log", "logisync", "logsync"],
-          madeiramadeira: ["madeiramadeira", "madeira", "madeira_madeira", "madeira-madeira"],
-          skuleader: ["skuleader", "sku_leader", "sku-leader", "sku leader"],
-          dach_ads: ["dach_ads", "dach-ads", "dachads", "ads"]
+          tracking: ["tracking", "rastreio", "logistica", "logística", "correios", "avantracking"]
         };
         return aliases[slug] || [slug];
       }

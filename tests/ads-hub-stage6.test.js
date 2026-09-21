@@ -45,7 +45,7 @@ test("protected Ads API returns 403 when Hub denies dach_ads", async () => {
   assert.equal(res.body.error, "dach_ads_access_denied");
 });
 
-test("suite login, gateway and platform selector expose dach_ads", () => {
+test("suite login and gateway expose DACH Ads outside the Seller selector", () => {
   const suiteAuth = fs.readFileSync(path.join(root, "routes/suiteAuthRoutes.js"), "utf8");
   const gateway = fs.readFileSync(path.join(root, "apps/gateway/server.js"), "utf8");
   const selector = fs.readFileSync(path.join(root, "apps/seller-ml/views/selecao-plataforma.html"), "utf8");
@@ -53,5 +53,5 @@ test("suite login, gateway and platform selector expose dach_ads", () => {
   assert.match(gateway, /\/go\/ads/);
   assert.match(gateway, /loginPath:\s*"\/ads\/login"/);
   assert.match(gateway, /deniedPath:\s*"\/ads\/access-denied"/);
-  assert.match(selector, /data-module="dach_ads"/);
+  assert.doesNotMatch(selector, /data-module="dach_ads"/);
 });

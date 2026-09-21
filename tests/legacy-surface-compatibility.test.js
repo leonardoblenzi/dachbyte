@@ -9,10 +9,10 @@ const { LEGACY_SURFACE_REGISTRY, listLegacySurface } = require("../platform/comp
 const root = path.resolve(__dirname, "..");
 const source = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
 
-test("legacy compatibility registry remains versioned and blocked before a DACHBYTE domain", () => {
-  assert.equal(LEGACY_SURFACE_REGISTRY.version, 1);
-  assert.equal(LEGACY_SURFACE_REGISTRY.status, "pre-canonical-domain");
-  assert.match(LEGACY_SURFACE_REGISTRY.removalBlockedUntil, /canonical domain/i);
+test("legacy compatibility registry remains versioned while the DACHBYTE domain is active", () => {
+  assert.equal(LEGACY_SURFACE_REGISTRY.version, 2);
+  assert.equal(LEGACY_SURFACE_REGISTRY.status, "canonical-domain-active");
+  assert.match(LEGACY_SURFACE_REGISTRY.removalBlockedUntil, /telemetry/i);
   assert.deepEqual(listLegacySurface(), {
     routes: [...LEGACY_SURFACE_REGISTRY.routes],
     cookies: [...LEGACY_SURFACE_REGISTRY.cookies],
@@ -20,11 +20,19 @@ test("legacy compatibility registry remains versioned and blocked before a DACHB
   });
 });
 
-test("legacy mounts and redirect routes stay present while the new domain is unconfigured", () => {
+test("legacy Seller routes stay available at the Caddy edge", () => {
+  const caddy = source("infra/Caddyfile");
   const gateway = source("apps/gateway/server.js");
   const business = source("apps/business/app.js");
-  for (const route of ["/ml", "/shopee", "/madeiramadeira", "/avantracking", "/davanttilog", "/skuleader"]) {
-    assert.ok(gateway.includes(`app.use("${route}"`), `gateway legacy route ${route} must remain mounted`);
+  for (const [route, service] of [
+    ["/ml", "seller-ml-web"],
+    ["/shopee", "seller-shopee"],
+    ["/madeiramadeira", "seller-madeira"],
+    ["/avantracking", "seller-tracking"],
+    ["/davanttilog", "seller-log"],
+    ["/skuleader", "seller-leader"],
+  ]) {
+    assert.match(caddy, new RegExp(`path ${route} ${route}/\\*\\s+handle @[\\w-]+ \\{\\s+reverse_proxy ${service}:3000`, "s"), route);
   }
   for (const route of ["/volt-price", "/voltstock", "/chat", "/voltchat", "/volt_chat"]) {
     assert.ok(business.includes(route), `business legacy route ${route} must remain mounted`);
