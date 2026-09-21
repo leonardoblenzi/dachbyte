@@ -446,6 +446,7 @@ test("health and error responses expose request tracing without caching auth", a
     const health = await fetch(`${baseUrl}/health`);
     const healthPayload = await health.json();
     assert.equal(health.status, 200);
+    assert.equal(healthPayload.ok, true);
     assert.equal(healthPayload.database, "disabled");
     assert.ok(health.headers.get("x-request-id"));
 

@@ -162,60 +162,46 @@
   # intentionally remain proxied so POST/WebSocket/OAuth clients are not
   # forced through redirect semantics.
   @legacy-core-ui path /core /core/*
-  handle @legacy-core-ui {
-    log_name legacy_routes
-    route {
-      uri strip_prefix /core
-      redir /business/core{uri} 308
-    }
+  log_name @legacy-core-ui legacy_routes
+  route @legacy-core-ui {
+    uri strip_prefix /core
+    redir /business/core{uri} 308
   }
   @legacy-chat-ui path /chat /chat/*
-  handle @legacy-chat-ui {
-    log_name legacy_routes
-    route {
-      uri strip_prefix /chat
-      redir /business/chat{uri} 308
-    }
+  log_name @legacy-chat-ui legacy_routes
+  route @legacy-chat-ui {
+    uri strip_prefix /chat
+    redir /business/chat{uri} 308
   }
   @legacy-stock-ui path /voltstock /voltstock/*
-  handle @legacy-stock-ui {
-    log_name legacy_routes
-    route {
-      uri strip_prefix /voltstock
-      redir /business/stock{uri} 308
-    }
+  log_name @legacy-stock-ui legacy_routes
+  route @legacy-stock-ui {
+    uri strip_prefix /voltstock
+    redir /business/stock{uri} 308
   }
   @legacy-price-ui path /volt-price /volt-price/*
-  handle @legacy-price-ui {
-    log_name legacy_routes
-    route {
-      uri strip_prefix /volt-price
-      redir /business/price{uri} 308
-    }
+  log_name @legacy-price-ui legacy_routes
+  route @legacy-price-ui {
+    uri strip_prefix /volt-price
+    redir /business/price{uri} 308
   }
   @legacy-voltchat path /voltchat /voltchat/*
-  handle @legacy-voltchat {
-    log_name legacy_routes
-    route {
-      uri strip_prefix /voltchat
-      redir /business/chat{uri} 308
-    }
+  log_name @legacy-voltchat legacy_routes
+  route @legacy-voltchat {
+    uri strip_prefix /voltchat
+    redir /business/chat{uri} 308
   }
   @legacy-volt-chat path /volt_chat /volt_chat/*
-  handle @legacy-volt-chat {
-    log_name legacy_routes
-    route {
-      uri strip_prefix /volt_chat
-      redir /business/chat{uri} 308
-    }
+  log_name @legacy-volt-chat legacy_routes
+  route @legacy-volt-chat {
+    uri strip_prefix /volt_chat
+    redir /business/chat{uri} 308
   }
   @legacy-stock-short path /stock /stock/*
-  handle @legacy-stock-short {
-    log_name legacy_routes
-    route {
-      uri strip_prefix /stock
-      redir /business/stock{uri} 308
-    }
+  log_name @legacy-stock-short legacy_routes
+  route @legacy-stock-short {
+    uri strip_prefix /stock
+    redir /business/stock{uri} 308
   }
 
   # Compatibility assets used by old Core/Stock builds and desktop clients.

@@ -62,12 +62,18 @@ def handler_block(matcher: str) -> str:
     return text[start:] if next_matcher < 0 else text[start:next_matcher]
 
 
-for matcher in ("legacy-core-ui", "legacy-chat-ui", "legacy-stock-ui", "legacy-price-ui"):
-    body = handler_block(matcher)
-    if body and " 308" not in body:
+for matcher in ("legacy-core-ui", "legacy-chat-ui", "legacy-stock-ui", "legacy-price-ui", "legacy-voltchat", "legacy-volt-chat", "legacy-stock-short"):
+    route_marker = f"route @{matcher} {{"
+    route_start = text.find(route_marker)
+    if route_start < 0:
+        errors.append(f"{matcher} must use a top-level matcher route")
+        continue
+    route_end = text.find("\n  }", route_start)
+    route_body = text[route_start:] if route_end < 0 else text[route_start:route_end]
+    if " 308" not in route_body:
         errors.append(f"{matcher} must use HTTP 308")
-    if body and "route {" not in body:
-        errors.append(f"{matcher} must wrap uri+redir in route to preserve directive order")
+    if f"log_name @{matcher} legacy_routes" not in text:
+        errors.append(f"{matcher} must opt into the isolated legacy access logger")
 
 for matcher in ("legacy-core-api", "legacy-chat-api", "legacy-business-chat-api", "legacy-stock-api", "legacy-price-api"):
     body = handler_block(matcher)

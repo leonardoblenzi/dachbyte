@@ -95,6 +95,24 @@ test("Caddy preserves route boundaries, Core assets and websocket API", () => {
   assert.doesNotMatch(source, /header_up\s+(Cookie|Authorization)/i);
 });
 
+test("legacy UI aliases log and redirect from one terminal route", () => {
+  const source = read("infra/Caddyfile");
+  for (const [alias, canonical] of [
+    ["core", "business/core"],
+    ["chat", "business/chat"],
+    ["voltstock", "business/stock"],
+    ["volt-price", "business/price"],
+  ]) {
+    const matcher = alias === "volt-price" ? "legacy-price-ui" : alias === "voltstock" ? "legacy-stock-ui" : `legacy-${alias}-ui`;
+    assert.match(
+      source,
+      new RegExp(`log_name @${matcher} legacy_routes\\s+route @${matcher} \\{\\s+uri strip_prefix /${alias}\\s+redir /${canonical}\\{uri\\} 308`, "s"),
+      alias,
+    );
+    assert.doesNotMatch(source, new RegExp(`handle @${matcher} \\{[\\s\\S]*?route \\{`), alias);
+  }
+});
+
 test("ML web and worker share persisted result files", () => {
   assert.deepEqual(compose.services["seller-ml-web"].volumes, compose.services["seller-ml-worker"].volumes);
   assert.ok(compose.volumes.ml_results);
