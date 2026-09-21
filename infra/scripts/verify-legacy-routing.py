@@ -67,7 +67,7 @@ for matcher in ("legacy-core-ui", "legacy-chat-ui", "legacy-stock-ui", "legacy-p
     if not body:
         errors.append(f"{matcher} must use a terminal handle")
         continue
-    if "route {" not in body or " 308" not in body:
+    if "route {" not in body or "redir * " not in body or " 308" not in body:
         errors.append(f"{matcher} must use HTTP 308")
 
 for matcher in ("legacy-core-api", "legacy-chat-api", "legacy-business-chat-api", "legacy-stock-api", "legacy-price-api"):

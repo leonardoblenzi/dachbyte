@@ -166,49 +166,49 @@
   handle @legacy-core-ui {
     route {
       uri strip_prefix /core
-      redir /business/core{uri} 308
+      redir * /business/core{uri} 308
     }
   }
   @legacy-chat-ui path /chat /chat/*
   handle @legacy-chat-ui {
     route {
       uri strip_prefix /chat
-      redir /business/chat{uri} 308
+      redir * /business/chat{uri} 308
     }
   }
   @legacy-stock-ui path /voltstock /voltstock/*
   handle @legacy-stock-ui {
     route {
       uri strip_prefix /voltstock
-      redir /business/stock{uri} 308
+      redir * /business/stock{uri} 308
     }
   }
   @legacy-price-ui path /volt-price /volt-price/*
   handle @legacy-price-ui {
     route {
       uri strip_prefix /volt-price
-      redir /business/price{uri} 308
+      redir * /business/price{uri} 308
     }
   }
   @legacy-voltchat path /voltchat /voltchat/*
   handle @legacy-voltchat {
     route {
       uri strip_prefix /voltchat
-      redir /business/chat{uri} 308
+      redir * /business/chat{uri} 308
     }
   }
   @legacy-volt-chat path /volt_chat /volt_chat/*
   handle @legacy-volt-chat {
     route {
       uri strip_prefix /volt_chat
-      redir /business/chat{uri} 308
+      redir * /business/chat{uri} 308
     }
   }
   @legacy-stock-short path /stock /stock/*
   handle @legacy-stock-short {
     route {
       uri strip_prefix /stock
-      redir /business/stock{uri} 308
+      redir * /business/stock{uri} 308
     }
   }
 
