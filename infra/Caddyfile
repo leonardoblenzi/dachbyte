@@ -160,9 +160,9 @@
 
   # Legacy UI aliases now converge on the canonical public URLs. APIs above
   # intentionally remain proxied so POST/WebSocket/OAuth clients are not
-  # forced through redirect semantics.
+  # forced through redirect semantics. Do not attach `log_name` here: Caddy
+  # 2.11 turns that logger selector into a NOP response before `redir` runs.
   @legacy-core-ui path /core /core/*
-  log_name @legacy-core-ui legacy_routes
   handle @legacy-core-ui {
     route {
       uri strip_prefix /core
@@ -170,7 +170,6 @@
     }
   }
   @legacy-chat-ui path /chat /chat/*
-  log_name @legacy-chat-ui legacy_routes
   handle @legacy-chat-ui {
     route {
       uri strip_prefix /chat
@@ -178,7 +177,6 @@
     }
   }
   @legacy-stock-ui path /voltstock /voltstock/*
-  log_name @legacy-stock-ui legacy_routes
   handle @legacy-stock-ui {
     route {
       uri strip_prefix /voltstock
@@ -186,7 +184,6 @@
     }
   }
   @legacy-price-ui path /volt-price /volt-price/*
-  log_name @legacy-price-ui legacy_routes
   handle @legacy-price-ui {
     route {
       uri strip_prefix /volt-price
@@ -194,7 +191,6 @@
     }
   }
   @legacy-voltchat path /voltchat /voltchat/*
-  log_name @legacy-voltchat legacy_routes
   handle @legacy-voltchat {
     route {
       uri strip_prefix /voltchat
@@ -202,7 +198,6 @@
     }
   }
   @legacy-volt-chat path /volt_chat /volt_chat/*
-  log_name @legacy-volt-chat legacy_routes
   handle @legacy-volt-chat {
     route {
       uri strip_prefix /volt_chat
@@ -210,7 +205,6 @@
     }
   }
   @legacy-stock-short path /stock /stock/*
-  log_name @legacy-stock-short legacy_routes
   handle @legacy-stock-short {
     route {
       uri strip_prefix /stock

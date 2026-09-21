@@ -69,8 +69,6 @@ for matcher in ("legacy-core-ui", "legacy-chat-ui", "legacy-stock-ui", "legacy-p
         continue
     if "route {" not in body or " 308" not in body:
         errors.append(f"{matcher} must use HTTP 308")
-    if f"log_name @{matcher} legacy_routes" not in text:
-        errors.append(f"{matcher} must opt into the isolated legacy access logger")
 
 for matcher in ("legacy-core-api", "legacy-chat-api", "legacy-business-chat-api", "legacy-stock-api", "legacy-price-api"):
     body = handler_block(matcher)

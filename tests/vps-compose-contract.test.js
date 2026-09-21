@@ -95,7 +95,7 @@ test("Caddy preserves route boundaries, Core assets and websocket API", () => {
   assert.doesNotMatch(source, /header_up\s+(Cookie|Authorization)/i);
 });
 
-test("legacy UI aliases log and redirect from one terminal route", () => {
+test("legacy UI aliases redirect before the Caddy fallback", () => {
   const source = read("infra/Caddyfile");
   for (const [alias, canonical] of [
     ["core", "business/core"],
@@ -106,9 +106,10 @@ test("legacy UI aliases log and redirect from one terminal route", () => {
     const matcher = alias === "volt-price" ? "legacy-price-ui" : alias === "voltstock" ? "legacy-stock-ui" : `legacy-${alias}-ui`;
     assert.match(
       source,
-      new RegExp(`log_name @${matcher} legacy_routes\\s+handle @${matcher} \\{\\s+route \\{\\s+uri strip_prefix /${alias}\\s+redir /${canonical}\\{uri\\} 308`, "s"),
+      new RegExp(`handle @${matcher} \\{\\s+route \\{\\s+uri strip_prefix /${alias}\\s+redir /${canonical}\\{uri\\} 308`, "s"),
       alias,
     );
+    assert.doesNotMatch(source, new RegExp(`log_name @${matcher} legacy_routes`), alias);
     assert.doesNotMatch(source, new RegExp(`handle @${matcher} \\{\\s+log_name`), alias);
   }
 });
