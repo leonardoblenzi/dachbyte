@@ -15,6 +15,11 @@ const SAFE_TABLES = new Set([LEGACY_TABLE, SHADOW_TABLE, DEFAULT_PARTITION, LIVE
 const ADVISORY_LOCK_KEY = "ml.auth_audit_partition_cutover_v1";
 const OPERATION_KINDS = new Set(["preflight", "copy", "validate", "swap", "rollback"]);
 const OPERATION_STATUSES = new Set(["started", "completed", "failed", "skipped"]);
+const AUDIT_IDENTIFIER_INDEXES = [
+  "metadata_mlb_id_upper",
+  "metadata_item_id_upper",
+  "metadata_promotion_id_upper",
+];
 
 function quoteIdentifier(name) {
   const value = String(name || "");
@@ -420,6 +425,9 @@ function createAuthAuditPartitionCutover({
     await executor.query(`CREATE INDEX IF NOT EXISTS auth_audit_partitioned_new_evento_idx ON ml.${SHADOW_TABLE} (evento)`);
     await executor.query(`CREATE INDEX IF NOT EXISTS auth_audit_partitioned_new_empresa_created_at_idx ON ml.${SHADOW_TABLE} (empresa_id, created_at DESC)`);
     await executor.query(`CREATE INDEX IF NOT EXISTS auth_audit_partitioned_new_meli_conta_created_at_idx ON ml.${SHADOW_TABLE} (meli_conta_id, created_at DESC)`);
+    await executor.query(`CREATE INDEX IF NOT EXISTS auth_audit_partitioned_new_metadata_mlb_id_upper_idx ON ml.${SHADOW_TABLE} (upper(metadata ->> 'mlb_id')) WHERE metadata ? 'mlb_id'`);
+    await executor.query(`CREATE INDEX IF NOT EXISTS auth_audit_partitioned_new_metadata_item_id_upper_idx ON ml.${SHADOW_TABLE} (upper(metadata ->> 'item_id')) WHERE metadata ? 'item_id'`);
+    await executor.query(`CREATE INDEX IF NOT EXISTS auth_audit_partitioned_new_metadata_promotion_id_upper_idx ON ml.${SHADOW_TABLE} (upper(metadata ->> 'promotion_id')) WHERE metadata ? 'promotion_id'`);
   }
 
   async function ensureShadowPartitions(executor, earliest) {
@@ -496,8 +504,9 @@ function createAuthAuditPartitionCutover({
     const safeBatchSize = Math.max(1, Math.min(100000, Number(batchSize) || 10000));
     try {
       await recordOperation({ operationId, kind: "copy", status: "started", details: { batchSize: safeBatchSize, earliest: earliest || null } });
-      await createShadow(db);
-      await ensureShadowPartitions(db, earliest || clock());
+      const executor = sessionStorage.getStore() || db;
+      await createShadow(executor);
+      await ensureShadowPartitions(executor, earliest || clock());
       let lastId = 0;
       let copied = 0;
       for (;;) {
@@ -523,7 +532,7 @@ function createAuthAuditPartitionCutover({
         lastId = normalizeCount(row.last_id);
         await recordOperation({ operationId, kind: "copy", status: "started", details: { batchSize: safeBatchSize, copied, lastId } });
       }
-      const outcome = { copied, lastId, batchSize: safeBatchSize };
+      const outcome = { copied, lastId, batchSize: safeBatchSize, shadowTable: SHADOW_TABLE };
       await recordOperation({ operationId, kind: "copy", status: "completed", details: outcome });
       return outcome;
     } catch (error) {
@@ -539,6 +548,10 @@ function createAuthAuditPartitionCutover({
   async function verifyUnlocked() {
     const operationId = randomUUID();
     try {
+      const copyOperation = await latestCompleted("copy");
+      if (!copyOperation?.operation_id || copyOperation.details?.shadowTable !== SHADOW_TABLE) {
+        throw new Error("Copy valido da shadow atual obrigatorio antes do verify.");
+      }
       const [legacy, shadow, legacyMonths, shadowMonths, associationCounts, shape, shadowColumns, shadowForeignKeys, defaultPartition, legacyGrants] = await Promise.all([
         query("SELECT count(*)::bigint AS count, min(id)::bigint AS min_id, max(id)::bigint AS max_id, min(created_at) AS min_created_at, max(created_at) AS max_created_at FROM ml.auth_audit"),
         query(`SELECT count(*)::bigint AS count, min(id)::bigint AS min_id, max(id)::bigint AS max_id, min(created_at) AS min_created_at, max(created_at) AS max_created_at FROM ml.${SHADOW_TABLE}`),
@@ -581,7 +594,14 @@ function createAuthAuditPartitionCutover({
       const defaultRow = defaultPartition.rows?.[0] || {};
       if (defaultRow.relname !== DEFAULT_PARTITION || !/DEFAULT/i.test(String(defaultRow.bound || "")) || normalizeCount(defaultRow.row_count) !== 0) mismatches.push("default_partition");
       if (!grantsAreSupported(legacyGrants)) mismatches.push("legacy_grants");
-      const outcome = { ok: mismatches.length === 0, mismatches, legacy: normalizeAggregate(legacy.rows?.[0]), shadow: normalizeAggregate(shadow.rows?.[0]) };
+      const outcome = {
+        ok: mismatches.length === 0,
+        mismatches,
+        legacy: normalizeAggregate(legacy.rows?.[0]),
+        shadow: normalizeAggregate(shadow.rows?.[0]),
+        copyOperationId: copyOperation.operation_id,
+        shadowTable: SHADOW_TABLE,
+      };
       await recordOperation({ operationId, kind: "validate", status: outcome.ok ? "completed" : "failed", details: outcome });
       if (!outcome.ok) throw new Error(`Verificacao encontrou divergencia: ${mismatches.join(", ")}.`);
       return outcome;
@@ -595,6 +615,71 @@ function createAuthAuditPartitionCutover({
     return withSessionAdvisoryLock(() => verifyUnlocked());
   }
 
+  async function requireCurrentValidation() {
+    const [validation, copyOperation] = await Promise.all([latestCompleted("validate"), latestCompleted("copy")]);
+    if (!validation?.operation_id || !copyOperation?.operation_id
+      || validation.details?.shadowTable !== SHADOW_TABLE
+      || validation.details?.copyOperationId !== copyOperation.operation_id) {
+      throw new Error("Verify valido da mesma shadow e do copy mais recente obrigatorio antes do swap.");
+    }
+    return { validation, copyOperation };
+  }
+
+  async function catchUpLegacyAndVerify(executor) {
+    const inserted = await executor.query(`
+      WITH final_delta AS (
+        INSERT INTO ml.${SHADOW_TABLE} (id, user_id, email, evento, status, ip, user_agent, metadata, created_at, empresa_id, meli_conta_id)
+        SELECT id, user_id, email, evento, status, ip, user_agent, metadata, created_at, empresa_id, meli_conta_id
+          FROM ml.${LEGACY_TABLE}
+        ON CONFLICT (created_at, id) DO NOTHING
+        RETURNING id
+      )
+      SELECT count(*)::bigint AS copied FROM final_delta`);
+    const comparison = await executor.query(`
+      SELECT
+        (SELECT count(*)::bigint FROM ml.${LEGACY_TABLE}) AS legacy_count,
+        (SELECT count(*)::bigint FROM ml.${SHADOW_TABLE}) AS shadow_count,
+        (SELECT min(id)::bigint FROM ml.${LEGACY_TABLE}) AS legacy_min_id,
+        (SELECT min(id)::bigint FROM ml.${SHADOW_TABLE}) AS shadow_min_id,
+        (SELECT max(id)::bigint FROM ml.${LEGACY_TABLE}) AS legacy_max_id,
+        (SELECT max(id)::bigint FROM ml.${SHADOW_TABLE}) AS shadow_max_id,
+        (SELECT count(*)::bigint FROM ml.${LEGACY_TABLE} WHERE empresa_id IS NOT NULL) AS legacy_empresa_count,
+        (SELECT count(*)::bigint FROM ml.${SHADOW_TABLE} WHERE empresa_id IS NOT NULL) AS shadow_empresa_count,
+        (SELECT count(*)::bigint FROM ml.${LEGACY_TABLE} WHERE meli_conta_id IS NOT NULL) AS legacy_meli_conta_count,
+        (SELECT count(*)::bigint FROM ml.${SHADOW_TABLE} WHERE meli_conta_id IS NOT NULL) AS shadow_meli_conta_count`);
+    const row = comparison.rows?.[0] || {};
+    const pairs = [
+      ["count", row.legacy_count, row.shadow_count],
+      ["min_id", row.legacy_min_id, row.shadow_min_id],
+      ["max_id", row.legacy_max_id, row.shadow_max_id],
+      ["empresa_id_count", row.legacy_empresa_count, row.shadow_empresa_count],
+      ["meli_conta_id_count", row.legacy_meli_conta_count, row.shadow_meli_conta_count],
+    ];
+    const mismatches = pairs.filter(([, left, right]) => String(left ?? "") !== String(right ?? "")).map(([name]) => name);
+    if (mismatches.length) throw new Error(`Catch-up final encontrou divergencia: ${mismatches.join(", ")}.`);
+    return { copied: normalizeCount(inserted.rows?.[0]?.copied), comparison: row };
+  }
+
+  async function renameIdentifierIndexesForSwap(executor, legacyName) {
+    for (const suffix of AUDIT_IDENTIFIER_INDEXES) {
+      await executor.query(`ALTER INDEX ml.auth_audit_${suffix}_idx RENAME TO ${legacyName}_${suffix}_idx`);
+      await executor.query(`ALTER INDEX ml.auth_audit_partitioned_new_${suffix}_idx RENAME TO auth_audit_${suffix}_idx`);
+    }
+  }
+
+  function failedIdentifierIndexName(failedName, suffix) {
+    const match = /^auth_audit_partitioned_failed_([a-f0-9]{12})$/.exec(String(failedName || ""));
+    if (!match || !AUDIT_IDENTIFIER_INDEXES.includes(suffix)) throw new Error("Nome de indice arquivado invalido.");
+    return `auth_audit_failed_${match[1]}_${suffix}_idx`;
+  }
+
+  async function renameIdentifierIndexesForRollback(executor, legacyName, failedName) {
+    for (const suffix of AUDIT_IDENTIFIER_INDEXES) {
+      await executor.query(`ALTER INDEX ml.auth_audit_${suffix}_idx RENAME TO ${failedIdentifierIndexName(failedName, suffix)}`);
+      await executor.query(`ALTER INDEX ml.${legacyName}_${suffix}_idx RENAME TO auth_audit_${suffix}_idx`);
+    }
+  }
+
   function requireConfirmation(expected) {
     if (env.AUTH_AUDIT_PARTITION_CONFIRM !== expected) {
       throw new Error(`Defina AUTH_AUDIT_PARTITION_CONFIRM=${expected} para executar esta operacao.`);
@@ -604,7 +689,7 @@ function createAuthAuditPartitionCutover({
   async function swapUnlocked({ dryRun = false } = {}) {
     requireConfirmation("SWAP");
     await requirePreflight();
-    if (!dryRun && !await latestCompleted("validate")) throw new Error("Verify valido obrigatorio antes do swap.");
+    if (!dryRun) await requireCurrentValidation();
     if (dryRun) return { dryRun: true, action: "swap" };
     const operationId = randomUUID();
     const suffix = operationId.replace(/-/g, "").slice(0, 12).toLowerCase();
@@ -619,14 +704,16 @@ function createAuthAuditPartitionCutover({
         if (!grantsMatch(legacyGrants, shadowGrants)) {
           throw new Error("Nao foi possivel confirmar a copia dos grants para a shadow antes do swap.");
         }
+        const catchUp = await catchUpLegacyAndVerify(client);
         const markerResult = await client.query(`SELECT count(*)::bigint AS row_count, max(id)::bigint AS max_id, max(created_at) AS max_created_at FROM ml.${SHADOW_TABLE}`);
         const livePartitions = await renameShadowChildrenForLiveParent(client);
         await client.query(`ALTER TABLE ml.${LEGACY_TABLE} RENAME TO ${legacyName}`);
         await client.query(`ALTER TABLE ml.${SHADOW_TABLE} RENAME TO ${LEGACY_TABLE}`);
+        await renameIdentifierIndexesForSwap(client, legacyName);
         await client.query(`ALTER SEQUENCE ml.auth_audit_id_seq OWNED BY ml.${LEGACY_TABLE}.id`);
-        return { marker: normalizeMarker(markerResult.rows?.[0]), livePartitions };
+        return { marker: normalizeMarker(markerResult.rows?.[0]), livePartitions, catchUp };
       });
-      const outcome = { legacyName, marker: marker.marker, livePartitions: marker.livePartitions, grantsCopied: legacyGrants.length };
+      const outcome = { legacyName, marker: marker.marker, livePartitions: marker.livePartitions, catchUp: marker.catchUp, grantsCopied: legacyGrants.length };
       await recordOperation({ operationId, kind: "swap", status: "completed", details: outcome });
       return outcome;
     } catch (error) {
@@ -699,6 +786,7 @@ function createAuthAuditPartitionCutover({
         await client.query(`ALTER TABLE ml.${LEGACY_TABLE} RENAME TO ${failedName}`);
         const archivedLivePartitions = await archiveLiveChildrenAfterRollback(client, failedName);
         await client.query(`ALTER TABLE ${legacy} RENAME TO ${LEGACY_TABLE}`);
+        await renameIdentifierIndexesForRollback(client, resolvedLegacy, failedName);
         await client.query(`ALTER SEQUENCE ml.auth_audit_id_seq OWNED BY ml.${LEGACY_TABLE}.id`);
         risk.archivedLivePartitions = archivedLivePartitions;
       });

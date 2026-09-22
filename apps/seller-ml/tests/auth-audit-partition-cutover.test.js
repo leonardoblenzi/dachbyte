@@ -74,6 +74,10 @@ function approvedPreflight() {
   return { operation_id: "preflight-ok", details: { operationalApproval: { approved: true } } };
 }
 
+function approvedCopy() {
+  return { operation_id: "copy-ok", details: { shadowTable: "auth_audit_partitioned_new" } };
+}
+
 test("rejeita identificadores fora da lista segura", () => {
   assert.equal(quoteIdentifier("auth_audit_partitioned_new_2026_09"), "ml.auth_audit_partitioned_new_2026_09");
   assert.throws(() => quoteIdentifier("auth_audit; drop table ml.auth_audit"), /invalido/i);
@@ -168,6 +172,10 @@ test("copy exige preflight, cria shadow particionada com PK composta e nunca apa
   assert.match(sql, /REFERENCES ml\.meli_contas\(id\) ON DELETE CASCADE/i);
   assert.match(sql, /auth_audit_partitioned_new_default/i);
   assert.match(sql, /ON CONFLICT \(created_at, id\) DO NOTHING/i);
+  assert.match(sql, /auth_audit_partitioned_new_metadata_mlb_id_upper_idx/i);
+  assert.match(sql, /upper\(metadata\s*->>\s*'mlb_id'\)/i);
+  assert.match(sql, /auth_audit_partitioned_new_metadata_item_id_upper_idx/i);
+  assert.match(sql, /auth_audit_partitioned_new_metadata_promotion_id_upper_idx/i);
   assert.doesNotMatch(sql, /DELETE FROM ml\.auth_audit\b/i);
   assert.doesNotMatch(sql, /DROP TABLE ml\.auth_audit\b/i);
 });
@@ -184,7 +192,8 @@ test("copy dry run faz preflight de copia sem criar ou inserir", async () => {
 
 test("verify falha quando contagem ou agregacao mensal diverge", async () => {
   let aggregateCount = 0;
-  const db = routedDb((sql) => {
+  const db = routedDb((sql, params) => {
+    if (/kind = \$1 AND status = 'completed'/i.test(sql) && params?.[0] === "copy") return { rows: [approvedCopy()] };
     if (/min\(id\)::bigint/i.test(sql)) {
       aggregateCount += 1;
       return { rows: [{ count: aggregateCount === 1 ? "4" : "3", min_id: "1", max_id: "4", min_created_at: "2026-01-01", max_created_at: "2026-02-01" }] };
@@ -203,7 +212,8 @@ test("verify falha quando contagem ou agregacao mensal diverge", async () => {
 });
 
 test("verify falha quando referencias de empresa ou conta ML divergem", async () => {
-  const db = routedDb((sql) => {
+  const db = routedDb((sql, params) => {
+    if (/kind = \$1 AND status = 'completed'/i.test(sql) && params?.[0] === "copy") return { rows: [approvedCopy()] };
     if (/min\(id\)::bigint/i.test(sql)) return { rows: [{ count: "4", min_id: "1", max_id: "4", min_created_at: "2026-01-01", max_created_at: "2026-02-01" }] };
     if (/GROUP BY 1, 2/i.test(sql)) return { rows: [{ month_start: "2026-01-01", evento: "login", row_count: "4", checksum: "a" }] };
     if (/legacy_empresa_count/i.test(sql)) return { rows: [{ legacy_empresa_count: "3", shadow_empresa_count: "2", legacy_meli_conta_count: "2", shadow_meli_conta_count: "2" }] };
@@ -228,10 +238,50 @@ test("swap exige confirmacao literal e dry run nao bloqueia nem renomeia", async
   assert.doesNotMatch(db.calls.map((call) => call.sql).join("\n"), /LOCK TABLE|ALTER TABLE/i);
 });
 
+test("swap recusa validate ligado a copy antigo antes de adquirir lock de tabela", async () => {
+  const db = routedDb((sql, params) => {
+    if (/kind = \$1 AND status = 'completed'/i.test(sql)) {
+      if (params?.[0] === "validate") return { rows: [{ operation_id: "validate-old", details: { shadowTable: "auth_audit_partitioned_new", copyOperationId: "copy-old" } }] };
+      if (params?.[0] === "copy") return { rows: [{ operation_id: "copy-current", details: { shadowTable: "auth_audit_partitioned_new" } }] };
+      return { rows: [approvedPreflight()] };
+    }
+    return { rows: [] };
+  });
+  const cutover = createAuthAuditPartitionCutover({ db, env: { AUTH_AUDIT_PARTITION_CONFIRM: "SWAP" } });
+  await assert.rejects(() => cutover.swap(), /mesma shadow e do copy mais recente/i);
+  assert.doesNotMatch(db.calls.map((call) => call.sql).join("\n"), /LOCK TABLE/i);
+});
+
+test("swap faz catch-up final sob lock e recusa divergencia antes de renomear", async () => {
+  const db = routedDb((sql, params) => {
+    if (/kind = \$1 AND status = 'completed'/i.test(sql)) {
+      if (params?.[0] === "validate") return { rows: [{ operation_id: "validate-ok", details: { shadowTable: "auth_audit_partitioned_new", copyOperationId: "copy-ok" } }] };
+      if (params?.[0] === "copy") return { rows: [approvedCopy()] };
+      return { rows: [approvedPreflight()] };
+    }
+    if (/role_table_grants/i.test(sql)) return { rows: [] };
+    if (/WITH final_delta/i.test(sql)) return { rows: [{ copied: "1" }] };
+    if (/legacy_count/i.test(sql)) return { rows: [{ legacy_count: "4", shadow_count: "3", legacy_min_id: "1", shadow_min_id: "1", legacy_max_id: "13", shadow_max_id: "12", legacy_empresa_count: "2", shadow_empresa_count: "2", legacy_meli_conta_count: "2", shadow_meli_conta_count: "2" }] };
+    return { rows: [] };
+  });
+  const cutover = createAuthAuditPartitionCutover({ db, env: { AUTH_AUDIT_PARTITION_CONFIRM: "SWAP" } });
+  await assert.rejects(() => cutover.swap(), /Catch-up final encontrou divergencia/i);
+  const sql = db.calls.map((call) => call.sql).join("\n");
+  assert.match(sql, /LOCK TABLE ml\.auth_audit, ml\.auth_audit_partitioned_new/i);
+  assert.match(sql, /WITH final_delta/i);
+  assert.doesNotMatch(sql, /ALTER TABLE ml\.auth_audit RENAME TO auth_audit_legacy/i);
+});
+
 test("swap usa lock e renomeia legacy antes da shadow; rollback faz ordem inversa", async () => {
   const swapDb = routedDb((sql, params) => {
-    if (/kind = \$1 AND status = 'completed'/i.test(sql)) return { rows: [params?.[0] === "validate" ? { operation_id: "verify-ok" } : approvedPreflight()] };
+    if (/kind = \$1 AND status = 'completed'/i.test(sql)) {
+      if (params?.[0] === "validate") return { rows: [{ operation_id: "verify-ok", details: { copyOperationId: "copy-ok", shadowTable: "auth_audit_partitioned_new" } }] };
+      if (params?.[0] === "copy") return { rows: [approvedCopy()] };
+      return { rows: [approvedPreflight()] };
+    }
     if (/role_table_grants/i.test(sql)) return { rows: [{ grantee: "ml_app", privilege_type: "SELECT" }] };
+    if (/WITH final_delta/i.test(sql)) return { rows: [{ copied: "1" }] };
+    if (/legacy_count/i.test(sql)) return { rows: [{ legacy_count: "3", shadow_count: "3", legacy_min_id: "1", shadow_min_id: "1", legacy_max_id: "12", shadow_max_id: "12", legacy_empresa_count: "2", shadow_empresa_count: "2", legacy_meli_conta_count: "2", shadow_meli_conta_count: "2" }] };
     if (/row_count, max\(id\)/i.test(sql)) return { rows: [{ row_count: "2", max_id: "12", max_created_at: "2026-01-01" }] };
     if (/FROM pg_catalog\.pg_inherits/i.test(sql) && /parent\.relname = \$2/i.test(sql)) {
       return { rows: [{ relname: "auth_audit_partitioned_new_2026_01" }, { relname: "auth_audit_partitioned_new_default" }] };
@@ -239,7 +289,7 @@ test("swap usa lock e renomeia legacy antes da shadow; rollback faz ordem invers
     return { rows: [] };
   });
   const swap = createAuthAuditPartitionCutover({ db: swapDb, env: { AUTH_AUDIT_PARTITION_CONFIRM: "SWAP" }, randomUUID: () => "00000000-0000-4000-8000-000000000099" });
-  await swap.swap();
+  const swapOutcome = await swap.swap();
   const swapSql = swapDb.calls.map((call) => call.sql.replace(/\s+/g, " ").trim());
   const lock = swapSql.findIndex((sql) => /LOCK TABLE ml\.auth_audit, ml\.auth_audit_partitioned_new/i.test(sql));
   const begin = swapSql.findIndex((sql) => sql === "BEGIN");
@@ -249,7 +299,11 @@ test("swap usa lock e renomeia legacy antes da shadow; rollback faz ordem invers
   const childMonth = swapSql.findIndex((sql) => /auth_audit_partitioned_new_2026_01 RENAME TO auth_audit_2026_01/i.test(sql));
   const childDefault = swapSql.findIndex((sql) => /auth_audit_partitioned_new_default RENAME TO auth_audit_default/i.test(sql));
   const grant = swapSql.findIndex((sql) => /GRANT SELECT ON TABLE ml\.auth_audit_partitioned_new TO "ml_app"/i.test(sql));
-  assert.ok(begin >= 0 && begin < xactLock && xactLock < lock && lock < grant && grant < childMonth && childMonth < childDefault && childDefault < oldName && oldName < newName);
+  const catchUp = swapSql.findIndex((sql) => /WITH final_delta AS/i.test(sql));
+  const legacyIndex = swapSql.findIndex((sql) => /ALTER INDEX ml\.auth_audit_metadata_mlb_id_upper_idx RENAME TO auth_audit_legacy/i.test(sql));
+  const finalIndex = swapSql.findIndex((sql) => /ALTER INDEX ml\.auth_audit_partitioned_new_metadata_mlb_id_upper_idx RENAME TO auth_audit_metadata_mlb_id_upper_idx/i.test(sql));
+  assert.equal(swapOutcome.catchUp.copied, 1);
+  assert.ok(begin >= 0 && begin < xactLock && xactLock < lock && lock < grant && grant < catchUp && catchUp < childMonth && childMonth < childDefault && childDefault < oldName && oldName < newName && newName < legacyIndex && legacyIndex < finalIndex);
 
   const rollbackDb = routedDb((sql, params) => {
     if (/kind = \$1 AND status = 'completed'/i.test(sql)) {
