@@ -119,6 +119,26 @@ test("preflight permite excecao explicita sem backup e registra o risco", async 
   assert.match(JSON.stringify(result.checklist), /sem backup; o risco foi registrado no ledger/i);
 });
 
+test("preflight continua com capacidade explicita quando data_directory nao e permitido", async () => {
+  const responses = healthyPreflightResponses();
+  responses[2] = () => { throw new Error("permission denied to examine data_directory"); };
+  const cutover = createAuthAuditPartitionCutover({ db: queryDb(responses) });
+
+  const result = await cutover.preflight({
+    operationalApproval: {
+      backupRestored: false,
+      allowNoBackup: true,
+      maintenanceWindow: true,
+      capacityConfirmed: true,
+      availableBytes: 999999999,
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.dataDirectory, null);
+  assert.equal(result.operationalApproval.capacitySource, "explicit_override");
+});
+
 test("preflight exige capacidade mensurada ou override numerico suficiente", async () => {
   const noCapacityDb = queryDb(healthyPreflightResponses());
   const noCapacity = createAuthAuditPartitionCutover({

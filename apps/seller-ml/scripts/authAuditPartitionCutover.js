@@ -137,6 +137,16 @@ function createAuthAuditPartitionCutover({
   const sessionStorage = new AsyncLocalStorage();
   const query = (sql, params) => (sessionStorage.getStore() || db).query(sql, params);
 
+  async function inspectDataDirectory() {
+    try {
+      const result = await query("SELECT current_setting('data_directory', true) AS data_directory");
+      return result.rows?.[0]?.data_directory || null;
+    } catch (error) {
+      logger.warn?.("[AuthAuditPartition] data_directory indisponivel; usando somente a capacidade explicitamente informada.");
+      return null;
+    }
+  }
+
   async function withSessionAdvisoryLock(work) {
     if (typeof db.withClient !== "function") throw new Error("db.withClient e obrigatorio para serializar o cutover.");
     return db.withClient(async (client) => {
@@ -347,7 +357,7 @@ function createAuthAuditPartitionCutover({
       const [legacy, ledger, disk, diskProbe, columns, foreignKeys, incomingForeignKeys, grants] = await Promise.all([
         inspectLegacy(),
         query("SELECT to_regclass('ml.auth_audit_partition_operations') IS NOT NULL AS exists"),
-        query("SELECT current_setting('data_directory', true) AS data_directory"),
+        inspectDataDirectory(),
         diskInspector(),
         inspectShape(LEGACY_TABLE),
         inspectForeignKeys(LEGACY_TABLE),
@@ -407,7 +417,7 @@ function createAuthAuditPartitionCutover({
           minCreatedAt: table.min_created_at || null,
           maxCreatedAt: table.max_created_at || null,
         },
-        dataDirectory: disk.rows?.[0]?.data_directory || null,
+        dataDirectory: disk || null,
         diskProbe: diskProbe || { availableBytes: null, source: "unavailable" },
         operationalApproval: operational,
         incomingForeignKeys,
@@ -442,7 +452,7 @@ function createAuthAuditPartitionCutover({
         inspectTable(LEGACY_TABLE),
         inspectTable(legacyName),
         query("SELECT to_regclass('ml.auth_audit_partition_operations') IS NOT NULL AS exists"),
-        query("SELECT current_setting('data_directory', true) AS data_directory"),
+        inspectDataDirectory(),
         diskInspector(),
         inspectShape(legacyName),
         inspectForeignKeys(legacyName),
@@ -489,7 +499,7 @@ function createAuthAuditPartitionCutover({
         observedHours: observedMs / (60 * 60 * 1000),
         active: live && { relkind: live.relkind, bytes: normalizeCount(live.bytes), rowCount: normalizeCount(live.row_count) },
         legacy: archived && { relkind: archived.relkind, bytes: normalizeCount(archived.bytes), rowCount: normalizeCount(archived.row_count) },
-        dataDirectory: disk.rows?.[0]?.data_directory || null,
+        dataDirectory: disk || null,
         diskProbe: diskProbe || { availableBytes: null, source: "unavailable" },
         operationalApproval: operational,
         incomingForeignKeys,
