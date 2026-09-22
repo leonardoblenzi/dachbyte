@@ -19,6 +19,12 @@ Commands:
   migrate     Snapshot first, then run Chat/Core/Stock/Price migrations explicitly.
   verify      Validate runtime DB roles and migration marker tables.
   backup      Run the full restic backup job (requires env/backup.env and initialized repository).
+  audit-partition-status     Show ML audit-partition cutover state and recent ledger entries.
+  audit-partition-preflight  Measure the mandatory cutover gates; does not alter audit data.
+  audit-partition-copy       Create/copy the partitioned shadow table; requires COPY confirmation.
+  audit-partition-verify     Compare the legacy table and shadow before a swap.
+  audit-partition-swap       Atomically promote the verified shadow; requires SWAP confirmation.
+  audit-partition-rollback   Restore the retained legacy table; requires ROLLBACK confirmation.
 
 The script never performs import + migration + app cutover in one command.
 TXT
@@ -28,7 +34,31 @@ require_file() {
   [[ -f "$1" ]] || { echo "Missing required file: $1" >&2; exit 1; }
 }
 
+require_confirmation() {
+  local expected="$1"
+  if [[ "${AUTH_AUDIT_PARTITION_CONFIRM:-}" != "$expected" ]]; then
+    echo "Refusing audit partition operation. Set AUTH_AUDIT_PARTITION_CONFIRM=$expected explicitly." >&2
+    exit 1
+  fi
+}
+
+validate_cutover_args() {
+  if [[ "$#" -eq 0 ]]; then return 0; fi
+  if [[ "$#" -eq 1 && "$1" == "--dry-run" ]]; then return 0; fi
+  echo "Only --dry-run is accepted after an audit-partition command." >&2
+  exit 1
+}
+
+run_audit_partition_cutover() {
+  local action="$1"
+  shift
+  validate_cutover_args "$@"
+  require_file ./env/seller-ml.env
+  "${BASE[@]}" run --rm --no-deps seller-ml-web node apps/seller-ml/scripts/authAuditPartitionCutover.js "$action" "$@"
+}
+
 command="${1:-}"
+if [[ "$#" -gt 0 ]]; then shift; fi
 case "$command" in
   provision)
     require_file ./env/postgres.env
@@ -78,6 +108,30 @@ case "$command" in
     require_file ./env/backup.env
     "${BASE[@]}" up -d postgres
     "${BACKUP[@]}" --profile backup run --rm backup
+    ;;
+  audit-partition-status)
+    run_audit_partition_cutover status "$@"
+    ;;
+  audit-partition-preflight)
+    run_audit_partition_cutover preflight "$@"
+    ;;
+  audit-partition-copy)
+    require_confirmation COPY
+    run_audit_partition_cutover copy "$@"
+    ;;
+  audit-partition-verify)
+    run_audit_partition_cutover verify "$@"
+    ;;
+  audit-partition-swap)
+    require_confirmation SWAP
+    run_audit_partition_cutover swap "$@"
+    ;;
+  audit-partition-rollback)
+    require_confirmation ROLLBACK
+    if [[ "${AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS:-}" == "YES" ]]; then
+      echo "Rollback may discard writes made after the swap because AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS=YES." >&2
+    fi
+    run_audit_partition_cutover rollback "$@"
     ;;
   *) usage; [[ -n "$command" ]] && exit 1 || exit 0 ;;
 esac
