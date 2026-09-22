@@ -36,4 +36,7 @@ test("migration 072 não reescreve, apaga ou referencia a tabela ativa de audito
   assert.doesNotMatch(sql, /alter\s+table\s+ml\.auth_audit\b/i);
   assert.doesNotMatch(sql, /create\s+table(?:\s+if\s+not\s+exists)?\s+ml\.auth_audit\b/i);
   assert.doesNotMatch(sql, /references\s+ml\.auth_audit\b/i);
+  assert.doesNotMatch(sql, /\bbegin\b/i);
+  assert.doesNotMatch(sql, /\bcommit\b/i);
+  assert.doesNotMatch(sql, /auth_audit_retention_rules\b/i);
 });
