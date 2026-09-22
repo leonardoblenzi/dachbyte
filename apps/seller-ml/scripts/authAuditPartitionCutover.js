@@ -226,8 +226,8 @@ function createAuthAuditPartitionCutover({
     return result.rows || [];
   }
 
-  async function inspectGrants(tableName) {
-    const result = await db.query(`
+  async function inspectGrants(tableName, executor = db) {
+    const result = await executor.query(`
       SELECT grantee, privilege_type
         FROM information_schema.role_table_grants
        WHERE table_schema = $1 AND table_name = $2
@@ -249,6 +249,16 @@ function createAuthAuditPartitionCutover({
       if (!supported.has(privilege)) throw new Error("Privilegio de grant invalido.");
       await executor.query(`GRANT ${privilege} ON TABLE ml.${SHADOW_TABLE} TO ${quoteRole(grant.grantee)}`);
     }
+  }
+
+  function grantsAreSupported(grants) {
+    const supported = new Set(["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"]);
+    return grants.every((grant) => supported.has(String(grant.privilege_type || "").toUpperCase()) && String(grant.grantee || "").trim());
+  }
+
+  function grantsMatch(left, right) {
+    const normalize = (grants) => grants.map((grant) => `${grant.grantee}:${String(grant.privilege_type || "").toUpperCase()}`).sort();
+    return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
   }
 
   function hasExpectedShape(columns, foreignKeys) {
@@ -419,7 +429,7 @@ function createAuthAuditPartitionCutover({
   async function verify() {
     const operationId = randomUUID();
     try {
-      const [legacy, shadow, legacyMonths, shadowMonths, shape, shadowColumns, shadowForeignKeys, defaultPartition, legacyGrants, shadowGrants] = await Promise.all([
+      const [legacy, shadow, legacyMonths, shadowMonths, shape, shadowColumns, shadowForeignKeys, defaultPartition, legacyGrants] = await Promise.all([
         db.query("SELECT count(*)::bigint AS count, min(id)::bigint AS min_id, max(id)::bigint AS max_id, min(created_at) AS min_created_at, max(created_at) AS max_created_at FROM ml.auth_audit"),
         db.query(`SELECT count(*)::bigint AS count, min(id)::bigint AS min_id, max(id)::bigint AS max_id, min(created_at) AS min_created_at, max(created_at) AS max_created_at FROM ml.${SHADOW_TABLE}`),
         db.query("SELECT date_trunc('month', created_at AT TIME ZONE 'UTC') AS month_start, evento, count(*)::bigint AS row_count, COALESCE(sum(hashtextextended(concat_ws('|', id, created_at, evento, status), 0)::numeric), 0)::text AS checksum FROM ml.auth_audit GROUP BY 1, 2 ORDER BY 1, 2"),
@@ -443,7 +453,6 @@ function createAuthAuditPartitionCutover({
             JOIN pg_catalog.pg_class child ON child.oid = inheritance.inhrelid
            WHERE namespace.nspname = $1 AND parent.relname = $2 AND child.relname = $3`, [SCHEMA, SHADOW_TABLE, DEFAULT_PARTITION]),
         inspectGrants(LEGACY_TABLE),
-        inspectGrants(SHADOW_TABLE),
       ]);
       const mismatches = [];
       if (JSON.stringify(normalizeAggregate(legacy.rows?.[0])) !== JSON.stringify(normalizeAggregate(shadow.rows?.[0]))) mismatches.push("aggregate");
@@ -453,7 +462,7 @@ function createAuthAuditPartitionCutover({
       if (!hasExpectedShape(shadowColumns, shadowForeignKeys)) mismatches.push("column_or_foreign_key_shape");
       const defaultRow = defaultPartition.rows?.[0] || {};
       if (defaultRow.relname !== DEFAULT_PARTITION || !/DEFAULT/i.test(String(defaultRow.bound || "")) || normalizeCount(defaultRow.row_count) !== 0) mismatches.push("default_partition");
-      if (JSON.stringify(legacyGrants) !== JSON.stringify(shadowGrants)) mismatches.push("grants");
+      if (!grantsAreSupported(legacyGrants)) mismatches.push("legacy_grants");
       const outcome = { ok: mismatches.length === 0, mismatches, legacy: normalizeAggregate(legacy.rows?.[0]), shadow: normalizeAggregate(shadow.rows?.[0]) };
       await recordOperation({ operationId, kind: "validate", status: outcome.ok ? "completed" : "failed", details: outcome });
       if (!outcome.ok) throw new Error(`Verificacao encontrou divergencia: ${mismatches.join(", ")}.`);
@@ -484,6 +493,10 @@ function createAuthAuditPartitionCutover({
       const marker = await transaction(async (client) => {
         await client.query(`LOCK TABLE ml.${LEGACY_TABLE}, ml.${SHADOW_TABLE} IN ACCESS EXCLUSIVE MODE`);
         await copyLegacyGrants(client, legacyGrants);
+        const shadowGrants = await inspectGrants(SHADOW_TABLE, client);
+        if (!grantsMatch(legacyGrants, shadowGrants)) {
+          throw new Error("Nao foi possivel confirmar a copia dos grants para a shadow antes do swap.");
+        }
         const markerResult = await client.query(`SELECT count(*)::bigint AS row_count, max(id)::bigint AS max_id, max(created_at) AS max_created_at FROM ml.${SHADOW_TABLE}`);
         await client.query(`ALTER TABLE ml.${LEGACY_TABLE} RENAME TO ${legacyName}`);
         await client.query(`ALTER TABLE ml.${SHADOW_TABLE} RENAME TO ${LEGACY_TABLE}`);
@@ -525,26 +538,47 @@ function createAuthAuditPartitionCutover({
     try {
       const latestSwap = await latestCompleted("swap");
       const marker = latestSwap?.details?.legacyName === resolvedLegacy ? latestSwap.details.marker : null;
-      const activeRows = await db.query(`SELECT count(*)::bigint AS row_count, max(id)::bigint AS max_id, max(created_at) AS max_created_at FROM ml.${LEGACY_TABLE}`);
-      const activeMarker = normalizeMarker(activeRows.rows?.[0]);
-      const postSwapWrites = Boolean(marker && (
-        activeMarker.rowCount > normalizeCount(marker.rowCount)
-        || (marker.maxId !== null && activeMarker.maxId !== null && BigInt(activeMarker.maxId) > BigInt(marker.maxId))
-        || (marker.maxCreatedAt !== null && activeMarker.maxCreatedAt !== null && activeMarker.maxCreatedAt > marker.maxCreatedAt)
-      ));
       const allowDataLoss = env.AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS === "YES";
-      const risk = { marker, activeMarker, postSwapWrites, allowDataLoss };
-      if (postSwapWrites && !allowDataLoss) {
-        await recordOperation({ operationId, kind: "rollback", status: "skipped", details: { legacyName: resolvedLegacy, failedName, risk, decision: "refused_post_swap_writes" } });
-        throw new Error("Rollback recusado: existem escritas apos o swap. Defina AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS=YES somente se aceitar perde-las.");
-      }
-      await recordOperation({ operationId, kind: "rollback", status: "started", details: { legacyName: resolvedLegacy, failedName, risk } });
-      await transaction(async (client) => {
+      let risk;
+      await recordOperation({ operationId, kind: "rollback", status: "started", details: { legacyName: resolvedLegacy, failedName, marker: marker || null, allowDataLoss } });
+      try {
+        await transaction(async (client) => {
         await client.query(`LOCK TABLE ml.${LEGACY_TABLE}, ${legacy} IN ACCESS EXCLUSIVE MODE`);
+        const markerUsable = marker
+          && Number.isFinite(Number(marker.rowCount))
+          && (marker.maxId === null || /^\d+$/.test(String(marker.maxId)))
+          && (marker.maxCreatedAt === null || !Number.isNaN(new Date(marker.maxCreatedAt).getTime()));
+        const activeRows = await client.query(`SELECT count(*)::bigint AS row_count, max(id)::bigint AS max_id, max(created_at) AS max_created_at FROM ml.${LEGACY_TABLE}`);
+        const activeMarker = normalizeMarker(activeRows.rows?.[0]);
+        const postSwapWrites = markerUsable && (
+          activeMarker.rowCount > normalizeCount(marker.rowCount)
+          || (marker.maxId !== null && activeMarker.maxId !== null && BigInt(activeMarker.maxId) > BigInt(marker.maxId))
+          || (marker.maxCreatedAt !== null && activeMarker.maxCreatedAt !== null && activeMarker.maxCreatedAt > marker.maxCreatedAt)
+        );
+        risk = {
+          marker: marker || null,
+          markerState: markerUsable ? "usable" : "missing_or_ambiguous",
+          activeMarker,
+          postSwapWrites: Boolean(postSwapWrites),
+          allowDataLoss,
+        };
+        if ((risk.markerState !== "usable" || risk.postSwapWrites) && !allowDataLoss) {
+          const error = new Error(risk.markerState !== "usable"
+            ? "Rollback recusado: marker do swap ausente ou ambiguo. Defina AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS=YES somente se aceitar esse risco."
+            : "Rollback recusado: existem escritas apos o swap. Defina AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS=YES somente se aceitar perde-las.");
+          error.rollbackRisk = risk;
+          throw error;
+        }
         await client.query(`ALTER TABLE ml.${LEGACY_TABLE} RENAME TO ${failedName}`);
         await client.query(`ALTER TABLE ${legacy} RENAME TO ${LEGACY_TABLE}`);
         await client.query(`ALTER SEQUENCE ml.auth_audit_id_seq OWNED BY ml.${LEGACY_TABLE}.id`);
       });
+      } catch (error) {
+        if (error.rollbackRisk) {
+          await recordOperation({ operationId, kind: "rollback", status: "skipped", details: { legacyName: resolvedLegacy, failedName, risk: error.rollbackRisk, decision: error.rollbackRisk.markerState !== "usable" ? "refused_missing_or_ambiguous_marker" : "refused_post_swap_writes" } });
+        }
+        throw error;
+      }
       const outcome = { legacyName: resolvedLegacy, failedName, risk };
       await recordOperation({ operationId, kind: "rollback", status: "completed", details: outcome });
       return outcome;

@@ -209,7 +209,8 @@ test("swap usa lock e renomeia legacy antes da shadow; rollback faz ordem invers
   const rollbackLock = rollbackSql.findIndex((sql) => /LOCK TABLE ml\.auth_audit, ml\.auth_audit_legacy/i.test(sql));
   const archivedNew = rollbackSql.findIndex((sql) => /auth_audit RENAME TO auth_audit_partitioned_failed/i.test(sql));
   const restoreLegacy = rollbackSql.findIndex((sql) => /auth_audit_legacy_[a-f0-9]{12} RENAME TO auth_audit/i.test(sql));
-  assert.ok(rollbackLock >= 0 && rollbackLock < archivedNew && archivedNew < restoreLegacy);
+  const activeRead = rollbackSql.findIndex((sql) => /SELECT count\(\*\)::bigint AS row_count, max\(id\)::bigint/i.test(sql));
+  assert.ok(rollbackLock >= 0 && rollbackLock < activeRead && activeRead < archivedNew && archivedNew < restoreLegacy);
 });
 
 test("rollback recusa perda de escritas posteriores sem flag literal e registra decisao", async () => {
@@ -227,6 +228,33 @@ test("rollback recusa perda de escritas posteriores sem flag literal e registra 
 
   await assert.rejects(() => cutover.rollback(), /AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS=YES/i);
   const sql = db.calls.map((call) => call.sql).join("\n");
-  assert.doesNotMatch(sql, /LOCK TABLE|RENAME TO auth_audit_partitioned_failed/i);
+  assert.match(sql, /LOCK TABLE/i);
+  assert.doesNotMatch(sql, /RENAME TO auth_audit_partitioned_failed/i);
   assert.ok(db.calls.some((call) => /INSERT INTO ml\.auth_audit_partition_operations/i.test(call.sql) && call.params?.[2] === "skipped"));
+});
+
+test("rollback bloqueia marker ausente, mas permite o caminho de risco somente com flag literal", async () => {
+  const route = (sql, params) => {
+    if (/kind = \$1 AND status = 'completed'/i.test(sql)) {
+      if (params?.[0] === "swap") return { rows: [] };
+      return { rows: [approvedPreflight()] };
+    }
+    if (/relation\.relname ~ '\^auth_audit_legacy/i.test(sql)) return { rows: [{ relname: "auth_audit_legacy_000000000099" }] };
+    if (/to_regclass\(\$1\)/i.test(sql)) return { rows: [{ exists: true }] };
+    if (/row_count, max\(id\)/i.test(sql)) return { rows: [{ row_count: "2", max_id: "12", max_created_at: "2026-01-01" }] };
+    return { rows: [] };
+  };
+  const refusedDb = routedDb(route);
+  await assert.rejects(
+    () => createAuthAuditPartitionCutover({ db: refusedDb, env: { AUTH_AUDIT_PARTITION_CONFIRM: "ROLLBACK" } }).rollback(),
+    /marker do swap ausente ou ambiguo/i,
+  );
+  assert.ok(refusedDb.calls.some((call) => call.params?.[2] === "skipped"));
+
+  const allowedDb = routedDb(route);
+  await createAuthAuditPartitionCutover({
+    db: allowedDb,
+    env: { AUTH_AUDIT_PARTITION_CONFIRM: "ROLLBACK", AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS: "YES" },
+  }).rollback();
+  assert.ok(allowedDb.calls.some((call) => /RENAME TO auth_audit_partitioned_failed/i.test(call.sql)));
 });
