@@ -41,6 +41,7 @@ const {
   startReportRetentionCleanup,
 } = require("./services/adminMeliAccountPerformanceReportService");
 const { startAnuncioDraftCleanupScheduler } = require("./services/anuncioCadastro/anuncioDraftCleanupScheduler");
+const { startAuthAuditPartitionScheduler } = require("./services/authAuditPartitionScheduler");
 
 module.exports = function createMlApp() {
   const app = express();
@@ -142,6 +143,7 @@ module.exports = function createMlApp() {
   startEstrategicosReviewScheduler();
   startAutomationReportScheduler();
   startAnuncioDraftCleanupScheduler();
+  startAuthAuditPartitionScheduler();
   startHubUsageReporter();
   startReportRetentionCleanup();
 
