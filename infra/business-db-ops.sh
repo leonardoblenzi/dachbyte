@@ -21,6 +21,7 @@ Commands:
   backup      Run the full restic backup job (requires env/backup.env and initialized repository).
   audit-partition-status     Show ML audit-partition cutover state and recent ledger entries.
   audit-partition-preflight  Measure the mandatory cutover gates; does not alter audit data.
+  audit-partition-release-preflight  Validate the post-swap legacy release gates; does not alter audit data.
   audit-partition-copy       Create/copy the partitioned shadow table; requires COPY confirmation.
   audit-partition-verify     Compare the legacy table and shadow before a swap.
   audit-partition-swap       Atomically promote the verified shadow; requires SWAP confirmation.
@@ -44,10 +45,16 @@ require_confirmation() {
 }
 
 validate_cutover_args() {
-  if [[ "$#" -eq 0 ]]; then return 0; fi
-  if [[ "$#" -eq 1 && "$1" == "--dry-run" ]]; then return 0; fi
-  echo "Only --dry-run is accepted after an audit-partition command." >&2
-  exit 1
+  local argument
+  local dry_run_seen=0
+  local release_preflight_seen=0
+  for argument in "$@"; do
+    case "$argument" in
+      --dry-run) (( dry_run_seen++ == 0 )) || { echo "--dry-run cannot be repeated." >&2; exit 1; } ;;
+      --release-legacy) (( release_preflight_seen++ == 0 )) || { echo "--release-legacy cannot be repeated." >&2; exit 1; } ;;
+      *) echo "Only --dry-run and --release-legacy are accepted after an audit-partition command." >&2; exit 1 ;;
+    esac
+  done
 }
 
 run_audit_partition_cutover() {
@@ -129,6 +136,9 @@ case "$command" in
     ;;
   audit-partition-preflight)
     run_audit_partition_cutover preflight "$@"
+    ;;
+  audit-partition-release-preflight)
+    run_audit_partition_cutover preflight --release-legacy "$@"
     ;;
   audit-partition-copy)
     require_confirmation COPY

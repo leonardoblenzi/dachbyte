@@ -64,7 +64,7 @@ AUTH_AUDIT_PARTITION_BACKUP_RESTORED=YES \
 AUTH_AUDIT_PARTITION_MAINTENANCE_WINDOW=YES \
 AUTH_AUDIT_PARTITION_CAPACITY_CONFIRMED=YES \
 AUTH_AUDIT_PARTITION_AVAILABLE_BYTES=<bytes_livres_medidos> \
-./business-db-ops.sh audit-partition-preflight
+./business-db-ops.sh audit-partition-release-preflight
 
 docker compose --env-file ./env/compose.env -f compose.vps.yml stop seller-ml-web seller-ml-worker
 AUTH_AUDIT_PARTITION_CONFIRM=RELEASE_LEGACY ./business-db-ops.sh audit-partition-release-legacy --dry-run

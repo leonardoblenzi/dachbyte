@@ -109,10 +109,11 @@ function stableRows(rows) {
 }
 
 function parseArgs(argv) {
-  const result = { command: null, dryRun: false, batchSize: undefined };
+  const result = { command: null, dryRun: false, releaseLegacy: false, batchSize: undefined };
   for (const argument of argv) {
     if (!result.command && !String(argument).startsWith("--")) result.command = String(argument);
     else if (argument === "--dry-run") result.dryRun = true;
+    else if (argument === "--release-legacy") result.releaseLegacy = true;
     else if (String(argument).startsWith("--batch-size=")) result.batchSize = Number(String(argument).slice(13));
   }
   return result;
@@ -199,36 +200,43 @@ function createAuthAuditPartitionCutover({
     }
   }
 
-  async function latestCompleted(kind) {
+  async function latestCompleted(kind, mode = null) {
     const result = await query(`
       SELECT operation_id, details, completed_at
         FROM ml.auth_audit_partition_operations
        WHERE kind = $1 AND status = 'completed'
+         AND ($2::text IS NULL OR details ->> 'mode' = $2)
        ORDER BY completed_at DESC NULLS LAST, created_at DESC
-       LIMIT 1`, [kind]);
+       LIMIT 1`, [kind, mode]);
     return result.rows?.[0] || null;
   }
 
-  async function requirePreflight() {
-    const operation = await latestCompleted("preflight");
+  async function requirePreflight(mode = "cutover") {
+    const operation = await latestCompleted("preflight", mode);
     if (!operation) throw new Error("Preflight valido obrigatorio antes desta acao.");
+    if (operation.details?.mode !== mode) throw new Error(`Preflight ${mode === "release_legacy" ? "release" : "de corte"} valido obrigatorio antes desta acao.`);
     if (operation.details?.operationalApproval?.approved !== true) {
       throw new Error("Preflight sem aprovacao operacional: backup/restore, janela e capacidade devem estar confirmados.");
     }
     return operation;
   }
 
-  async function inspectLegacy() {
+  async function inspectTable(tableName) {
+    const table = quoteIdentifier(tableName);
     const result = await query(`
       SELECT table_class.relkind,
              pg_total_relation_size(table_class.oid)::bigint AS bytes,
-             (SELECT count(*)::bigint FROM ml.auth_audit) AS row_count,
-             (SELECT min(created_at) FROM ml.auth_audit) AS min_created_at,
-             (SELECT max(created_at) FROM ml.auth_audit) AS max_created_at
+             (SELECT count(*)::bigint FROM ${table}) AS row_count,
+             (SELECT min(created_at) FROM ${table}) AS min_created_at,
+             (SELECT max(created_at) FROM ${table}) AS max_created_at
         FROM pg_catalog.pg_class table_class
         JOIN pg_catalog.pg_namespace table_schema ON table_schema.oid = table_class.relnamespace
-       WHERE table_schema.nspname = $1 AND table_class.relname = $2`, [SCHEMA, LEGACY_TABLE]);
+       WHERE table_schema.nspname = $1 AND table_class.relname = $2`, [SCHEMA, tableName]);
     return result.rows?.[0] || null;
+  }
+
+  async function inspectLegacy() {
+    return inspectTable(LEGACY_TABLE);
   }
 
   async function inspectShape(tableName) {
@@ -264,14 +272,16 @@ function createAuthAuditPartitionCutover({
     return result.rows || [];
   }
 
-  async function inspectIncomingForeignKeys() {
+  async function inspectIncomingForeignKeys(tableName = LEGACY_TABLE) {
     const result = await query(`
       SELECT constraint_row.conname, source_namespace.nspname AS source_schema, source_relation.relname AS source_table
         FROM pg_catalog.pg_constraint constraint_row
         JOIN pg_catalog.pg_class source_relation ON source_relation.oid = constraint_row.conrelid
         JOIN pg_catalog.pg_namespace source_namespace ON source_namespace.oid = source_relation.relnamespace
-       WHERE constraint_row.confrelid = 'ml.auth_audit'::regclass AND constraint_row.contype = 'f'
-       ORDER BY constraint_row.conname`);
+        JOIN pg_catalog.pg_class target_relation ON target_relation.oid = constraint_row.confrelid
+        JOIN pg_catalog.pg_namespace target_namespace ON target_namespace.oid = target_relation.relnamespace
+       WHERE target_namespace.nspname = $1 AND target_relation.relname = $2 AND constraint_row.contype = 'f'
+       ORDER BY constraint_row.conname`, [SCHEMA, tableName]);
     return result.rows || [];
   }
 
@@ -374,6 +384,7 @@ function createAuthAuditPartitionCutover({
         { id: "maintenance_window", ok: operational.maintenanceWindow, detail: "janela com web/worker parados externamente deve ser afirmada na operacao" },
       ];
       const result = {
+        mode: "cutover",
         ok: checklist.every((item) => item.ok),
         checklist,
         legacy: table && {
@@ -401,7 +412,84 @@ function createAuthAuditPartitionCutover({
   }
 
   async function preflight(options) {
+    if (options?.releaseLegacy === true) return withSessionAdvisoryLock(() => releasePreflightUnlocked(options));
     return withSessionAdvisoryLock(() => preflightUnlocked(options));
+  }
+
+  async function releasePreflightUnlocked({ operationalApproval = operationApprovalFromEnv(env) } = {}) {
+    const operationId = randomUUID();
+    const mode = "release_legacy";
+    try {
+      const swap = await latestCompleted("swap");
+      const legacyName = swap?.details?.legacyName;
+      if (!/^auth_audit_legacy_[a-f0-9]{12}$/.test(String(legacyName || ""))) {
+        throw new Error("Preflight release requer swap concluido com legacy valida.");
+      }
+      const [live, archived, ledger, disk, diskProbe, columns, foreignKeys, incomingForeignKeys] = await Promise.all([
+        inspectTable(LEGACY_TABLE),
+        inspectTable(legacyName),
+        query("SELECT to_regclass('ml.auth_audit_partition_operations') IS NOT NULL AS exists"),
+        query("SELECT current_setting('data_directory', true) AS data_directory"),
+        diskInspector(),
+        inspectShape(legacyName),
+        inspectForeignKeys(legacyName),
+        inspectIncomingForeignKeys(legacyName),
+      ]);
+      const swapAt = completedAt(swap, "Swap");
+      const observedMs = new Date(clock()).getTime() - swapAt.getTime();
+      const requiredBytes = Math.ceil(Math.max(normalizeCount(live?.bytes), normalizeCount(archived?.bytes)) * 0.1);
+      const measuredBytes = normalizeCount(diskProbe?.availableBytes);
+      const overrideBytes = normalizeCount(operationalApproval.availableBytes);
+      const capacityMeasured = measuredBytes || overrideBytes;
+      const capacityEnough = capacityMeasured > 0 ? capacityMeasured >= requiredBytes : null;
+      const operational = {
+        backupRestored: operationalApproval.backupRestored === true,
+        maintenanceWindow: operationalApproval.maintenanceWindow === true,
+        capacityConfirmed: operationalApproval.capacityConfirmed === true,
+        availableBytes: capacityMeasured || null,
+        capacitySource: measuredBytes ? diskProbe.source : (overrideBytes ? "explicit_override" : "unavailable"),
+        requiredBytes,
+        capacityEnough,
+      };
+      operational.approved = operational.backupRestored
+        && operational.maintenanceWindow
+        && operational.capacityConfirmed
+        && capacityEnough === true;
+      const checklist = [
+        { id: "active_partitioned", ok: live?.relkind === "p", detail: "auth_audit ativa deve ser particionada" },
+        { id: "legacy_archived", ok: archived?.relkind === "r", detail: "legacy exata do swap deve existir como tabela regular" },
+        { id: "legacy_shape", ok: hasExpectedShape(columns, foreignKeys), detail: "legacy deve preservar colunas/defaults e FKs esperadas" },
+        { id: "legacy_incoming_foreign_keys", ok: incomingForeignKeys.length === 0, detail: "legacy nao pode receber FKs antes do drop" },
+        { id: "partition_ledger", ok: ledger.rows?.[0]?.exists === true, detail: "migration 072 deve estar aplicada" },
+        { id: "observation_48h", ok: Number.isFinite(observedMs) && observedMs >= 48 * 60 * 60 * 1000, detail: "observacao comprovada pelo timestamp do swap deve completar 48 horas" },
+        { id: "free_space", ok: operational.capacityConfirmed && capacityEnough === true, detail: "exige capacidade atual medida ou override validado" },
+        { id: "backup_restore", ok: operational.backupRestored, detail: "backup Restic/R2 fresco e restore testado devem ser afirmados" },
+        { id: "maintenance_window", ok: operational.maintenanceWindow, detail: "nova janela de manutencao deve ser afirmada" },
+      ];
+      const result = {
+        mode,
+        ok: checklist.every((item) => item.ok),
+        checklist,
+        legacyName,
+        swapOperationId: swap.operation_id,
+        swapCompletedAt: swapAt.toISOString(),
+        observedHours: observedMs / (60 * 60 * 1000),
+        active: live && { relkind: live.relkind, bytes: normalizeCount(live.bytes), rowCount: normalizeCount(live.row_count) },
+        legacy: archived && { relkind: archived.relkind, bytes: normalizeCount(archived.bytes), rowCount: normalizeCount(archived.row_count) },
+        dataDirectory: disk.rows?.[0]?.data_directory || null,
+        diskProbe: diskProbe || { availableBytes: null, source: "unavailable" },
+        operationalApproval: operational,
+        incomingForeignKeys,
+      };
+      if (ledger.rows?.[0]?.exists === true) {
+        await recordOperation({ operationId, kind: "preflight", status: result.ok ? "completed" : "failed", details: result });
+      }
+      if (!result.ok) throw new Error("Preflight release invalido: confira legacy, observacao, capacidade, backup/restore e janela de manutencao.");
+      return result;
+    } catch (error) {
+      await failOperation(operationId, "preflight", error, { mode });
+      throw error;
+    }
   }
 
   async function createShadow(executor) {
@@ -820,7 +908,7 @@ function createAuthAuditPartitionCutover({
 
   async function releaseLegacyUnlocked({ dryRun = false } = {}) {
     requireConfirmation("RELEASE_LEGACY");
-    const preflight = await requirePreflight();
+    const preflight = await requirePreflight("release_legacy");
     const latestSwap = await latestCompleted("swap");
     const legacyName = latestSwap?.details?.legacyName;
     if (!/^auth_audit_legacy_[a-f0-9]{12}$/.test(String(legacyName || ""))) {
@@ -915,15 +1003,16 @@ function createAuthAuditPartitionCutover({
 }
 
 async function main() {
-  const { command, dryRun, batchSize } = parseArgs(process.argv.slice(2));
+  const { command, dryRun, releaseLegacy, batchSize } = parseArgs(process.argv.slice(2));
   if (!new Set(["status", "preflight", "copy", "verify", "swap", "rollback", "release-legacy"]).has(command)) {
     throw new Error("Uso: node scripts/authAuditPartitionCutover.js <status|preflight|copy|verify|swap|rollback|release-legacy> [--dry-run] [--batch-size=10000]");
   }
+  if (releaseLegacy && command !== "preflight") throw new Error("--release-legacy e aceito somente com preflight.");
   const db = require("../db/db");
   const cutover = createAuthAuditPartitionCutover({ db });
   const action = command === "release-legacy" ? "releaseLegacy" : command;
   const result = action === "preflight"
-    ? await cutover.preflight({ operationalApproval: operationApprovalFromEnv(process.env) })
+    ? await cutover.preflight({ operationalApproval: operationApprovalFromEnv(process.env), releaseLegacy })
     : await cutover[action]({ dryRun, batchSize });
   loggerOutput(result);
 }

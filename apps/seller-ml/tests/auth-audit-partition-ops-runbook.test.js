@@ -22,6 +22,8 @@ test("partition cutover remains explicit and protected in VPS operations", () =>
   assert.match(ops, /require_confirmation SWAP/);
   assert.match(ops, /require_confirmation ROLLBACK/);
   assert.match(ops, /require_confirmation RELEASE_LEGACY/);
+  assert.match(ops, /audit-partition-release-preflight/);
+  assert.match(ops, /run_audit_partition_cutover preflight --release-legacy/);
   assert.match(ops, /AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS=YES/);
   assert.match(ops, /--dry-run/);
   assert.match(ops, /AUTH_AUDIT_PARTITION_BACKUP_RESTORED/);
@@ -43,7 +45,7 @@ test("cutover runbook has operational gates and safe legacy handling", () => {
     "Restic", "restore", "janela", "espaço", "preflight", "copy", "verify", "swap",
     "48", "rollback", "AUTH_AUDIT_PARTITION_CONFIRM=SWAP", "AUTH_AUDIT_PARTITION_CONFIRM=ROLLBACK",
     "AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS=YES", "auth_audit_retention_rules", "--dry-run", "release-legacy",
-    "AUTH_AUDIT_PARTITION_CONFIRM=RELEASE_LEGACY",
+    "AUTH_AUDIT_PARTITION_CONFIRM=RELEASE_LEGACY", "audit-partition-release-preflight",
   ]) {
     assert.match(runbook, new RegExp(term, "i"));
   }

@@ -71,8 +71,8 @@ function expectedForeignKeys() {
   ];
 }
 
-function approvedPreflight() {
-  return { operation_id: "preflight-ok", details: { operationalApproval: { approved: true } } };
+function approvedPreflight(mode = "cutover") {
+  return { operation_id: "preflight-ok", details: { mode, operationalApproval: { approved: true } } };
 }
 
 function approvedCopy() {
@@ -394,7 +394,7 @@ test("rollback bloqueia marker ausente, mas permite o caminho de risco somente c
 test("release da legacy exige confirmacao literal, preflight novo e observacao completa de 48 horas", async () => {
   const db = routedDb((sql, params) => {
     if (/kind = \$1 AND status = 'completed'/i.test(sql)) {
-      if (params?.[0] === "preflight") return { rows: [{ ...approvedPreflight(), completed_at: "2026-09-22T00:00:00.000Z" }] };
+      if (params?.[0] === "preflight") return { rows: [{ ...approvedPreflight("release_legacy"), completed_at: "2026-09-22T00:00:00.000Z" }] };
       if (params?.[0] === "swap") return { rows: [{ operation_id: "swap-ok", completed_at: "2026-09-21T12:00:00.000Z", details: { legacyName: "auth_audit_legacy_000000000099" } }] };
     }
     if (/to_regclass\(\$1\)/i.test(sql)) return { rows: [{ exists: true }] };
@@ -416,7 +416,7 @@ test("release da legacy exige confirmacao literal, preflight novo e observacao c
 test("release da legacy faz drop somente sob lock apos 48 horas e preflight posterior ao swap", async () => {
   const db = routedDb((sql, params) => {
     if (/kind = \$1 AND status = 'completed'/i.test(sql)) {
-      if (params?.[0] === "preflight") return { rows: [{ ...approvedPreflight(), completed_at: "2026-09-23T12:30:00.000Z" }] };
+      if (params?.[0] === "preflight") return { rows: [{ ...approvedPreflight("release_legacy"), completed_at: "2026-09-23T12:30:00.000Z" }] };
       if (params?.[0] === "swap") return { rows: [{ operation_id: "swap-ok", completed_at: "2026-09-21T12:00:00.000Z", details: { legacyName: "auth_audit_legacy_000000000099" } }] };
     }
     if (/to_regclass\(\$1\)/i.test(sql)) return { rows: [{ exists: true }] };
@@ -442,6 +442,55 @@ test("release da legacy faz drop somente sob lock apos 48 horas e preflight post
   assert.ok(db.calls.some((call) => /auth_audit_partition_operations/i.test(call.sql) && call.params?.[1] === "maintenance"));
 });
 
+test("release ignora preflight normal e exige preflight release posterior ao swap", async () => {
+  const db = routedDb((sql, params) => {
+    if (/kind = \$1 AND status = 'completed'/i.test(sql)) {
+      if (params?.[0] === "preflight") return { rows: [{ ...approvedPreflight("cutover"), completed_at: "2026-09-23T12:30:00.000Z" }] };
+      if (params?.[0] === "swap") return { rows: [{ operation_id: "swap-ok", completed_at: "2026-09-21T12:00:00.000Z", details: { legacyName: "auth_audit_legacy_000000000099" } }] };
+    }
+    return { rows: [] };
+  });
+  const cutover = createAuthAuditPartitionCutover({
+    db,
+    env: { AUTH_AUDIT_PARTITION_CONFIRM: "RELEASE_LEGACY" },
+    clock: () => new Date("2026-09-23T13:00:00.000Z"),
+  });
+
+  await assert.rejects(() => cutover.releaseLegacy({ dryRun: true }), /preflight release/i);
+});
+
+test("preflight release valida parent particionado, legacy e ledger com modo inequivoco", async () => {
+  const db = routedDb((sql, params) => {
+    if (/kind = \$1 AND status = 'completed'/i.test(sql) && params?.[0] === "swap") {
+      return { rows: [{ operation_id: "swap-ok", completed_at: "2026-09-20T12:00:00.000Z", details: { legacyName: "auth_audit_legacy_000000000099" } }] };
+    }
+    if (/pg_total_relation_size/i.test(sql) && params?.[1] === "auth_audit") return { rows: [{ relkind: "p", bytes: "2048", row_count: "3", min_created_at: "2026-01-01", max_created_at: "2026-02-01" }] };
+    if (/pg_total_relation_size/i.test(sql) && /legacy_000000000099/.test(params?.[1] || "")) return { rows: [{ relkind: "r", bytes: "2048", row_count: "3", min_created_at: "2026-01-01", max_created_at: "2026-02-01" }] };
+    if (/to_regclass\('ml\.auth_audit_partition_operations'\)/i.test(sql)) return { rows: [{ exists: true }] };
+    if (/current_setting\('data_directory'/i.test(sql)) return { rows: [{ data_directory: "/var/lib/postgresql/data" }] };
+    if (/pg_catalog\.pg_attribute/i.test(sql)) return { rows: expectedColumns() };
+    if (/source_relation/i.test(sql)) return { rows: [] };
+    if (/constraint_row\.contype = 'f'/i.test(sql)) return { rows: expectedForeignKeys() };
+    if (/role_table_grants/i.test(sql)) return { rows: [] };
+    return { rows: [] };
+  });
+  const cutover = createAuthAuditPartitionCutover({
+    db,
+    clock: () => new Date("2026-09-23T13:00:00.000Z"),
+    diskInspector: async () => ({ availableBytes: 999999999, source: "test" }),
+  });
+  const result = await cutover.preflight({
+    releaseLegacy: true,
+    operationalApproval: { backupRestored: true, maintenanceWindow: true, capacityConfirmed: true },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.mode, "release_legacy");
+  assert.equal(result.legacyName, "auth_audit_legacy_000000000099");
+  assert.ok(db.calls.some((call) => /auth_audit_partition_operations/i.test(call.sql) && JSON.parse(call.params?.[3] || "{}").mode === "release_legacy"));
+});
+
 test("release legacy e aceito pelo parser do CLI", () => {
-  assert.deepEqual(parseArgs(["release-legacy", "--dry-run"]), { command: "release-legacy", dryRun: true, batchSize: undefined });
+  assert.deepEqual(parseArgs(["release-legacy", "--dry-run"]), { command: "release-legacy", dryRun: true, releaseLegacy: false, batchSize: undefined });
+  assert.deepEqual(parseArgs(["preflight", "--release-legacy"]), { command: "preflight", dryRun: false, releaseLegacy: true, batchSize: undefined });
 });
