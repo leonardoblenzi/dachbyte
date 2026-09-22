@@ -133,6 +133,19 @@ test("status explica quais aprovacoes operacionais ainda faltam", async () => {
   assert.deepEqual(result.missingOperationalApprovals, ["backup_restore", "free_space"]);
 });
 
+test("status distingue capacidade nao mensurada de espaco insuficiente", async () => {
+  const db = routedDb((sql) => {
+    if (/pg_total_relation_size/i.test(sql)) return { rows: [{ relkind: "r" }] };
+    if (/relation\.relname = \$2/i.test(sql)) return { rows: [] };
+    if (/partition_operations ORDER BY/i.test(sql)) {
+      return { rows: [{ kind: "preflight", details: { operationalApproval: { backupRestored: true, maintenanceWindow: true, capacityConfirmed: true, capacityEnough: null } } }] };
+    }
+    return { rows: [] };
+  });
+  const result = await createAuthAuditPartitionCutover({ db }).status();
+  assert.deepEqual(result.missingOperationalApprovals, ["capacity_unmeasured_or_invalid"]);
+});
+
 test("copy exige preflight, cria shadow particionada com PK composta e nunca apaga legacy", async () => {
   let copied = false;
   const db = routedDb((sql) => {

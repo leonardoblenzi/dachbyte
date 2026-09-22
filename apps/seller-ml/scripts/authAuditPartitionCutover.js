@@ -738,6 +738,7 @@ function createAuthAuditPartitionCutover({
       !approval.maintenanceWindow && "maintenance_window",
       !approval.capacityConfirmed && "free_space",
       approval.capacityEnough === false && "capacity_insufficient",
+      approval.capacityConfirmed && approval.capacityEnough !== true && approval.capacityEnough !== false && "capacity_unmeasured_or_invalid",
     ].filter(Boolean) : ["preflight_required"];
     return {
       legacy,
