@@ -11,6 +11,7 @@ const {
 function partitionedService(calls, { inspect = { partitioned: true } } = {}) {
   return {
     async inspectCurrentTable() { calls.push("inspect"); return inspect; },
+    async recordOperation(input) { calls.push(["ledger", input]); return input; },
     async ensurePartitions() { calls.push("ensure"); return { applied: true }; },
     async drainDefaultPartition() { calls.push("drain"); return { applied: true, moved: 0 }; },
     async pruneExpiredPartitions(options) { calls.push(["prune", options]); return { applied: true, dryRun: true }; },
@@ -40,12 +41,17 @@ test("antes do corte registra skip e nao executa mutacoes", async () => {
   const scheduler = createAuthAuditPartitionScheduler({
     service: partitionedService(calls, { inspect: { partitioned: false, relkind: "r" } }),
     logger: { info: (...args) => logs.push(args), error() {} },
+    randomUUID: () => "00000000-0000-4000-8000-000000000001",
   });
 
   const result = await scheduler.run();
   assert.equal(result.skipped, true);
   assert.equal(result.reason, "parent_not_partitioned");
-  assert.deepEqual(calls, ["inspect"]);
+  assert.deepEqual(calls, [
+    ["ledger", { operationId: "00000000-0000-4000-8000-000000000001", kind: "maintenance", status: "started", details: { phase: "started" } }],
+    "inspect",
+    ["ledger", { operationId: "00000000-0000-4000-8000-000000000001", kind: "maintenance", status: "skipped", details: { outcome: "skipped", reason: "parent_not_partitioned" } }],
+  ]);
   assert.match(String(logs[0][0]), /ainda nao esta particionada/i);
 });
 
@@ -55,11 +61,21 @@ test("pos-corte aplica retencao configurada, mantem remocao de particoes em dry-
   const scheduler = createAuthAuditPartitionScheduler({
     service: partitionedService(calls),
     logger: { info: (...args) => logs.push(args), error() {} },
+    randomUUID: () => "00000000-0000-4000-8000-000000000002",
   });
 
   const result = await scheduler.run();
   assert.equal(result.skipped, false);
-  assert.deepEqual(calls, ["inspect", "ensure", "drain", ["prune", { confirmDrop: false }], "verify"]);
+  assert.deepEqual(calls, [
+    ["ledger", { operationId: "00000000-0000-4000-8000-000000000002", kind: "maintenance", status: "started", details: { phase: "started" } }],
+    "inspect", "ensure", "drain", ["prune", { confirmDrop: false }], "verify",
+    ["ledger", {
+      operationId: "00000000-0000-4000-8000-000000000002",
+      kind: "maintenance",
+      status: "completed",
+      details: { outcome: "completed", moved: 0, eligiblePartitions: 0, defaultRows: null },
+    }],
+  ]);
   assert.match(String(logs[0][0]), /Limpeza de retencao aplicada/i);
   assert.match(String(logs[0][0]), /remocao de particoes permanece em dry-run/i);
 });
@@ -67,8 +83,10 @@ test("pos-corte aplica retencao configurada, mantem remocao de particoes em dry-
 test("falhas nao escapam do scheduler e a proxima tentativa continua possivel", async () => {
   let attempts = 0;
   const errors = [];
+  const ledger = [];
   const scheduler = createAuthAuditPartitionScheduler({
     service: {
+      async recordOperation(input) { ledger.push(input.status); },
       async inspectCurrentTable() {
         attempts += 1;
         if (attempts === 1) throw new Error("database temporarily unavailable");
@@ -83,8 +101,33 @@ test("falhas nao escapam do scheduler e a proxima tentativa continua possivel", 
   assert.equal(failed.failed, true);
   assert.equal(retried.reason, "parent_not_partitioned");
   assert.equal(attempts, 2);
+  assert.deepEqual(ledger, ["started", "failed", "started", "skipped"]);
   assert.match(String(errors[0][0]), /falhou/i);
   assert.match(String(errors[0][1]), /database temporarily unavailable/);
+});
+
+test("falha do ledger inicial bloqueia mutacoes e jamais reporta sucesso", async () => {
+  const calls = [];
+  const scheduler = createAuthAuditPartitionScheduler({
+    service: {
+      async recordOperation(input) {
+        calls.push(["ledger", input.status]);
+        if (input.status === "started") throw new Error("ledger unavailable");
+      },
+      async inspectCurrentTable() { calls.push("inspect"); return { partitioned: true }; },
+      async ensurePartitions() { calls.push("ensure"); },
+      async drainDefaultPartition() { calls.push("drain"); },
+      async pruneExpiredPartitions() { calls.push("prune"); },
+      async verifyPartitionedAudit() { calls.push("verify"); },
+    },
+    logger: { info() {}, error() {} },
+    randomUUID: () => "00000000-0000-4000-8000-000000000003",
+  });
+
+  const result = await scheduler.run();
+  assert.equal(result.failed, true);
+  assert.notEqual(result.success, true);
+  assert.deepEqual(calls, [["ledger", "started"]]);
 });
 
 test("single-flight impede execucoes sobrepostas", async () => {
@@ -92,6 +135,7 @@ test("single-flight impede execucoes sobrepostas", async () => {
   let inspectCalls = 0;
   const scheduler = createAuthAuditPartitionScheduler({
     service: {
+      async recordOperation() {},
       inspectCurrentTable() {
         inspectCalls += 1;
         return new Promise((resolve) => { resolveInspect = resolve; });
@@ -104,6 +148,8 @@ test("single-flight impede execucoes sobrepostas", async () => {
   const first = scheduler.run();
   const second = scheduler.run();
   assert.strictEqual(first, second);
+  await Promise.resolve();
+  await Promise.resolve();
   resolveInspect({ partitioned: false });
   await first;
   assert.equal(inspectCalls, 1);

@@ -1,5 +1,7 @@
 "use strict";
 
+const { randomUUID: systemRandomUUID } = require("node:crypto");
+
 const DEFAULT_MAINTENANCE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const MIN_MAINTENANCE_INTERVAL_MS = 60 * 1000;
 let defaultScheduler = null;
@@ -34,6 +36,7 @@ function createAuthAuditPartitionScheduler({
   logger = console,
   setIntervalFn = setInterval,
   clearIntervalFn = clearInterval,
+  randomUUID = systemRandomUUID,
 } = {}) {
   const config = resolveMaintenanceInterval({ env });
   const partitionService = service || createService({ db, cleanupAuthAudit });
@@ -41,9 +44,26 @@ function createAuthAuditPartitionScheduler({
   let timer = null;
 
   async function execute() {
+    const operationId = randomUUID();
+    let operationStarted = false;
     try {
+      // Sem o registro inicial nao fazemos nenhuma mutacao: se o ledger estiver
+      // indisponivel, a execucao falha de forma observavel e podera ser repetida.
+      await partitionService.recordOperation({
+        operationId,
+        kind: "maintenance",
+        status: "started",
+        details: { phase: "started" },
+      });
+      operationStarted = true;
       const parent = await partitionService.inspectCurrentTable();
       if (!parent?.partitioned) {
+        await partitionService.recordOperation({
+          operationId,
+          kind: "maintenance",
+          status: "skipped",
+          details: { outcome: "skipped", reason: "parent_not_partitioned" },
+        });
         logger.info?.("[AuthAuditPartition] Manutencao ignorada: ml.auth_audit ainda nao esta particionada.");
         return { skipped: true, reason: "parent_not_partitioned", parent };
       }
@@ -55,6 +75,17 @@ function createAuthAuditPartitionScheduler({
       // de particao nunca ocorre pelo scheduler de startup.
       const pruned = await partitionService.pruneExpiredPartitions({ confirmDrop: false });
       const verification = await partitionService.verifyPartitionedAudit();
+      await partitionService.recordOperation({
+        operationId,
+        kind: "maintenance",
+        status: "completed",
+        details: {
+          outcome: "completed",
+          moved: Number(drained?.moved || 0),
+          eligiblePartitions: Array.isArray(pruned?.eligible) ? pruned.eligible.length : 0,
+          defaultRows: verification?.defaultRows ?? null,
+        },
+      });
       logger.info?.("[AuthAuditPartition] Limpeza de retencao aplicada; remocao de particoes permanece em dry-run.");
       return {
         skipped: false,
@@ -65,8 +96,23 @@ function createAuthAuditPartitionScheduler({
       };
     } catch (error) {
       const message = error?.message || "erro desconhecido";
+      let auditRecorded = false;
+      if (operationStarted) {
+        try {
+          await partitionService.recordOperation({
+            operationId,
+            kind: "maintenance",
+            status: "failed",
+            // Nao persistimos mensagens de erro, pois podem carregar detalhes sensiveis.
+            details: { outcome: "failed", reason: "maintenance_error" },
+          });
+          auditRecorded = true;
+        } catch (ledgerError) {
+          logger.error?.("[AuthAuditPartition] Falha ao registrar falha de manutencao no ledger:", ledgerError?.message || "erro desconhecido");
+        }
+      }
       logger.error?.("[AuthAuditPartition] Manutencao falhou:", message);
-      return { skipped: false, failed: true, error: message };
+      return { skipped: false, failed: true, auditRecorded, error: message };
     }
   }
 

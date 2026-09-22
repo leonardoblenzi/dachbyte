@@ -143,20 +143,38 @@ function createAuthAuditPartitionService({
     return run(db);
   }
 
-  async function createWithDetachedDefault(months, { moveRows = true, batchSize = 10000 } = {}) {
+  async function createWithDetachedDefault(months, {
+    moveRows = true,
+    batchSize = 10000,
+    existingPartitionNames = new Set(),
+  } = {}) {
     return inTransaction(async (client) => {
       await client.query("LOCK TABLE ml.auth_audit IN ACCESS EXCLUSIVE MODE");
       await client.query(`ALTER TABLE ml.auth_audit DETACH PARTITION ml.${DEFAULT_PARTITION}`);
-      let moved = 0;
-      try {
-        for (const month of months) {
-          await createMonthlyPartition(month, client);
-          if (moveRows) moved += await moveDefaultRange(client, month, batchSize);
-        }
-        await client.query(`ALTER TABLE ml.auth_audit ATTACH PARTITION ml.${DEFAULT_PARTITION} DEFAULT`);
-      } catch (error) {
-        throw error;
+
+      // A default destacada deixa de excluir os ranges ja anexados. Portanto, antes de
+      // reanexa-la precisamos esvaziar cada mes que ela contem, inclusive meses cuja
+      // particao ja existia antes desta execucao.
+      const groups = await client.query(`
+        SELECT date_trunc('month', created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS month_start
+          FROM ml.${DEFAULT_PARTITION}
+         GROUP BY 1
+         ORDER BY 1`);
+      const defaultMonths = (groups.rows || [])
+        .map((group) => new Date(group.month_start))
+        .filter((month) => !Number.isNaN(month.getTime()));
+      const monthsToEnsure = new Map();
+      for (const month of [...months, ...defaultMonths]) {
+        monthsToEnsure.set(partitionNameForMonth(month), monthBoundsUtc(month).from);
       }
+      for (const [name, month] of monthsToEnsure) {
+        if (!existingPartitionNames.has(name)) await createMonthlyPartition(month, client);
+      }
+      let moved = 0;
+      if (moveRows) {
+        for (const month of defaultMonths) moved += await moveDefaultRange(client, month, batchSize);
+      }
+      await client.query(`ALTER TABLE ml.auth_audit ATTACH PARTITION ml.${DEFAULT_PARTITION} DEFAULT`);
       return moved;
     });
   }
@@ -183,7 +201,7 @@ function createAuthAuditPartitionService({
         await client.query(`CREATE TABLE IF NOT EXISTS ml.${DEFAULT_PARTITION} PARTITION OF ml.auth_audit DEFAULT`);
       });
     } else if (missingMonths.length > 0) {
-      await createWithDetachedDefault(missingMonths);
+      await createWithDetachedDefault(missingMonths, { existingPartitionNames: existingNames });
     }
     return {
       applied: true,

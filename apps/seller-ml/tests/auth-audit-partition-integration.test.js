@@ -33,7 +33,7 @@ function approvedCopy() {
   return { operation_id: "copy-ok", details: { shadowTable: "auth_audit_partitioned_new" } };
 }
 
-test("pre-corte: scheduler consulta o catalogo e nao emite DDL/DML", async () => {
+test("pre-corte: scheduler consulta o catalogo, apenas audita o skip e nao emite DDL/DML na auditoria", async () => {
   const db = contractDb((call) => {
     if (/pg_get_partkeydef/i.test(call.sql)) return { rows: [{ relkind: "r", partition_key: null }] };
     return { rows: [] };
@@ -44,7 +44,12 @@ test("pre-corte: scheduler consulta o catalogo e nao emite DDL/DML", async () =>
   const result = await scheduler.run();
   const sql = db.calls.map((call) => call.sql).join("\n");
   assert.equal(result.reason, "parent_not_partitioned");
-  assert.doesNotMatch(sql, /\b(?:create|alter|insert|delete|drop|update)\b/i);
+  assert.equal(db.calls.filter((call) => /auth_audit_partition_operations/i.test(call.sql)).length, 2);
+  const auditTableSql = db.calls
+    .filter((call) => !/auth_audit_partition_operations/i.test(call.sql))
+    .map((call) => call.sql)
+    .join("\n");
+  assert.doesNotMatch(auditTableSql, /\b(?:create|alter|insert|delete|drop|update)\b/i);
 });
 
 test("corte: swap so ocorre apos preflight+copy+verify e faz catch-up antes de renomear", async () => {
@@ -88,6 +93,7 @@ test("pos-corte: scheduler garante/draina e mantem prune em dry-run com retencao
   const scheduler = createAuthAuditPartitionScheduler({
     service: {
       async inspectCurrentTable() { calls.push("inspect"); return { partitioned: true }; },
+      async recordOperation(input) { calls.push(["ledger", input.status]); return input; },
       async ensurePartitions() { calls.push("ensure"); return { applied: true, partitions: ["auth_audit_2026_09"] }; },
       async drainDefaultPartition() { calls.push("drain"); return { applied: true, moved: 2 }; },
       async pruneExpiredPartitions(options) {
@@ -104,7 +110,11 @@ test("pos-corte: scheduler garante/draina e mantem prune em dry-run com retencao
   const result = await scheduler.run();
   assert.equal(result.pruned.dryRun, true);
   assert.deepEqual(result.pruned.dropped, []);
-  assert.deepEqual(calls, ["inspect", "ensure", "drain", ["prune", { confirmDrop: false }], "verify"]);
+  assert.deepEqual(calls, [
+    ["ledger", "started"],
+    "inspect", "ensure", "drain", ["prune", { confirmDrop: false }], "verify",
+    ["ledger", "completed"],
+  ]);
 });
 
 test("rollback e release legacy conservam barreiras contra perda de dados", async () => {
