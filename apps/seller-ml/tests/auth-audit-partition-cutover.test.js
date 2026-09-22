@@ -14,6 +14,7 @@ function queryDb(responses = []) {
     calls,
     async query(sql, params) {
       calls.push({ sql: String(sql), params });
+      if (/pg_advisory_(?:xact_)?(?:lock|unlock)/i.test(String(sql))) return { rows: [] };
       const next = responses.shift();
       if (typeof next === "function") return next(sql, params);
       return next || { rows: [], rowCount: 0 };
@@ -92,6 +93,28 @@ test("preflight e somente leitura, registra checklist e libera acoes seguintes",
   assert.equal(result.operationalApproval.approved, true);
 });
 
+test("preflight exige capacidade mensurada ou override numerico suficiente", async () => {
+  const noCapacityDb = queryDb(healthyPreflightResponses());
+  const noCapacity = createAuthAuditPartitionCutover({
+    db: noCapacityDb,
+    diskInspector: async () => ({ availableBytes: null, source: "unavailable" }),
+  });
+  await assert.rejects(
+    () => noCapacity.preflight({ operationalApproval: { backupRestored: true, maintenanceWindow: true, capacityConfirmed: true } }),
+    /Preflight invalido/i,
+  );
+
+  const measuredDb = queryDb(healthyPreflightResponses());
+  const measured = createAuthAuditPartitionCutover({
+    db: measuredDb,
+    diskInspector: async () => ({ availableBytes: 4096, source: "node_statfs" }),
+  });
+  const result = await measured.preflight({ operationalApproval: { backupRestored: true, maintenanceWindow: true, capacityConfirmed: true } });
+  assert.equal(result.operationalApproval.capacitySource, "node_statfs");
+  assert.equal(result.operationalApproval.requiredBytes, 2663);
+  assert.equal(result.operationalApproval.capacityEnough, true);
+});
+
 test("preflight bloqueia copy e swap quando backup, janela ou capacidade nao foram aprovados", async () => {
   const db = routedDb(() => ({ rows: [] }));
   const cutover = createAuthAuditPartitionCutover({ db });
@@ -166,6 +189,21 @@ test("verify falha quando contagem ou agregacao mensal diverge", async () => {
   await assert.rejects(() => cutover.verify(), /divergencia/i);
 });
 
+test("verify falha quando referencias de empresa ou conta ML divergem", async () => {
+  const db = routedDb((sql) => {
+    if (/min\(id\)::bigint/i.test(sql)) return { rows: [{ count: "4", min_id: "1", max_id: "4", min_created_at: "2026-01-01", max_created_at: "2026-02-01" }] };
+    if (/GROUP BY 1, 2/i.test(sql)) return { rows: [{ month_start: "2026-01-01", evento: "login", row_count: "4", checksum: "a" }] };
+    if (/legacy_empresa_count/i.test(sql)) return { rows: [{ legacy_empresa_count: "3", shadow_empresa_count: "2", legacy_meli_conta_count: "2", shadow_meli_conta_count: "2" }] };
+    if (/parent\.relkind/i.test(sql)) return { rows: [{ relkind: "p", partkey: "RANGE (created_at)", primary_key: "created_at, id", partitions: "20" }] };
+    if (/pg_catalog\.pg_attribute/i.test(sql)) return { rows: expectedColumns() };
+    if (/constraint_row\.contype = 'f'/i.test(sql)) return { rows: expectedForeignKeys() };
+    if (/child\.relname/i.test(sql)) return { rows: [{ relname: "auth_audit_partitioned_new_default", bound: "DEFAULT", row_count: "0" }] };
+    if (/role_table_grants/i.test(sql)) return { rows: [] };
+    return { rows: [] };
+  });
+  await assert.rejects(() => createAuthAuditPartitionCutover({ db }).verify(), /empresa_id_count/i);
+});
+
 test("swap exige confirmacao literal e dry run nao bloqueia nem renomeia", async () => {
   const noConfirm = createAuthAuditPartitionCutover({ db: queryDb() });
   await assert.rejects(() => noConfirm.swap(), /AUTH_AUDIT_PARTITION_CONFIRM=SWAP/i);
@@ -182,16 +220,23 @@ test("swap usa lock e renomeia legacy antes da shadow; rollback faz ordem invers
     if (/kind = \$1 AND status = 'completed'/i.test(sql)) return { rows: [params?.[0] === "validate" ? { operation_id: "verify-ok" } : approvedPreflight()] };
     if (/role_table_grants/i.test(sql)) return { rows: [{ grantee: "ml_app", privilege_type: "SELECT" }] };
     if (/row_count, max\(id\)/i.test(sql)) return { rows: [{ row_count: "2", max_id: "12", max_created_at: "2026-01-01" }] };
+    if (/FROM pg_catalog\.pg_inherits/i.test(sql) && /parent\.relname = \$2/i.test(sql)) {
+      return { rows: [{ relname: "auth_audit_partitioned_new_2026_01" }, { relname: "auth_audit_partitioned_new_default" }] };
+    }
     return { rows: [] };
   });
   const swap = createAuthAuditPartitionCutover({ db: swapDb, env: { AUTH_AUDIT_PARTITION_CONFIRM: "SWAP" }, randomUUID: () => "00000000-0000-4000-8000-000000000099" });
   await swap.swap();
   const swapSql = swapDb.calls.map((call) => call.sql.replace(/\s+/g, " ").trim());
   const lock = swapSql.findIndex((sql) => /LOCK TABLE ml\.auth_audit, ml\.auth_audit_partitioned_new/i.test(sql));
+  const begin = swapSql.findIndex((sql) => sql === "BEGIN");
+  const xactLock = swapSql.findIndex((sql) => /pg_advisory_xact_lock\(hashtext/i.test(sql));
   const oldName = swapSql.findIndex((sql) => /RENAME TO auth_audit_legacy_00000000/i.test(sql));
   const newName = swapSql.findIndex((sql) => /auth_audit_partitioned_new RENAME TO auth_audit/i.test(sql));
+  const childMonth = swapSql.findIndex((sql) => /auth_audit_partitioned_new_2026_01 RENAME TO auth_audit_2026_01/i.test(sql));
+  const childDefault = swapSql.findIndex((sql) => /auth_audit_partitioned_new_default RENAME TO auth_audit_default/i.test(sql));
   const grant = swapSql.findIndex((sql) => /GRANT SELECT ON TABLE ml\.auth_audit_partitioned_new TO "ml_app"/i.test(sql));
-  assert.ok(lock >= 0 && lock < grant && grant < oldName && oldName < newName);
+  assert.ok(begin >= 0 && begin < xactLock && xactLock < lock && lock < grant && grant < childMonth && childMonth < childDefault && childDefault < oldName && oldName < newName);
 
   const rollbackDb = routedDb((sql, params) => {
     if (/kind = \$1 AND status = 'completed'/i.test(sql)) {
@@ -211,6 +256,25 @@ test("swap usa lock e renomeia legacy antes da shadow; rollback faz ordem invers
   const restoreLegacy = rollbackSql.findIndex((sql) => /auth_audit_legacy_[a-f0-9]{12} RENAME TO auth_audit/i.test(sql));
   const activeRead = rollbackSql.findIndex((sql) => /SELECT count\(\*\)::bigint AS row_count, max\(id\)::bigint/i.test(sql));
   assert.ok(rollbackLock >= 0 && rollbackLock < activeRead && activeRead < archivedNew && archivedNew < restoreLegacy);
+});
+
+test("cada comando usa advisory lock de sessao e transacoes usam lock transacional no mesmo client", async () => {
+  const db = routedDb((sql, params) => {
+    if (/kind = \$1 AND status = 'completed'/i.test(sql)) return { rows: [approvedPreflight()] };
+    if (/SELECT min\(created_at\)/i.test(sql)) return { rows: [{ min_created_at: null }] };
+    if (/pg_total_relation_size/i.test(sql)) return { rows: [{ relkind: "r" }] };
+    if (/partition_operations ORDER BY/i.test(sql)) return { rows: [] };
+    return { rows: [] };
+  });
+  const cutover = createAuthAuditPartitionCutover({ db, env: { AUTH_AUDIT_PARTITION_CONFIRM: "SWAP" } });
+  await cutover.status();
+  await cutover.copy({ dryRun: true });
+  const sql = db.calls.map((call) => call.sql.replace(/\s+/g, " ").trim());
+  const sessionLocks = sql.filter((statement) => /pg_advisory_lock\(hashtext/i.test(statement));
+  const sessionUnlocks = sql.filter((statement) => /pg_advisory_unlock\(hashtext/i.test(statement));
+  assert.equal(sessionLocks.length, 2);
+  assert.equal(sessionUnlocks.length, 2);
+  assert.ok(sql.findIndex((statement) => /pg_advisory_lock\(hashtext/i.test(statement)) < sql.findIndex((statement) => /pg_total_relation_size/i.test(statement)));
 });
 
 test("rollback recusa perda de escritas posteriores sem flag literal e registra decisao", async () => {
