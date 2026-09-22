@@ -25,6 +25,7 @@ Commands:
   audit-partition-verify     Compare the legacy table and shadow before a swap.
   audit-partition-swap       Atomically promote the verified shadow; requires SWAP confirmation.
   audit-partition-rollback   Restore the retained legacy table; requires ROLLBACK confirmation.
+  audit-partition-release-legacy  Drop the observed legacy table; requires RELEASE_LEGACY confirmation.
 
 The script never performs import + migration + app cutover in one command.
 TXT
@@ -54,7 +55,21 @@ run_audit_partition_cutover() {
   shift
   validate_cutover_args "$@"
   require_file ./env/seller-ml.env
-  "${BASE[@]}" run --rm --no-deps seller-ml-web node apps/seller-ml/scripts/authAuditPartitionCutover.js "$action" "$@"
+  local name
+  local cutover_env_args=()
+  local -a cutover_env_allowlist=(
+    AUTH_AUDIT_PARTITION_CONFIRM
+    AUTH_AUDIT_PARTITION_BACKUP_RESTORED
+    AUTH_AUDIT_PARTITION_MAINTENANCE_WINDOW
+    AUTH_AUDIT_PARTITION_CAPACITY_CONFIRMED
+    AUTH_AUDIT_PARTITION_AVAILABLE_BYTES
+    AUTH_AUDIT_PARTITION_DISK_PATH
+    AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS
+  )
+  for name in "${cutover_env_allowlist[@]}"; do
+    if [[ -v "$name" ]]; then cutover_env_args+=(-e "$name"); fi
+  done
+  "${BASE[@]}" run --rm --no-deps "${cutover_env_args[@]}" seller-ml-web node apps/seller-ml/scripts/authAuditPartitionCutover.js "$action" "$@"
 }
 
 command="${1:-}"
@@ -132,6 +147,10 @@ case "$command" in
       echo "Rollback may discard writes made after the swap because AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS=YES." >&2
     fi
     run_audit_partition_cutover rollback "$@"
+    ;;
+  audit-partition-release-legacy)
+    require_confirmation RELEASE_LEGACY
+    run_audit_partition_cutover release-legacy "$@"
     ;;
   *) usage; [[ -n "$command" ]] && exit 1 || exit 0 ;;
 esac

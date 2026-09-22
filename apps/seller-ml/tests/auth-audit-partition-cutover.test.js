@@ -6,6 +6,7 @@ const test = require("node:test");
 const {
   createAuthAuditPartitionCutover,
   quoteIdentifier,
+  parseArgs,
 } = require("../scripts/authAuditPartitionCutover");
 
 function queryDb(responses = []) {
@@ -388,4 +389,59 @@ test("rollback bloqueia marker ausente, mas permite o caminho de risco somente c
     env: { AUTH_AUDIT_PARTITION_CONFIRM: "ROLLBACK", AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS: "YES" },
   }).rollback();
   assert.ok(allowedDb.calls.some((call) => /RENAME TO auth_audit_partitioned_failed/i.test(call.sql)));
+});
+
+test("release da legacy exige confirmacao literal, preflight novo e observacao completa de 48 horas", async () => {
+  const db = routedDb((sql, params) => {
+    if (/kind = \$1 AND status = 'completed'/i.test(sql)) {
+      if (params?.[0] === "preflight") return { rows: [{ ...approvedPreflight(), completed_at: "2026-09-22T00:00:00.000Z" }] };
+      if (params?.[0] === "swap") return { rows: [{ operation_id: "swap-ok", completed_at: "2026-09-21T12:00:00.000Z", details: { legacyName: "auth_audit_legacy_000000000099" } }] };
+    }
+    if (/to_regclass\(\$1\)/i.test(sql)) return { rows: [{ exists: true }] };
+    return { rows: [] };
+  });
+
+  const noConfirm = createAuthAuditPartitionCutover({ db, clock: () => new Date("2026-09-23T13:00:00.000Z") });
+  await assert.rejects(() => noConfirm.releaseLegacy(), /AUTH_AUDIT_PARTITION_CONFIRM=RELEASE_LEGACY/i);
+
+  const tooEarly = createAuthAuditPartitionCutover({
+    db,
+    env: { AUTH_AUDIT_PARTITION_CONFIRM: "RELEASE_LEGACY" },
+    clock: () => new Date("2026-09-23T11:59:59.000Z"),
+  });
+  await assert.rejects(() => tooEarly.releaseLegacy(), /48 horas/i);
+  assert.doesNotMatch(db.calls.map((call) => call.sql).join("\n"), /DROP TABLE/i);
+});
+
+test("release da legacy faz drop somente sob lock apos 48 horas e preflight posterior ao swap", async () => {
+  const db = routedDb((sql, params) => {
+    if (/kind = \$1 AND status = 'completed'/i.test(sql)) {
+      if (params?.[0] === "preflight") return { rows: [{ ...approvedPreflight(), completed_at: "2026-09-23T12:30:00.000Z" }] };
+      if (params?.[0] === "swap") return { rows: [{ operation_id: "swap-ok", completed_at: "2026-09-21T12:00:00.000Z", details: { legacyName: "auth_audit_legacy_000000000099" } }] };
+    }
+    if (/to_regclass\(\$1\)/i.test(sql)) return { rows: [{ exists: true }] };
+    if (/relation\.relname = \$2/i.test(sql)) return { rows: [{ relkind: "p" }] };
+    return { rows: [] };
+  });
+  const cutover = createAuthAuditPartitionCutover({
+    db,
+    env: { AUTH_AUDIT_PARTITION_CONFIRM: "RELEASE_LEGACY" },
+    clock: () => new Date("2026-09-23T13:00:00.000Z"),
+    randomUUID: () => "00000000-0000-4000-8000-000000000777",
+  });
+
+  const dryRun = await cutover.releaseLegacy({ dryRun: true });
+  assert.equal(dryRun.dryRun, true);
+  assert.doesNotMatch(db.calls.map((call) => call.sql).join("\n"), /DROP TABLE/i);
+
+  const result = await cutover.releaseLegacy();
+  const sql = db.calls.map((call) => call.sql).join("\n");
+  assert.equal(result.legacyName, "auth_audit_legacy_000000000099");
+  assert.match(sql, /LOCK TABLE ml\.auth_audit, ml\.auth_audit_legacy_000000000099 IN ACCESS EXCLUSIVE MODE/i);
+  assert.match(sql, /DROP TABLE ml\.auth_audit_legacy_000000000099/i);
+  assert.ok(db.calls.some((call) => /auth_audit_partition_operations/i.test(call.sql) && call.params?.[1] === "maintenance"));
+});
+
+test("release legacy e aceito pelo parser do CLI", () => {
+  assert.deepEqual(parseArgs(["release-legacy", "--dry-run"]), { command: "release-legacy", dryRun: true, batchSize: undefined });
 });
