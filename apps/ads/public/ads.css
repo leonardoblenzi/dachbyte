@@ -12,12 +12,14 @@ body.ads-landing { margin:0; background:#071019; color:#f4f6fb; font-family:Inte
 .ads-marketing__panel { border:1px solid #35445b; border-radius:18px; padding:26px; background:linear-gradient(145deg,#111d2d,#0a111b); box-shadow:24px 28px 0 #8b8cff0a; }
 .ads-stat { padding:18px 0; border-bottom:1px solid #2a374a; }.ads-stat:last-child{border-bottom:0}.ads-stat span{color:#8798ad;font-size:12px}.ads-stat strong{display:block;margin-top:5px;font-size:24px}
 .ads-marketing__section { padding:74px 0; border-top:1px solid #273448; }.ads-marketing__section h2{font-size:clamp(30px,4vw,48px);margin:8px 0 14px}.ads-marketing__grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:36px}.ads-marketing__grid article{border:1px solid #2c3a4d;border-radius:12px;padding:24px;background:#0d1723}.ads-marketing__grid h3{margin:8px 0 6px}
+.ads-marketing__mark { display:block; width:86px; height:86px; margin:0 0 18px -10px; object-fit:contain; filter:drop-shadow(0 18px 28px rgba(111,92,255,.28)); }
 @media(max-width:800px){.ads-marketing__hero{grid-template-columns:1fr;min-height:auto;padding-top:34px}.ads-marketing__grid{grid-template-columns:1fr}.ads-marketing{padding-inline:18px}}
 
 /* Entrada própria do DACH Ads: identidade centralizada, experiência dedicada. */
 .ads-auth-page { min-height:100vh; display:grid; place-items:center; padding:28px; background:radial-gradient(circle at top right,#8b8cff22,transparent 35%),#070a12; }
 .ads-auth-card { width:min(100%,480px); padding:42px; border:1px solid #35445b; border-radius:20px; color:#e5ebf4; background:linear-gradient(145deg,#111d2d,#0a111b); box-shadow:24px 28px 0 #8b8cff0a; }
-.ads-auth-card__brand { display:inline-flex; margin-bottom:34px; color:#f7f9fc; font-size:1.1rem; font-weight:950; letter-spacing:-.05em; text-decoration:none; }
+.ads-auth-card__brand { display:inline-flex; align-items:center; gap:7px; margin-bottom:34px; color:#f7f9fc; font-size:1.1rem; font-weight:950; letter-spacing:-.05em; text-decoration:none; }
+.ads-auth-card__brand img { width:36px; height:36px; object-fit:contain; filter:drop-shadow(0 8px 14px rgba(111,92,255,.3)); }
 .ads-auth-card__brand span { margin-left:4px; color:#8b8cff; }
 .ads-auth-card h1 { margin:12px 0; font-size:clamp(2rem,6vw,3.25rem); line-height:1; letter-spacing:-.06em; }
 .ads-auth-card > p:not(.ads-marketing__eyebrow) { margin:0; color:#acb9ca; font-size:.94rem; line-height:1.65; }
