@@ -77,6 +77,18 @@ function createAdsApp() {
     res.status(403).sendFile(path.join(publicRoot, "access-denied.html"));
   });
 
+  const legalPages = {
+    "/ads/privacidade": "privacy.html",
+    "/ads/termos": "terms.html",
+    "/ads/exclusao-de-dados": "data-deletion.html",
+  };
+  for (const [route, file] of Object.entries(legalPages)) {
+    app.get(route, (_req, res) => {
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.sendFile(path.join(publicRoot, file));
+    });
+  }
+
   app.get("/ads/api/session", protectedRoute, (req, res) => {
     res.json({ success: true, identity: req.adsIdentity });
   });
