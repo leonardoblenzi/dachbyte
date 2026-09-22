@@ -47,14 +47,34 @@ function normalizeCount(value) {
 function normalizeAggregate(row = {}) {
   return {
     count: String(row.count ?? "0"),
+    minId: row.min_id === null || row.min_id === undefined ? null : String(row.min_id),
+    maxId: row.max_id === null || row.max_id === undefined ? null : String(row.max_id),
     minCreatedAt: row.min_created_at ? new Date(row.min_created_at).toISOString() : null,
     maxCreatedAt: row.max_created_at ? new Date(row.max_created_at).toISOString() : null,
+  };
+}
+
+function normalizeMarker(row = {}) {
+  return {
+    rowCount: normalizeCount(row.row_count),
+    maxId: row.max_id === null || row.max_id === undefined ? null : String(row.max_id),
+    maxCreatedAt: row.max_created_at ? new Date(row.max_created_at).toISOString() : null,
+  };
+}
+
+function operationApprovalFromEnv(env) {
+  return {
+    backupRestored: env.AUTH_AUDIT_PARTITION_BACKUP_RESTORED === "YES",
+    maintenanceWindow: env.AUTH_AUDIT_PARTITION_MAINTENANCE_WINDOW === "YES",
+    capacityConfirmed: env.AUTH_AUDIT_PARTITION_CAPACITY_CONFIRMED === "YES",
+    availableBytes: normalizeCount(env.AUTH_AUDIT_PARTITION_AVAILABLE_BYTES),
   };
 }
 
 function stableRows(rows) {
   return (rows || []).map((row) => ({
     monthStart: row.month_start ? new Date(row.month_start).toISOString() : null,
+    evento: String(row.evento ?? ""),
     count: String(row.row_count ?? "0"),
     checksum: String(row.checksum ?? ""),
   }));
@@ -143,6 +163,9 @@ function createAuthAuditPartitionCutover({
   async function requirePreflight() {
     const operation = await latestCompleted("preflight");
     if (!operation) throw new Error("Preflight valido obrigatorio antes desta acao.");
+    if (operation.details?.operationalApproval?.approved !== true) {
+      throw new Error("Preflight sem aprovacao operacional: backup/restore, janela e capacidade devem estar confirmados.");
+    }
     return operation;
   }
 
@@ -159,25 +182,136 @@ function createAuthAuditPartitionCutover({
     return result.rows?.[0] || null;
   }
 
-  async function preflight() {
+  async function inspectShape(tableName) {
+    const result = await db.query(`
+      SELECT attribute.attname,
+             attribute.atttypid::regtype::text AS data_type,
+             attribute.attnotnull,
+             pg_get_expr(default_value.adbin, default_value.adrelid) AS default_expression
+        FROM pg_catalog.pg_attribute attribute
+        JOIN pg_catalog.pg_class relation ON relation.oid = attribute.attrelid
+        JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
+        LEFT JOIN pg_catalog.pg_attrdef default_value
+          ON default_value.adrelid = attribute.attrelid AND default_value.adnum = attribute.attnum
+       WHERE namespace.nspname = $1 AND relation.relname = $2
+         AND attribute.attnum > 0 AND NOT attribute.attisdropped
+       ORDER BY attribute.attnum`, [SCHEMA, tableName]);
+    return result.rows || [];
+  }
+
+  async function inspectForeignKeys(tableName) {
+    const result = await db.query(`
+      SELECT constraint_row.conname,
+             target_namespace.nspname AS target_schema,
+             target_relation.relname AS target_table,
+             constraint_row.confdeltype AS delete_type
+        FROM pg_catalog.pg_constraint constraint_row
+        JOIN pg_catalog.pg_class relation ON relation.oid = constraint_row.conrelid
+        JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
+        LEFT JOIN pg_catalog.pg_class target_relation ON target_relation.oid = constraint_row.confrelid
+        LEFT JOIN pg_catalog.pg_namespace target_namespace ON target_namespace.oid = target_relation.relnamespace
+       WHERE namespace.nspname = $1 AND relation.relname = $2 AND constraint_row.contype = 'f'
+       ORDER BY constraint_row.conname`, [SCHEMA, tableName]);
+    return result.rows || [];
+  }
+
+  async function inspectIncomingForeignKeys() {
+    const result = await db.query(`
+      SELECT constraint_row.conname, source_namespace.nspname AS source_schema, source_relation.relname AS source_table
+        FROM pg_catalog.pg_constraint constraint_row
+        JOIN pg_catalog.pg_class source_relation ON source_relation.oid = constraint_row.conrelid
+        JOIN pg_catalog.pg_namespace source_namespace ON source_namespace.oid = source_relation.relnamespace
+       WHERE constraint_row.confrelid = 'ml.auth_audit'::regclass AND constraint_row.contype = 'f'
+       ORDER BY constraint_row.conname`);
+    return result.rows || [];
+  }
+
+  async function inspectGrants(tableName) {
+    const result = await db.query(`
+      SELECT grantee, privilege_type
+        FROM information_schema.role_table_grants
+       WHERE table_schema = $1 AND table_name = $2
+       ORDER BY grantee, privilege_type`, [SCHEMA, tableName]);
+    return result.rows || [];
+  }
+
+  function quoteRole(role) {
+    const value = String(role || "");
+    if (value === "PUBLIC") return "PUBLIC";
+    if (!value || /[\u0000-\u001F]/.test(value)) throw new Error("Role de grant invalida.");
+    return `"${value.replaceAll('"', '""')}"`;
+  }
+
+  async function copyLegacyGrants(executor, grants) {
+    const supported = new Set(["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"]);
+    for (const grant of grants) {
+      const privilege = String(grant.privilege_type || "").toUpperCase();
+      if (!supported.has(privilege)) throw new Error("Privilegio de grant invalido.");
+      await executor.query(`GRANT ${privilege} ON TABLE ml.${SHADOW_TABLE} TO ${quoteRole(grant.grantee)}`);
+    }
+  }
+
+  function hasExpectedShape(columns, foreignKeys) {
+    const expected = new Map([
+      ["id", { type: "bigint", required: true, default: /nextval/i }],
+      ["user_id", { type: "bigint" }], ["email", { type: "text" }],
+      ["evento", { type: "text", required: true }], ["status", { type: "text", required: true, default: /info/i }],
+      ["ip", { type: "text" }], ["user_agent", { type: "text" }], ["metadata", { type: "jsonb" }],
+      ["created_at", { type: "timestamp with time zone", required: true, default: /now\(\)/i }],
+      ["empresa_id", { type: "bigint" }], ["meli_conta_id", { type: "bigint" }],
+    ]);
+    const byName = new Map(columns.map((column) => [column.attname, column]));
+    for (const [name, shape] of expected) {
+      const column = byName.get(name);
+      if (!column || column.data_type !== shape.type) return false;
+      if (shape.required && column.attnotnull !== true) return false;
+      if (shape.default && !shape.default.test(String(column.default_expression || ""))) return false;
+    }
+    const targets = new Map(foreignKeys.map((key) => [key.target_table, key.delete_type]));
+    return targets.get("usuarios") === "n" && targets.get("empresas") === "c" && targets.get("meli_contas") === "c";
+  }
+
+  async function preflight({ operationalApproval = operationApprovalFromEnv(env) } = {}) {
     const operationId = randomUUID();
     try {
-      const [legacy, ledger, disk] = await Promise.all([
+      const [legacy, ledger, disk, columns, foreignKeys, incomingForeignKeys, grants] = await Promise.all([
         inspectLegacy(),
         db.query("SELECT to_regclass('ml.auth_audit_partition_operations') IS NOT NULL AS exists"),
         db.query("SELECT current_setting('data_directory', true) AS data_directory"),
+        inspectShape(LEGACY_TABLE),
+        inspectForeignKeys(LEGACY_TABLE),
+        inspectIncomingForeignKeys(),
+        inspectGrants(LEGACY_TABLE),
       ]);
       const table = legacy;
+      const requiredBytes = normalizeCount(table?.bytes) * 2;
+      const capacityMeasured = normalizeCount(operationalApproval.availableBytes);
+      const capacityEnough = capacityMeasured > 0 ? capacityMeasured >= requiredBytes : null;
+      const operational = {
+        backupRestored: operationalApproval.backupRestored === true,
+        maintenanceWindow: operationalApproval.maintenanceWindow === true,
+        capacityConfirmed: operationalApproval.capacityConfirmed === true,
+        availableBytes: capacityMeasured || null,
+        requiredBytes,
+        capacityEnough,
+      };
+      operational.approved = operational.backupRestored
+        && operational.maintenanceWindow
+        && operational.capacityConfirmed
+        && capacityEnough !== false;
       const checklist = [
         { id: "legacy_table", ok: Boolean(table), detail: table ? `relkind=${table.relkind}` : "ml.auth_audit ausente" },
         { id: "legacy_shape", ok: table?.relkind === "r", detail: "cutover requer tabela legacy regular" },
         { id: "partition_ledger", ok: ledger.rows?.[0]?.exists === true, detail: "migration 072 deve estar aplicada" },
-        { id: "free_space", ok: false, detail: "confirmar espaco livre externamente (df/console do provedor) para copia integral antes da janela" },
-        { id: "backup_restore", ok: false, detail: "exigir backup Restic/R2 recente e restore testado antes do swap" },
-        { id: "maintenance_window", ok: false, detail: "parar somente web/worker externamente na janela; este CLI nao para containers" },
+        { id: "column_shape", ok: hasExpectedShape(columns, foreignKeys), detail: "colunas/defaults e FKs de saida devem corresponder ao audit atual" },
+        { id: "incoming_foreign_keys", ok: incomingForeignKeys.length === 0, detail: incomingForeignKeys.length ? "existem FKs que apontam para auth_audit; tratar antes do cutover" : "nenhuma FK aponta para auth_audit" },
+        { id: "grants", ok: true, detail: `${grants.length} grant(s) explicito(s) serao copiados para a shadow` },
+        { id: "free_space", ok: operational.capacityConfirmed && capacityEnough !== false, detail: "capacidade deve ser confirmada externamente; informe bytes quando disponivel" },
+        { id: "backup_restore", ok: operational.backupRestored, detail: "backup Restic/R2 recente e restore testado devem ser afirmados na operacao" },
+        { id: "maintenance_window", ok: operational.maintenanceWindow, detail: "janela com web/worker parados externamente deve ser afirmada na operacao" },
       ];
       const result = {
-        ok: checklist.slice(0, 3).every((item) => item.ok),
+        ok: checklist.every((item) => item.ok),
         checklist,
         legacy: table && {
           relkind: table.relkind,
@@ -187,11 +321,14 @@ function createAuthAuditPartitionCutover({
           maxCreatedAt: table.max_created_at || null,
         },
         dataDirectory: disk.rows?.[0]?.data_directory || null,
+        operationalApproval: operational,
+        incomingForeignKeys,
+        legacyGrants: grants,
       };
       if (ledger.rows?.[0]?.exists === true) {
         await recordOperation({ operationId, kind: "preflight", status: result.ok ? "completed" : "failed", details: result });
       }
-      if (!result.ok) throw new Error("Preflight invalido: confira tabela legacy e migration 072.");
+      if (!result.ok) throw new Error("Preflight invalido: confira schema, FKs, capacidade, backup/restore e janela de manutencao.");
       return result;
     } catch (error) {
       await failOperation(operationId, "preflight", error);
@@ -282,11 +419,11 @@ function createAuthAuditPartitionCutover({
   async function verify() {
     const operationId = randomUUID();
     try {
-      const [legacy, shadow, legacyMonths, shadowMonths, shape] = await Promise.all([
-        db.query("SELECT count(*)::bigint AS count, min(created_at) AS min_created_at, max(created_at) AS max_created_at FROM ml.auth_audit"),
-        db.query(`SELECT count(*)::bigint AS count, min(created_at) AS min_created_at, max(created_at) AS max_created_at FROM ml.${SHADOW_TABLE}`),
-        db.query("SELECT date_trunc('month', created_at AT TIME ZONE 'UTC') AS month_start, count(*)::bigint AS row_count, COALESCE(sum(hashtextextended(concat_ws('|', id, created_at, evento, status), 0)::numeric), 0)::text AS checksum FROM ml.auth_audit GROUP BY 1 ORDER BY 1"),
-        db.query(`SELECT date_trunc('month', created_at AT TIME ZONE 'UTC') AS month_start, count(*)::bigint AS row_count, COALESCE(sum(hashtextextended(concat_ws('|', id, created_at, evento, status), 0)::numeric), 0)::text AS checksum FROM ml.${SHADOW_TABLE} GROUP BY 1 ORDER BY 1`),
+      const [legacy, shadow, legacyMonths, shadowMonths, shape, shadowColumns, shadowForeignKeys, defaultPartition, legacyGrants, shadowGrants] = await Promise.all([
+        db.query("SELECT count(*)::bigint AS count, min(id)::bigint AS min_id, max(id)::bigint AS max_id, min(created_at) AS min_created_at, max(created_at) AS max_created_at FROM ml.auth_audit"),
+        db.query(`SELECT count(*)::bigint AS count, min(id)::bigint AS min_id, max(id)::bigint AS max_id, min(created_at) AS min_created_at, max(created_at) AS max_created_at FROM ml.${SHADOW_TABLE}`),
+        db.query("SELECT date_trunc('month', created_at AT TIME ZONE 'UTC') AS month_start, evento, count(*)::bigint AS row_count, COALESCE(sum(hashtextextended(concat_ws('|', id, created_at, evento, status), 0)::numeric), 0)::text AS checksum FROM ml.auth_audit GROUP BY 1, 2 ORDER BY 1, 2"),
+        db.query(`SELECT date_trunc('month', created_at AT TIME ZONE 'UTC') AS month_start, evento, count(*)::bigint AS row_count, COALESCE(sum(hashtextextended(concat_ws('|', id, created_at, evento, status), 0)::numeric), 0)::text AS checksum FROM ml.${SHADOW_TABLE} GROUP BY 1, 2 ORDER BY 1, 2`),
         db.query(`SELECT parent.relkind, pg_get_partkeydef(parent.oid) AS partkey,
           (SELECT string_agg(attribute.attname, ', ' ORDER BY key.ordinality)
              FROM pg_constraint constraint_row
@@ -294,14 +431,29 @@ function createAuthAuditPartitionCutover({
              JOIN pg_attribute attribute ON attribute.attrelid = parent.oid AND attribute.attnum = key.attnum
             WHERE constraint_row.conrelid = parent.oid AND constraint_row.contype = 'p') AS primary_key,
           (SELECT count(*)::bigint FROM pg_inherits inheritance WHERE inheritance.inhparent = parent.oid) AS partitions
-          FROM pg_class parent JOIN pg_namespace namespace ON namespace.oid = parent.relnamespace
+         FROM pg_class parent JOIN pg_namespace namespace ON namespace.oid = parent.relnamespace
          WHERE namespace.nspname = $1 AND parent.relname = $2`, [SCHEMA, SHADOW_TABLE]),
+        inspectShape(SHADOW_TABLE),
+        inspectForeignKeys(SHADOW_TABLE),
+        db.query(`SELECT child.relname, pg_get_expr(child.relpartbound, child.oid) AS bound,
+                 (SELECT count(*)::bigint FROM ml.${DEFAULT_PARTITION}) AS row_count
+            FROM pg_catalog.pg_inherits inheritance
+            JOIN pg_catalog.pg_class parent ON parent.oid = inheritance.inhparent
+            JOIN pg_catalog.pg_namespace namespace ON namespace.oid = parent.relnamespace
+            JOIN pg_catalog.pg_class child ON child.oid = inheritance.inhrelid
+           WHERE namespace.nspname = $1 AND parent.relname = $2 AND child.relname = $3`, [SCHEMA, SHADOW_TABLE, DEFAULT_PARTITION]),
+        inspectGrants(LEGACY_TABLE),
+        inspectGrants(SHADOW_TABLE),
       ]);
       const mismatches = [];
       if (JSON.stringify(normalizeAggregate(legacy.rows?.[0])) !== JSON.stringify(normalizeAggregate(shadow.rows?.[0]))) mismatches.push("aggregate");
       if (JSON.stringify(stableRows(legacyMonths.rows)) !== JSON.stringify(stableRows(shadowMonths.rows))) mismatches.push("monthly_checksum");
       const schema = shape.rows?.[0] || {};
       if (schema.relkind !== "p" || !/created_at/i.test(String(schema.partkey)) || !/created_at\s*,\s*id/i.test(String(schema.primary_key)) || normalizeCount(schema.partitions) < 2) mismatches.push("partition_shape");
+      if (!hasExpectedShape(shadowColumns, shadowForeignKeys)) mismatches.push("column_or_foreign_key_shape");
+      const defaultRow = defaultPartition.rows?.[0] || {};
+      if (defaultRow.relname !== DEFAULT_PARTITION || !/DEFAULT/i.test(String(defaultRow.bound || "")) || normalizeCount(defaultRow.row_count) !== 0) mismatches.push("default_partition");
+      if (JSON.stringify(legacyGrants) !== JSON.stringify(shadowGrants)) mismatches.push("grants");
       const outcome = { ok: mismatches.length === 0, mismatches, legacy: normalizeAggregate(legacy.rows?.[0]), shadow: normalizeAggregate(shadow.rows?.[0]) };
       await recordOperation({ operationId, kind: "validate", status: outcome.ok ? "completed" : "failed", details: outcome });
       if (!outcome.ok) throw new Error(`Verificacao encontrou divergencia: ${mismatches.join(", ")}.`);
@@ -328,13 +480,17 @@ function createAuthAuditPartitionCutover({
     const legacyName = `auth_audit_legacy_${suffix}`;
     try {
       await recordOperation({ operationId, kind: "swap", status: "started", details: { legacyName } });
-      await transaction(async (client) => {
+      const legacyGrants = await inspectGrants(LEGACY_TABLE);
+      const marker = await transaction(async (client) => {
         await client.query(`LOCK TABLE ml.${LEGACY_TABLE}, ml.${SHADOW_TABLE} IN ACCESS EXCLUSIVE MODE`);
+        await copyLegacyGrants(client, legacyGrants);
+        const markerResult = await client.query(`SELECT count(*)::bigint AS row_count, max(id)::bigint AS max_id, max(created_at) AS max_created_at FROM ml.${SHADOW_TABLE}`);
         await client.query(`ALTER TABLE ml.${LEGACY_TABLE} RENAME TO ${legacyName}`);
         await client.query(`ALTER TABLE ml.${SHADOW_TABLE} RENAME TO ${LEGACY_TABLE}`);
         await client.query(`ALTER SEQUENCE ml.auth_audit_id_seq OWNED BY ml.${LEGACY_TABLE}.id`);
+        return normalizeMarker(markerResult.rows?.[0]);
       });
-      const outcome = { legacyName };
+      const outcome = { legacyName, marker, grantsCopied: legacyGrants.length };
       await recordOperation({ operationId, kind: "swap", status: "completed", details: outcome });
       return outcome;
     } catch (error) {
@@ -367,14 +523,29 @@ function createAuthAuditPartitionCutover({
     const suffix = operationId.replace(/-/g, "").slice(0, 12).toLowerCase();
     const failedName = `auth_audit_partitioned_failed_${suffix}`;
     try {
-      await recordOperation({ operationId, kind: "rollback", status: "started", details: { legacyName: resolvedLegacy, failedName } });
+      const latestSwap = await latestCompleted("swap");
+      const marker = latestSwap?.details?.legacyName === resolvedLegacy ? latestSwap.details.marker : null;
+      const activeRows = await db.query(`SELECT count(*)::bigint AS row_count, max(id)::bigint AS max_id, max(created_at) AS max_created_at FROM ml.${LEGACY_TABLE}`);
+      const activeMarker = normalizeMarker(activeRows.rows?.[0]);
+      const postSwapWrites = Boolean(marker && (
+        activeMarker.rowCount > normalizeCount(marker.rowCount)
+        || (marker.maxId !== null && activeMarker.maxId !== null && BigInt(activeMarker.maxId) > BigInt(marker.maxId))
+        || (marker.maxCreatedAt !== null && activeMarker.maxCreatedAt !== null && activeMarker.maxCreatedAt > marker.maxCreatedAt)
+      ));
+      const allowDataLoss = env.AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS === "YES";
+      const risk = { marker, activeMarker, postSwapWrites, allowDataLoss };
+      if (postSwapWrites && !allowDataLoss) {
+        await recordOperation({ operationId, kind: "rollback", status: "skipped", details: { legacyName: resolvedLegacy, failedName, risk, decision: "refused_post_swap_writes" } });
+        throw new Error("Rollback recusado: existem escritas apos o swap. Defina AUTH_AUDIT_PARTITION_ALLOW_DATA_LOSS=YES somente se aceitar perde-las.");
+      }
+      await recordOperation({ operationId, kind: "rollback", status: "started", details: { legacyName: resolvedLegacy, failedName, risk } });
       await transaction(async (client) => {
         await client.query(`LOCK TABLE ml.${LEGACY_TABLE}, ${legacy} IN ACCESS EXCLUSIVE MODE`);
         await client.query(`ALTER TABLE ml.${LEGACY_TABLE} RENAME TO ${failedName}`);
         await client.query(`ALTER TABLE ${legacy} RENAME TO ${LEGACY_TABLE}`);
         await client.query(`ALTER SEQUENCE ml.auth_audit_id_seq OWNED BY ml.${LEGACY_TABLE}.id`);
       });
-      const outcome = { legacyName: resolvedLegacy, failedName };
+      const outcome = { legacyName: resolvedLegacy, failedName, risk };
       await recordOperation({ operationId, kind: "rollback", status: "completed", details: outcome });
       return outcome;
     } catch (error) {
@@ -392,7 +563,22 @@ function createAuthAuditPartitionCutover({
        WHERE namespace.nspname = $1 AND relation.relname = $2`, [SCHEMA, SHADOW_TABLE]),
       db.query("SELECT operation_id, kind, status, details, started_at, completed_at FROM ml.auth_audit_partition_operations ORDER BY created_at DESC LIMIT 20"),
     ]);
-    return { legacy, shadow: shadow.rows?.[0] || null, operations: operations.rows || [] };
+    const history = operations.rows || [];
+    const preflight = history.find((operation) => operation.kind === "preflight") || null;
+    const approval = preflight?.details?.operationalApproval || null;
+    const missingOperationalApprovals = approval ? [
+      !approval.backupRestored && "backup_restore",
+      !approval.maintenanceWindow && "maintenance_window",
+      !approval.capacityConfirmed && "free_space",
+      approval.capacityEnough === false && "capacity_insufficient",
+    ].filter(Boolean) : ["preflight_required"];
+    return {
+      legacy,
+      shadow: shadow.rows?.[0] || null,
+      preflight,
+      missingOperationalApprovals,
+      operations: history,
+    };
   }
 
   return { status, preflight, copy, verify, swap, rollback, recordOperation };
@@ -405,7 +591,9 @@ async function main() {
   }
   const db = require("../db/db");
   const cutover = createAuthAuditPartitionCutover({ db });
-  const result = await cutover[command]({ dryRun, batchSize });
+  const result = command === "preflight"
+    ? await cutover.preflight({ operationalApproval: operationApprovalFromEnv(process.env) })
+    : await cutover[command]({ dryRun, batchSize });
   loggerOutput(result);
 }
 
