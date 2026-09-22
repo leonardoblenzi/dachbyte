@@ -238,7 +238,14 @@ function createCompanyDeletionService({ db, activeJobs, randomUUID } = {}) {
     const queryText = String(search || "").trim();
     if (queryText) add("(cast(deleted_empresa_id as text) ilike ? or coalesce(empresa_nome, '') ilike ?)", [`%${queryText}%`, `%${queryText}%`]);
     if (from) add("deleted_at >= ?::timestamptz", String(from));
-    if (to) add("deleted_at <= ?::timestamptz", String(to));
+    if (to) {
+      const toValue = String(to);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(toValue)) {
+        add("deleted_at < (?::date + interval '1 day')", toValue);
+      } else {
+        add("deleted_at <= ?::timestamptz", toValue);
+      }
+    }
     if (operator) add("(cast(actor_user_id as text) = ? or coalesce(actor_email, '') ilike ?)", [String(operator), String(operator)]);
     const where = filters.length ? ` where ${filters.join(" and ")}` : "";
     const count = await db.query(`select count(*)::bigint as total from ml.company_deletion_receipts${where}`, params);

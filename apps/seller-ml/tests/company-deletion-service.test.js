@@ -160,3 +160,18 @@ test("lista recibos com filtros parametrizados e paginação limitada", async ()
   assert.match(countCall.sql, /\$1/);
   assert.deepEqual(countCall.params, ["%Empresa%", "%Empresa%", "2026-01-01", "2026-12-31", "admin@example.com", "admin@example.com"]);
 });
+
+test("lista recibos inclui todo o dia final quando o filtro to usa somente data", async () => {
+  const db = createDb((sql) => {
+    if (/select count\(\*\).*company_deletion_receipts/is.test(sql)) return queryResult([{ total: "0" }]);
+    if (/from ml\.company_deletion_receipts/i.test(sql)) return queryResult([]);
+    throw new Error(`Consulta inesperada: ${sql}`);
+  });
+  const service = createCompanyDeletionService({ db, activeJobs: { checkCompanyActiveJobs: async () => ({}) } });
+
+  await service.listDeletionReceipts({ to: "2026-12-31" });
+
+  const countCall = db.calls.find((call) => /select count\(\*\).*company_deletion_receipts/is.test(call.sql));
+  assert.match(countCall.sql, /deleted_at < \(\$1::date \+ interval '1 day'\)/i);
+  assert.deepEqual(countCall.params, ["2026-12-31"]);
+});
