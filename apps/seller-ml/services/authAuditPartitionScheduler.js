@@ -50,11 +50,12 @@ function createAuthAuditPartitionScheduler({
 
       const ensured = await partitionService.ensurePartitions();
       const drained = await partitionService.drainDefaultPartition();
-      // pruneExpiredPartitions reutiliza cleanupAuthAudit injetado no servico e, sem
-      // confirmDrop, somente identifica particoes elegiveis: nunca remove dados no startup.
+      // pruneExpiredPartitions executa a limpeza normal pelas regras de retencao configuradas.
+      // Sem confirmDrop, a etapa posterior apenas identifica particoes elegiveis: DETACH/DROP
+      // de particao nunca ocorre pelo scheduler de startup.
       const pruned = await partitionService.pruneExpiredPartitions({ confirmDrop: false });
       const verification = await partitionService.verifyPartitionedAudit();
-      logger.info?.("[AuthAuditPartition] Manutencao concluida em dry-run.");
+      logger.info?.("[AuthAuditPartition] Limpeza de retencao aplicada; remocao de particoes permanece em dry-run.");
       return {
         skipped: false,
         ensured,
@@ -91,7 +92,7 @@ function createAuthAuditPartitionScheduler({
     if (!timer) {
       timer = setIntervalFn(() => void run(), config.intervalMs);
       if (typeof timer?.unref === "function") timer.unref();
-      logger.info?.("[AuthAuditPartition] Scheduler de manutencao ativo em dry-run.");
+      logger.info?.("[AuthAuditPartition] Scheduler ativo: retencao configurada e aplicada; remocao de particoes em dry-run.");
     }
     return { enabled: true, intervalMs: config.intervalMs, initialRun: run(), stop };
   }

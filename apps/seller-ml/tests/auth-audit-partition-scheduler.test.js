@@ -49,16 +49,19 @@ test("antes do corte registra skip e nao executa mutacoes", async () => {
   assert.match(String(logs[0][0]), /ainda nao esta particionada/i);
 });
 
-test("pos-corte garante, drena, limpa via prune dry-run e verifica na ordem", async () => {
+test("pos-corte aplica retencao configurada, mantem remocao de particoes em dry-run e verifica na ordem", async () => {
   const calls = [];
+  const logs = [];
   const scheduler = createAuthAuditPartitionScheduler({
     service: partitionedService(calls),
-    logger: { info() {}, error() {} },
+    logger: { info: (...args) => logs.push(args), error() {} },
   });
 
   const result = await scheduler.run();
   assert.equal(result.skipped, false);
   assert.deepEqual(calls, ["inspect", "ensure", "drain", ["prune", { confirmDrop: false }], "verify"]);
+  assert.match(String(logs[0][0]), /Limpeza de retencao aplicada/i);
+  assert.match(String(logs[0][0]), /remocao de particoes permanece em dry-run/i);
 });
 
 test("falhas nao escapam do scheduler e a proxima tentativa continua possivel", async () => {
