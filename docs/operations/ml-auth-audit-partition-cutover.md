@@ -32,6 +32,10 @@ AUTH_AUDIT_PARTITION_AVAILABLE_BYTES=<bytes_livres_medidos> \
 ./business-db-ops.sh audit-partition-preflight
 ```
 
+Em uma janela de teste explicitamente autorizada sem backup, substitua somente a afirmação
+`AUTH_AUDIT_PARTITION_BACKUP_RESTORED=YES` por `AUTH_AUDIT_PARTITION_ALLOW_NO_BACKUP=YES`.
+Essa exceção fica gravada no ledger da operação; nunca use as duas variáveis ao mesmo tempo.
+
 O status e o preflight são gates: não avance se algum checklist falhar. Para conferir comandos sem escrita, acrescente `--dry-run`, por exemplo `./business-db-ops.sh audit-partition-swap --dry-run` (a confirmação continua obrigatória para swap/rollback).
 
 Depois do preflight aprovado, anuncie a manutenção, espere os jobs Seller/ML concluírem e pare somente os serviços que escrevem auditoria. PostgreSQL, Redis e proxy permanecem de pé:

@@ -78,6 +78,7 @@ function normalizeMarker(row = {}) {
 function operationApprovalFromEnv(env) {
   return {
     backupRestored: env.AUTH_AUDIT_PARTITION_BACKUP_RESTORED === "YES",
+    allowNoBackup: env.AUTH_AUDIT_PARTITION_ALLOW_NO_BACKUP === "YES",
     maintenanceWindow: env.AUTH_AUDIT_PARTITION_MAINTENANCE_WINDOW === "YES",
     capacityConfirmed: env.AUTH_AUDIT_PARTITION_CAPACITY_CONFIRMED === "YES",
     availableBytes: normalizeCount(env.AUTH_AUDIT_PARTITION_AVAILABLE_BYTES),
@@ -361,6 +362,7 @@ function createAuthAuditPartitionCutover({
       const capacityEnough = capacityMeasured > 0 ? capacityMeasured >= requiredBytes : null;
       const operational = {
         backupRestored: operationalApproval.backupRestored === true,
+        noBackupAuthorized: operationalApproval.allowNoBackup === true,
         maintenanceWindow: operationalApproval.maintenanceWindow === true,
         capacityConfirmed: operationalApproval.capacityConfirmed === true,
         availableBytes: capacityMeasured || null,
@@ -368,7 +370,10 @@ function createAuthAuditPartitionCutover({
         requiredBytes,
         capacityEnough,
       };
-      operational.approved = operational.backupRestored
+      operational.backupMode = operational.backupRestored
+        ? "backup_restored"
+        : (operational.noBackupAuthorized ? "explicit_no_backup" : "missing");
+      operational.approved = (operational.backupRestored || operational.noBackupAuthorized)
         && operational.maintenanceWindow
         && operational.capacityConfirmed
         && capacityEnough === true;
@@ -380,7 +385,15 @@ function createAuthAuditPartitionCutover({
         { id: "incoming_foreign_keys", ok: incomingForeignKeys.length === 0, detail: incomingForeignKeys.length ? "existem FKs que apontam para auth_audit; tratar antes do cutover" : "nenhuma FK aponta para auth_audit" },
         { id: "grants", ok: true, detail: `${grants.length} grant(s) explicito(s) serao copiados para a shadow` },
         { id: "free_space", ok: operational.capacityConfirmed && capacityEnough === true, detail: "exige bytes livres medidos (statfs) ou override explicito validado contra estimativa com margem" },
-        { id: "backup_restore", ok: operational.backupRestored, detail: "backup Restic/R2 recente e restore testado devem ser afirmados na operacao" },
+        {
+          id: "backup_restore",
+          ok: operational.backupRestored || operational.noBackupAuthorized,
+          detail: operational.backupRestored
+            ? "backup Restic/R2 recente e restore testado foram afirmados na operacao"
+            : (operational.noBackupAuthorized
+              ? "execucao explicitamente autorizada sem backup; o risco foi registrado no ledger"
+              : "backup Restic/R2 recente e restore testado devem ser afirmados na operacao"),
+        },
         { id: "maintenance_window", ok: operational.maintenanceWindow, detail: "janela com web/worker parados externamente deve ser afirmada na operacao" },
       ];
       const result = {
@@ -980,7 +993,7 @@ function createAuthAuditPartitionCutover({
     const preflight = history.find((operation) => operation.kind === "preflight") || null;
     const approval = preflight?.details?.operationalApproval || null;
     const missingOperationalApprovals = approval ? [
-      !approval.backupRestored && "backup_restore",
+      !approval.backupRestored && !approval.noBackupAuthorized && "backup_restore",
       !approval.maintenanceWindow && "maintenance_window",
       !approval.capacityConfirmed && "free_space",
       approval.capacityEnough === false && "capacity_insufficient",

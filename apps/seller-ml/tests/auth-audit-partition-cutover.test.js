@@ -98,6 +98,27 @@ test("preflight e somente leitura, registra checklist e libera acoes seguintes",
   assert.equal(result.operationalApproval.approved, true);
 });
 
+test("preflight permite excecao explicita sem backup e registra o risco", async () => {
+  const db = queryDb(healthyPreflightResponses());
+  const cutover = createAuthAuditPartitionCutover({ db });
+
+  const result = await cutover.preflight({
+    operationalApproval: {
+      backupRestored: false,
+      allowNoBackup: true,
+      maintenanceWindow: true,
+      capacityConfirmed: true,
+      availableBytes: 999999999,
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.operationalApproval.backupRestored, false);
+  assert.equal(result.operationalApproval.noBackupAuthorized, true);
+  assert.equal(result.operationalApproval.backupMode, "explicit_no_backup");
+  assert.match(JSON.stringify(result.checklist), /sem backup; o risco foi registrado no ledger/i);
+});
+
 test("preflight exige capacidade mensurada ou override numerico suficiente", async () => {
   const noCapacityDb = queryDb(healthyPreflightResponses());
   const noCapacity = createAuthAuditPartitionCutover({
