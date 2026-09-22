@@ -5,8 +5,8 @@ const crypto = require("crypto");
 const db = require("../db/db");
 const { createAuditAction } = require("../middleware/auditAction");
 const { adminWriteRateLimiter } = require("../middleware/security");
-
-const router = express.Router();
+const { createCompanyDeletionService } = require("../services/companyDeletionService");
+const { createCompanyActiveJobsService } = require("../services/companyActiveJobsService");
 
 function ensureMasterOnly(req, res, next) {
   const u = req.user || res.locals.user;
@@ -50,70 +50,68 @@ function validateDocument(documentType, documentNumber) {
   }
 }
 
-router.use(ensureMasterOnly);
+function companyDeletionErrorStatus(error) {
+  if (error?.code === "INVALID_COMPANY_ID") return 400;
+  if (error?.code === "COMPANY_NOT_FOUND") return 404;
+  if (error?.code === "COMPANY_DELETION_BLOCKED") return 409;
+  return 500;
+}
 
-async function getCompanyDeleteImpact(client, id) {
-  const company = await client.query(
-    `select id, nome, document_type, document_number, tenant_global_id
-       from empresas
-      where id = $1
-      limit 1`,
-    [id],
-  );
-
-  if (!company.rows[0]) return null;
-
-  const users = await client.query(
-    `select
-       u.id,
-       u.nome,
-       u.email,
-       u.nivel,
-       count(eu_all.empresa_id)::int as empresas_count
-     from empresa_usuarios eu
-     join usuarios u on u.id = eu.usuario_id
-     left join empresa_usuarios eu_all on eu_all.usuario_id = u.id
-     where eu.empresa_id = $1
-     group by u.id, u.nome, u.email, u.nivel
-     order by u.nome nulls last, u.email asc, u.id asc`,
-    [id],
-  );
-
-  const accounts = await client.query(
-    `select id, apelido, meli_user_id, status
-       from meli_contas
-      where empresa_id = $1
-      order by id asc`,
-    [id],
-  );
-
-  const usuarios = users.rows || [];
-  const usuariosExcluidos = usuarios.filter((user) => {
-    const nivel = String(user.nivel || "").trim().toLowerCase();
-    return nivel !== "admin_master" && Number(user.empresas_count || 0) <= 1;
-  });
-  const usuariosDesvinculados = usuarios.filter(
-    (user) => !usuariosExcluidos.some((deleted) => Number(deleted.id) === Number(user.id)),
-  );
-
+function parseReceiptFilters(query = {}) {
+  const parsePositiveInteger = (value, fallback, label) => {
+    if (value === undefined || value === null || String(value).trim() === "") return fallback;
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 1) throw new Error(`${label} invalido.`);
+    return parsed;
+  };
+  const parseDate = (value, label) => {
+    if (value === undefined || value === null || String(value).trim() === "") return undefined;
+    const parsed = new Date(String(value));
+    if (Number.isNaN(parsed.getTime())) throw new Error(`${label} invalida.`);
+    return String(value);
+  };
+  const from = parseDate(query.from, "Data inicial");
+  const to = parseDate(query.to, "Data final");
+  if (from && to && new Date(from) > new Date(to)) {
+    throw new Error("A data inicial deve ser anterior a data final.");
+  }
   return {
-    empresa: company.rows[0],
-    usuarios,
-    usuarios_excluidos: usuariosExcluidos,
-    usuarios_desvinculados: usuariosDesvinculados,
-    contas_ml: accounts.rows || [],
-    counts: {
-      usuarios: usuarios.length,
-      usuarios_excluidos: usuariosExcluidos.length,
-      usuarios_desvinculados: usuariosDesvinculados.length,
-      contas_ml: accounts.rowCount || 0,
-    },
+    search: String(query.search || "").trim() || undefined,
+    from,
+    to,
+    operator: String(query.operator || "").trim() || undefined,
+    page: parsePositiveInteger(query.page, 1, "Pagina"),
+    pageSize: Math.min(100, parsePositiveInteger(query.pageSize, 25, "Tamanho da pagina")),
   };
 }
 
-router.get("/empresas", async (_req, res) => {
+function safeDeletionBlocker(details = {}) {
+  return {
+    blocked: true,
+    canDelete: false,
+    activeJobs: Array.isArray(details.activeJobs) ? details.activeJobs : [],
+    inspectionFailures: Array.isArray(details.inspectionFailures) ? details.inspectionFailures : [],
+  };
+}
+
+function createAdminEmpresasRouter({
+  database = db,
+  companyDeletionService,
+  activeJobs,
+  randomUUID,
+} = {}) {
+  const router = express.Router();
+  const deletionService = companyDeletionService || createCompanyDeletionService({
+    db: database,
+    activeJobs: activeJobs || createCompanyActiveJobsService(),
+    randomUUID,
+  });
+
+  router.use(ensureMasterOnly);
+
+  router.get("/empresas", async (_req, res) => {
   try {
-    const { rows } = await db.query(
+    const { rows } = await database.query(
       `
       select
         e.id,
@@ -142,28 +140,39 @@ router.get("/empresas", async (_req, res) => {
     console.error("GET /api/admin/empresas erro:", err);
     return res.status(500).json({ ok: false, error: "Erro ao listar empresas" });
   }
-});
+  });
 
-router.get("/empresas/:id/delete-preview", async (req, res) => {
+  router.get("/empresas/deletion-receipts", async (req, res) => {
+    try {
+      const result = await deletionService.listDeletionReceipts(parseReceiptFilters(req.query));
+      return res.json({ ok: true, receipts: result.items, page: result.page, pageSize: result.pageSize, total: result.total });
+    } catch (err) {
+      if (/Pagina|Tamanho da pagina|Data inicial|Data final/i.test(String(err?.message || ""))) {
+        return res.status(400).json({ ok: false, error: err.message });
+      }
+      console.error("GET /api/admin/empresas/deletion-receipts erro:", err);
+      return res.status(500).json({ ok: false, error: "Erro ao listar recibos de exclusao." });
+    }
+  });
+
+  router.get("/empresas/:id/delete-preview", async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) {
       return res.status(400).json({ ok: false, error: "ID invalido" });
     }
 
-    const impact = await db.withClient((client) => getCompanyDeleteImpact(client, id));
-    if (!impact) {
-      return res.status(404).json({ ok: false, error: "Empresa nao encontrada" });
-    }
-
+    const impact = await deletionService.previewCompanyDeletion(id);
     return res.json({ ok: true, ...impact });
   } catch (err) {
+    const status = companyDeletionErrorStatus(err);
+    if (status !== 500) return res.status(status).json({ ok: false, error: err.message || "Erro ao calcular impacto da exclusao." });
     console.error("GET /api/admin/empresas/:id/delete-preview erro:", err);
     return res.status(500).json({ ok: false, error: "Erro ao calcular impacto da exclusao." });
   }
-});
+  });
 
-router.post(
+  router.post(
   "/empresas",
   adminWriteRateLimiter,
   createAuditAction({
@@ -189,7 +198,7 @@ router.post(
 
       validateDocument(documentType, documentNumber);
 
-      const { rows } = await db.query(
+      const { rows } = await database.query(
         `
         insert into empresas (nome, document_type, document_number, tenant_global_id)
         values ($1, $2, $3, $4)
@@ -214,9 +223,9 @@ router.post(
       return res.status(500).json({ ok: false, error: "Erro ao criar empresa" });
     }
   },
-);
+  );
 
-router.put(
+  router.put(
   "/empresas/:id",
   adminWriteRateLimiter,
   createAuditAction({
@@ -247,7 +256,7 @@ router.put(
 
       validateDocument(documentType, documentNumber);
 
-      const { rows } = await db.query(
+      const { rows } = await database.query(
         `
         update empresas
            set nome = $1,
@@ -280,19 +289,12 @@ router.put(
       return res.status(500).json({ ok: false, error: "Erro ao atualizar empresa" });
     }
   },
-);
+  );
 
-router.delete(
+  router.delete(
   "/empresas/:id",
   adminWriteRateLimiter,
   express.json({ limit: "50kb" }),
-  createAuditAction({
-    evento: "admin_company_deleted",
-    metadata: (req) => ({
-      company_id: Number(req.params.id) || null,
-      cascade: req.body?.cascade === true,
-    }),
-  }),
   async (req, res) => {
     try {
       const id = Number(req.params.id);
@@ -300,73 +302,39 @@ router.delete(
         return res.status(400).json({ ok: false, error: "ID invalido" });
       }
 
-      const cascade = req.body?.cascade === true;
+      if (req.body?.cascade !== true) {
+        return res.status(400).json({ ok: false, error: "Confirme a exclusao em cascata para continuar." });
+      }
 
-      const result = await db.withClient(async (client) => {
-        await client.query("begin");
-        try {
-          const impact = await getCompanyDeleteImpact(client, id);
-          if (!impact) {
-            await client.query("rollback");
-            return { missing: true };
-          }
-
-          if (!cascade && (impact.counts.usuarios > 0 || impact.counts.contas_ml > 0)) {
-            await client.query("rollback");
-            return { blocked: true, impact };
-          }
-
-          const deleteUserIds = impact.usuarios_excluidos.map((user) => Number(user.id)).filter(Number.isFinite);
-          let deletedUsers = 0;
-          if (deleteUserIds.length) {
-            const deleted = await client.query(
-              `delete from usuarios
-                where id = any($1::bigint[])
-                  and lower(coalesce(nivel, 'usuario')) <> 'admin_master'`,
-              [deleteUserIds],
-            );
-            deletedUsers = deleted.rowCount || 0;
-          }
-
-          const deletedCompany = await client.query(`delete from empresas where id = $1`, [id]);
-          await client.query("commit");
-          return {
-            ok: true,
-            impact,
-            deleted_company: deletedCompany.rowCount || 0,
-            deleted_users: deletedUsers,
-          };
-        } catch (error) {
-          await client.query("rollback").catch(() => {});
-          throw error;
-        }
+      const actor = req.user || res.locals.user || {};
+      const result = await deletionService.deleteCompany({
+        companyId: id,
+        actor: { id: actor.id ?? actor.uid ?? null, email: actor.email || null },
       });
-
-      if (result?.missing) {
-        return res.status(404).json({ ok: false, error: "Empresa nao encontrada" });
-      }
-
-      if (result?.blocked) {
-        const usuarios = result.impact.counts.usuarios || 0;
-        const contas = result.impact.counts.contas_ml || 0;
-        return res.status(400).json({
-          ok: false,
-          error: `Nao e permitido remover: empresa possui ${usuarios} usuario(s) e ${contas} conta(s) ML vinculada(s).`,
-          ...result.impact,
-        });
-      }
 
       return res.json({
         ok: true,
-        deleted_company: result.deleted_company,
-        deleted_users: result.deleted_users,
-        ...result.impact,
+        receipt: result.receipt,
+        deleted_company: result.deletedCompany,
+        deleted_users: result.deletedUsers,
+        deleted_audit_events: result.deletedAuditEvents,
       });
     } catch (err) {
+      const status = companyDeletionErrorStatus(err);
+      if (status === 409) {
+        return res.status(409).json({ ok: false, error: err.message || "Exclusao bloqueada.", ...safeDeletionBlocker(err.details) });
+      }
+      if (status !== 500) return res.status(status).json({ ok: false, error: err.message || "Erro ao remover empresa" });
       console.error("DELETE /api/admin/empresas/:id erro:", err);
       return res.status(500).json({ ok: false, error: "Erro ao remover empresa" });
     }
   },
-);
+  );
 
+  return router;
+}
+
+const router = createAdminEmpresasRouter();
 module.exports = router;
+module.exports.createAdminEmpresasRouter = createAdminEmpresasRouter;
+module.exports.parseReceiptFilters = parseReceiptFilters;
