@@ -49,9 +49,20 @@ function withBase(path) {
   const deleteClose = $("delete-close");
   const deleteCancel = $("delete-cancel");
   const deleteConfirm = $("delete-confirm");
+  const deleteRefresh = $("delete-refresh");
   const deleteSummary = $("delete-summary");
   const deleteImpactBody = $("delete-impact-body");
   const deleteError = $("delete-error");
+  const deletionHistorySearch = $("deletion-history-search");
+  const deletionHistoryFrom = $("deletion-history-from");
+  const deletionHistoryTo = $("deletion-history-to");
+  const deletionHistoryOperator = $("deletion-history-operator");
+  const deletionHistoryRefresh = $("deletion-history-refresh");
+  const deletionHistoryBody = $("deletion-history-body");
+  const deletionHistoryInfo = $("deletion-history-info");
+  const deletionHistoryPage = $("deletion-history-page");
+  const deletionHistoryPrev = $("deletion-history-prev");
+  const deletionHistoryNext = $("deletion-history-next");
 
   let all = [];
   let filtered = [];
@@ -62,6 +73,9 @@ function withBase(path) {
   let editingId = null;
   let deletingId = null;
   let deleteImpact = null;
+  let deletionHistoryCurrentPage = 1;
+  let deletionHistoryTotal = 0;
+  const deletionHistoryPageSize = 25;
 
   function showToast(msg) {
     toast.textContent = msg;
@@ -172,25 +186,109 @@ function withBase(path) {
     if (!deleteImpact) return;
     const empresa = deleteImpact.empresa || {};
     const counts = deleteImpact.counts || {};
-    const usersDeleted = (deleteImpact.usuarios_excluidos || []).map(formatUser);
-    const usersUnlinked = (deleteImpact.usuarios_desvinculados || []).map((user) =>
+    const usersDeleted = (deleteImpact.usersToDelete || []).map(formatUser);
+    const usersUnlinked = (deleteImpact.usersToUnlink || []).map((user) =>
       `${formatUser(user)} - sera mantido por possuir outro vinculo`,
     );
-    const accounts = (deleteImpact.contas_ml || []).map((account) =>
+    const accounts = (deleteImpact.accounts || []).map((account) =>
       `${account.apelido || "Conta ML"} - ML ${account.meli_user_id || account.id}`,
     );
 
     deleteTitle.textContent = `Excluir ${empresa.nome || `empresa #${deletingId}`}`;
     deleteSummary.textContent =
-      `Ao confirmar, ${Number(counts.usuarios_excluidos || 0)} usuario(s) serao excluido(s), ` +
-      `${Number(counts.usuarios_desvinculados || 0)} usuario(s) serao apenas desvinculado(s) e ` +
-      `${Number(counts.contas_ml || 0)} conta(s) ML serao removida(s).`;
+      `Ao confirmar, ${Number(counts.usersToDelete || 0)} usuario(s) serao excluido(s), ` +
+      `${Number(counts.usersToUnlink || 0)} usuario(s) serao apenas desvinculado(s), ` +
+      `${Number(counts.accounts || 0)} conta(s) ML e ${Number(counts.auditEvents || 0)} evento(s) de auditoria serao removidos.`;
+
+    const activeJobs = Array.isArray(deleteImpact.activeJobs) ? deleteImpact.activeJobs : [];
+    const inspectionFailures = Array.isArray(deleteImpact.inspectionFailures) ? deleteImpact.inspectionFailures : [];
+    const blockedRows = [
+      ...activeJobs.map((job) => `${job.provider || "provider desconhecido"} — conta ${job.accountKey || "-"} — ${job.status || "status desconhecido"}`),
+      ...inspectionFailures.map((failure) => `Falha ao inspecionar jobs: ${failure.provider || "provider desconhecido"} — conta ${failure.accountKey || "-"}`),
+    ];
 
     deleteImpactBody.innerHTML = [
       renderImpactList("Usuarios excluidos", usersDeleted, "Nenhum usuario sera excluido."),
       renderImpactList("Usuarios mantidos", usersUnlinked, "Nenhum usuario compartilhado com outra empresa."),
       renderImpactList("Contas ML removidas", accounts, "Nenhuma conta ML vinculada."),
+      renderImpactList("Eventos de auditoria removidos", [String(Number(counts.auditEvents || 0))], "Nenhum evento de auditoria vinculado."),
+      ...(blockedRows.length ? [renderImpactList("Jobs ativos impedem a exclusao", blockedRows, "")] : []),
     ].join("");
+
+    const blocked = deleteImpact.canDelete === false || deleteImpact.blocked;
+    deleteConfirm.disabled = blocked;
+    if (blocked) {
+      setDeleteError("A exclusao esta bloqueada porque ha jobs ativos ou uma falha ao inspecionar jobs. Atualize o impacto apos resolver os bloqueios.");
+    }
+  }
+
+  function deletionHistoryFilters() {
+    const params = new URLSearchParams({
+      page: String(deletionHistoryCurrentPage),
+      pageSize: String(deletionHistoryPageSize),
+    });
+    const values = {
+      search: deletionHistorySearch?.value,
+      from: deletionHistoryFrom?.value,
+      to: deletionHistoryTo?.value,
+      operator: deletionHistoryOperator?.value,
+    };
+    Object.entries(values).forEach(([key, value]) => {
+      const clean = String(value || "").trim();
+      if (clean) params.set(key, clean);
+    });
+    return params;
+  }
+
+  function renderDeletionHistory(receipts = []) {
+    if (!deletionHistoryBody) return;
+    if (!receipts.length) {
+      deletionHistoryBody.innerHTML = '<tr><td colspan="5" class="table-empty">Nenhuma exclusao encontrada.</td></tr>';
+      return;
+    }
+    deletionHistoryBody.innerHTML = receipts.map((receipt) => {
+      const companyName = escapeHtml(receipt.empresa_nome || "Empresa removida");
+      const companyId = escapeHtml(receipt.deleted_empresa_id || "-");
+      const operator = receipt.operator_email
+        ? escapeHtml(receipt.operator_email)
+        : receipt.actor_user_id ? `Usuario #${escapeHtml(receipt.actor_user_id)}` : "-";
+      const impact = [
+        `${Number(receipt.users_deleted_count || 0)} usuario(s) excluido(s)`,
+        `${Number(receipt.users_unlinked_count || 0)} desvinculado(s)`,
+        `${Number(receipt.accounts_deleted_count || 0)} conta(s) ML`,
+        `${Number(receipt.audit_events_deleted_count || 0)} evento(s) de auditoria`,
+      ].map(escapeHtml).join("<br>");
+      return `<tr>
+        <td><strong>${companyName}</strong><br><span class="muted">ID ${companyId}</span></td>
+        <td>${escapeHtml(formatDate(receipt.deleted_at))}</td>
+        <td>${operator}</td>
+        <td>${impact}</td>
+        <td>${escapeHtml(receipt.status || "-")}<br><code>${escapeHtml(receipt.request_id || "-")}</code></td>
+      </tr>`;
+    }).join("");
+  }
+
+  async function loadDeletionHistory() {
+    if (!deletionHistoryBody) return;
+    deletionHistoryBody.innerHTML = '<tr><td colspan="5" class="table-empty">Carregando historico...</td></tr>';
+    try {
+      const data = await api(`/api/admin/empresas/deletion-receipts?${deletionHistoryFilters().toString()}`, { method: "GET" });
+      const receipts = Array.isArray(data.receipts) ? data.receipts : [];
+      deletionHistoryCurrentPage = Number(data.page || deletionHistoryCurrentPage);
+      deletionHistoryTotal = Number(data.total || 0);
+      const pages = Math.max(1, Math.ceil(deletionHistoryTotal / deletionHistoryPageSize));
+      renderDeletionHistory(receipts);
+      deletionHistoryInfo.textContent = deletionHistoryTotal ? `${deletionHistoryTotal} exclusao(oes) registrada(s)` : "Nenhuma exclusao registrada";
+      deletionHistoryPage.textContent = `${deletionHistoryCurrentPage} / ${pages}`;
+      deletionHistoryPrev.disabled = deletionHistoryCurrentPage <= 1;
+      deletionHistoryNext.disabled = deletionHistoryCurrentPage >= pages;
+    } catch (e) {
+      console.error(e);
+      deletionHistoryBody.innerHTML = `<tr><td colspan="5" class="table-empty">Erro ao carregar historico: ${escapeHtml(e.message)}</td></tr>`;
+      deletionHistoryInfo.textContent = "Historico indisponivel";
+      deletionHistoryPrev.disabled = true;
+      deletionHistoryNext.disabled = true;
+    }
   }
 
   function applyDocumentMask() {
@@ -434,7 +532,7 @@ function withBase(path) {
     try {
       deleteImpact = await api(`/api/admin/empresas/${deletingId}/delete-preview`, { method: "GET" });
       renderDeleteImpact();
-      deleteConfirm.disabled = false;
+      deleteConfirm.disabled = deleteImpact.canDelete === false || deleteImpact.blocked;
     } catch (e) {
       console.error(e);
       setDeleteError(e.message || "Erro ao calcular impacto da exclusao.");
@@ -455,12 +553,25 @@ function withBase(path) {
       });
       hideDeleteModal();
       showToast("Empresa removida.");
-      await loadEmpresas();
+      await Promise.all([loadEmpresas(), loadDeletionHistory()]);
     } catch (e) {
       console.error(e);
+      if (e.status === 409) {
+        setDeleteError(e.message || "A exclusao foi bloqueada por jobs ativos ou indisponiveis.");
+        await openDeleteEmpresa(deletingId);
+        return;
+      }
+      if (e.status === 404) {
+        setDeleteError("A empresa nao foi encontrada. Atualize a lista antes de tentar novamente.");
+        deleteImpact = null;
+        deleteConfirm.disabled = true;
+        return;
+      }
       setDeleteError(e.message || "Erro ao remover empresa.");
     } finally {
-      deleteConfirm.disabled = false;
+      if (deleteImpact && deleteImpact.canDelete !== false && !deleteImpact.blocked) {
+        deleteConfirm.disabled = false;
+      }
       deleteConfirm.textContent = "Excluir em cascata";
     }
   }
@@ -492,6 +603,9 @@ function withBase(path) {
     deleteClose.addEventListener("click", hideDeleteModal);
     deleteCancel.addEventListener("click", hideDeleteModal);
     deleteConfirm.addEventListener("click", confirmDeleteEmpresa);
+    deleteRefresh.addEventListener("click", () => {
+      if (deletingId) openDeleteEmpresa(deletingId);
+    });
     fDocumentType.addEventListener("change", applyDocumentMask);
     fDocumentNumber.addEventListener("input", applyDocumentMask);
 
@@ -500,6 +614,27 @@ function withBase(path) {
     });
     deleteModal.addEventListener("click", (e) => {
       if (e.target === deleteModal) hideDeleteModal();
+    });
+
+    const refreshDeletionHistory = () => {
+      deletionHistoryCurrentPage = 1;
+      loadDeletionHistory();
+    };
+    deletionHistoryRefresh.addEventListener("click", refreshDeletionHistory);
+    [deletionHistorySearch, deletionHistoryFrom, deletionHistoryTo, deletionHistoryOperator].forEach((input) => {
+      input.addEventListener("change", refreshDeletionHistory);
+      if (input.type === "search") input.addEventListener("search", refreshDeletionHistory);
+    });
+    deletionHistoryPrev.addEventListener("click", () => {
+      if (deletionHistoryCurrentPage <= 1) return;
+      deletionHistoryCurrentPage -= 1;
+      loadDeletionHistory();
+    });
+    deletionHistoryNext.addEventListener("click", () => {
+      const pages = Math.max(1, Math.ceil(deletionHistoryTotal / deletionHistoryPageSize));
+      if (deletionHistoryCurrentPage >= pages) return;
+      deletionHistoryCurrentPage += 1;
+      loadDeletionHistory();
     });
 
     tbody.addEventListener("click", (e) => {
@@ -526,5 +661,6 @@ function withBase(path) {
   document.addEventListener("DOMContentLoaded", () => {
     bindEvents();
     loadEmpresas();
+    loadDeletionHistory();
   });
 })();

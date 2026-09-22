@@ -132,6 +132,60 @@
       <div class="hint">
         Exclusoes com vinculos exigem confirmacao: a tela mostra usuarios, contas ML e o impacto antes de remover.
       </div>
+
+      <section class="card" style="margin-top:20px;">
+        <div class="admin-content__header" style="margin-bottom:14px;">
+          <div>
+            <h2 class="admin-title" style="font-size:20px;">Historico de exclusoes</h2>
+            <p class="admin-subtitle">Recibos permanentes de exclusoes concluídas, sem conteudo de auditoria.</p>
+          </div>
+          <button class="btn-lite" id="deletion-history-refresh" type="button">Atualizar historico</button>
+        </div>
+
+        <div class="admin-toolbar" style="align-items:end;">
+          <div class="search-box">
+            <input id="deletion-history-search" type="search" placeholder="Empresa ou ID da empresa" />
+          </div>
+          <div class="form-group" style="min-width:150px;">
+            <label for="deletion-history-from">De</label>
+            <input id="deletion-history-from" type="date" />
+          </div>
+          <div class="form-group" style="min-width:150px;">
+            <label for="deletion-history-to">Ate</label>
+            <input id="deletion-history-to" type="date" />
+          </div>
+          <div class="form-group" style="min-width:180px;">
+            <label for="deletion-history-operator">Operador</label>
+            <input id="deletion-history-operator" type="search" placeholder="ID ou e-mail" />
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Empresa removida</th>
+                <th>Quando</th>
+                <th>Operador</th>
+                <th>Impacto</th>
+                <th>Status / recibo</th>
+              </tr>
+            </thead>
+            <tbody id="deletion-history-body">
+              <tr><td colspan="5" class="table-empty">Carregando historico...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer">
+          <div class="table-footer__left" id="deletion-history-info">-</div>
+          <div class="table-footer__right">
+            <button class="btn-lite" id="deletion-history-prev" type="button">&lt;</button>
+            <span class="page-info" id="deletion-history-page">1 / 1</span>
+            <button class="btn-lite" id="deletion-history-next" type="button">&gt;</button>
+          </div>
+        </div>
+      </section>
     </section>
   </main>
 
@@ -213,12 +267,13 @@
 
       <div class="modal-footer">
         <button class="btn-lite" id="delete-cancel" type="button">Cancelar</button>
+        <button class="btn-lite" id="delete-refresh" type="button">Atualizar impacto</button>
         <button class="btn-primary danger" id="delete-confirm" type="button">Excluir em cascata</button>
       </div>
     </div>
   </div>
 
   <div class="toast" id="toast" style="display:none;"></div>
-  <script src="/ml/js/admin-empresas.js?v=3"></script>
+  <script src="/ml/js/admin-empresas.js?v=4"></script>
 </body>
 </html>
