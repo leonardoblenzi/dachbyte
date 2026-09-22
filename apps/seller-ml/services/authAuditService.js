@@ -1512,6 +1512,30 @@ async function cleanupAuthAudit(options = {}) {
   };
 }
 
+const MAX_BIGINT_ID = 9223372036854775807n;
+
+function normalizeAuditScopeId(value) {
+  if (typeof value === "number" && !Number.isSafeInteger(value)) return null;
+  const text = String(value ?? "").trim();
+  if (!/^\d+$/.test(text)) return null;
+
+  try {
+    const id = BigInt(text);
+    if (id < 1n || id > MAX_BIGINT_ID) return null;
+    return id.toString();
+  } catch (_error) {
+    return null;
+  }
+}
+
+function firstAuditScopeId(...values) {
+  for (const value of values) {
+    const normalized = normalizeAuditScopeId(value);
+    if (normalized) return normalized;
+  }
+  return null;
+}
+
 async function recordAuthEvent({
   userId = null,
   email = null,
@@ -1520,20 +1544,75 @@ async function recordAuthEvent({
   ip = null,
   userAgent = null,
   metadata = null,
+  empresaId = null,
+  meliContaId = null,
 }) {
-  await db.query(
-    `insert into auth_audit (user_id, email, evento, status, ip, user_agent, metadata)
-     values ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
-    [
-      userId,
-      email,
-      String(evento || "").trim().toLowerCase(),
-      String(status || "info").trim().toLowerCase(),
-      ip,
-      userAgent,
-      metadata ? JSON.stringify(metadata) : null,
-    ],
+  const auditMetadata =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? metadata
+      : {};
+  const resolvedMeliContaId = firstAuditScopeId(
+    meliContaId,
+    auditMetadata.meli_conta_id,
+    auditMetadata.accountKey,
+    auditMetadata.account_key,
   );
+  const resolvedEmpresaId = firstAuditScopeId(
+    empresaId,
+    auditMetadata.empresa_id,
+    auditMetadata.company_id,
+  );
+
+  try {
+    return await db.query(
+      `with resolved_account as (
+         select id, empresa_id
+           from ml.meli_contas
+          where id = $8::bigint
+       ),
+       resolved_company as (
+         select coalesce(
+           (select empresa_id from resolved_account),
+           (select id from ml.empresas where id = $9::bigint)
+         ) as id
+       )
+       insert into auth_audit (
+         user_id,
+         email,
+         evento,
+         status,
+         ip,
+         user_agent,
+         metadata,
+         empresa_id,
+         meli_conta_id
+       )
+       select
+         $1,
+         $2,
+         $3,
+         $4,
+         $5,
+         $6,
+         $7::jsonb,
+         (select id from resolved_company),
+         (select id from resolved_account)`,
+      [
+        userId,
+        email,
+        String(evento || "").trim().toLowerCase(),
+        String(status || "info").trim().toLowerCase(),
+        ip,
+        userAgent,
+        metadata ? JSON.stringify(metadata) : null,
+        resolvedMeliContaId,
+        resolvedEmpresaId,
+      ],
+    );
+  } catch (error) {
+    console.error("Falha ao registrar evento de auditoria:", error);
+    return null;
+  }
 }
 
 module.exports = {
