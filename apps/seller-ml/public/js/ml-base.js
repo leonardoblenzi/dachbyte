@@ -218,6 +218,14 @@
       defer: "defer",
     });
 
+    // Estoque agora pertence visualmente a Operacoes. A sobreposicao e
+    // carregada separadamente para preservar o shell legado sem duplicar a
+    // definicao inteira de navegacao nesta entrega.
+    injectAsset("script", {
+      src: withBase("/js/ml-shell-estoque-nav.js?v=2026092201"),
+      defer: "defer",
+    });
+
     injectAsset("script", {
       src: withBase("/js/ml-shell-alerts-fix.js?v=2"),
       defer: "defer",
@@ -492,4 +500,3 @@
     console.log("✅ ml-base.js ativo | base =", base || "(standalone)");
   } catch {}
 })();
-

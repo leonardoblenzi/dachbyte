@@ -202,10 +202,10 @@
       const rhythmCard = $('painel-rhythm-card');
       if (rhythmCard) {
         rhythmCard.classList.add('is-source-unavailable');
-        rhythmCard.dataset.sourceMessage = month.error || 'Ritmo mensal indisponivel.';
+        rhythmCard.dataset.sourceMessage = month.error || 'Ritmo do mês indisponível.';
       }
       const slot = $('painel-rhythm-revenue');
-      if (slot) slot.innerHTML = '<div class="painel-empty">Ritmo mensal indisponivel no momento.</div>';
+      if (slot) slot.innerHTML = '<div class="painel-empty">Ritmo do mês indisponível no momento.</div>';
       setText('painel-rhythm-status', 'Indisponivel');
     }
 
@@ -343,6 +343,16 @@
     return ((Number(current || 0) - prev) / prev) * 100;
   }
 
+  function getComparisonInlineLabel() {
+    const labels = {
+      today: "vs dia anterior",
+      "7d": "vs 7 dias anteriores",
+      "14d": "vs 14 dias anteriores",
+      "30d": "vs 30 dias anteriores",
+    };
+    return labels[state.preset] || "vs período anterior equivalente";
+  }
+
   function formatDeltaPct(current, previous, { inverse = false, digits = 0 } = {}) {
     const delta = pctDelta(current, previous);
     if (delta == null) {
@@ -352,7 +362,7 @@
     return {
       value: delta,
       tone: good ? "positive" : "negative",
-      text: `${delta >= 0 ? "+" : "-"}${fmtPct(Math.abs(delta), digits)} vs anterior`,
+      text: `${delta >= 0 ? "+" : "-"}${fmtPct(Math.abs(delta), digits)} ${getComparisonInlineLabel()}`,
     };
   }
 
@@ -365,10 +375,10 @@
 
   function getComparisonPeriodLabel() {
     const labels = {
-      today: "Período anterior (1 dia)",
-      "7d": "Período anterior (7 dias)",
-      "14d": "Período anterior (14 dias)",
-      "30d": "Período anterior (30 dias)",
+      today: "Dia anterior",
+      "7d": "7 dias anteriores",
+      "14d": "14 dias anteriores",
+      "30d": "30 dias anteriores",
     };
     return labels[state.preset] || "Período anterior equivalente";
   }
@@ -590,12 +600,8 @@
         ? `${signedPrefix(difference)} ${fmtNum(Math.abs(Math.round(difference)))} vendas`
         : `${signedPrefix(difference)} ${fmtMoneyNoCents(Math.abs(difference))}`;
     const captionText = hasBase
-      ? `${labelPrefix} ${
-          type === "sales"
-            ? "da quantidade esperada"
-            : "do faturamento esperado"
-        } para hoje (dia ${day} de ${daysInMonth})`
-      : `Sem mes anterior para comparar (dia ${day} de ${daysInMonth})`;
+      ? `${labelPrefix} do ritmo necessário para igualar o mês passado (dia ${day} de ${daysInMonth})`
+      : `Sem mês anterior para comparar (dia ${day} de ${daysInMonth})`;
     const projectionText =
       type === "sales"
         ? fmtNum(Math.round(Number(metric?.projection || 0)))
@@ -604,10 +610,10 @@
       type === "sales"
         ? `${projectionDelta >= 0 ? "+" : "-"}${fmtNum(
             Math.abs(Math.round(projectionDelta)),
-          )} vs mes passado`
+          )} vs mês passado`
         : `${projectionDelta >= 0 ? "+" : "-"} ${fmtMoneyNoCents(
             Math.abs(projectionDelta),
-          )} vs mes passado`;
+          )} vs mês passado`;
     if (card && type === "revenue") card.dataset.tone = badgeTone;
     if (statusEl && type === "revenue") {
       statusEl.dataset.tone = badgeTone;
@@ -621,7 +627,7 @@
 
       <div class="painel-rhythm-progress-labels">
         <span>Realizado</span>
-        <span>Meta proporcional</span>
+        <span>Ritmo p/ igualar mês passado</span>
       </div>
       <div class="painel-rhythm-track">
         <span class="painel-rhythm-fill" style="width:${actualPct}%"></span>
@@ -638,18 +644,18 @@
           <strong>${type === "sales" ? fmtNum(metric?.current || 0) : fmtMoneyNoCents(metric?.current || 0)}</strong>
         </article>
         <article data-tone="${expectedTone}">
-          <span>Esperado hoje</span>
+          <span>Esperado até hoje</span>
           <strong>${type === "sales" ? fmtNum(Math.round(metric?.expected_today || 0)) : fmtMoneyNoCents(metric?.expected_today || 0)}</strong>
         </article>
         <article>
-          <span>Mes passado</span>
+          <span>Mês passado</span>
           <strong>${type === "sales" ? fmtNum(metric?.previous || 0) : fmtMoneyNoCents(metric?.previous || 0)}</strong>
         </article>
       </div>
 
       <div class="painel-rhythm-projection">
         <div>
-          <span>Projecao do mes (ritmo atual)</span>
+          <span>Projeção do mês (ritmo atual)</span>
           <strong>${projectionText}</strong>
         </div>
         <strong>${hasBase ? deltaText : "--"}</strong>
@@ -1054,7 +1060,12 @@
     const ctr = Number(ads.ctr || 0);
 
     setText("painel-ads-roas", formatAdsValue(roas, "roas"));
-    renderPointDelta("painel-ads-roas-delta", roas, previous.roas || 0, "x vs ant.");
+    renderPointDelta(
+      "painel-ads-roas-delta",
+      roas,
+      previous.roas || 0,
+      `x ${getComparisonInlineLabel()}`,
+    );
 
     if (roasMinCell) roasMinCell.classList.toggle("is-alert", roasMin > 0 && roasMin < 3);
     setText("painel-ads-roas-min", formatAdsValue(roasMin, "roas"));
@@ -1350,8 +1361,8 @@
       priorities.push({
         type: "ritmo",
         tone: "critical",
-        title: "Ritmo do mes abaixo do esperado",
-        detail: `Faltam ${fmtMoneyNoCents(Math.abs(Number(revenueRhythm.difference || 0)))} para o ritmo proporcional de hoje.`,
+        title: "Ritmo do mês abaixo do necessário",
+        detail: `Faltam ${fmtMoneyNoCents(Math.abs(Number(revenueRhythm.difference || 0)))} para atingir, até hoje, o ritmo necessário para igualar o mês passado.`,
         impact: Number(revenueRhythm.impacto_estimado_reais || Math.abs(Number(revenueRhythm.difference || 0))),
         actionLabel: action.label,
         actionUrl: action.url,
@@ -1709,7 +1720,7 @@
     setText(
       "painel-kpi-conversion-meta",
       hasConversionBase
-        ? `${Number(conversion?.conversao_delta_pp || 0) >= 0 ? "+" : "-"}${fmtDecimal(Math.abs(Number(conversion?.conversao_delta_pp || 0)), 1)}pp vs anterior`
+        ? `${Number(conversion?.conversao_delta_pp || 0) >= 0 ? "+" : "-"}${fmtDecimal(Math.abs(Number(conversion?.conversao_delta_pp || 0)), 1)}pp ${getComparisonInlineLabel()}`
         : "Sem comparativo",
     );
     setTone(
@@ -1730,7 +1741,7 @@
       setText(
         "painel-kpi-margin-meta-copy",
         hasPreviousFinance
-          ? `${fmtMoney(finance.margin || 0)} de contribuicao · ${marginDeltaPp >= 0 ? "+" : "-"}${fmtDecimal(Math.abs(marginDeltaPp), 1)} p.p. vs anterior`
+          ? `${fmtMoney(finance.margin || 0)} de contribuicao · ${marginDeltaPp >= 0 ? "+" : "-"}${fmtDecimal(Math.abs(marginDeltaPp), 1)} p.p. ${getComparisonInlineLabel()}`
           : `${fmtMoney(finance.margin || 0)} de contribuicao · sem comparativo`,
       );
       setTone("painel-kpi-margin-meta-copy", hasPreviousFinance ? (marginDeltaPp >= 0 ? "positive" : "negative") : "neutral");
@@ -1755,7 +1766,7 @@
     setText(
       "painel-kpi-ads-meta",
       hasAdsBase
-        ? `${roasDelta >= 0 ? "+" : "-"}${fmtDecimal(Math.abs(roasDelta), 2)}x vs anterior`
+        ? `${roasDelta >= 0 ? "+" : "-"}${fmtDecimal(Math.abs(roasDelta), 2)}x ${getComparisonInlineLabel()}`
         : "Sem comparativo",
     );
     setTone("painel-kpi-ads-meta", hasAdsBase ? (roasDelta >= 0 ? "positive" : "negative") : "neutral");

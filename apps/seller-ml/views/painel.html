@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
   <link rel="stylesheet" href="/ml/css/visao-geral.css?v=1" />
   <link rel="stylesheet" href="/ml/css/painel.css?v=28" />
-  <script src="/ml/js/painel.js?v=2026081003" defer></script>
+  <script src="/ml/js/painel.js?v=2026092201" defer></script>
   <script src="/ml/js/ml-base.js?v=10"></script>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
@@ -52,12 +52,12 @@
         <article class="overview-kpi painel-kpi-card painel-kpi-card--revenue">
           <span class="overview-kpi__label">Faturamento</span>
           <strong class="overview-kpi__value" id="painel-kpi-revenue-value">R$ 0,00</strong>
-          <span class="overview-kpi__delta" id="painel-kpi-revenue-meta" data-tone="neutral">vs período anterior</span>
+          <span class="overview-kpi__delta" id="painel-kpi-revenue-meta" data-tone="neutral">vs 7 dias anteriores</span>
         </article>
         <article class="overview-kpi painel-kpi-card">
           <span class="overview-kpi__label">Pedidos</span>
           <strong class="overview-kpi__value" id="painel-kpi-orders-value">0</strong>
-          <span class="overview-kpi__delta" id="painel-kpi-orders-meta" data-tone="neutral">vs período anterior</span>
+          <span class="overview-kpi__delta" id="painel-kpi-orders-meta" data-tone="neutral">vs 7 dias anteriores</span>
         </article>
         <article class="overview-kpi painel-kpi-card" id="painel-kpi-margin-card" data-tone="neutral">
           <span class="overview-kpi__label">Margem de contribuição</span>
@@ -67,7 +67,7 @@
         <article class="overview-kpi painel-kpi-card">
           <span class="overview-kpi__label">Conversão</span>
           <strong class="overview-kpi__value" id="painel-kpi-conversion-value">0,00%</strong>
-          <span class="overview-kpi__delta" id="painel-kpi-conversion-meta" data-tone="neutral">vs anterior</span>
+          <span class="overview-kpi__delta" id="painel-kpi-conversion-meta" data-tone="neutral">vs 7 dias anteriores</span>
         </article>
       </section>
 
@@ -75,12 +75,12 @@
         <article class="overview-mini-metric">
           <span>ROAS</span>
           <strong id="painel-kpi-ads-value">0,00x</strong>
-          <small id="painel-kpi-ads-meta">vs anterior</small>
+          <small id="painel-kpi-ads-meta">vs 7 dias anteriores</small>
         </article>
         <article class="overview-mini-metric">
           <span>Investimento Ads</span>
           <strong id="painel-kpi-ads-cost-value">R$ 0,00</strong>
-          <small id="painel-kpi-ads-cost-meta">vs anterior</small>
+          <small id="painel-kpi-ads-cost-meta">vs 7 dias anteriores</small>
         </article>
         <article class="overview-mini-metric" id="painel-kpi-stock-card" data-tone="neutral">
           <span>Estoque em risco</span>
@@ -120,7 +120,7 @@
               <div>
                 <span class="painel-metric-tag painel-metric-tag--info">Comercial</span>
                 <strong class="painel-metric-main" id="painel-summary-sales">0</strong>
-                <span class="painel-metric-delta" id="painel-kpi-orders-meta-copy">vs período anterior</span>
+                <span class="painel-metric-delta" id="painel-kpi-orders-meta-copy">vs 7 dias anteriores</span>
               </div>
               <span class="painel-metric-caption">pedidos</span>
             </div>
@@ -186,7 +186,7 @@
         <div class="painel-risk-grid">
           <article class="painel-risk-card" id="painel-rhythm-card" data-tone="neutral">
             <header class="painel-risk-card__head">
-              <h3>Ritmo mensal</h3>
+              <h3>Ritmo do mês</h3>
               <span class="overview-status painel-status-badge" id="painel-rhythm-status" data-tone="neutral">Calculando</span>
             </header>
             <div class="painel-rhythm-content active" id="painel-rhythm-revenue" data-rhythm-content="revenue">

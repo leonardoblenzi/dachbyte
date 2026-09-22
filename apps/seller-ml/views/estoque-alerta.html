@@ -7,50 +7,379 @@
   <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
   <link rel="stylesheet" href="/ml/css/anuncios.css?v=2026080802" />
   <link rel="stylesheet" href="/ml/css/estoque-alerta.css?v=2026080702" />
-  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/ml/css/promo-jobs.css?v=2026081101" />
+  <link rel="stylesheet" href="/ml/css/estoque-atualizacao.css?v=2026092202" />
+  <script src="/ml/js/ml-base.js?v=2026092201"></script>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
 <body class="ads-app inventory-app">
   <main class="inventory-page">
     <section class="inventory-shell" aria-labelledby="inventoryTitle">
       <header class="inventory-header">
-        <div class="inventory-header__copy"><span class="inventory-kicker">Anúncios</span><h1 id="inventoryTitle">Estoque</h1><p>Monitore risco de ruptura, priorize reposições e acompanhe os produtos que exigem atenção operacional.</p></div>
-        <div class="inventory-header__actions"><span id="inventoryUpdatedAt" class="inventory-updated">Aguardando análise</span><button id="btnRefreshStored" class="inventory-btn inventory-btn--ghost" type="button">Atualizar dados</button></div>
+        <div class="inventory-header__copy">
+          <span class="inventory-kicker">Operações</span>
+          <h1 id="inventoryTitle">Estoque</h1>
+          <p>Analise a cobertura da operação e prepare alterações de estoque em massa com revisão antes de qualquer envio ao Mercado Livre.</p>
+        </div>
+        <div class="inventory-header__actions" data-stock-analysis-only>
+          <span id="inventoryUpdatedAt" class="inventory-updated">Aguardando análise</span>
+          <button id="btnRefreshStored" class="inventory-btn inventory-btn--ghost" type="button">Atualizar dados</button>
+        </div>
       </header>
-      <section class="inventory-toolbar" aria-label="Configuração da análise">
-        <div class="inventory-period" role="group" aria-label="Período analisado"><button class="is-active" type="button" data-period-days="30">30 dias</button><button type="button" data-period-days="60">60 dias</button><button type="button" data-period-days="90">90 dias</button></div>
-        <div class="inventory-toolbar__spacer"></div>
-        <button id="btnLoadWatchlist" class="inventory-btn inventory-btn--ghost" type="button">Carregar monitorados</button>
-        <button id="btnAnalyzeSold" class="inventory-btn inventory-btn--primary" type="button">Analisar vendidos</button>
-      </section>
-      <nav class="inventory-view-tabs" aria-label="Visões de estoque"><button class="is-active" type="button" data-inventory-tab="overview" aria-selected="true">Visão geral</button><button type="button" data-inventory-tab="restock" aria-selected="false">Reposição</button><button type="button" data-inventory-tab="watchlist" aria-selected="false">Monitorados</button></nav>
-      <section id="inventoryJobStrip" class="inventory-job" hidden aria-live="polite"><div><strong id="inventoryJobTitle">Análise em andamento</strong><span id="inventoryJobText">Preparando leitura de estoque.</span></div><button id="btnRefreshJobs" class="inventory-btn inventory-btn--ghost" type="button">Verificar</button></section>
 
-      <div data-inventory-view="overview">
-        <section class="inventory-metrics" aria-label="Resumo de estoque">
-          <article class="inventory-metric" data-tone="danger"><span>Críticos</span><strong id="metricCritical">0</strong><small id="metricCriticalMeta">sem ruptura imediata</small></article>
-          <article class="inventory-metric" data-tone="warning"><span>Atenção</span><strong id="metricAttention">0</strong><small id="metricAttentionMeta">cobertura entre 8 e 30 dias</small></article>
-          <article class="inventory-metric" data-tone="info"><span>Cobertura média</span><strong id="metricCoverage">-</strong><small id="metricCoverageMeta">rode uma análise</small></article>
-          <article class="inventory-metric" data-tone="neutral"><span>Compra sugerida</span><strong id="metricInvestment">R$ 0,00</strong><small id="metricInvestmentMeta">0 unidades</small></article>
+      <nav class="stock-workspace-tabs" aria-label="Áreas de estoque">
+        <button class="is-active" type="button" data-stock-workspace-tab="analysis" aria-selected="true">
+          Análise de estoque
+        </button>
+        <button type="button" data-stock-workspace-tab="update" aria-selected="false">
+          Atualizar estoque
+        </button>
+      </nav>
+
+      <section data-stock-workspace-view="analysis">
+        <section class="inventory-toolbar" aria-label="Configuração da análise">
+          <div class="inventory-period" role="group" aria-label="Período analisado">
+            <button class="is-active" type="button" data-period-days="30">30 dias</button>
+            <button type="button" data-period-days="60">60 dias</button>
+            <button type="button" data-period-days="90">90 dias</button>
+          </div>
+          <div class="inventory-toolbar__spacer"></div>
+          <button id="btnLoadWatchlist" class="inventory-btn inventory-btn--ghost" type="button">Carregar monitorados</button>
+          <button id="btnAnalyzeSold" class="inventory-btn inventory-btn--primary" type="button">Analisar vendidos</button>
         </section>
-        <section id="urgentPanel" class="inventory-alert" data-tone="neutral"><div class="inventory-alert__marker" aria-hidden="true"></div><div class="inventory-alert__content"><span id="urgentEyebrow">Status da operação</span><h2 id="urgentTitle">Carregue os dados para ver prioridades</h2><p id="urgentText">A tela destaca produtos críticos, risco elevado e reposição sugerida com base na cobertura atual.</p><div class="inventory-alert__actions"><button id="btnScrollCritical" class="inventory-btn inventory-btn--primary" type="button">Ver reposição</button><button id="btnExportCsv" class="inventory-btn inventory-btn--ghost" type="button" disabled>Exportar CSV</button></div></div></section>
-        <section class="inventory-section" aria-labelledby="actionTitle"><div class="inventory-section__head"><div><span class="inventory-kicker">Prioridades</span><h2 id="actionTitle">Próximas ações</h2></div><span id="inventoryScope" class="inventory-pill">0 produtos</span></div><div id="recommendedActions" class="inventory-action-grid"></div></section>
-      </div>
 
-      <div data-inventory-view="restock" hidden>
-        <section id="criticalSection" class="inventory-section" aria-labelledby="criticalTitle"><div class="inventory-section__head"><div><span class="inventory-kicker">Fila de reposição</span><h2 id="criticalTitle">Produtos com compra sugerida</h2></div><span id="criticalCount" class="inventory-pill">0 itens</span></div><div id="restockOverview" class="inventory-restock-overview"></div><div id="priorityRows" class="inventory-product-list"><article class="inventory-empty">Nenhum produto monitorado carregado ainda.</article></div></section>
-      </div>
+        <nav class="inventory-view-tabs" aria-label="Visões de estoque">
+          <button class="is-active" type="button" data-inventory-tab="overview" aria-selected="true">Visão geral</button>
+          <button type="button" data-inventory-tab="restock" aria-selected="false">Reposição</button>
+          <button type="button" data-inventory-tab="watchlist" aria-selected="false">Monitorados</button>
+        </nav>
 
-      <div data-inventory-view="watchlist" hidden>
-        <section id="watchlistSection" class="inventory-section" aria-labelledby="watchlistTitle"><div class="inventory-section__head"><div><span class="inventory-kicker">Monitoramento</span><h2 id="watchlistTitle">Produtos monitorados</h2></div><div class="inventory-table-tools"><label class="inventory-sr-only" for="watchlistSearchInput">Buscar produto monitorado</label><input id="watchlistSearchInput" type="search" placeholder="Buscar MLB, SKU ou produto" autocomplete="off" /><button id="btnOpenAddWatchlist" class="inventory-btn inventory-btn--primary" type="button">Adicionar MLB</button><span id="watchlistCount" class="inventory-pill">0 monitorados</span></div></div><div id="watchlistRows" class="inventory-watchlist"><article class="inventory-empty">Carregue os dados para visualizar a watchlist.</article></div></section>
-      </div>
-      <p id="inventoryFeedback" class="inventory-feedback" aria-live="polite"></p>
+        <section id="inventoryJobStrip" class="inventory-job" hidden aria-live="polite">
+          <div>
+            <strong id="inventoryJobTitle">Análise em andamento</strong>
+            <span id="inventoryJobText">Preparando leitura de estoque.</span>
+          </div>
+          <button id="btnRefreshJobs" class="inventory-btn inventory-btn--ghost" type="button">Verificar</button>
+        </section>
+
+        <div data-inventory-view="overview">
+          <section class="inventory-metrics" aria-label="Resumo de estoque">
+            <article class="inventory-metric" data-tone="danger">
+              <span>Críticos</span>
+              <strong id="metricCritical">0</strong>
+              <small id="metricCriticalMeta">sem ruptura imediata</small>
+            </article>
+            <article class="inventory-metric" data-tone="warning">
+              <span>Atenção</span>
+              <strong id="metricAttention">0</strong>
+              <small id="metricAttentionMeta">cobertura entre 8 e 30 dias</small>
+            </article>
+            <article class="inventory-metric" data-tone="info">
+              <span>Cobertura média</span>
+              <strong id="metricCoverage">-</strong>
+              <small id="metricCoverageMeta">rode uma análise</small>
+            </article>
+            <article class="inventory-metric" data-tone="neutral">
+              <span>Compra sugerida</span>
+              <strong id="metricInvestment">R$ 0,00</strong>
+              <small id="metricInvestmentMeta">0 unidades</small>
+            </article>
+          </section>
+
+          <section id="urgentPanel" class="inventory-alert" data-tone="neutral">
+            <div class="inventory-alert__marker" aria-hidden="true"></div>
+            <div class="inventory-alert__content">
+              <span id="urgentEyebrow">Status da operação</span>
+              <h2 id="urgentTitle">Carregue os dados para ver prioridades</h2>
+              <p id="urgentText">A tela destaca produtos críticos, risco elevado e reposição sugerida com base na cobertura atual.</p>
+              <div class="inventory-alert__actions">
+                <button id="btnScrollCritical" class="inventory-btn inventory-btn--primary" type="button">Ver reposição</button>
+                <button id="btnExportCsv" class="inventory-btn inventory-btn--ghost" type="button" disabled>Exportar CSV</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="inventory-section" aria-labelledby="actionTitle">
+            <div class="inventory-section__head">
+              <div>
+                <span class="inventory-kicker">Prioridades</span>
+                <h2 id="actionTitle">Próximas ações</h2>
+              </div>
+              <span id="inventoryScope" class="inventory-pill">0 produtos</span>
+            </div>
+            <div id="recommendedActions" class="inventory-action-grid"></div>
+          </section>
+        </div>
+
+        <div data-inventory-view="restock" hidden>
+          <section id="criticalSection" class="inventory-section" aria-labelledby="criticalTitle">
+            <div class="inventory-section__head">
+              <div>
+                <span class="inventory-kicker">Fila de reposição</span>
+                <h2 id="criticalTitle">Produtos com compra sugerida</h2>
+              </div>
+              <span id="criticalCount" class="inventory-pill">0 itens</span>
+            </div>
+            <div id="restockOverview" class="inventory-restock-overview"></div>
+            <div id="priorityRows" class="inventory-product-list">
+              <article class="inventory-empty">Nenhum produto monitorado carregado ainda.</article>
+            </div>
+          </section>
+        </div>
+
+        <div data-inventory-view="watchlist" hidden>
+          <section id="watchlistSection" class="inventory-section" aria-labelledby="watchlistTitle">
+            <div class="inventory-section__head">
+              <div>
+                <span class="inventory-kicker">Monitoramento</span>
+                <h2 id="watchlistTitle">Produtos monitorados</h2>
+              </div>
+              <div class="inventory-table-tools">
+                <label class="inventory-sr-only" for="watchlistSearchInput">Buscar produto monitorado</label>
+                <input id="watchlistSearchInput" type="search" placeholder="Buscar MLB, SKU ou produto" autocomplete="off" />
+                <button id="btnOpenAddWatchlist" class="inventory-btn inventory-btn--primary" type="button">Adicionar MLB</button>
+                <span id="watchlistCount" class="inventory-pill">0 monitorados</span>
+              </div>
+            </div>
+            <div id="watchlistRows" class="inventory-watchlist">
+              <article class="inventory-empty">Carregue os dados para visualizar a watchlist.</article>
+            </div>
+          </section>
+        </div>
+        <p id="inventoryFeedback" class="inventory-feedback" aria-live="polite"></p>
+      </section>
+
+      <section class="stock-update" data-stock-workspace-view="update" hidden>
+        <header class="stock-update__intro">
+          <div>
+            <span class="inventory-kicker">Operação em massa</span>
+            <h2>Atualização de estoque em massa</h2>
+            <p>Carregue os anúncios, prepare as quantidades, revise as diferenças e envie o lote para processamento seguro no worker.</p>
+          </div>
+          <span class="stock-update__read-only-badge">Revisão + fila</span>
+        </header>
+
+        <section class="stock-update-step" aria-labelledby="stockSourceTitle">
+          <div class="stock-update-step__head">
+            <div>
+              <span class="stock-update-step__index">1</span>
+              <div>
+                <h3 id="stockSourceTitle">Escolha a origem dos anúncios</h3>
+                <p>Trabalhe com todos os anúncios ativos da conta ou carregue apenas MLBs e SKUs específicos.</p>
+              </div>
+            </div>
+            <span id="stockLoadBadge" class="stock-update-pill" data-tone="neutral">Sem carga</span>
+          </div>
+
+          <div class="stock-source-grid">
+            <article class="stock-source-card stock-source-card--primary">
+              <div class="stock-source-card__head">
+                <div>
+                  <small>Conta</small>
+                  <h4>Anúncios ativos</h4>
+                </div>
+                <span>Completo</span>
+              </div>
+              <p>Carrega os anúncios ativos da conta e separa corretamente anúncios simples e variações.</p>
+              <button id="btnStockLoadActive" class="inventory-btn inventory-btn--primary" type="button">Carregar ativos da conta</button>
+            </article>
+
+            <article class="stock-source-card">
+              <div class="stock-source-card__head">
+                <div>
+                  <small>Seleção</small>
+                  <h4>MLBs ou SKUs específicos</h4>
+                </div>
+                <span>Direto</span>
+              </div>
+              <label class="stock-update-field" for="stockSpecificInput">
+                <span>Lista de MLBs / SKUs</span>
+                <textarea id="stockSpecificInput" rows="5" placeholder="MLB123456789, MLB987654321&#10;SKU-CABECEIRA-140"></textarea>
+              </label>
+              <button id="btnStockLoadSpecific" class="inventory-btn inventory-btn--ghost" type="button">Carregar lista</button>
+              <small id="stockSpecificHint" class="stock-update-muted">A tabela será preenchida somente com itens da conta atual.</small>
+            </article>
+          </div>
+        </section>
+
+        <section class="stock-update-step" aria-labelledby="stockPrepareTitle">
+          <div class="stock-update-step__head">
+            <div>
+              <span class="stock-update-step__index">2</span>
+              <div>
+                <h3 id="stockPrepareTitle">Prepare as alterações</h3>
+                <p>Defina um valor para os selecionados ou altere cada linha individualmente.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="stock-bulk-toolbar">
+            <label class="stock-update-field stock-update-field--compact" for="stockBulkValue">
+              <span>Novo estoque</span>
+              <input id="stockBulkValue" type="number" min="0" step="1" inputmode="numeric" placeholder="Ex.: 10" />
+            </label>
+            <button id="btnStockApplyBulk" class="inventory-btn inventory-btn--primary" type="button" disabled>Preencher selecionados</button>
+            <span class="stock-update-muted">O valor apenas prepara a revisão. A escrita só acontece depois da confirmação no modal.</span>
+          </div>
+        </section>
+
+        <section class="stock-update-step" aria-labelledby="stockReviewTitle">
+          <div class="stock-update-step__head stock-update-step__head--stackable">
+            <div>
+              <span class="stock-update-step__index">3</span>
+              <div>
+                <h3 id="stockReviewTitle">Revise os anúncios</h3>
+                <p>Filtre, selecione e confira o estoque atual antes de preparar a revisão final.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="stock-table-toolbar">
+            <label class="stock-update-search" for="stockSearchInput">
+              <span class="inventory-sr-only">Buscar anúncio</span>
+              <input id="stockSearchInput" type="search" placeholder="Buscar por MLB, SKU, título ou variação" autocomplete="off" />
+            </label>
+            <select id="stockFilterSelect" aria-label="Filtrar anúncios por estoque">
+              <option value="all">Todos</option>
+              <option value="zero">Estoque zerado</option>
+              <option value="low">Estoque baixo (1 a 5)</option>
+              <option value="positive">Com estoque</option>
+              <option value="changed">Alterados</option>
+            </select>
+            <button id="btnStockSelectFiltered" class="inventory-btn inventory-btn--ghost" type="button" disabled>Selecionar filtrados</button>
+            <button id="btnStockClearSelection" class="inventory-btn inventory-btn--ghost" type="button" disabled>Limpar seleção</button>
+          </div>
+
+          <div class="stock-update-stats" aria-label="Resumo da carga">
+            <article><strong id="stockStatLoaded">0</strong><span>linhas carregadas</span></article>
+            <article><strong id="stockStatZero">0</strong><span>com estoque zero</span></article>
+            <article><strong id="stockStatChanged">0</strong><span>com alteração</span></article>
+            <article><strong id="stockStatSelected">0</strong><span>selecionadas</span></article>
+          </div>
+
+          <div class="stock-update-table-wrap">
+            <table class="stock-update-table">
+              <thead>
+                <tr>
+                  <th class="stock-update-check"><input id="stockCheckPage" type="checkbox" aria-label="Selecionar página" /></th>
+                  <th>MLB</th>
+                  <th>Produto</th>
+                  <th>SKU / variação</th>
+                  <th>Estoque atual</th>
+                  <th>Novo estoque</th>
+                  <th>Tipo</th>
+                </tr>
+              </thead>
+              <tbody id="stockUpdateTableBody">
+                <tr><td colspan="7" class="stock-update-empty">Carregue anúncios para começar.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="stock-update-table-footer">
+            <span id="stockTableInfo">0 resultados</span>
+            <div id="stockPagination" class="stock-update-pagination"></div>
+          </div>
+        </section>
+
+        <div class="stock-update-actionbar" id="stockUpdateActionbar" hidden>
+          <div>
+            <strong id="stockActionbarTitle">0 selecionados</strong>
+            <span id="stockActionbarSubtitle">Selecione anúncios e informe o novo estoque.</span>
+          </div>
+          <div>
+            <button id="btnStockResetChanges" class="inventory-btn inventory-btn--ghost" type="button">Desfazer alterações</button>
+            <button id="btnStockReviewChanges" class="inventory-btn inventory-btn--primary" type="button">Revisar alterações</button>
+          </div>
+        </div>
+
+        <p id="stockUpdateFeedback" class="inventory-feedback" aria-live="polite"></p>
+
+        <section class="stock-update-step stock-update-result" id="stockUpdateResult" aria-labelledby="stockResultTitle">
+          <div class="stock-update-step__head stock-update-step__head--stackable">
+            <div>
+              <span class="stock-update-step__index">4</span>
+              <div>
+                <h3 id="stockResultTitle">Processamento do lote</h3>
+                <p>Acompanhe o job atual e confira o resultado confirmado pelo Mercado Livre.</p>
+              </div>
+            </div>
+            <div class="stock-result-actions">
+              <a id="stockDownloadCsv" class="inventory-btn inventory-btn--ghost" href="#" hidden>Baixar CSV</a>
+              <button id="btnStockRetryErrors" class="inventory-btn inventory-btn--ghost" type="button" hidden>Tentar erros novamente</button>
+            </div>
+          </div>
+          <div id="stockJobSummary" class="stock-job-summary" data-tone="neutral">Nenhum lote enviado nesta sessão.</div>
+          <div id="stockJobResults" class="stock-job-results"><article class="inventory-empty">Os resultados aparecerão aqui quando um job for concluído.</article></div>
+        </section>
+      </section>
     </section>
   </main>
 
-  <div id="purchaseModal" class="inventory-modal" hidden aria-hidden="true"><div class="inventory-modal__backdrop" data-close-purchase></div><section class="inventory-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="purchaseModalTitle"><header class="inventory-modal__header"><div><h2 id="purchaseModalTitle">Compra realizada</h2><p id="purchaseModalSubtitle">Informe a data prevista de chegada do novo estoque.</p></div><button class="inventory-modal__close" type="button" data-close-purchase aria-label="Fechar">×</button></header><label class="inventory-field" for="purchaseArrivalDate"><span>Data prevista de chegada</span><input id="purchaseArrivalDate" type="date" /></label><footer class="inventory-modal__footer"><button class="inventory-btn inventory-btn--ghost" type="button" data-close-purchase>Cancelar</button><button id="btnConfirmPurchase" class="inventory-btn inventory-btn--primary" type="button">Salvar status</button></footer></section></div>
-  <div id="detailModal" class="inventory-modal inventory-modal--detail" hidden aria-hidden="true"><div class="inventory-modal__backdrop" data-close-detail></div><section class="inventory-modal__dialog inventory-modal__dialog--wide" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle"><header class="inventory-modal__header"><div><h2 id="detailModalTitle">Análise detalhada de produto</h2><p>Leitura operacional do MLB selecionado.</p></div><button class="inventory-modal__close" type="button" data-close-detail aria-label="Fechar">×</button></header><div id="detailModalContent" class="inventory-detail"><article class="inventory-empty">Selecione um produto na tabela para detalhar.</article></div></section></div>
-  <div id="addWatchlistModal" class="inventory-modal" hidden aria-hidden="true"><div class="inventory-modal__backdrop" data-close-add-watchlist></div><section class="inventory-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="addWatchlistTitle"><header class="inventory-modal__header"><div><h2 id="addWatchlistTitle">Adicionar ao monitoramento</h2><p>Cole um ou mais MLBs ou SKUs para analisar e incluir na watchlist de estoque.</p></div><button class="inventory-modal__close" type="button" data-close-add-watchlist aria-label="Fechar">×</button></header><form id="addWatchlistForm" class="inventory-modal-form"><label class="inventory-field" for="addWatchlistInput"><span>MLBs ou SKUs</span><textarea id="addWatchlistInput" rows="4" placeholder="Ex.: MLB123456789, MLB987654321 ou SKU-ABC"></textarea></label><footer class="inventory-modal__footer"><button class="inventory-btn inventory-btn--ghost" type="button" data-close-add-watchlist>Cancelar</button><button id="btnConfirmAddWatchlist" class="inventory-btn inventory-btn--primary" type="submit">Analisar e adicionar</button></footer></form></section></div>
+  <div id="purchaseModal" class="inventory-modal" hidden aria-hidden="true">
+    <div class="inventory-modal__backdrop" data-close-purchase></div>
+    <section class="inventory-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="purchaseModalTitle">
+      <header class="inventory-modal__header">
+        <div><h2 id="purchaseModalTitle">Compra realizada</h2><p id="purchaseModalSubtitle">Informe a data prevista de chegada do novo estoque.</p></div>
+        <button class="inventory-modal__close" type="button" data-close-purchase aria-label="Fechar">×</button>
+      </header>
+      <label class="inventory-field" for="purchaseArrivalDate"><span>Data prevista de chegada</span><input id="purchaseArrivalDate" type="date" /></label>
+      <footer class="inventory-modal__footer"><button class="inventory-btn inventory-btn--ghost" type="button" data-close-purchase>Cancelar</button><button id="btnConfirmPurchase" class="inventory-btn inventory-btn--primary" type="button">Salvar status</button></footer>
+    </section>
+  </div>
+
+  <div id="detailModal" class="inventory-modal inventory-modal--detail" hidden aria-hidden="true">
+    <div class="inventory-modal__backdrop" data-close-detail></div>
+    <section class="inventory-modal__dialog inventory-modal__dialog--wide" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+      <header class="inventory-modal__header">
+        <div><h2 id="detailModalTitle">Análise detalhada de produto</h2><p>Leitura operacional do MLB selecionado.</p></div>
+        <button class="inventory-modal__close" type="button" data-close-detail aria-label="Fechar">×</button>
+      </header>
+      <div id="detailModalContent" class="inventory-detail"><article class="inventory-empty">Selecione um produto na tabela para detalhar.</article></div>
+    </section>
+  </div>
+
+  <div id="addWatchlistModal" class="inventory-modal" hidden aria-hidden="true">
+    <div class="inventory-modal__backdrop" data-close-add-watchlist></div>
+    <section class="inventory-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="addWatchlistTitle">
+      <header class="inventory-modal__header">
+        <div><h2 id="addWatchlistTitle">Adicionar ao monitoramento</h2><p>Cole um ou mais MLBs ou SKUs para analisar e incluir na watchlist de estoque.</p></div>
+        <button class="inventory-modal__close" type="button" data-close-add-watchlist aria-label="Fechar">×</button>
+      </header>
+      <form id="addWatchlistForm" class="inventory-modal-form">
+        <label class="inventory-field" for="addWatchlistInput"><span>MLBs ou SKUs</span><textarea id="addWatchlistInput" rows="4" placeholder="Ex.: MLB123456789, MLB987654321 ou SKU-ABC"></textarea></label>
+        <footer class="inventory-modal__footer"><button class="inventory-btn inventory-btn--ghost" type="button" data-close-add-watchlist>Cancelar</button><button id="btnConfirmAddWatchlist" class="inventory-btn inventory-btn--primary" type="submit">Analisar e adicionar</button></footer>
+      </form>
+    </section>
+  </div>
+
+  <div id="stockReviewModal" class="inventory-modal stock-review-modal" hidden aria-hidden="true">
+    <div class="inventory-modal__backdrop" data-close-stock-review></div>
+    <section class="inventory-modal__dialog inventory-modal__dialog--wide stock-review-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="stockReviewModalTitle">
+      <header class="inventory-modal__header">
+        <div>
+          <h2 id="stockReviewModalTitle">Revisar atualização de estoque</h2>
+          <p id="stockReviewModalSubtitle">O Mercado Livre será consultado novamente para confirmar o estoque atual.</p>
+        </div>
+        <button class="inventory-modal__close" type="button" data-close-stock-review aria-label="Fechar">×</button>
+      </header>
+      <div id="stockReviewSummary" class="stock-review-summary"></div>
+      <div id="stockReviewRows" class="stock-review-rows"><article class="inventory-empty">Nenhuma revisão preparada.</article></div>
+      <div class="stock-review-note">
+        <strong>Confirmação segura.</strong>
+        <span>Ao confirmar, somente as linhas marcadas como prontas serão enviadas ao worker. O estoque será revalidado novamente imediatamente antes da escrita.</span>
+      </div>
+      <footer class="inventory-modal__footer">
+        <button class="inventory-btn inventory-btn--ghost" type="button" data-close-stock-review>Voltar e editar</button>
+        <button id="btnStockConfirmUpdate" class="inventory-btn inventory-btn--primary" type="button" disabled>Confirmar atualização</button>
+      </footer>
+    </section>
+  </div>
+
+  <div id="bulkJobsPanel" class="processos-panel"></div>
+  <script src="/ml/js/jobs-panel-adapters.js?v=2026080701" defer></script>
+  <script src="/ml/js/jobs-panel.js?v=2026080701" defer></script>
   <script src="/ml/js/estoque-alerta.js?v=11" defer></script>
+  <script src="/ml/js/estoque-atualizacao.js?v=2026092202" defer></script>
 </body>
 </html>
