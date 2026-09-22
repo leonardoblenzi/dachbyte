@@ -52,7 +52,8 @@ test("recusa mutacoes antes do cutover quando auth_audit nao e parent particiona
 });
 
 test("cria default e ranges UTC idempotentes, apenas com identificadores gerados", async () => {
-  const db = queryDb([partitionedInspection(), { rows: [] }, { rows: [] }, { rows: [] }, { rows: [] }]);
+  const db = queryDb([partitionedInspection(), { rows: [] }, { rows: [] }, { rows: [] }, { rows: [] }, { rows: [] }, { rows: [] }]);
+  db.withClient = async (work) => work({ query: db.query.bind(db) });
   const service = createAuthAuditPartitionService({
     db,
     clock: () => new Date("2026-09-22T12:00:00.000Z"),
@@ -67,6 +68,24 @@ test("cria default e ranges UTC idempotentes, apenas com identificadores gerados
   assert.match(sql, /CREATE TABLE IF NOT EXISTS ml\.auth_audit_2026_09/i);
   assert.match(sql, /FOR VALUES FROM \('2026-09-01T00:00:00\.000Z'\) TO \('2026-10-01T00:00:00\.000Z'\)/);
   assert.doesNotMatch(sql, /auth_audit_.*;.*DROP/i);
+});
+
+test("cria faixas antes da default sob lock quando ainda nao existe default", async () => {
+  const db = queryDb([partitionedInspection(), { rows: [] }]);
+  db.withClient = async (work) => work({ query: db.query.bind(db) });
+  const service = createAuthAuditPartitionService({
+    db,
+    clock: () => new Date("2026-09-22T12:00:00.000Z"),
+    monthsAhead: 0,
+  });
+
+  await service.ensurePartitions();
+  const sql = db.calls.map((call) => call.sql.replace(/\s+/g, " ").trim());
+  const lock = sql.findIndex((statement) => /LOCK TABLE ml\.auth_audit IN ACCESS EXCLUSIVE MODE/i.test(statement));
+  const createMonth = sql.findIndex((statement) => /CREATE TABLE IF NOT EXISTS ml\.auth_audit_2026_09/i.test(statement));
+  const createDefault = sql.findIndex((statement) => /CREATE TABLE IF NOT EXISTS ml\.auth_audit_default/i.test(statement));
+  assert.ok(lock >= 0 && lock < createMonth && createMonth < createDefault);
+  assert.ok(sql.some((statement) => /^COMMIT$/i.test(statement)));
 });
 
 test("destaca a default, move o intervalo e a reanexa antes de criar mes que possui linhas", async () => {
@@ -144,7 +163,21 @@ test("limpa retencao antes de avaliar particoes e so derruba apos confirmacao", 
   assert.deepEqual(dry.dropped, []);
   assert.doesNotMatch(dryDb.calls.map((call) => call.sql).join("\n"), /DROP TABLE/i);
 
-  const confirmDb = queryDb(baseResponses());
+  const confirmDb = queryDb([
+    partitionedInspection(),
+    { rows: [
+      { relname: "auth_audit_2026_06", bound: "FOR VALUES FROM ('2026-06-01') TO ('2026-07-01')" },
+      { relname: "auth_audit_default", bound: "DEFAULT" },
+      { relname: "unexpected;drop", bound: "FOR VALUES FROM ('2025-01-01') TO ('2025-02-01')" },
+    ] },
+    { rows: [] },
+    { rows: [] },
+    { rows: [{ safe_to_drop: true }] },
+    { rows: [] },
+    { rows: [] },
+    { rows: [] },
+  ]);
+  confirmDb.withClient = async (work) => work({ query: confirmDb.query.bind(confirmDb) });
   const confirmService = createAuthAuditPartitionService({
     db: confirmDb,
     clock: () => new Date("2026-09-22T12:00:00.000Z"),
@@ -153,9 +186,45 @@ test("limpa retencao antes de avaliar particoes e so derruba apos confirmacao", 
   const confirmed = await confirmService.pruneExpiredPartitions({ confirmDrop: true });
   assert.deepEqual(confirmed.dropped, ["auth_audit_2026_06"]);
   const confirmSql = confirmDb.calls.map((call) => call.sql).join("\n");
+  const normalizedConfirm = confirmDb.calls.map((call) => call.sql.replace(/\s+/g, " ").trim());
+  const lock = normalizedConfirm.findIndex((statement) => /LOCK TABLE ml\.auth_audit IN ACCESS EXCLUSIVE MODE/i.test(statement));
+  const check = normalizedConfirm.findIndex((statement) => /safe_to_drop/i.test(statement));
+  const detach = normalizedConfirm.findIndex((statement) => /DETACH PARTITION ml\.auth_audit_2026_06/i.test(statement));
+  const drop = normalizedConfirm.findIndex((statement) => /DROP TABLE IF EXISTS ml\.auth_audit_2026_06/i.test(statement));
+  assert.ok(lock < check && check < detach && detach < drop);
   assert.match(confirmSql, /DETACH PARTITION ml\.auth_audit_2026_06/i);
   assert.match(confirmSql, /DROP TABLE IF EXISTS ml\.auth_audit_2026_06/i);
   assert.doesNotMatch(confirmSql, /unexpected;drop/);
+});
+
+test("faz rollback e mantem a particao anexada quando drop confirmado falha", async () => {
+  const calls = [];
+  const db = {
+    async query(sql, params) {
+      const text = String(sql);
+      calls.push({ sql: text, params });
+      if (/pg_get_partkeydef/i.test(text)) return partitionedInspection();
+      if (/pg_catalog\.pg_inherits/i.test(text)) {
+        return { rows: [{ relname: "auth_audit_2026_06", bound: "FOR VALUES FROM ('2026-06-01') TO ('2026-07-01')" }] };
+      }
+      if (/safe_to_drop/i.test(text)) return { rows: [{ safe_to_drop: true }] };
+      if (/DROP TABLE/i.test(text)) throw new Error("drop failure");
+      return { rows: [], rowCount: 0 };
+    },
+    async withClient(work) {
+      return work({ query: this.query.bind(this) });
+    },
+  };
+  const service = createAuthAuditPartitionService({
+    db,
+    clock: () => new Date("2026-09-22T12:00:00.000Z"),
+    cleanupAuthAudit: async () => {},
+  });
+
+  await assert.rejects(() => service.pruneExpiredPartitions({ confirmDrop: true }), /drop failure/);
+  const statements = calls.map((call) => call.sql.replace(/\s+/g, " ").trim());
+  assert.ok(statements.some((statement) => /^ROLLBACK$/i.test(statement)));
+  assert.ok(!statements.some((statement) => /^COMMIT$/i.test(statement)));
 });
 
 test("verifica parent, particoes e linhas restantes na default sem assumir transicao", async () => {

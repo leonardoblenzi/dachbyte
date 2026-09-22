@@ -177,8 +177,11 @@ function createAuthAuditPartitionService({
     const missingMonths = requestedMonths.filter((month) => !existingNames.has(partitionNameForMonth(month)));
     const defaultPresent = existing.some((partition) => partition.name === DEFAULT_PARTITION && partition.isDefault);
     if (!defaultPresent) {
-      await db.query(`CREATE TABLE IF NOT EXISTS ml.${DEFAULT_PARTITION} PARTITION OF ml.auth_audit DEFAULT`);
-      for (const month of missingMonths) await createMonthlyPartition(month);
+      await inTransaction(async (client) => {
+        await client.query("LOCK TABLE ml.auth_audit IN ACCESS EXCLUSIVE MODE");
+        for (const month of missingMonths) await createMonthlyPartition(month, client);
+        await client.query(`CREATE TABLE IF NOT EXISTS ml.${DEFAULT_PARTITION} PARTITION OF ml.auth_audit DEFAULT`);
+      });
     } else if (missingMonths.length > 0) {
       await createWithDetachedDefault(missingMonths);
     }
@@ -240,7 +243,8 @@ function createAuthAuditPartitionService({
       const nextMonth = monthBoundsUtc(month).to;
       if (nextMonth > nowMonth) continue;
       const table = quotePartition(partition.name);
-      const result = await db.query(`
+      const canDrop = async (executor) => {
+        const result = await executor.query(`
         SELECT NOT EXISTS (
           SELECT 1
             FROM ${table} audit
@@ -254,13 +258,22 @@ function createAuthAuditPartitionService({
            WHERE retention.retention_days IS NULL
               OR audit.created_at >= now() - make_interval(days => retention.retention_days)
         ) AS safe_to_drop`);
-      if (!result.rows?.[0]?.safe_to_drop) continue;
-      eligible.push(partition.name);
-      if (confirmDrop === true) {
-        await db.query(`ALTER TABLE ml.auth_audit DETACH PARTITION ${table}`);
-        await db.query(`DROP TABLE IF EXISTS ${table}`);
-        dropped.push(partition.name);
+        return result.rows?.[0]?.safe_to_drop === true;
+      };
+      if (confirmDrop !== true) {
+        if (await canDrop(db)) eligible.push(partition.name);
+        continue;
       }
+      const didDrop = await inTransaction(async (client) => {
+        await client.query("LOCK TABLE ml.auth_audit IN ACCESS EXCLUSIVE MODE");
+        if (!await canDrop(client)) return false;
+        await client.query(`ALTER TABLE ml.auth_audit DETACH PARTITION ${table}`);
+        await client.query(`DROP TABLE IF EXISTS ${table}`);
+        return true;
+      });
+      if (!didDrop) continue;
+      eligible.push(partition.name);
+      dropped.push(partition.name);
     }
     return { applied: true, parent, dryRun: confirmDrop !== true, eligible, dropped };
   }
