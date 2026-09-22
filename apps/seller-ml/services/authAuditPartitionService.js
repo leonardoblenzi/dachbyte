@@ -84,29 +84,110 @@ function createAuthAuditPartitionService({
     }));
   }
 
-  async function createMonthlyPartition(date) {
+  async function createMonthlyPartition(date, executor = db) {
     const { from, to } = monthBoundsUtc(date);
     const name = partitionNameForMonth(from);
-    await db.query(
+    await executor.query(
       `CREATE TABLE IF NOT EXISTS ${quotePartition(name)} PARTITION OF ml.auth_audit
          FOR VALUES FROM ('${from.toISOString()}') TO ('${to.toISOString()}')`,
     );
     return name;
   }
 
+  async function moveDefaultRange(executor, date, batchSize = 10000) {
+    const bounds = monthBoundsUtc(date);
+    const safeBatchSize = Math.max(1, Number(batchSize) || 10000);
+    let moved = 0;
+    let batchMoved;
+    do {
+      const result = await executor.query(`
+        WITH moved AS (
+          DELETE FROM ml.${DEFAULT_PARTITION}
+           WHERE ctid IN (
+             SELECT ctid
+               FROM ml.${DEFAULT_PARTITION}
+              WHERE created_at >= $1
+                AND created_at < $2
+              ORDER BY created_at, id
+              LIMIT $3
+           )
+           RETURNING *
+        ), inserted AS (
+          INSERT INTO ml.auth_audit SELECT * FROM moved
+          RETURNING 1
+        )
+        SELECT count(*)::bigint AS moved_count FROM inserted`, [
+        bounds.from.toISOString(),
+        bounds.to.toISOString(),
+        safeBatchSize,
+      ]);
+      batchMoved = asCount(result.rows?.[0]?.moved_count);
+      moved += batchMoved;
+    } while (batchMoved === safeBatchSize);
+    return moved;
+  }
+
+  async function inTransaction(work) {
+    const run = async (client) => {
+      await client.query("BEGIN");
+      try {
+        const result = await work(client);
+        await client.query("COMMIT");
+        return result;
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      }
+    };
+    if (typeof db.withClient === "function") return db.withClient(run);
+    return run(db);
+  }
+
+  async function createWithDetachedDefault(months, { moveRows = true, batchSize = 10000 } = {}) {
+    return inTransaction(async (client) => {
+      await client.query("LOCK TABLE ml.auth_audit IN ACCESS EXCLUSIVE MODE");
+      await client.query(`ALTER TABLE ml.auth_audit DETACH PARTITION ml.${DEFAULT_PARTITION}`);
+      let moved = 0;
+      try {
+        for (const month of months) {
+          await createMonthlyPartition(month, client);
+          if (moveRows) moved += await moveDefaultRange(client, month, batchSize);
+        }
+        await client.query(`ALTER TABLE ml.auth_audit ATTACH PARTITION ml.${DEFAULT_PARTITION} DEFAULT`);
+      } catch (error) {
+        throw error;
+      }
+      return moved;
+    });
+  }
+
   async function ensurePartitions() {
     const parent = await inspectCurrentTable();
     if (!parent.partitioned) return { applied: false, reason: "parent_not_partitioned", parent, partitions: [] };
 
-    await db.query(`CREATE TABLE IF NOT EXISTS ml.${DEFAULT_PARTITION} PARTITION OF ml.auth_audit DEFAULT`);
     const current = monthBoundsUtc(clock()).from;
-    const partitions = [];
+    const requestedMonths = [];
     for (let offset = 0; offset <= futureMonths; offset += 1) {
-      partitions.push(await createMonthlyPartition(new Date(Date.UTC(
+      requestedMonths.push(new Date(Date.UTC(
         current.getUTCFullYear(), current.getUTCMonth() + offset, 1,
-      ))));
+      )));
     }
-    return { applied: true, parent, defaultPartition: DEFAULT_PARTITION, partitions };
+    const existing = await listPartitions();
+    const existingNames = new Set(existing.map((partition) => partition.name));
+    const missingMonths = requestedMonths.filter((month) => !existingNames.has(partitionNameForMonth(month)));
+    const defaultPresent = existing.some((partition) => partition.name === DEFAULT_PARTITION && partition.isDefault);
+    if (!defaultPresent) {
+      await db.query(`CREATE TABLE IF NOT EXISTS ml.${DEFAULT_PARTITION} PARTITION OF ml.auth_audit DEFAULT`);
+      for (const month of missingMonths) await createMonthlyPartition(month);
+    } else if (missingMonths.length > 0) {
+      await createWithDetachedDefault(missingMonths);
+    }
+    return {
+      applied: true,
+      parent,
+      defaultPartition: DEFAULT_PARTITION,
+      partitions: requestedMonths.map(partitionNameForMonth),
+    };
   }
 
   async function drainDefaultPartition({ batchSize = 10000 } = {}) {
@@ -116,48 +197,30 @@ function createAuthAuditPartitionService({
     if (!partitions.some((partition) => partition.name === DEFAULT_PARTITION && partition.isDefault)) {
       return { applied: false, reason: "default_partition_missing", parent, moved: 0 };
     }
-    const groups = await db.query(`
-      SELECT date_trunc('month', created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS month_start,
-             count(*) AS row_count
-        FROM ml.${DEFAULT_PARTITION}
-       GROUP BY 1
-       ORDER BY 1`);
-    let moved = 0;
-    const months = [];
-    const safeBatchSize = Math.max(1, Number(batchSize) || 10000);
-    for (const group of groups.rows || []) {
-      const month = new Date(group.month_start);
-      if (Number.isNaN(month.getTime())) continue;
-      const name = await createMonthlyPartition(month);
-      months.push(name);
-      let batchMoved;
-      do {
-        const result = await db.query(`
-          WITH moved AS (
-            DELETE FROM ml.${DEFAULT_PARTITION}
-             WHERE ctid IN (
-               SELECT ctid
-                 FROM ml.${DEFAULT_PARTITION}
-                WHERE created_at >= $1
-                  AND created_at < $2
-                ORDER BY created_at, id
-                LIMIT $3
-             )
-             RETURNING *
-          ), inserted AS (
-            INSERT INTO ml.auth_audit SELECT * FROM moved
-            RETURNING 1
-          )
-          SELECT count(*)::bigint AS moved_count FROM inserted`, [
-          monthBoundsUtc(month).from.toISOString(),
-          monthBoundsUtc(month).to.toISOString(),
-          safeBatchSize,
-        ]);
-        batchMoved = asCount(result.rows?.[0]?.moved_count);
-        moved += batchMoved;
-      } while (batchMoved === safeBatchSize);
-    }
-    return { applied: true, parent, moved, months: [...new Set(months)] };
+    const outcome = await inTransaction(async (client) => {
+      await client.query("LOCK TABLE ml.auth_audit IN ACCESS EXCLUSIVE MODE");
+      await client.query(`ALTER TABLE ml.auth_audit DETACH PARTITION ml.${DEFAULT_PARTITION}`);
+      const groups = await client.query(`
+        SELECT date_trunc('month', created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS month_start,
+               count(*) AS row_count
+          FROM ml.${DEFAULT_PARTITION}
+         GROUP BY 1
+         ORDER BY 1`);
+      let moved = 0;
+      const months = [];
+      for (const group of groups.rows || []) {
+        const month = new Date(group.month_start);
+        if (Number.isNaN(month.getTime())) continue;
+        const name = partitionNameForMonth(month);
+        const existingMonthly = partitions.some((partition) => partition.name === name);
+        if (!existingMonthly) await createMonthlyPartition(month, client);
+        months.push(name);
+        moved += await moveDefaultRange(client, month, batchSize);
+      }
+      await client.query(`ALTER TABLE ml.auth_audit ATTACH PARTITION ml.${DEFAULT_PARTITION} DEFAULT`);
+      return { moved, months };
+    });
+    return { applied: true, parent, moved: outcome.moved, months: [...new Set(outcome.months)] };
   }
 
   async function pruneExpiredPartitions({ confirmDrop = false } = {}) {

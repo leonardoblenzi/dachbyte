@@ -52,7 +52,7 @@ test("recusa mutacoes antes do cutover quando auth_audit nao e parent particiona
 });
 
 test("cria default e ranges UTC idempotentes, apenas com identificadores gerados", async () => {
-  const db = queryDb([partitionedInspection(), { rows: [] }, { rows: [] }, { rows: [] }]);
+  const db = queryDb([partitionedInspection(), { rows: [] }, { rows: [] }, { rows: [] }, { rows: [] }]);
   const service = createAuthAuditPartitionService({
     db,
     clock: () => new Date("2026-09-22T12:00:00.000Z"),
@@ -69,15 +69,46 @@ test("cria default e ranges UTC idempotentes, apenas com identificadores gerados
   assert.doesNotMatch(sql, /auth_audit_.*;.*DROP/i);
 });
 
+test("destaca a default, move o intervalo e a reanexa antes de criar mes que possui linhas", async () => {
+  const db = queryDb([
+    partitionedInspection(),
+    { rows: [{ relname: "auth_audit_default", bound: "DEFAULT" }] },
+    { rows: [] },
+    { rows: [{ moved_count: "1" }] },
+    { rows: [{ moved_count: "0" }] },
+  ]);
+  db.withClient = async (work) => work({ query: db.query.bind(db) });
+  const service = createAuthAuditPartitionService({
+    db,
+    clock: () => new Date("2026-09-22T12:00:00.000Z"),
+    monthsAhead: 0,
+  });
+
+  await service.ensurePartitions();
+  const sql = db.calls.map((call) => call.sql.replace(/\s+/g, " ").trim());
+  const detach = sql.findIndex((statement) => /DETACH PARTITION ml\.auth_audit_default/i.test(statement));
+  const create = sql.findIndex((statement) => /CREATE TABLE IF NOT EXISTS ml\.auth_audit_2026_09/i.test(statement));
+  const move = sql.findIndex((statement) => /DELETE FROM ml\.auth_audit_default/i.test(statement));
+  const attach = sql.findIndex((statement) => /ATTACH PARTITION ml\.auth_audit_default DEFAULT/i.test(statement));
+  assert.ok(sql.some((statement) => /^BEGIN$/i.test(statement)));
+  assert.ok(sql.some((statement) => /LOCK TABLE ml\.auth_audit IN ACCESS EXCLUSIVE MODE/i.test(statement)));
+  assert.ok(detach < create && create < move && move < attach);
+  assert.ok(sql.some((statement) => /^COMMIT$/i.test(statement)));
+});
+
 test("drena a default por batch para o parent sem apagar eventos isoladamente", async () => {
   const db = queryDb([
     partitionedInspection(),
     { rows: [{ relname: "auth_audit_default", bound: "DEFAULT" }] },
+    { rows: [] },
+    { rows: [] },
+    { rows: [] },
     { rows: [{ month_start: new Date("2026-09-01T00:00:00.000Z"), row_count: "2" }] },
     { rows: [] },
     { rows: [{ moved_count: "2" }] },
     { rows: [] },
   ]);
+  db.withClient = async (work) => work({ query: db.query.bind(db) });
   const service = createAuthAuditPartitionService({ db });
   const result = await service.drainDefaultPartition({ batchSize: 50 });
   const sql = db.calls.map((call) => call.sql).join("\n");
@@ -86,6 +117,8 @@ test("drena a default por batch para o parent sem apagar eventos isoladamente", 
   assert.match(sql, /DELETE FROM ml\.auth_audit_default/i);
   assert.match(sql, /INSERT INTO ml\.auth_audit SELECT \* FROM moved/i);
   assert.match(sql, /CREATE TABLE IF NOT EXISTS ml\.auth_audit_2026_09/i);
+  assert.match(sql, /DETACH PARTITION ml\.auth_audit_default/i);
+  assert.match(sql, /ATTACH PARTITION ml\.auth_audit_default DEFAULT/i);
 });
 
 test("limpa retencao antes de avaliar particoes e so derruba apos confirmacao", async () => {
