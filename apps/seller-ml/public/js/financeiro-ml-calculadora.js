@@ -11,6 +11,7 @@
     lookupQuery: "",
     candidates: [],
     selected: null,
+    shippingMode: "mercado_envios",
     busy: false,
   };
 
@@ -108,6 +109,40 @@
     setBadge("calc-fee-mode", locked ? "Comissão Mercado Livre" : "Comissão manual", locked ? "info" : "neutral");
   }
 
+  function isLoadedListing() {
+    return state.mode === "listing" && Boolean(state.selected?.item_id);
+  }
+
+  function syncListingTypeControl() {
+    const value = $("calc-listing-type")?.value || "gold_special";
+    const locked = isLoadedListing();
+    document.querySelectorAll("[data-listing-type]").forEach((button) => {
+      const active = button.dataset.listingType === value;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+      button.disabled = locked;
+    });
+  }
+
+  function setListingType(value) {
+    const select = $("calc-listing-type");
+    if (!select || isLoadedListing()) return;
+    select.value = value === "gold_pro" ? "gold_pro" : "gold_special";
+    syncListingTypeControl();
+    syncFeeInputs();
+  }
+
+  function syncShippingMode(mode = state.shippingMode) {
+    state.shippingMode = mode === "comprador" ? "comprador" : "mercado_envios";
+    if ($("calc-seller-shipping-wrap")) $("calc-seller-shipping-wrap").hidden = state.shippingMode !== "mercado_envios";
+    if ($("calc-buyer-shipping-wrap")) $("calc-buyer-shipping-wrap").hidden = state.shippingMode !== "comprador";
+    document.querySelectorAll("[data-shipping-mode]").forEach((button) => {
+      const active = button.dataset.shippingMode === state.shippingMode;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }
+
   function setMode(mode) {
     state.mode = mode === "manual" ? "manual" : "listing";
     document.querySelectorAll("[data-calc-mode]").forEach((button) => {
@@ -119,6 +154,7 @@
       panel.hidden = state.mode !== "listing";
     });
     if (state.mode === "manual") {
+      state.selected = null;
       setInput("calc-item-id", "");
       setInput("calc-variation-id", "");
       setInput("calc-reference-sku", "");
@@ -129,6 +165,7 @@
       $("calc-use-ml-fee").checked = true;
       syncFeeInputs();
     }
+    syncListingTypeControl();
   }
 
   async function loadAccountTax() {
@@ -204,6 +241,8 @@
 
     if ($("calc-use-ml-fee")) $("calc-use-ml-fee").checked = true;
     syncFeeInputs();
+    syncListingTypeControl();
+    syncShippingMode(row.free_shipping ? "mercado_envios" : "comprador");
 
     const itemBox = $("calc-loaded-item");
     if (itemBox) itemBox.hidden = false;
@@ -243,6 +282,7 @@
 
   function buildPayload() {
     const autoFee = !!$("calc-use-ml-fee")?.checked;
+    const shippingMode = state.shippingMode;
     return {
       mode: state.mode,
       item_id: $("calc-item-id")?.value || "",
@@ -260,8 +300,8 @@
       commission_rate_pct: inputValue("calc-commission-pct"),
       commission_fixed: inputValue("calc-commission-fixed"),
       tax_rate_pct: inputValue("calc-tax-pct"),
-      seller_shipping: inputValue("calc-seller-shipping"),
-      buyer_shipping_taxable: inputValue("calc-buyer-shipping"),
+      seller_shipping: shippingMode === "mercado_envios" ? inputValue("calc-seller-shipping") : 0,
+      buyer_shipping_taxable: shippingMode === "comprador" ? inputValue("calc-buyer-shipping") : 0,
       operation_cost: inputValue("calc-operation-cost"),
       other_costs: inputValue("calc-other-costs"),
       target_margin_pct: String($("calc-target-margin")?.value || "").trim(),
@@ -366,8 +406,10 @@
     applyTaxPreset();
     if ($("calc-loaded-item")) $("calc-loaded-item").hidden = true;
     if ($("calc-variation-wrap")) $("calc-variation-wrap").hidden = true;
+    syncShippingMode("mercado_envios");
     setBadge("calc-lookup-badge", state.mode === "manual" ? "Manual" : "Não carregado", "neutral");
     syncFeeInputs();
+    syncListingTypeControl();
     setText("calc-result-profit", "R$ 0,00");
     setText("calc-result-margin", "0,00%");
     setText("calc-result-roi", "--");
@@ -398,6 +440,12 @@
     $("calc-use-ml-fee")?.addEventListener("change", syncFeeInputs);
     $("calc-category")?.addEventListener("input", syncFeeInputs);
     $("calc-listing-type")?.addEventListener("change", syncFeeInputs);
+    document.querySelectorAll("[data-listing-type]").forEach((button) => {
+      button.addEventListener("click", () => setListingType(button.dataset.listingType));
+    });
+    document.querySelectorAll("[data-shipping-mode]").forEach((button) => {
+      button.addEventListener("click", () => syncShippingMode(button.dataset.shippingMode));
+    });
     $("calc-form")?.addEventListener("submit", calculate);
     $("calc-reset")?.addEventListener("click", resetForm);
   }
@@ -407,6 +455,8 @@
     await loadAccountTax();
     applyTaxPreset();
     syncFeeInputs();
+    syncListingTypeControl();
+    syncShippingMode();
     setMode("listing");
   });
 })();

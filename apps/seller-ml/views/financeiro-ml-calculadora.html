@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calculadora | DACHBYTE Mercado Livre</title>
   <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
-  <link rel="stylesheet" href="/ml/css/financeiro-ml-calculadora.css?v=2026092301" />
+  <link rel="stylesheet" href="/ml/css/financeiro-ml-calculadora.css?v=2026092302" />
   <script src="/ml/js/ml-base.js?v=12"></script>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
@@ -77,18 +77,23 @@
               </label>
             </div>
 
-            <section class="calc-subcard">
+            <section class="calc-subcard calc-subcard--commission">
               <div class="calc-subcard__head">
-                <div><strong>Mercado Livre</strong><small>Comissão e tipo de anúncio</small></div>
+                <div><strong>Comissão Mercado Livre</strong><small>Escolha o tipo no manual ou carregue os dados do anúncio.</small></div>
               </div>
               <div class="calc-grid calc-grid--2">
-                <label class="calc-field">
+                <div class="calc-field">
                   <span>Tipo de anúncio</span>
-                  <select id="calc-listing-type" name="listing_type_id">
+                  <div class="calc-segmented-control" role="group" aria-label="Tipo de anúncio">
+                    <button type="button" data-listing-type="gold_special" aria-pressed="true">Clássico</button>
+                    <button type="button" data-listing-type="gold_pro" aria-pressed="false">Premium</button>
+                  </div>
+                  <select id="calc-listing-type" name="listing_type_id" class="calc-native-control" aria-hidden="true" tabindex="-1">
                     <option value="gold_special">Clássico</option>
                     <option value="gold_pro">Premium</option>
                   </select>
-                </label>
+                  <small class="calc-field__hint">Ao carregar um anúncio, o tipo real fica selecionado e não pode ser alterado.</small>
+                </div>
                 <label class="calc-field">
                   <span>Categoria ML <em>opcional no manual</em></span>
                   <input id="calc-category" name="category_id" type="text" placeholder="MLB1234" autocomplete="off" />
@@ -110,6 +115,26 @@
 
             <section class="calc-subcard">
               <div class="calc-subcard__head">
+                <div><strong>Frete</strong><small>Informe apenas o valor que interfere nesta simulação.</small></div>
+              </div>
+              <div class="calc-segmented-control" role="group" aria-label="Modalidade de frete">
+                <button type="button" data-shipping-mode="mercado_envios" aria-pressed="true">Mercado Envios</button>
+                <button type="button" data-shipping-mode="comprador" aria-pressed="false">Pago pelo comprador</button>
+              </div>
+              <label id="calc-seller-shipping-wrap" class="calc-field calc-shipping-field">
+                <span>Tarifa Mercado Envios cobrada do vendedor</span>
+                <div class="calc-money-input"><span>R$</span><input id="calc-seller-shipping" name="seller_shipping" type="number" min="0" step="0.01" value="0" /></div>
+                <small class="calc-field__hint">Este valor entra como custo da venda.</small>
+              </label>
+              <label id="calc-buyer-shipping-wrap" class="calc-field calc-shipping-field" hidden>
+                <span>Valor pago pelo comprador <em>opcional</em></span>
+                <div class="calc-money-input"><span>R$</span><input id="calc-buyer-shipping" name="buyer_shipping_taxable" type="number" min="0" step="0.01" value="0" /></div>
+                <small class="calc-field__hint">Se informado, participa apenas da base fiscal; não é custo do vendedor.</small>
+              </label>
+            </section>
+
+            <section class="calc-subcard">
+              <div class="calc-subcard__head">
                 <div><strong>Impostos e operação</strong><small>Custos que reduzem o resultado da venda</small></div>
               </div>
               <div class="calc-grid calc-grid--2">
@@ -126,14 +151,6 @@
                 <label class="calc-field">
                   <span>Imposto</span>
                   <div class="calc-suffix-input"><input id="calc-tax-pct" name="tax_rate_pct" type="number" min="0" max="95" step="0.01" value="0" /><span>%</span></div>
-                </label>
-                <label class="calc-field">
-                  <span>Frete / tarifa do vendedor</span>
-                  <div class="calc-money-input"><span>R$</span><input id="calc-seller-shipping" name="seller_shipping" type="number" min="0" step="0.01" value="0" /></div>
-                </label>
-                <label class="calc-field">
-                  <span>Frete pago pelo comprador <em>base fiscal</em></span>
-                  <div class="calc-money-input"><span>R$</span><input id="calc-buyer-shipping" name="buyer_shipping_taxable" type="number" min="0" step="0.01" value="0" /></div>
                 </label>
                 <label class="calc-field">
                   <span>Embalagem / operação</span>
@@ -169,7 +186,7 @@
         <aside class="calc-column calc-column--result">
           <section class="calc-card calc-result-card" aria-live="polite">
             <header class="calc-result-head">
-              <div><span class="calc-eyebrow">Resultado</span><h2>Resultado da simulação</h2></div>
+              <div><h2>Lucro por unidade</h2><p>Impacto estimado depois dos custos e impostos.</p></div>
               <span id="calc-result-status" class="calc-badge" data-tone="neutral">Aguardando</span>
             </header>
 
@@ -212,7 +229,7 @@
     </section>
   </main>
 
-  <script src="/ml/js/financeiro-ml-calculadora.js?v=2026092301" defer></script>
+  <script src="/ml/js/financeiro-ml-calculadora.js?v=2026092302" defer></script>
 </body>
 </html>
 
