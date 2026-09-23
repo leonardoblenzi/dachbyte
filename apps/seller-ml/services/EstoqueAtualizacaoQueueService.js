@@ -6,7 +6,7 @@ const {
   processStockChanges,
   buildCsvRows,
   CSV_HEADER,
-} = require("./estoqueAtualizacaoService");
+} = require("./EstoqueAtualizacaoService");
 const { buildCsv, attachJobReview } = require("./jobReviewHelper");
 const { recordAuthEvent } = require("./authAuditService");
 const { loadWorkerCredentials } = require("./estoqueAtualizacaoWorkerCredentials");

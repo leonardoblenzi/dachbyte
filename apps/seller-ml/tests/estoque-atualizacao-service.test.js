@@ -2,8 +2,10 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
-const service = require("../services/estoqueAtualizacaoService");
+const service = require("../services/EstoqueAtualizacaoService");
 const {
   normalizeRequestedChange,
   flattenItem,
@@ -12,6 +14,15 @@ const {
   summarizeResults,
   ownershipMatches,
 } = service._test;
+
+test("a fila referencia o servico de estoque com o nome exato do arquivo", () => {
+  const queueSource = fs.readFileSync(
+    path.join(__dirname, "../services/EstoqueAtualizacaoQueueService.js"),
+    "utf8"
+  );
+
+  assert.match(queueSource, /require\("\.\/EstoqueAtualizacaoService"\)/);
+});
 
 test("monta payload simples com available_quantity", () => {
   const payload = buildPutPayload([
