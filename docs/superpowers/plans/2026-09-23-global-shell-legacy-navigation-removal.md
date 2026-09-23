@@ -31,11 +31,14 @@
 for (const page of pages) {
   const html = read(...page);
   assert.match(html, /<body>\s*<div data-dx-shell=/, page.join('/'));
-  assert.doesNotMatch(html, /seller-nav|class="navbar"|<header>/, page.join('/'));
+  assert.doesNotMatch(html, /seller-nav|class="navbar"/, page.join('/'));
 }
 ```
 
-`pages` deve conter Seller geral, ML, Shopee, Rastreio, Magalu e as páginas Business, Core e Stock.
+`pages` deve conter Seller geral, ML, Shopee, Rastreio, Magalu, Termos e Privacidade
+Magalu, além das páginas Business, Core e Stock. Criar uma asserção separada para
+Core que rejeite o seu `<header>` local, pois os outros templates podem empregar
+headers semânticos de conteúdo no futuro.
 
 - [ ] **Step 2: Cobrir Chat e shell compartilhado**
 
@@ -84,7 +87,28 @@ if (el.dataset.dxExperienceMounted === 'true') return;
 el.dataset.dxExperienceMounted = 'true';
 ```
 
-Manter o retorno de `mount` quando `host.dataset.mounted` existir.
+Montar o shell imediatamente quando o host já estiver no DOM, e montar experiências
+novas depois que o documento estiver completo. A ordem deve ser:
+
+```js
+const mountAll = () => {
+  document.querySelectorAll('[data-dx-shell]').forEach(host => {
+    mount(host, host.dataset.dxShell, host.dataset.dxModule);
+  });
+  document.querySelectorAll('[data-dx-experience]').forEach(el => {
+    buildExperience(el, el.dataset.dxExperience);
+  });
+};
+
+mountAll();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', mountAll, { once: true });
+}
+```
+
+`mount` continua retornando sem duplicar o shell quando `host.dataset.mounted`
+existir, mas não é mais responsável por descobrir experiências que podem aparecer
+posteriormente no parsing do documento.
 
 - [ ] **Step 3: Excluir CSS transitório**
 
