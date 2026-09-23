@@ -9,12 +9,15 @@ const {
 } = require("./estoqueAtualizacaoService");
 const { buildCsv, attachJobReview } = require("./jobReviewHelper");
 const { recordAuthEvent } = require("./authAuditService");
+const { loadWorkerCredentials } = require("./estoqueAtualizacaoWorkerCredentials");
 
 const QUEUE_NAME = "estoque-atualizacao-queue";
 const RECENT_LIMIT = 30;
 const MAX_JOB_ROWS = 5000;
 let queueInstance = null;
 let workerStarted = false;
+let stockProcessor = processStockChanges;
+let credentialResolver = loadWorkerCredentials;
 
 function getQueue() {
   if (!queueInstance) {
@@ -128,9 +131,21 @@ async function processJob(job) {
   await auditJob(job, "stock_bulk_update_job_started", "success", { total_rows: total });
 
   try {
-    const result = await processStockChanges({
-      accessToken: job.data.accessToken,
-      mlCreds: job.data.mlCreds || {},
+    const accountKey = normalizeAccountKey(job.data?.accountKey);
+    if (!accountKey) {
+      const error = new Error("Conta Mercado Livre nao identificada para o job de estoque.");
+      error.statusCode = 409;
+      throw error;
+    }
+    const credentials = await credentialResolver(accountKey);
+    if (!credentials?.accessToken) {
+      const error = new Error("Nao foi possivel obter credenciais da conta Mercado Livre para o job de estoque.");
+      error.statusCode = 503;
+      throw error;
+    }
+    const result = await stockProcessor({
+      accessToken: credentials.accessToken,
+      mlCreds: credentials.mlCreds || {},
       changes: job.data.changes || [],
       shouldCancel: () => cancellationRequested(job),
       onProgress: async (progress = {}) => {
@@ -278,8 +293,6 @@ async function jobToPayload(job) {
 }
 
 async function enqueueStockUpdateJob({
-  accessToken,
-  mlCreds = {},
   accountKey,
   accountLabel,
   changes = [],
@@ -307,8 +320,6 @@ async function enqueueStockUpdateJob({
   const job = await queue.add(
     {
       title: title || `Estoque - atualizar ${rows.length} ${rows.length === 1 ? "linha" : "linhas"}`,
-      accessToken,
-      mlCreds,
       accountKey,
       accountLabel,
       changes: rows,
@@ -435,8 +446,6 @@ async function retryFailedStockJob(id, { accountKey, auditContext = null } = {})
     new_stock: row.requested_stock,
   }));
   const newId = await enqueueStockUpdateJob({
-    accessToken: job.data.accessToken,
-    mlCreds: job.data.mlCreds || {},
     accountKey: job.data.accountKey,
     accountLabel: job.data.accountLabel,
     changes,
@@ -463,5 +472,21 @@ module.exports = {
     normalizeState,
     countAttention,
     canAccessJob,
+    processJob,
+    setQueue(queue) {
+      queueInstance = queue;
+    },
+    setStockProcessor(processor) {
+      stockProcessor = processor;
+    },
+    resetStockProcessor() {
+      stockProcessor = processStockChanges;
+    },
+    setCredentialResolver(resolver) {
+      credentialResolver = resolver;
+    },
+    resetCredentialResolver() {
+      credentialResolver = loadWorkerCredentials;
+    },
   },
 };

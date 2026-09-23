@@ -307,7 +307,7 @@ async function findUserProductConflictKeys(state, changes, sellerId) {
 
 function ownershipMatches(item, sellerId) {
   const owner = String(item?.seller_id || item?.seller?.id || "").trim();
-  return !owner || owner === String(sellerId);
+  return Boolean(owner) && owner === String(sellerId);
 }
 
 function buildBaseResult(change, currentRow = null) {
@@ -338,6 +338,9 @@ function preflightChange(change, currentRow, sellerContext) {
   const base = buildBaseResult(change, currentRow);
   if (!change.mlb || change.new_stock == null) {
     return { ...base, status: "invalid", message: "MLB ou estoque informado e invalido." };
+  }
+  if (change.expected_current_stock == null) {
+    return { ...base, status: "invalid", message: "O snapshot do estoque atual e obrigatorio para atualizar com seguranca." };
   }
   if (!currentRow) {
     return { ...base, status: "not_found", message: "Anuncio ou variacao nao localizado na conta ativa." };
@@ -702,5 +705,6 @@ module.exports = {
     buildPutPayload,
     summarizeResults,
     variationIdPayload,
+    ownershipMatches,
   },
 };

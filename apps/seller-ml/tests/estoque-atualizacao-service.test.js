@@ -10,6 +10,7 @@ const {
   preflightChange,
   buildPutPayload,
   summarizeResults,
+  ownershipMatches,
 } = service._test;
 
 test("monta payload simples com available_quantity", () => {
@@ -94,6 +95,30 @@ test("nao sobrescreve estoque que mudou depois da revisao", () => {
   assert.equal(result.status, "stale");
   assert.equal(result.actual_current_stock, 5);
   assert.equal(result.write_applied, false);
+});
+
+test("rejeita alteracao sem snapshot de estoque antes de ficar pronta", () => {
+  const change = normalizeRequestedChange({
+    mlb: "MLB123456789",
+    new_stock: 8,
+  });
+  const current = flattenItem({
+    id: "MLB123456789",
+    title: "Produto",
+    status: "active",
+    available_quantity: 3,
+    seller_id: 10,
+  })[0];
+
+  const result = preflightChange(change, current, { sellerId: "10", multiOrigin: false });
+
+  assert.equal(result.status, "invalid");
+  assert.match(result.message, /snapshot|estoque atual/i);
+});
+
+test("falha fechado quando o item nao informa seller", () => {
+  assert.equal(ownershipMatches({ seller_id: null }, "10"), false);
+  assert.equal(ownershipMatches({ seller: {} }, "10"), false);
 });
 
 test("resume aplicados, divergencias e erros separadamente", () => {

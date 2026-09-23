@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calculadora | DACHBYTE Mercado Livre</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/financeiro-ml-calculadora.css?v=2026092301" />
+  <script src="/ml/js/ml-base.js?v=12"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="calc-app">
+  <!-- Compatibilidade com o shell legado: força a montagem do shell antes de o
+       complemento de navegação registrar esta nova rota na sidebar. -->
+  <div class="main-nav" hidden aria-hidden="true"></div>
+  <main class="page-wrap calc-page">
+    <section class="calc-shell" aria-labelledby="calc-title">
+      <header class="calc-hero">
+        <div>
+          <span class="calc-eyebrow">Precificação</span>
+          <h1 id="calc-title">Calculadora de margem</h1>
+          <p>Simule lucro, margem, ROI e o preço necessário para atingir uma margem desejada sem alterar o anúncio no Mercado Livre.</p>
+        </div>
+        <div class="calc-hero__note">
+          <strong>Simulação segura</strong>
+          <span>Nenhum preço é publicado por esta tela.</span>
+        </div>
+      </header>
+
+      <nav class="calc-mode-tabs" aria-label="Modo da calculadora">
+        <button class="is-active" type="button" data-calc-mode="listing" aria-selected="true">Usar anúncio</button>
+        <button type="button" data-calc-mode="manual" aria-selected="false">Simulação manual</button>
+      </nav>
+
+      <section class="calc-layout">
+        <div class="calc-column calc-column--form">
+          <section class="calc-card calc-card--lookup" data-mode-panel="listing">
+            <header class="calc-card__head">
+              <div><span class="calc-step">1</span><div><h2>Carregar anúncio</h2><p>Informe um MLB ou SKU da conta ativa.</p></div></div>
+              <span id="calc-lookup-badge" class="calc-badge" data-tone="neutral">Não carregado</span>
+            </header>
+            <div class="calc-lookup-row">
+              <label class="calc-field calc-field--grow" for="calc-lookup-input">
+                <span>MLB ou SKU</span>
+                <input id="calc-lookup-input" type="text" placeholder="Ex.: MLB123456789 ou SKU-OPALA-140" autocomplete="off" />
+              </label>
+              <button id="calc-lookup-button" class="calc-btn calc-btn--primary" type="button">Carregar</button>
+            </div>
+            <label id="calc-variation-wrap" class="calc-field" for="calc-variation-select" hidden>
+              <span>Variação</span>
+              <select id="calc-variation-select"></select>
+            </label>
+            <div id="calc-loaded-item" class="calc-loaded-item" hidden>
+              <img id="calc-item-image" alt="" />
+              <div>
+                <strong id="calc-item-title">Produto</strong>
+                <span id="calc-item-meta">MLB · SKU</span>
+                <small id="calc-item-source">Tarifas carregadas do Mercado Livre</small>
+              </div>
+            </div>
+          </section>
+
+          <form id="calc-form" class="calc-card calc-form" novalidate>
+            <header class="calc-card__head">
+              <div><span class="calc-step">2</span><div><h2>Dados da simulação</h2><p>Ajuste os valores usados no cálculo.</p></div></div>
+              <span id="calc-fee-mode" class="calc-badge" data-tone="neutral">Comissão manual</span>
+            </header>
+
+            <div class="calc-grid calc-grid--2">
+              <label class="calc-field">
+                <span>Preço de venda</span>
+                <div class="calc-money-input"><span>R$</span><input id="calc-price" name="price" type="number" min="0.01" step="0.01" inputmode="decimal" required /></div>
+              </label>
+              <label class="calc-field">
+                <span>Custo do produto</span>
+                <div class="calc-money-input"><span>R$</span><input id="calc-product-cost" name="product_cost" type="number" min="0" step="0.01" inputmode="decimal" value="0" /></div>
+              </label>
+            </div>
+
+            <section class="calc-subcard">
+              <div class="calc-subcard__head">
+                <div><strong>Mercado Livre</strong><small>Comissão e tipo de anúncio</small></div>
+              </div>
+              <div class="calc-grid calc-grid--2">
+                <label class="calc-field">
+                  <span>Tipo de anúncio</span>
+                  <select id="calc-listing-type" name="listing_type_id">
+                    <option value="gold_special">Clássico</option>
+                    <option value="gold_pro">Premium</option>
+                  </select>
+                </label>
+                <label class="calc-field">
+                  <span>Categoria ML <em>opcional no manual</em></span>
+                  <input id="calc-category" name="category_id" type="text" placeholder="MLB1234" autocomplete="off" />
+                </label>
+                <label class="calc-field">
+                  <span>Comissão percentual</span>
+                  <div class="calc-suffix-input"><input id="calc-commission-pct" name="commission_rate_pct" type="number" min="0" max="95" step="0.01" value="0" /><span>%</span></div>
+                </label>
+                <label class="calc-field">
+                  <span>Tarifa fixa</span>
+                  <div class="calc-money-input"><span>R$</span><input id="calc-commission-fixed" name="commission_fixed" type="number" min="0" step="0.01" value="0" /></div>
+                </label>
+              </div>
+              <label class="calc-check">
+                <input id="calc-use-ml-fee" type="checkbox" />
+                <span><strong>Consultar comissão no Mercado Livre</strong><small>Disponível quando categoria e tipo do anúncio estão preenchidos.</small></span>
+              </label>
+            </section>
+
+            <section class="calc-subcard">
+              <div class="calc-subcard__head">
+                <div><strong>Impostos e operação</strong><small>Custos que reduzem o resultado da venda</small></div>
+              </div>
+              <div class="calc-grid calc-grid--2">
+                <label class="calc-field">
+                  <span>Regime / alíquota</span>
+                  <select id="calc-tax-preset">
+                    <option value="account">Alíquota da conta</option>
+                    <option value="0">MEI / isento (0%)</option>
+                    <option value="4">Simples 4%</option>
+                    <option value="6">Simples 6%</option>
+                    <option value="custom">Personalizado</option>
+                  </select>
+                </label>
+                <label class="calc-field">
+                  <span>Imposto</span>
+                  <div class="calc-suffix-input"><input id="calc-tax-pct" name="tax_rate_pct" type="number" min="0" max="95" step="0.01" value="0" /><span>%</span></div>
+                </label>
+                <label class="calc-field">
+                  <span>Frete / tarifa do vendedor</span>
+                  <div class="calc-money-input"><span>R$</span><input id="calc-seller-shipping" name="seller_shipping" type="number" min="0" step="0.01" value="0" /></div>
+                </label>
+                <label class="calc-field">
+                  <span>Frete pago pelo comprador <em>base fiscal</em></span>
+                  <div class="calc-money-input"><span>R$</span><input id="calc-buyer-shipping" name="buyer_shipping_taxable" type="number" min="0" step="0.01" value="0" /></div>
+                </label>
+                <label class="calc-field">
+                  <span>Embalagem / operação</span>
+                  <div class="calc-money-input"><span>R$</span><input id="calc-operation-cost" name="operation_cost" type="number" min="0" step="0.01" value="0" /></div>
+                </label>
+                <label class="calc-field">
+                  <span>Outros custos</span>
+                  <div class="calc-money-input"><span>R$</span><input id="calc-other-costs" name="other_costs" type="number" min="0" step="0.01" value="0" /></div>
+                </label>
+              </div>
+            </section>
+
+            <section class="calc-target-box">
+              <div>
+                <strong>Margem desejada</strong>
+                <small>Opcional. Preencha para descobrir o preço necessário.</small>
+              </div>
+              <div class="calc-suffix-input calc-target-input"><input id="calc-target-margin" name="target_margin_pct" type="number" min="0" max="94.99" step="0.1" placeholder="15" /><span>%</span></div>
+            </section>
+
+            <input id="calc-item-id" name="item_id" type="hidden" />
+            <input id="calc-variation-id" name="variation_id" type="hidden" />
+            <input id="calc-reference-sku" name="reference_sku" type="hidden" />
+
+            <div class="calc-actions">
+              <button id="calc-reset" class="calc-btn calc-btn--ghost" type="button">Limpar</button>
+              <button id="calc-submit" class="calc-btn calc-btn--primary" type="submit">Calcular margem</button>
+            </div>
+            <p id="calc-feedback" class="calc-feedback" aria-live="polite"></p>
+          </form>
+        </div>
+
+        <aside class="calc-column calc-column--result">
+          <section class="calc-card calc-result-card" aria-live="polite">
+            <header class="calc-result-head">
+              <div><span class="calc-eyebrow">Resultado</span><h2>Resultado da simulação</h2></div>
+              <span id="calc-result-status" class="calc-badge" data-tone="neutral">Aguardando</span>
+            </header>
+
+            <div class="calc-result-hero">
+              <span>Lucro por unidade</span>
+              <strong id="calc-result-profit">R$ 0,00</strong>
+              <small id="calc-result-caption">Preencha os dados e calcule para ver o resultado.</small>
+            </div>
+
+            <div class="calc-result-grid">
+              <article><span>Margem</span><strong id="calc-result-margin">0,00%</strong></article>
+              <article><span>ROI sobre custo</span><strong id="calc-result-roi">--</strong></article>
+              <article><span>Preço mínimo</span><strong id="calc-result-equilibrium">--</strong></article>
+              <article class="calc-result-grid__target"><span id="calc-target-label">Preço para a meta</span><strong id="calc-result-target">--</strong></article>
+            </div>
+
+            <div id="calc-target-callout" class="calc-target-callout" hidden>
+              <div><span>Diferença para o preço atual</span><strong id="calc-result-target-delta">R$ 0,00</strong></div>
+              <p id="calc-result-target-text"></p>
+            </div>
+
+            <details class="calc-breakdown" open>
+              <summary>Detalhamento de custos</summary>
+              <div class="calc-breakdown__rows">
+                <div><span>Preço de venda</span><strong id="calc-breakdown-price">R$ 0,00</strong></div>
+                <div><span>Custo do produto</span><strong id="calc-breakdown-product">R$ 0,00</strong></div>
+                <div><span>Comissão ML</span><strong id="calc-breakdown-commission">R$ 0,00</strong></div>
+                <div><span>Impostos</span><strong id="calc-breakdown-tax">R$ 0,00</strong></div>
+                <div><span>Frete / tarifa vendedor</span><strong id="calc-breakdown-shipping">R$ 0,00</strong></div>
+                <div><span>Embalagem / operação</span><strong id="calc-breakdown-operation">R$ 0,00</strong></div>
+                <div><span>Outros custos</span><strong id="calc-breakdown-other">R$ 0,00</strong></div>
+                <div class="is-total"><span>Total de custos</span><strong id="calc-breakdown-total">R$ 0,00</strong></div>
+              </div>
+            </details>
+
+            <div id="calc-result-note" class="calc-result-note">A calculadora não altera preços ou estoque da conta.</div>
+          </section>
+        </aside>
+      </section>
+    </section>
+  </main>
+
+  <script src="/ml/js/financeiro-ml-calculadora.js?v=2026092301" defer></script>
+</body>
+</html>
+

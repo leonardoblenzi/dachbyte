@@ -6,19 +6,9 @@ const {
   getRequestUserAgent,
 } = require("../services/authAuditService");
 
-function pickAccessToken(req) {
-  const token = req?.ml?.accessToken;
-  if (!token) {
-    const error = new Error("Token ML ausente em req.ml.accessToken.");
-    error.statusCode = 401;
-    throw error;
-  }
-  return token;
-}
-
 function accountContext(res) {
   return {
-    accountKey: res.locals?.accountKey || res.locals?.mlCreds?.meli_conta_id || null,
+    accountKey: String(res.locals?.accountKey || "").trim() || null,
     accountLabel: res.locals?.accountLabel || null,
     mlCreds: res.locals?.mlCreds || {},
   };
@@ -38,15 +28,17 @@ function auditContext(req, res) {
 
 async function enqueue(req, res) {
   try {
-    const accessToken = pickAccessToken(req);
     const ctx = accountContext(res);
+    if (!ctx.accountKey) {
+      const error = new Error("Conta Mercado Livre nao identificada para o job de estoque.");
+      error.statusCode = 409;
+      throw error;
+    }
     if (String(process.env.STOCK_UPDATE_WEB_WORKER_FALLBACK || "").trim() === "1") {
       queueService.initWorker?.();
     }
     const changes = Array.isArray(req.body?.changes) ? req.body.changes : [];
     const jobId = await queueService.enqueueStockUpdateJob({
-      accessToken,
-      mlCreds: ctx.mlCreds,
       accountKey: ctx.accountKey,
       accountLabel: ctx.accountLabel,
       changes,

@@ -94,4 +94,4 @@ async function getAccessTokenForAccount(accountId /* , req opcional se quiser fu
   return token;
 }
 
-module.exports = { getAccessTokenForAccount };
+module.exports = { getAccessTokenForAccount, resolveCredsForAccount };

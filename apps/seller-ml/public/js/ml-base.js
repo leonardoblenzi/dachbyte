@@ -222,7 +222,7 @@
     // carregada separadamente para preservar o shell legado sem duplicar a
     // definicao inteira de navegacao nesta entrega.
     injectAsset("script", {
-      src: withBase("/js/ml-shell-estoque-nav.js?v=2026092201"),
+      src: withBase("/js/ml-shell-estoque-nav.js?v=2026092301"),
       defer: "defer",
     });
 
