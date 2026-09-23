@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bot,
   CheckCircle2,
+  Download,
   KanbanSquare,
   LockKeyhole,
   MessageSquare,
@@ -12,6 +13,7 @@ import {
   Ticket,
   Users,
 } from 'lucide-react';
+import BrandLogo from '../components/common/BrandLogo';
 import { DESKTOP_DOWNLOAD_URL } from '../config';
 
 const features = [
