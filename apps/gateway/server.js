@@ -768,6 +768,9 @@ async function main() {
   app.get(["/seller/mercado-livre", "/seller/mercado-livre/", "/dach/seller/mercado-livre", "/dach/seller/mercado-livre/"], sendSellerLanding("landing-mercado-livre.html"));
   app.get(["/seller/shopee", "/seller/shopee/", "/dach/seller/shopee", "/dach/seller/shopee/"], sendSellerLanding("landing-shopee.html"));
   app.get(["/seller/rastreio", "/seller/rastreio/", "/seller/tracking", "/seller/tracking/", "/dach/seller/rastreio", "/dach/seller/rastreio/", "/dach/seller/tracking", "/dach/seller/tracking/"], sendSellerLanding("landing-tracking.html"));
+  app.get(["/seller/magalu", "/seller/magalu/"], sendSellerLanding("landing-magalu.html"));
+  app.get(["/seller/magalu/termos", "/seller/magalu/termos/"], sendSellerLanding("legal-magalu-terms.html"));
+  app.get(["/seller/magalu/privacidade", "/seller/magalu/privacidade/"], sendSellerLanding("legal-magalu-privacy.html"));
 
   // Preserve old links and authenticated product routes after the public
   // landing roots have had a chance to match.
@@ -854,6 +857,14 @@ async function main() {
     deniedPath: "/ads/access-denied",
   }));
   app.get("/go/voltstock", createExternalVoltStockHandler());
+
+  app.get("/magalu/auth/callback", (_req, res) => {
+    return res.status(503).json({
+      ok: false,
+      error: "magalu_oauth_not_configured",
+      message: "A integração DACHBYTE Magalu ainda não está disponível.",
+    });
+  });
 
   app.use((req, res) => {
     res.status(404).json({
