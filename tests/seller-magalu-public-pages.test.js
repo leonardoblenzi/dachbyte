@@ -49,7 +49,7 @@ test("Magalu privacy notice names webhook and catalog, pricing, and inventory da
   assert.ok(source.includes("dados de catálogo, preços e estoque"));
 });
 
-test("all Seller public landings link to the Magalu landing", () => {
+test("all Seller public landings load the global menu that exposes Magalu", () => {
   for (const fileName of [
     "landing-general.html",
     "landing-mercado-livre.html",
@@ -57,19 +57,22 @@ test("all Seller public landings link to the Magalu landing", () => {
     "landing-tracking.html",
     "landing-magalu.html",
   ]) {
-    assert.ok(view(fileName).includes('href="/seller/magalu"'), fileName);
+    assert.match(view(fileName), /landing-experience\.js/, fileName);
   }
+
+  const shell = fs.readFileSync(path.join(root, "public", "brand", "dachbyte", "landing-experience.js"), "utf8");
+  assert.match(shell, /label: 'Magalu · em breve', href: '\/seller\/magalu'/);
 });
 
 test("Magalu public journey mounts the canonical Seller global shell", () => {
-  for (const fileName of [
-    "landing-magalu.html",
-    "legal-magalu-terms.html",
-    "legal-magalu-privacy.html",
+  for (const [fileName, moduleName] of [
+    ["landing-magalu.html", "Magalu"],
+    ["legal-magalu-terms.html", "Seller"],
+    ["legal-magalu-privacy.html", "Seller"],
   ]) {
     assert.match(
       view(fileName),
-      /<body>\s*<div data-dx-shell="seller" data-dx-module="Seller"><\/div>/,
+      new RegExp(`<body>\\s*<div data-dx-shell="seller" data-dx-module="${moduleName}"><\\/div><script src="\\/brand\\/dachbyte\\/landing-experience\\.js`),
       fileName,
     );
   }

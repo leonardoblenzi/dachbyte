@@ -48,3 +48,12 @@ test("the global shell owns the Magalu entry and never hides an older header", (
   assert.doesNotMatch(shell, /hideLegacyNavigation|dx-legacy-nav/);
   assert.doesNotMatch(css, /dx-legacy-nav|seller-nav__inner|seller-nav__links/);
 });
+
+test("the global shell mounts only its header while the document is still parsing", () => {
+  const shell = read("public", "brand", "dachbyte", "landing-experience.js");
+  const deferredHeaderOnly = shell.indexOf("if (document.readyState === 'loading') return () => nav.remove();");
+  const contact = shell.indexOf("const contact = document.createElement");
+
+  assert.ok(deferredHeaderOnly >= 0, "the shell must defer page content during parsing");
+  assert.ok(deferredHeaderOnly < contact, "contact and footer must wait for the parsed main element");
+});

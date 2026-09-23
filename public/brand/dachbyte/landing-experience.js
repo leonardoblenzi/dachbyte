@@ -9,6 +9,7 @@
     seller: [
       { label: 'Mercado Livre', href: '/seller/mercado-livre', login: '/ml/login', key: 'ml' },
       { label: 'Shopee', href: '/seller/shopee', login: '/shopee', key: 'shopee' },
+      { label: 'Magalu · em breve', href: '/seller/magalu', key: 'magalu' },
       { label: 'Rastreio', href: '/seller/rastreio', login: '/avantracking', key: 'tracking' }
     ],
     business: [
@@ -56,7 +57,7 @@
   const linkList = (family, activeKey) => (products[family] || []).map(({ label, href, key }) => `<a href="${href}"${key === activeKey ? ' aria-current="page"' : ''}>${label}</a>`).join('');
   const moduleKey = (family, moduleName) => {
     const normalized = String(moduleName || '').toLowerCase();
-    if (family === 'seller') return ({ 'mercado livre': 'ml', shopee: 'shopee', rastreio: 'tracking', tracking: 'tracking' })[normalized];
+    if (family === 'seller') return ({ 'mercado livre': 'ml', shopee: 'shopee', magalu: 'magalu', rastreio: 'tracking', tracking: 'tracking' })[normalized];
     if (family === 'business') return normalized === 'business' ? undefined : normalized;
     if (family === 'ads') return normalized === 'ads' || normalized === 'dach ads' ? 'ads' : normalized;
     return undefined;
@@ -71,27 +72,28 @@
       contact: contactSection && contactSection.id ? '#' + contactSection.id : `mailto:contato@davanttisuite.com.br?subject=${encodeURIComponent('Demonstração DACHBYTE ' + (moduleName || family))}`
     };
   };
-  const hideLegacyNavigation = () => {
-    document.querySelectorAll('.seller-nav, .navbar, body > nav, body > header').forEach(element => {
-      if (element.closest('.dx-global')) return;
-      element.classList.add('dx-legacy-nav');
-      element.setAttribute('aria-hidden', 'true');
-    });
-  };
   const mount = (host, family, moduleName) => {
-    if (!host || host.dataset.mounted) return () => {};
+    if (!host) return () => {};
     const familyConfig = families[family];
     if (!familyConfig) return () => {};
-    host.dataset.mounted = 'true';
-    document.body.classList.add('dx-marketing');
-    document.body.dataset.dxFamily = family;
-    const activeKey = moduleKey(family, moduleName);
-    const actions = pageActions(family, moduleName);
-    const nav = document.createElement('div');
-    nav.className = 'dx-global';
-    nav.innerHTML = `<div class="dx-global-inner"><a class="dx-home" href="${familyConfig.href}">DACHBYTE <span>${familyConfig.label}</span></a><nav aria-label="Famílias DACHBYTE">${familyNav(family)}</nav><details class="dx-products"><summary>Explorar produtos</summary><div>${productMenu(activeKey)}</div></details><div class="dx-global-actions"><a class="dx-login" href="${actions.login}">Entrar</a><a class="dx-talk" href="${actions.contact}">Falar com a DACHBYTE</a></div></div></div>`;
-    host.append(nav);
-    hideLegacyNavigation();
+    let nav = host.querySelector('.dx-global');
+    if (!nav) {
+      host.dataset.mounted = 'true';
+      document.body.classList.add('dx-marketing');
+      document.body.dataset.dxFamily = family;
+      const activeKey = moduleKey(family, moduleName);
+      const actions = pageActions(family, moduleName);
+      nav = document.createElement('div');
+      nav.className = 'dx-global';
+      nav.innerHTML = `<div class="dx-global-inner"><a class="dx-home" href="${familyConfig.href}">DACHBYTE <span>${familyConfig.label}</span></a><nav aria-label="Famílias DACHBYTE">${familyNav(family)}</nav><details class="dx-products"><summary>Explorar produtos</summary><div>${productMenu(activeKey)}</div></details><div class="dx-global-actions"><a class="dx-login" href="${actions.login}">Entrar</a><a class="dx-talk" href="${actions.contact}">Falar com a DACHBYTE</a></div></div></div>`;
+      host.append(nav);
+      nav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { nav.querySelector('details').open = false; }));
+      nav.dxEscape = e => { if (e.key === 'Escape') nav.querySelector('details').open = false; };
+      document.addEventListener('keydown', nav.dxEscape);
+    }
+    if (document.readyState === 'loading') return () => nav.remove();
+    if (host.dataset.pageMounted === 'true') return () => {};
+    host.dataset.pageMounted = 'true';
     const contact = document.createElement('section');
     contact.id = 'dachbyte-contact';
     contact.className = 'dx-contact';
@@ -104,13 +106,11 @@
     const hasFooter = document.querySelector('footer');
     if (!hasContact) main.append(contact); else contact.remove();
     if (!hasFooter) main.append(footer); else footer.remove();
-    nav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { nav.querySelector('details').open = false; }));
-    const escape = e => { if (e.key === 'Escape') nav.querySelector('details').open = false; };
-    document.addEventListener('keydown', escape);
-    document.querySelectorAll('[data-dx-experience]').forEach(el => buildExperience(el, el.dataset.dxExperience));
-    return () => { nav.remove(); contact.remove(); footer.remove(); document.removeEventListener('keydown', escape); document.body.classList.remove('dx-marketing'); delete document.body.dataset.dxFamily; delete host.dataset.mounted; };
+    return () => { nav.remove(); contact.remove(); footer.remove(); document.removeEventListener('keydown', nav.dxEscape); document.body.classList.remove('dx-marketing'); delete document.body.dataset.dxFamily; delete host.dataset.mounted; delete host.dataset.pageMounted; };
   };
   function buildExperience(el, type) {
+    if (el.dataset.dxExperienceMounted === 'true') return;
+    el.dataset.dxExperienceMounted = 'true';
     el.classList.add('dx-experience');
     const title = type === 'business' ? 'Uma exceção. Três equipes conectadas.' : type === 'ml' ? 'Você vendeu. Quanto ficou?' : type === 'shopee' ? 'Qual pedido precisa de você agora?' : type === 'tracking' ? 'Uma entrega saiu da rota. E agora?' : 'Da venda à entrega, experimente a decisão.';
     const intro = type === 'business' ? 'Avance pelo cenário de reposição e veja como cada produto participa da rotina.' : 'Mude os controles e acompanhe o efeito. Uma prévia para explorar antes de conversar com a equipe.';
@@ -170,6 +170,11 @@
     panel.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => { step = +b.dataset.step; render(); })); panel.querySelector('[data-advance]').addEventListener('click', () => { step = nextStep(step, 3); render(); }); panel.querySelector('[data-restart]').addEventListener('click', () => { step = 0; render(); }); render();
   }
   root.DachbyteLanding = { mount };
-  const auto = () => document.querySelectorAll('[data-dx-shell]').forEach(host => mount(host, host.dataset.dxShell, host.dataset.dxModule));
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', auto, { once: true }); else auto();
+  const mountAll = () => {
+    document.querySelectorAll('[data-dx-shell]').forEach(host => mount(host, host.dataset.dxShell, host.dataset.dxModule));
+    if (document.readyState === 'loading') return;
+    document.querySelectorAll('[data-dx-experience]').forEach(el => buildExperience(el, el.dataset.dxExperience));
+  };
+  mountAll();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountAll, { once: true });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -22,25 +22,7 @@
     if (hero) hero.after(section);
     }
   }
-  if (!document.querySelector('script[src*="landing-experience.js"]')) {
-    const script = document.createElement('script');
-    script.src = '/brand/dachbyte/landing-experience.js?v=20260914.2';
-    document.body.append(script);
-  }
-  const button = document.querySelector('[data-seller-menu]');
-  const nav = document.querySelector('[data-seller-nav]');
-  if (!button || !nav) return;
-  const setOpen = (open) => {
-    nav.classList.toggle('is-open', open);
-    button.setAttribute('aria-expanded', String(open));
-    button.textContent = open ? 'Fechar' : 'Menu';
-  };
-  button.addEventListener('click', () => setOpen(!nav.classList.contains('is-open')));
-  nav.querySelectorAll('.seller-nav__links a').forEach((link) => {
-    link.addEventListener('click', () => setOpen(false));
-  });
-
-  document.querySelectorAll('[data-seller-demo]').forEach((demo) => {
+  const initSellerDemos = () => document.querySelectorAll('[data-seller-demo]').forEach((demo) => {
     const tabs = Array.from(demo.querySelectorAll('[data-seller-demo-tab]'));
     const panels = Array.from(demo.querySelectorAll('[data-seller-demo-panel]'));
 
@@ -54,4 +36,6 @@
       });
     });
   });
+
+  initSellerDemos();
 })();

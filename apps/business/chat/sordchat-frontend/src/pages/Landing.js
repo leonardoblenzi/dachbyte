@@ -4,7 +4,6 @@ import {
   ArrowRight,
   Bot,
   CheckCircle2,
-  Download,
   KanbanSquare,
   LockKeyhole,
   MessageSquare,
@@ -13,7 +12,6 @@ import {
   Ticket,
   Users,
 } from 'lucide-react';
-import BrandLogo from '../components/common/BrandLogo';
 import { DESKTOP_DOWNLOAD_URL } from '../config';
 
 const features = [
@@ -44,30 +42,6 @@ const Landing = () => {
     <main className="landing-page landing-page--neon" id="top">
       <div ref={shellRef} data-dx-shell="business" data-dx-module="Chat" />
       <div className="landing-noise" aria-hidden="true" />
-
-      <header className="lp-nav-wrap">
-        <nav className="lp-nav" aria-label="Navegacao da landing">
-          <a className="lp-brand" href="#top" aria-label="DACHBYTE Chat inicio">
-            <BrandLogo subtitle="" />
-          </a>
-          <div className="lp-nav-links">
-            <a href="#recursos">Recursos</a>
-            <a href="#painel">Painel</a>
-            <a href="#modulos">Modulos</a>
-            <a href="#assistente">Assistente</a>
-          </div>
-          <div className="lp-nav-actions">
-            <a className="lp-btn" href={DESKTOP_DOWNLOAD_URL}>
-              <Download size={17} />
-              App desktop
-            </a>
-            <Link className="lp-btn lp-btn--primary" to="/login">
-              Entrar
-              <ArrowRight size={17} />
-            </Link>
-          </div>
-        </nav>
-      </header>
 
       <section className="lp-hero">
         <div className="lp-container lp-hero-grid">

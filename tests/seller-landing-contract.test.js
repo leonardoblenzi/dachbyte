@@ -39,30 +39,22 @@ test("Seller exposes a compact general landing and three module landings", () =>
   }
 });
 
-test("Seller navigation separates visual chapters from dedicated module landings", () => {
+test("Seller landings delegate product navigation to the global shell", () => {
   const generalHtml = fs.readFileSync(view("landing-general.html"), "utf8");
-  assert.match(generalHtml, /aria-label="Módulos Seller"/);
-  for (const chapter of ["#mercado-livre", "#shopee", "#rastreio"]) {
-    assert.match(generalHtml, new RegExp(`href="${chapter}"`));
-  }
+  assert.match(generalHtml, /data-dx-shell="seller"/);
+  assert.match(generalHtml, /landing-experience\.js/);
+  assert.doesNotMatch(generalHtml, /seller-nav/);
 
   const modulePages = [
     "landing-mercado-livre.html",
     "landing-shopee.html",
     "landing-tracking.html",
   ];
-  const moduleRoutes = [
-    "/seller/mercado-livre",
-    "/seller/shopee",
-    "/seller/rastreio",
-  ];
-
-  for (const pageName of modulePages) {
+  for (const [pageName, moduleName] of modulePages.map((pageName, index) => [pageName, ["Mercado Livre", "Shopee", "Rastreio"][index]])) {
     const html = fs.readFileSync(view(pageName), "utf8");
-    assert.match(html, /aria-label="Módulos Seller"/);
-    for (const route of moduleRoutes) {
-      assert.match(html, new RegExp(`href="${route}"`));
-    }
+    assert.match(html, new RegExp(`data-dx-shell="seller" data-dx-module="${moduleName}"`));
+    assert.match(html, /landing-experience\.js/);
+    assert.doesNotMatch(html, /seller-nav/);
   }
 });
 

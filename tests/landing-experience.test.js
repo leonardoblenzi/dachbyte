@@ -55,7 +55,8 @@ test("Seller shared assets map every public route to a distinct decision demo", 
   for (const [route, experience] of [["/seller", "seller"], ["/seller/mercado-livre", "ml"], ["/seller/shopee", "shopee"], ["/seller/rastreio", "tracking"]]) {
     assert.match(js, new RegExp(`'${route.replaceAll("/", "\\/")}'\\s*:\\s*'${experience}'`));
   }
-  assert.match(js, /landing-experience\.js/);
+  assert.match(js, /initSellerDemos/);
+  assert.doesNotMatch(js, /landing-experience\.js/);
   assert.match(css, /landing-experience\.css/);
 });
 
