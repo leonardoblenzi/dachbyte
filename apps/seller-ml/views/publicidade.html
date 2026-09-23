@@ -6,7 +6,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <link href="/ml/css/ml-app.css?v=9" rel="stylesheet"/>
 <title>Publicidade | Product Ads</title>
-<link href="/ml/css/product-ads.css?v=2026080802" rel="stylesheet"/><link href="/ml/css/publicidade.css?v=2026080701" rel="stylesheet"/>
+<link href="/ml/css/product-ads.css?v=2026092301" rel="stylesheet"/><link href="/ml/css/publicidade.css?v=2026080701" rel="stylesheet"/>
 <script src="/ml/js/ml-base.js?v=10"></script>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
@@ -91,18 +91,14 @@
 <button class="btn-ghost" id="btnExitCampaignFocus" type="button">Voltar para campanhas</button>
 <h2 class="ads-campaign-focus__title" id="focusCampaignName">Campanha selecionada</h2>
 <div class="ads-campaign-focus__top-actions">
-<button class="btn-ghost" id="btnFocusEditCampaign" type="button">Editar campanha</button>
+<button class="btn-ghost" id="btnFocusEditCampaign" type="button">Gerenciar campanha</button>
 </div>
 </div>
 <div class="ads-campaign-focus__status-row">
 <div class="ads-campaign-focus__status-main">
 <span class="ads-campaign-focus__label">Estado:</span>
-<button aria-checked="false" aria-label="Ativar ou pausar campanha" class="ads-campaign-focus__toggle" id="focusCampaignToggle" role="switch" type="button">
-<span class="ads-campaign-focus__toggle-track">
-<span class="ads-campaign-focus__toggle-thumb"></span>
-</span>
-</button>
 <span class="ads-campaign-focus__state-badge" id="focusCampaignStateBadge">-</span>
+<button aria-label="Ver como gerenciar o status da campanha" class="ads-campaign-focus__link" id="focusCampaignToggle" type="button">Gerenciar</button>
 </div>
 <span class="ads-campaign-focus__divider"></span>
 <span class="ads-campaign-focus__label">Diagnostico:</span>
@@ -154,7 +150,7 @@
 </div>
 <div class="ads-premium__panel">
 
-<div class="ads-premium__kpis">
+<div class="ads-premium__kpis ads-premium__kpis--decision">
 <div class="kpi kpi--hero">
 <div class="kpi-top">
 <div class="kpi-label">Faturamento <span aria-label="Faturamento atribuido ao Product Ads no periodo selecionado." class="ads-help" data-tooltip="Faturamento atribuido ao Product Ads no periodo selecionado. Use junto com investimento e ROAS para avaliar retorno." tabindex="0">i</span></div>
@@ -686,43 +682,34 @@
 </div>
 <div aria-hidden="true" class="ads-wizard-modal" hidden="" id="campaignEditModal">
 <div class="ads-wizard-modal__backdrop" data-edit-close="1"></div>
-<section aria-labelledby="campaignEditTitle" aria-modal="true" class="ads-wizard-modal__dialog" role="dialog">
+<section aria-labelledby="campaignEditTitle" aria-modal="true" class="ads-wizard-modal__dialog ads-campaign-manage-modal" role="dialog">
 <header class="ads-wizard-modal__header">
 <div>
-<h2 id="campaignEditTitle">Editar campanha</h2>
-<p class="muted" id="campaignEditSubtitle">Ajuste nome, orcamento, ROAS e status da campanha.</p>
+<span class="ads-campaign-manage-modal__eyebrow">GESTAO DE CAMPANHA</span>
+<h2 id="campaignEditTitle">Gerenciar campanha</h2>
+<p class="muted" id="campaignEditSubtitle">Consulte a configuracao atual e abra a Publicidade do Mercado Livre para alterar a campanha.</p>
 </div>
 <div class="ads-wizard-modal__header-meta">
 <button aria-label="Fechar modal" class="ads-wizard-modal__close" id="campaignEditCloseBtn" type="button">×</button>
 </div>
 </header>
-<section class="ads-wizard-panel">
-<div class="ads-wizard-card">
-<label for="campaignEditName">Nome da campanha</label>
-<input id="campaignEditName" maxlength="30" placeholder="Ex.: Curva B Abril" type="text"/>
-<div class="ads-wizard-field-hint" id="campaignEditNameCount">0 / 30</div>
+<section class="ads-campaign-manage-modal__body">
+<div class="ads-campaign-manage-modal__notice" role="note">
+<span aria-hidden="true" class="ads-campaign-manage-modal__notice-icon">i</span>
+<p>O Mercado Livre permite consultar o desempenho por integracao, mas nao disponibiliza a edicao de nome, orcamento, meta ou status de campanhas Product Ads pela API.</p>
 </div>
-<div class="ads-wizard-card">
-<label for="campaignEditBudget">Orcamento medio diario (BRL)</label>
-<input id="campaignEditBudget" min="1" placeholder="50" step="1" type="number"/>
-</div>
-<div class="ads-wizard-card">
-<label for="campaignEditRoas">ROAS objetivo</label>
-<input id="campaignEditRoas" min="1" placeholder="6" step="0.1" type="number"/>
-</div>
-<div class="ads-wizard-card">
-<label for="campaignEditStatus">Status</label>
-<select id="campaignEditStatus">
-<option value="active">Ativa</option>
-<option value="paused">Pausada</option>
-</select>
+<div class="ads-campaign-manage-modal__facts">
+<article class="ads-campaign-manage-modal__fact ads-campaign-manage-modal__fact--name"><span>Campanha</span><strong id="campaignManageName">-</strong></article>
+<article class="ads-campaign-manage-modal__fact"><span>Orcamento diario</span><strong id="campaignManageBudget">-</strong></article>
+<article class="ads-campaign-manage-modal__fact"><span>ROAS objetivo</span><strong id="campaignManageRoas">-</strong></article>
+<article class="ads-campaign-manage-modal__fact"><span>Status atual</span><strong id="campaignManageStatus">-</strong></article>
 </div>
 </section>
 <footer class="ads-wizard-modal__footer">
-<div class="muted" id="campaignEditMessage"></div>
+<div class="muted">As alteracoes feitas no Mercado Livre serao refletidas na proxima atualizacao.</div>
 <div class="ads-wizard-modal__actions">
-<button class="btn-ghost" id="campaignEditCancelBtn" type="button">Cancelar</button>
-<button class="btn-premium" id="campaignEditSaveBtn" type="button">Salvar alteracoes</button>
+<button class="btn-ghost" id="campaignEditCancelBtn" type="button">Fechar</button>
+<button class="btn-premium" id="campaignManageExternalBtn" type="button">Abrir Publicidade no Mercado Livre ↗</button>
 </div>
 </footer>
 </section>
@@ -756,6 +743,6 @@
 </section>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script defer="" src="/ml/js/product-ads.js?v=2026081003"></script>
+<script defer="" src="/ml/js/product-ads.js?v=2026092301"></script>
 </body>
 </html>

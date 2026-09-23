@@ -2334,7 +2334,7 @@ function withBase(path) {
         if (!campaignId) return;
         if (action === "edit") return openCampaignEditModal(campaignId);
         if (action === "toggle-status") {
-          return openCampaignStatusConfirmModal(campaignId, actionBtn.getAttribute("data-next-status") || "paused", { showInlineFeedback: false });
+          return openCampaignEditModal(campaignId);
         }
         return openCampaignWorkspace(campaignId, { navigate: true });
       }
@@ -4425,31 +4425,9 @@ function withBase(path) {
   async function patchCampaign(campaignId, payload) {
     const id = String(campaignId || "").trim();
     if (!id) throw new Error("Campanha invalida.");
-
-    const r = await fetch(
-      withBase(`/api/publicidade/product-ads/campaigns/${encodeURIComponent(id)}`),
-      {
-        method: "PATCH",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload || {}),
-      }
+    throw new Error(
+      "O Mercado Livre nao permite editar campanhas Product Ads por integracao. Abra a Publicidade do Mercado Livre para fazer esta alteracao."
     );
-
-    const txt = await r.text().catch(() => "");
-    let data = {};
-    if (txt) {
-      try {
-        data = JSON.parse(txt);
-      } catch (_) {
-        data = {};
-      }
-    }
-
-    if (!r.ok || !data?.success) {
-      throw new Error(data?.error || `Falha ao salvar campanha (HTTP ${r.status}).`);
-    }
-    return data;
   }
 
   async function refreshAfterCampaignPatch(campaignId) {
@@ -4720,10 +4698,7 @@ function withBase(path) {
     const campaign = getSelectedCampaign();
     const campaignId = campaignIdOf(campaign);
     if (!campaign || !campaignId) return;
-    const nextStatus = isCampaignActiveStatus(campaign.status) ? "paused" : "active";
-    openCampaignStatusConfirmModal(campaignId, nextStatus, {
-      showInlineFeedback: true,
-    });
+    openCampaignEditModal(campaignId);
   }
 
   function openCampaignEditModal(campaignId = state.selectedCampaignId) {
@@ -4737,24 +4712,19 @@ function withBase(path) {
     state.editCampaign.campaignId = campaignIdOf(campaign);
     state.editCampaign.saving = false;
 
-    const name = qs("#campaignEditName");
-    const budget = qs("#campaignEditBudget");
-    const roas = qs("#campaignEditRoas");
-    const status = qs("#campaignEditStatus");
-    const save = qs("#campaignEditSaveBtn");
+    const name = cleanCampaignLabel(campaign.name) || campaignIdOf(campaign);
+    const budget = Number(campaign.daily_budget || campaign.budget || 0);
+    const roas = Number(campaign.roas_target ?? campaign.goal ?? 0);
+    const isPaused = String(campaign.status || "active").toLowerCase() === "paused";
 
-    if (name) name.value = cleanCampaignLabel(campaign.name) || "";
-    if (budget) budget.value = Number(campaign.daily_budget || campaign.budget || 0) || "";
-    if (roas) roas.value = Number(campaign.roas_target ?? campaign.goal ?? 0) || "";
-    if (status) status.value = String(campaign.status || "active").toLowerCase() === "paused" ? "paused" : "active";
-    if (save) save.disabled = false;
-    setText("campaignEditMessage", "");
+    setText("campaignManageName", name);
+    setText("campaignManageBudget", budget > 0 ? fmtMoney(budget) : "Nao informado");
+    setText("campaignManageRoas", roas > 0 ? fmtRatioX(roas, 1) : "Nao informado");
+    setText("campaignManageStatus", isPaused ? "Pausada" : "Ativa");
     setText(
       "campaignEditSubtitle",
-      `Ajuste a campanha ${cleanCampaignLabel(campaign.name) || campaignIdOf(campaign)}.`
+      `Configuracao atual de ${name}. As alteracoes sao feitas na Publicidade do Mercado Livre.`
     );
-    const counter = qs("#campaignEditNameCount");
-    if (counter) counter.textContent = `${String(cleanCampaignLabel(campaign.name) || "").length} / 30`;
 
     modal.hidden = false;
     modal.setAttribute("aria-hidden", "false");
@@ -4772,32 +4742,12 @@ function withBase(path) {
     syncBodyScrollLock();
   }
 
-  async function saveCampaignEdit() {
-    if (state.editCampaign.saving || !state.editCampaign.campaignId) return;
-    const campaignId = state.editCampaign.campaignId;
-
-    const payload = {
-      name: String(qs("#campaignEditName")?.value || "").trim(),
-      daily_budget: Number(qs("#campaignEditBudget")?.value || "0"),
-      roas_target: Number(qs("#campaignEditRoas")?.value || "0"),
-      status: String(qs("#campaignEditStatus")?.value || "active").trim(),
-    };
-
-    state.editCampaign.saving = true;
-    const save = qs("#campaignEditSaveBtn");
-    if (save) save.disabled = true;
-    setText("campaignEditMessage", "Salvando alteracoes...");
-
-    try {
-      await patchCampaign(campaignId, payload);
-      await refreshAfterCampaignPatch(campaignId);
-      closeCampaignEditModal();
-    } catch (e) {
-      setText("campaignEditMessage", `Erro ao salvar campanha: ${e?.message || e}`);
-    } finally {
-      state.editCampaign.saving = false;
-      if (save) save.disabled = false;
-    }
+  function openMercadoLivreAdvertising() {
+    window.open(
+      "https://www.mercadolivre.com.br/advertising",
+      "_blank",
+      "noopener,noreferrer"
+    );
   }
 
   async function removeCampaignItem(itemId, itemLabel = "") {
@@ -5142,7 +5092,7 @@ function withBase(path) {
       btnFocusEditBudget.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
-        openFocusFieldModal("budget");
+        openCampaignEditModal(state.selectedCampaignId);
       });
     }
 
@@ -5151,7 +5101,7 @@ function withBase(path) {
       btnFocusEditRoas.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
-        openFocusFieldModal("roas");
+        openCampaignEditModal(state.selectedCampaignId);
       });
     }
 
@@ -5406,17 +5356,12 @@ function withBase(path) {
     if (campaignEditBackdrop)
       campaignEditBackdrop.addEventListener("click", closeCampaignEditModal);
 
-    const campaignEditSaveBtn = qs("#campaignEditSaveBtn");
-    if (campaignEditSaveBtn)
-      campaignEditSaveBtn.addEventListener("click", saveCampaignEdit);
-
-    const campaignEditName = qs("#campaignEditName");
-    if (campaignEditName) {
-      campaignEditName.addEventListener("input", () => {
-        const counter = qs("#campaignEditNameCount");
-        if (counter) counter.textContent = `${campaignEditName.value.length} / 30`;
-      });
-    }
+    const campaignManageExternalBtn = qs("#campaignManageExternalBtn");
+    if (campaignManageExternalBtn)
+      campaignManageExternalBtn.addEventListener(
+        "click",
+        openMercadoLivreAdvertising
+      );
   }
 
   // ==========================================

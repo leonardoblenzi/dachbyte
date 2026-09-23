@@ -5379,3 +5379,161 @@ body.theme-dark.product-ads-app .ads-wizard-campaign__status{
   .publicidade-module .ads-premium__kpis > .kpi:nth-child(-n+4),
   .publicidade-module .ads-premium__kpis > .kpi:nth-child(n+5) { grid-column:1 / -1; }
 }
+
+/* Publicidade: resultado primeiro, eficiencia e alcance em seguida. */
+.publicidade-module .ads-premium__kpis--decision{
+  gap:10px;
+  align-items:stretch;
+}
+
+.publicidade-module .ads-premium__kpis--decision > .kpi{
+  min-height:112px;
+  padding:16px;
+}
+
+.publicidade-module .ads-premium__kpis--decision > .kpi:nth-child(1),
+.publicidade-module .ads-premium__kpis--decision > .kpi:nth-child(2){
+  grid-column:span 4;
+  min-height:132px;
+}
+
+.publicidade-module .ads-premium__kpis--decision > .kpi:nth-child(3),
+.publicidade-module .ads-premium__kpis--decision > .kpi:nth-child(4){
+  grid-column:span 2;
+  min-height:132px;
+}
+
+.publicidade-module .ads-premium__kpis--decision > .kpi:nth-child(n+5){
+  grid-column:span 2;
+}
+
+.ads-campaign-manage-modal{
+  width:min(720px,100%);
+  padding:22px;
+}
+
+.ads-campaign-manage-modal__eyebrow{
+  display:block;
+  margin-bottom:6px;
+  color:#2563eb;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.14em;
+}
+
+.ads-campaign-manage-modal__body{
+  padding:18px 0 4px;
+}
+
+.ads-campaign-manage-modal__notice{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  margin-bottom:14px;
+  padding:13px;
+  border:1px solid #f2d4a3;
+  border-radius:12px;
+  background:#fff9ed;
+  color:#6b4c18;
+}
+
+.ads-campaign-manage-modal__notice p{
+  margin:0;
+  font-size:12px;
+  line-height:1.5;
+}
+
+.ads-campaign-manage-modal__notice-icon{
+  display:grid;
+  flex:0 0 20px;
+  width:20px;
+  height:20px;
+  place-items:center;
+  border-radius:999px;
+  background:#d97706;
+  color:#fff;
+  font-size:12px;
+  font-weight:900;
+}
+
+.ads-campaign-manage-modal__facts{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+
+.ads-campaign-manage-modal__fact{
+  min-height:76px;
+  padding:13px;
+  border:1px solid #dbe4f0;
+  border-radius:12px;
+  background:#f8fbff;
+}
+
+.ads-campaign-manage-modal__fact--name{
+  grid-column:1 / -1;
+  min-height:auto;
+  background:linear-gradient(100deg,#edf5ff,#f8fbff);
+}
+
+.ads-campaign-manage-modal__fact span{
+  display:block;
+  color:#64748b;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+
+.ads-campaign-manage-modal__fact strong{
+  display:block;
+  margin-top:7px;
+  color:#10213e;
+  font-size:16px;
+  line-height:1.2;
+}
+
+body.theme-dark.product-ads-app .ads-campaign-manage-modal__notice{
+  border-color:rgba(245,158,11,.35);
+  background:rgba(120,53,15,.24);
+  color:#fcd9a0;
+}
+
+body.theme-dark.product-ads-app .ads-campaign-manage-modal__fact,
+body.theme-dark.product-ads-app .ads-campaign-manage-modal__fact--name{
+  border-color:var(--ads-line);
+  background:rgba(15,23,42,.7);
+}
+
+body.theme-dark.product-ads-app .ads-campaign-manage-modal__fact strong{
+  color:var(--ads-title);
+}
+
+@media (max-width:1180px){
+  .publicidade-module .ads-premium__kpis--decision > .kpi:nth-child(1),
+  .publicidade-module .ads-premium__kpis--decision > .kpi:nth-child(2),
+  .publicidade-module .ads-premium__kpis--decision > .kpi:nth-child(3),
+  .publicidade-module .ads-premium__kpis--decision > .kpi:nth-child(4){
+    grid-column:span 6;
+  }
+
+  .publicidade-module .ads-premium__kpis--decision > .kpi:nth-child(n+5){
+    grid-column:span 4;
+  }
+}
+
+@media (max-width:760px){
+  .publicidade-module .ads-premium__kpis--decision > .kpi:nth-child(n){
+    grid-column:span 6;
+  }
+
+  .ads-campaign-manage-modal__facts{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width:520px){
+  .publicidade-module .ads-premium__kpis--decision > .kpi:nth-child(n){
+    grid-column:1 / -1;
+  }
+}

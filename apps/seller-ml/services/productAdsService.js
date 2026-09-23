@@ -2275,44 +2275,12 @@ class ProductAdsService {
   // ======================================================
   // EDITAR CAMPANHA (nome, budget, ROAS, status)
   // ======================================================
-  static async atualizarCampanha(campaignId, payload = {}, options = {}) {
-    try {
-      const state = await prepararAuth(options);
-      const advertiserId = await obterAdvertiserId(state);
-
-      const currentCampaign = await obterCampanhaPorId(advertiserId, campaignId, state);
-      if (!currentCampaign) {
-        return {
-          success: false,
-          error: "Campanha nao encontrada.",
-          code: "CAMPAIGNS_ERROR",
-        };
-      }
-
-      const updated = await atualizarCampanhaMl(
-        advertiserId,
-        campaignId,
-        payload,
-        currentCampaign,
-        state
-      );
-
-      const detail =
-        updated && typeof updated === "object" && Object.keys(updated).length
-          ? updated
-          : await obterCampanhaPorId(advertiserId, campaignId, state);
-
-      return {
-        success: true,
-        campaign: summarizeCampaignPayload(detail || currentCampaign),
-      };
-    } catch (err) {
-      return {
-        success: false,
-        error: err?.message || String(err),
-        code: err.code || "CAMPAIGN_UPDATE_ERROR",
-      };
-    }
+  static async atualizarCampanha() {
+    return {
+      success: false,
+      code: "CAMPAIGN_MANAGEMENT_UNSUPPORTED",
+      error: "O Mercado Livre nao permite editar campanhas Product Ads por integracao.",
+    };
   }
 
   // ======================================================

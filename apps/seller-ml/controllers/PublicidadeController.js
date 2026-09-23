@@ -25,6 +25,9 @@ function sendFromResult(res, result, context) {
 
   // Mapeamento básico por código (vindo do ProductAdsService)
   switch (result.code) {
+    case "CAMPAIGN_MANAGEMENT_UNSUPPORTED":
+      return res.status(409).json(payload);
+
     case "PERMISSION_DENIED":
       return res.status(403).json(payload);
 
