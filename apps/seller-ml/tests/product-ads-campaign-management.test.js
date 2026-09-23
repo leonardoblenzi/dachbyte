@@ -85,3 +85,17 @@ test("publicidade serves versioned assets for the safe management release", () =
   assert.match(html, /product-ads\.css\?v=2026092301/);
   assert.match(html, /product-ads\.js\?v=2026092301/);
 });
+
+test("estoque update worker imports its queue service with the tracked filename case", () => {
+  const worker = fs.readFileSync(
+    path.join(__dirname, "../worker.js"),
+    "utf8"
+  );
+  const controller = fs.readFileSync(
+    path.join(__dirname, "../controllers/EstoqueAtualizacaoController.js"),
+    "utf8"
+  );
+
+  assert.match(worker, /require\("\.\/services\/EstoqueAtualizacaoQueueService"\)/);
+  assert.match(controller, /require\("\.\.\/services\/EstoqueAtualizacaoQueueService"\)/);
+});

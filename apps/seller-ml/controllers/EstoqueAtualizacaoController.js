@@ -1,6 +1,6 @@
 "use strict";
 
-const queueService = require("../services/estoqueAtualizacaoQueueService");
+const queueService = require("../services/EstoqueAtualizacaoQueueService");
 const {
   getRequestIp,
   getRequestUserAgent,

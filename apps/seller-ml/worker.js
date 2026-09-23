@@ -24,7 +24,7 @@ const FinanceiroMlSkuCatalogSyncService = require("./services/financeiroMlSkuCat
 const prazoProducaoQueueService = require("./services/prazoProducaoQueueService");
 const validarDimensoesJobService = require("./services/validarDimensoesJobService");
 const estoqueAlertaQueueService = require("./services/estoqueAlertaQueueService");
-const estoqueAtualizacaoQueueService = require("./services/estoqueAtualizacaoQueueService");
+const estoqueAtualizacaoQueueService = require("./services/EstoqueAtualizacaoQueueService");
 const CaracteristicasJobsService = require("./services/caracteristicasJobsService");
 
 function boot() {
