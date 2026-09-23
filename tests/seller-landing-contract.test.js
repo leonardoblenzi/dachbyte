@@ -68,7 +68,7 @@ test("Seller navigation separates visual chapters from dedicated module landings
 
 test("general Seller landing keeps useful comparison depth", () => {
   const html = fs.readFileSync(view("landing-general.html"), "utf8");
-  assert.equal((html.match(/seller-card__features/g) || []).length, 3);
+  assert.equal((html.match(/seller-card__features/g) || []).length, 4);
   assert.equal((html.match(/data-seller-demo>/g) || []).length, 3);
   assert.equal((html.match(/data-seller-demo-tab=/g) || []).length, 9);
   assert.equal((html.match(/>Conhecer mais</g) || []).length, 3);

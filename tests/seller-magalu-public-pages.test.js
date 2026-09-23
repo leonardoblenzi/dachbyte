@@ -60,3 +60,17 @@ test("all Seller public landings link to the Magalu landing", () => {
     assert.ok(view(fileName).includes('href="/seller/magalu"'), fileName);
   }
 });
+
+test("Magalu public journey mounts the canonical Seller global shell", () => {
+  for (const fileName of [
+    "landing-magalu.html",
+    "legal-magalu-terms.html",
+    "legal-magalu-privacy.html",
+  ]) {
+    assert.match(
+      view(fileName),
+      /<body>\s*<div data-dx-shell="seller" data-dx-module="Seller"><\/div>/,
+      fileName,
+    );
+  }
+});
