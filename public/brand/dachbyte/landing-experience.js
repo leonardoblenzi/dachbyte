@@ -50,11 +50,6 @@
     ['Chat', 'A exceção ganha um responsável.', 'A equipe recebe uma solicitação com setor, prioridade e histórico. Nada depende de uma mensagem solta.', '1 solicitação', 'Responsável: operações'],
     ['Core', 'A equipe avalia a próxima compra.', 'A necessidade chega à gestão para análise e aprovação. Este cenário ilustra a jornada; confirme as integrações disponíveis na demonstração.', 'Em análise', 'Decisão da equipe']
   ];
-  const nextStep = (step, total) => total > 0 ? Math.min(step + 1, total - 1) : 0;
-  if (typeof module !== 'undefined' && module.exports) module.exports = { margin, nextStep, orders, deliveries, businessSteps };
-  if (!root.document) return;
-  const money = value => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  const linkList = (family, activeKey) => (products[family] || []).map(({ label, href, key }) => `<a href="${href}"${key === activeKey ? ' aria-current="page"' : ''}>${label}</a>`).join('');
   const moduleKey = (family, moduleName) => {
     const normalized = String(moduleName || '').toLowerCase();
     if (family === 'seller') return ({ 'mercado livre': 'ml', shopee: 'shopee', magalu: 'magalu', rastreio: 'tracking', tracking: 'tracking' })[normalized];
@@ -62,13 +57,21 @@
     if (family === 'ads') return normalized === 'ads' || normalized === 'dach ads' ? 'ads' : normalized;
     return undefined;
   };
+  const loginDestination = (family, moduleName) => {
+    const active = (products[family] || []).find(product => product.key === moduleKey(family, moduleName));
+    return active ? active.login : '/login';
+  };
+  const nextStep = (step, total) => total > 0 ? Math.min(step + 1, total - 1) : 0;
+  if (typeof module !== 'undefined' && module.exports) module.exports = { margin, nextStep, orders, deliveries, businessSteps, loginDestination };
+  if (!root.document) return;
+  const money = value => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const linkList = (family, activeKey) => (products[family] || []).map(({ label, href, key }) => `<a href="${href}"${key === activeKey ? ' aria-current="page"' : ''}>${label}</a>`).join('');
   const familyNav = activeFamily => Object.entries(families).map(([key, config]) => `<a href="${config.href}" ${key === activeFamily ? 'aria-current="page"' : ''}>${config.label}</a>`).join('');
   const productMenu = activeKey => Object.entries(families).map(([key, config]) => `<strong>${config.label} · ${config.section}</strong>${linkList(key, activeKey)}`).join('');
   const pageActions = (family, moduleName) => {
-    const active = products[family].find(product => product.key === moduleKey(family, moduleName));
     const contactSection = document.querySelector('#contato, #cta, .final-cta');
     return {
-      login: active ? active.login : '/login',
+      login: loginDestination(family, moduleName),
       contact: contactSection && contactSection.id ? '#' + contactSection.id : `mailto:contato@davanttisuite.com.br?subject=${encodeURIComponent('Demonstração DACHBYTE ' + (moduleName || family))}`
     };
   };

@@ -92,3 +92,11 @@ test("shared navigation exposes Ads as a first-class DACHBYTE family", () => {
   assert.match(adsLanding, /data-dx-shell="ads"/);
   assert.match(adsLanding, /landing-experience\.js/);
 });
+
+test("Magalu landing resolves the Seller login and cache-busts its navigation asset", () => {
+  const { loginDestination } = require("../public/brand/dachbyte/landing-experience.js");
+  const magalu = read("apps", "gateway", "views", "seller", "landing-magalu.html");
+
+  assert.equal(loginDestination("seller", "Magalu"), "/go/magalu");
+  assert.match(magalu, /landing-experience\.js\?v=20260924\.1/);
+});
