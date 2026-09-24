@@ -256,7 +256,7 @@ test("price and stock workers accept verify jobs and execute the same safe opera
     await withLoadStubs({
       bullmq: { Worker: class Worker {} },
       "../config/redis": { ensureRedisConnected: async () => ({}) },
-      "../config/queueNames": { priceUpdate: "magalu:price:update", stockUpdate: "magalu:stock:update" },
+      "../config/queueNames": { priceUpdate: "magalu-price-update", stockUpdate: "magalu-stock-update" },
       "../services/writeExecutionService": {
         executeOperation: async (id) => {
           calls.push({ workerPath, id });
@@ -291,23 +291,23 @@ test("write queue names reverify as verify and retries apply/verify up to three 
     bullmq: { Queue: FakeQueue },
     "../config/redis": { ensureRedisConnected: async () => ({}) },
     "../config/queueNames": {
-      webhookProcess: "magalu:webhook:process",
-      tokenRefresh: "magalu:token:refresh",
-      catalogSync: "magalu:catalog:sync",
-      priceUpdate: "magalu:price:update",
-      stockUpdate: "magalu:stock:update",
+      webhookProcess: "magalu-webhook-process",
+      tokenRefresh: "magalu-token-refresh",
+      catalogSync: "magalu-catalog-sync",
+      priceUpdate: "magalu-price-update",
+      stockUpdate: "magalu-stock-update",
     },
   }, () => require("../src/queues/magaluQueue"), async (queue) => {
     await queue.enqueueWriteOperation({ id: 301, resource_type: "price" }, { reason: "reverify" });
     await queue.enqueueWriteOperation({ id: 302, resource_type: "stock" });
   });
 
-  assert.equal(added[0].queue, "magalu:price:update");
+  assert.equal(added[0].queue, "magalu-price-update");
   assert.equal(added[0].name, "verify");
   assert.equal(added[0].data.reason, "reverify");
   assert.equal(added[0].options.attempts, 3);
   assert.deepEqual(added[0].options.backoff, { type: "exponential", delay: 5000 });
-  assert.equal(added[1].queue, "magalu:stock:update");
+  assert.equal(added[1].queue, "magalu-stock-update");
   assert.equal(added[1].name, "apply");
   assert.equal(added[1].options.attempts, 3);
 });

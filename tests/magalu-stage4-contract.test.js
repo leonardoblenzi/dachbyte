@@ -10,8 +10,8 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
 test("Stage 4 adds isolated protected write queues and never imports ML/Shopee business code", () => {
   const names = read("apps/seller-magalu/src/config/queueNames.js");
-  assert.match(names, /magalu:price:update/);
-  assert.match(names, /magalu:stock:update/);
+  assert.match(names, /magalu-price-update/);
+  assert.match(names, /magalu-stock-update/);
   for (const file of [
     "apps/seller-magalu/src/services/portfolioWriteService.js",
     "apps/seller-magalu/src/services/writeExecutionService.js",

@@ -60,12 +60,12 @@ test("Hub resource queue uses a stable account job with exponential retries", as
   await withLoadStubs({
     bullmq: { Queue: FakeQueue },
     "../config/redis": { ensureRedisConnected: async () => ({ set: async () => "OK", eval: async () => 1 }) },
-    "../config/queueNames": { webhookProcess: "magalu:webhook:process", tokenRefresh: "magalu:token:refresh", catalogSync: "magalu:catalog:sync", priceUpdate: "magalu:price:update", stockUpdate: "magalu:stock:update", hubResourceSync: "magalu:hub-resource:sync" },
+    "../config/queueNames": { webhookProcess: "magalu-webhook-process", tokenRefresh: "magalu-token-refresh", catalogSync: "magalu-catalog-sync", priceUpdate: "magalu-price-update", stockUpdate: "magalu-stock-update", hubResourceSync: "magalu-hub-resource-sync" },
   }, () => require("../src/queues/magaluQueue"), async (queue) => {
     await queue.enqueueHubResourceSync(7);
   });
   assert.deepEqual(added[0], {
-    queue: "magalu:hub-resource:sync",
+    queue: "magalu-hub-resource-sync",
     name: "sync-resource",
     data: { accountId: 7 },
     options: { jobId: "magalu-hub-resource-7", attempts: 5, backoff: { type: "exponential", delay: 5000 }, removeOnComplete: true, removeOnFail: true },
@@ -89,7 +89,7 @@ test("only the caller holding the enqueue reservation reports a new Hub resource
   await withLoadStubs({
     bullmq: { Queue: FakeQueue },
     "../config/redis": { ensureRedisConnected: async () => redis },
-    "../config/queueNames": { webhookProcess: "magalu:webhook:process", tokenRefresh: "magalu:token:refresh", catalogSync: "magalu:catalog:sync", priceUpdate: "magalu:price:update", stockUpdate: "magalu:stock:update", hubResourceSync: "magalu:hub-resource:sync" },
+    "../config/queueNames": { webhookProcess: "magalu-webhook-process", tokenRefresh: "magalu-token-refresh", catalogSync: "magalu-catalog-sync", priceUpdate: "magalu-price-update", stockUpdate: "magalu-stock-update", hubResourceSync: "magalu-hub-resource-sync" },
   }, () => require("../src/queues/magaluQueue"), async (queue) => {
     const results = await Promise.all([queue.enqueueHubResourceSync(7), queue.enqueueHubResourceSync(7)]);
     assert.deepEqual(results.map((result) => result.scheduled).sort(), [false, true]);
@@ -103,7 +103,7 @@ test("Hub resource worker persists synced state and truncates sync errors", asyn
   await withLoadStubs({
     bullmq: { Worker: class Worker {} },
     "../config/redis": { ensureRedisConnected: async () => ({}) },
-    "../config/queueNames": { hubResourceSync: "magalu:hub-resource:sync" },
+    "../config/queueNames": { hubResourceSync: "magalu-hub-resource-sync" },
     "../repositories/accountRepository": {
       claimHubResourceSync: async () => ({ id: 7, dach_tenant_id: "dach-tenant", magalu_tenant_id: "magalu-tenant", magalu_tenant_name: "Loja", scopes: [] }),
       setHubResourceSyncState: async (_id, state) => states.push(state),
@@ -120,7 +120,7 @@ test("Hub resource worker persists synced state and truncates sync errors", asyn
   await withLoadStubs({
     bullmq: { Worker: class Worker {} },
     "../config/redis": { ensureRedisConnected: async () => ({}) },
-    "../config/queueNames": { hubResourceSync: "magalu:hub-resource:sync" },
+    "../config/queueNames": { hubResourceSync: "magalu-hub-resource-sync" },
     "../repositories/accountRepository": { claimHubResourceSync: async () => ({ id: 7 }), setHubResourceSyncState: async (_id, state) => failures.push(state) },
     "../services/hubResourceSyncService": { syncHubResource: async () => { throw new Error("x".repeat(2500)); } },
   }, () => require("../src/jobs/hubResourceSync.worker"), async (worker) => {
@@ -137,7 +137,7 @@ test("late duplicate job skips an account already synced by a successful retry",
   await withLoadStubs({
     bullmq: { Worker: class Worker {} },
     "../config/redis": { ensureRedisConnected: async () => ({}) },
-    "../config/queueNames": { hubResourceSync: "magalu:hub-resource:sync" },
+    "../config/queueNames": { hubResourceSync: "magalu-hub-resource-sync" },
     "../repositories/accountRepository": {
       // Retry reached synced after failed -> pending, before this duplicate starts.
       claimHubResourceSync: async () => null,
@@ -188,7 +188,7 @@ test("Hub resource worker bootstraps a bounded batch of pending and failed accou
   await withLoadStubs({
     bullmq: { Worker: class Worker {} },
     "../config/redis": { ensureRedisConnected: async () => ({}) },
-    "../config/queueNames": { hubResourceSync: "magalu:hub-resource:sync" },
+    "../config/queueNames": { hubResourceSync: "magalu-hub-resource-sync" },
     "../repositories/accountRepository": {
       listHubResourceSyncCandidates: async ({ limit }) => { assert.equal(limit, 100); return [{ id: 7 }, { id: 8 }]; },
       markHubResourceSyncQueuedIfPending: async (id) => { states.push(id); return false; },
