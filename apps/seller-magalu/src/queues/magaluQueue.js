@@ -60,16 +60,30 @@ async function enqueueHubResourceSync(accountId) {
   if (!Number.isFinite(id) || id <= 0) throw new Error("accountId inválido para recurso Hub Magalu.");
   const queue = await getQueue(queueNames.hubResourceSync);
   const jobId = `magalu-hub-resource-${id}`;
-  const existing = typeof queue.getJob === "function" ? await queue.getJob(jobId) : null;
-  if (existing) return { id: existing.id, scheduled: false };
-  const job = await queue.add("sync-resource", { accountId: id }, {
-    jobId,
-    attempts: 5,
-    backoff: { type: "exponential", delay: 5000 },
-    removeOnComplete: true,
-    removeOnFail: true,
-  });
-  return { id: job.id, scheduled: true };
+  const connection = await ensureRedisConnected();
+  const lockKey = `magalu:hub-resource:enqueue:${id}`;
+  const lockToken = crypto.randomUUID();
+  const reserved = await connection.set(lockKey, lockToken, "PX", 30000, "NX");
+  if (reserved !== "OK") return { id: jobId, scheduled: false };
+  try {
+    const existing = await queue.getJob(jobId);
+    if (existing) return { id: existing.id, scheduled: false };
+    const job = await queue.add("sync-resource", { accountId: id }, {
+      jobId,
+      attempts: 5,
+      backoff: { type: "exponential", delay: 5000 },
+      removeOnComplete: true,
+      removeOnFail: true,
+    });
+    return { id: job.id, scheduled: true };
+  } finally {
+    await connection.eval(
+      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0",
+      1,
+      lockKey,
+      lockToken,
+    ).catch(() => {});
+  }
 }
 
 async function enqueueCatalogReconcile(accountId, sku, { topic = "manual", eventId = null } = {}) {

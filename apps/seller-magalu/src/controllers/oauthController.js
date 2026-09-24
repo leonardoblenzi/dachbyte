@@ -159,7 +159,7 @@ async function callback(req, res) {
       }
       try {
         const syncJob = await enqueueHubResourceSync(connected.account.id);
-        if (syncJob?.scheduled) await accountRepository.setHubResourceSyncState(connected.account.id, { status: "queued", error: null });
+        if (syncJob?.scheduled) await accountRepository.markHubResourceSyncQueuedIfPending(connected.account.id);
       } catch (syncError) {
         console.warn("[seller-magalu:oauth] Hub resource sync was not queued", { accountId: connected.account.id, message: syncError?.message || String(syncError) });
       }

@@ -38,7 +38,7 @@ async function enqueuePendingHubResourceSyncs() {
   const accounts = await accountRepository.listHubResourceSyncCandidates({ limit: 100 });
   for (const account of accounts) {
     const job = await enqueueHubResourceSync(account.id);
-    if (job.scheduled) await accountRepository.setHubResourceSyncState(account.id, { status: "queued", error: null });
+    if (job.scheduled) await accountRepository.markHubResourceSyncQueuedIfPending(account.id);
   }
   return accounts.length;
 }

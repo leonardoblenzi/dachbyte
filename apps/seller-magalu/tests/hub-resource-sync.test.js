@@ -53,12 +53,13 @@ test("Hub resource queue uses a stable account job with exponential retries", as
   clearModule("../src/queues/magaluQueue");
   class FakeQueue {
     constructor(name) { this.name = name; }
+    async getJob() { return null; }
     async add(name, data, options) { added.push({ queue: this.name, name, data, options }); return { id: "job-7" }; }
     async close() {}
   }
   await withLoadStubs({
     bullmq: { Queue: FakeQueue },
-    "../config/redis": { ensureRedisConnected: async () => ({}) },
+    "../config/redis": { ensureRedisConnected: async () => ({ set: async () => "OK", eval: async () => 1 }) },
     "../config/queueNames": { webhookProcess: "magalu:webhook:process", tokenRefresh: "magalu:token:refresh", catalogSync: "magalu:catalog:sync", priceUpdate: "magalu:price:update", stockUpdate: "magalu:stock:update", hubResourceSync: "magalu:hub-resource:sync" },
   }, () => require("../src/queues/magaluQueue"), async (queue) => {
     await queue.enqueueHubResourceSync(7);
@@ -69,6 +70,31 @@ test("Hub resource queue uses a stable account job with exponential retries", as
     data: { accountId: 7 },
     options: { jobId: "magalu-hub-resource-7", attempts: 5, backoff: { type: "exponential", delay: 5000 }, removeOnComplete: true, removeOnFail: true },
   });
+});
+
+test("only the caller holding the enqueue reservation reports a new Hub resource job", async () => {
+  const jobs = new Map();
+  const locks = new Map();
+  let adds = 0;
+  clearModule("../src/queues/magaluQueue");
+  class FakeQueue {
+    async getJob(id) { return jobs.get(id) || null; }
+    async add(_name, _data, options) { adds++; const job = { id: options.jobId }; jobs.set(options.jobId, job); return job; }
+    async close() {}
+  }
+  const redis = {
+    async set(key, value, ...args) { if (args.includes("NX") && locks.has(key)) return null; locks.set(key, value); return "OK"; },
+    async eval(_script, _keys, key, token) { if (locks.get(key) === token) locks.delete(key); },
+  };
+  await withLoadStubs({
+    bullmq: { Queue: FakeQueue },
+    "../config/redis": { ensureRedisConnected: async () => redis },
+    "../config/queueNames": { webhookProcess: "magalu:webhook:process", tokenRefresh: "magalu:token:refresh", catalogSync: "magalu:catalog:sync", priceUpdate: "magalu:price:update", stockUpdate: "magalu:stock:update", hubResourceSync: "magalu:hub-resource:sync" },
+  }, () => require("../src/queues/magaluQueue"), async (queue) => {
+    const results = await Promise.all([queue.enqueueHubResourceSync(7), queue.enqueueHubResourceSync(7)]);
+    assert.deepEqual(results.map((result) => result.scheduled).sort(), [false, true]);
+  });
+  assert.equal(adds, 1);
 });
 
 test("Hub resource worker persists synced state and truncates sync errors", async () => {
@@ -143,7 +169,7 @@ test("Hub resource worker bootstraps a bounded batch of pending and failed accou
     "../config/queueNames": { hubResourceSync: "magalu:hub-resource:sync" },
     "../repositories/accountRepository": {
       listHubResourceSyncCandidates: async ({ limit }) => { assert.equal(limit, 100); return [{ id: 7 }, { id: 8 }]; },
-      setHubResourceSyncState: async (id, state) => states.push({ id, state }),
+      markHubResourceSyncQueuedIfPending: async (id) => { states.push(id); return false; },
     },
     "../services/hubResourceSyncService": { syncHubResource: async () => ({}) },
     "../queues/magaluQueue": { enqueueHubResourceSync: async (id) => { queued.push(id); return { id: `job-${id}`, scheduled: true }; } },
@@ -151,10 +177,8 @@ test("Hub resource worker bootstraps a bounded batch of pending and failed accou
     assert.equal(await worker._test.enqueuePendingHubResourceSyncs(), 2);
   });
   assert.deepEqual(queued, [7, 8]);
-  assert.deepEqual(states, [
-    { id: 7, state: { status: "queued", error: null } },
-    { id: 8, state: { status: "queued", error: null } },
-  ]);
+  // A sync can finish after selection; the guarded update must preserve synced.
+  assert.deepEqual(states, [7, 8]);
 });
 
 test("OAuth preserves an already synced Hub resource when its stable job exists", async () => {
@@ -184,4 +208,38 @@ test("OAuth preserves an already synced Hub resource when its stable job exists"
   });
   assert.equal(enqueueCalls, 0);
   assert.deepEqual(hubStates, []);
+});
+
+test("OAuth cannot downgrade a resource that syncs between enqueue reservation and queued transition", async () => {
+  let syncStatus = "pending";
+  let guardedTransitions = 0;
+  clearModule("../src/controllers/oauthController");
+  await withLoadStubs({
+    "../config/env": { NODE_ENV: "test", MAGALU_TOKEN_REFRESH_SKEW_SECONDS: 900 },
+    "../repositories/oauthStateRepository": { consumeState: async () => ({ dach_tenant_id: "dach", dach_user_id: "user", redirect_after: "/magalu/contas" }) },
+    "../repositories/accountRepository": {
+      findAccountById: async () => ({ id: 7, hub_sync_status: syncStatus }),
+      setCatalogSyncState: async () => {},
+      setHubResourceSyncState: async () => { throw new Error("must not write queued directly"); },
+      markHubResourceSyncQueuedIfPending: async () => { guardedTransitions++; return syncStatus === "pending"; },
+    },
+    "../queues/magaluQueue": {
+      enqueueTokenRefresh: async () => null,
+      enqueueCatalogSync: async () => ({ id: "catalog" }),
+      enqueueHubResourceSync: async () => { syncStatus = "synced"; return { id: "new-job", scheduled: true }; },
+    },
+    "../services/magaluTokenService": { refreshAccount: async () => ({}) },
+    "../services/hubAccessService": { checkHubAccess: async () => ({ allow: true }) },
+    "../middlewares/suiteAuth": { readSuiteIdentity: () => ({ ok: true, identity: { dachTenantId: "dach", dachUserId: "user" } }) },
+    "../services/magaluOAuthService": { beginAuthorization: async () => ({}), finishAuthorization: async () => ({ account: { id: 7 }, accessExpiresAt: null }), publicOAuthConfig: () => ({}) },
+    "../services/oauthSecurity": { hashOAuthState: (value) => value, safeRedirectAfter: (value) => value, secureEqual: () => true },
+  }, () => require("../src/controllers/oauthController"), async (controller) => {
+    let location = null;
+    await controller.callback({ query: { state: "state", code: "code" }, headers: { cookie: "magalu_oauth_state=state" } }, {
+      clearCookie() {}, redirect(_status, target) { location = target; },
+    });
+    assert.match(location, /oauth=connected/);
+  });
+  assert.equal(syncStatus, "synced");
+  assert.equal(guardedTransitions, 1);
 });
