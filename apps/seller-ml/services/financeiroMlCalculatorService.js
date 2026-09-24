@@ -241,6 +241,7 @@ function buildListingFeeUrl({ price, categoryId, listingTypeId, shippingMode, lo
   url.searchParams.set("price", Number(num(price).toFixed(2)));
   url.searchParams.set("category_id", text(categoryId));
   url.searchParams.set("listing_type_id", text(listingTypeId));
+  url.searchParams.set("currency_id", "BRL");
   if (text(shippingMode)) url.searchParams.set("shipping_mode", text(shippingMode));
   if (text(logisticType)) url.searchParams.set("logistic_type", text(logisticType));
   if (text(dimensions)) url.searchParams.set("dimensions", text(dimensions));

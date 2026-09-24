@@ -36,6 +36,11 @@ test("category discovery URL follows the MLB predictor contract", () => {
   assert.equal(url.searchParams.get("limit"), "3");
 });
 
+test("short category queries return no suggestions without an ML call", async () => {
+  const result = await Calculator.categories({ q: "tv" }, { accountKey: "drossi" });
+  assert.deepEqual(result, { success: true, categories: [] });
+});
+
 test("manual calculation falls back to its estimate when listing prices is unavailable", async () => {
   Calculator._test.setListingPriceRequest(async () => {
     throw Object.assign(new Error("upstream unavailable"), { status: 503 });

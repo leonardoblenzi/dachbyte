@@ -30,6 +30,7 @@ test("listing fee request carries available logistics context", () => {
 
   assert.equal(url.searchParams.get("shipping_mode"), "me2");
   assert.equal(url.searchParams.get("logistic_type"), "fulfillment");
+  assert.equal(url.searchParams.get("currency_id"), "BRL");
 });
 
 test("ML fee quote failure is explicit and never converted into a zero fee", async () => {
