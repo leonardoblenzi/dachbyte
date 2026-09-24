@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calculadora | DACHBYTE Mercado Livre</title>
   <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
-  <link rel="stylesheet" href="/ml/css/financeiro-ml-calculadora.css?v=2026092302" />
+  <link rel="stylesheet" href="/ml/css/financeiro-ml.css?v=2026090401" />
+  <link rel="stylesheet" href="/ml/css/financeiro-ml-calculadora.css?v=2026092402" />
   <script src="/ml/js/ml-base.js?v=12"></script>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
@@ -14,7 +15,7 @@
        complemento de navegação registrar esta nova rota na sidebar. -->
   <div class="main-nav" hidden aria-hidden="true"></div>
   <main class="page-wrap calc-page">
-    <section class="calc-shell" aria-labelledby="calc-title">
+    <section class="calc-shell container" aria-labelledby="calc-title">
       <header class="calc-hero">
         <div>
           <span class="calc-eyebrow">Precificação</span>
@@ -94,9 +95,12 @@
                   </select>
                   <small class="calc-field__hint">Ao carregar um anúncio, o tipo real fica selecionado e não pode ser alterado.</small>
                 </div>
-                <label class="calc-field">
-                  <span>Categoria ML <em>opcional no manual</em></span>
-                  <input id="calc-category" name="category_id" type="text" placeholder="MLB1234" autocomplete="off" />
+                <label id="calc-category-wrap" class="calc-field calc-category-field">
+                  <span>Categoria ML <em>opcional para a estimativa</em></span>
+                  <input id="calc-category-query" type="search" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="calc-category-suggestions" placeholder="Digite o produto para buscar a categoria" />
+                  <input id="calc-category-id" name="category_id" type="hidden" />
+                  <ul id="calc-category-suggestions" class="calc-category-suggestions" role="listbox" hidden></ul>
+                  <small id="calc-category-hint" class="calc-field__hint">Sem categoria, usamos uma comissão estimada.</small>
                 </label>
                 <label class="calc-field">
                   <span>Comissão percentual</span>
@@ -107,10 +111,6 @@
                   <div class="calc-money-input"><span>R$</span><input id="calc-commission-fixed" name="commission_fixed" type="number" min="0" step="0.01" value="0" /></div>
                 </label>
               </div>
-              <label class="calc-check">
-                <input id="calc-use-ml-fee" type="checkbox" />
-                <span><strong>Consultar comissão no Mercado Livre</strong><small>Disponível quando categoria e tipo do anúncio estão preenchidos.</small></span>
-              </label>
             </section>
 
             <section class="calc-subcard">
@@ -177,7 +177,6 @@
 
             <div class="calc-actions">
               <button id="calc-reset" class="calc-btn calc-btn--ghost" type="button">Limpar</button>
-              <button id="calc-submit" class="calc-btn calc-btn--primary" type="submit">Calcular margem</button>
             </div>
             <p id="calc-feedback" class="calc-feedback" aria-live="polite"></p>
           </form>
@@ -229,7 +228,8 @@
     </section>
   </main>
 
-  <script src="/ml/js/financeiro-ml-calculadora.js?v=2026092302" defer></script>
+  <script src="/ml/js/financeiro-ml-calculator-rules.js?v=2026092402" defer></script>
+  <script src="/ml/js/financeiro-ml-calculadora.js?v=2026092402" defer></script>
 </body>
 </html>
 
