@@ -6,6 +6,7 @@ const accountRepository = require("../repositories/accountRepository");
 const { enqueueTokenRefresh, enqueueCatalogSync } = require("../queues/magaluQueue");
 const { refreshAccount } = require("../services/magaluTokenService");
 const { checkHubAccess } = require("../services/hubAccessService");
+const { checkAccountAccess } = require("../services/hubResourceAccessService");
 const { readSuiteIdentity } = require("../middlewares/suiteAuth");
 const {
   beginAuthorization,
@@ -163,12 +164,29 @@ async function callback(req, res) {
 }
 
 async function status(req, res) {
-  const accounts = await accountRepository.listAccountsForTenant(req.magaluIdentity.dachTenantId);
+  const accounts = await authorizedAccounts(req.magaluIdentity);
   return res.json({
     ok: true,
     oauth: publicOAuthConfig(),
     accounts,
   });
+}
+
+async function authorizedAccounts(identity) {
+  const accounts = await accountRepository.listAccountsForTenant(identity.dachTenantId);
+  const checks = await Promise.all(accounts.map(async (account) => ({
+    account,
+    hub: await checkAccountAccess(identity, account, { action: "READ magalu" }),
+  })));
+  return checks.filter(({ hub }) => hub.allow).map(({ account }) => account);
+}
+
+async function accounts(req, res, next) {
+  try {
+    return res.json({ ok: true, accounts: await authorizedAccounts(req.magaluIdentity) });
+  } catch (error) {
+    return next(error);
+  }
 }
 
 async function refresh(req, res, next) {
@@ -179,6 +197,8 @@ async function refresh(req, res, next) {
     }
     const account = await accountRepository.findAccountByIdForTenant(accountId, req.magaluIdentity.dachTenantId);
     if (!account) return res.status(404).json({ ok: false, error: "account_not_found" });
+    const hub = await checkAccountAccess(req.magaluIdentity, account, { force: true, action: "WRITE magalu" });
+    if (!hub.allow) return res.status(404).json({ ok: false, error: "account_not_found" });
     const result = await refreshAccount(accountId, { dachTenantId: req.magaluIdentity.dachTenantId });
     return res.json({
       ok: true,
@@ -191,4 +211,4 @@ async function refresh(req, res, next) {
   }
 }
 
-module.exports = { start, callback, status, refresh, _test: { parseCookies, withOAuthResult, safeReason, revalidateCallbackAccess } };
+module.exports = { start, callback, status, accounts, refresh, _test: { parseCookies, withOAuthResult, safeReason, revalidateCallbackAccess, authorizedAccounts } };
