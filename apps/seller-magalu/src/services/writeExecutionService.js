@@ -8,7 +8,7 @@ const writeRepository = require("../repositories/writeRepository");
 const portfolioReadService = require("./portfolioReadService");
 const portfolioWriteService = require("./portfolioWriteService");
 const catalogPayload = require("./catalogPayload");
-const { checkHubAccess } = require("./hubAccessService");
+const { checkAccountAccess } = require("./hubResourceAccessService");
 const { currentFromRemote, equals, scopeFor, hasScope } = require("./writePayload");
 
 const RECONCILIATION_STATES = new Set(["dispatching", "accepted", "divergent", "uncertain"]);
@@ -175,12 +175,13 @@ async function reconcileWithoutWrite(account, operation) {
   );
 }
 
-async function assertFreshHubWriteAccess(operation) {
-  const hub = await checkHubAccess(
+async function assertFreshHubWriteAccess(operation, account) {
+  const hub = await checkAccountAccess(
     {
       dachTenantId: operation.dach_tenant_id,
       dachUserId: operation.dach_user_id,
     },
+    account,
     { force: true, action: "WRITE magalu" },
   );
   if (hub.allow) return hub;
@@ -286,7 +287,7 @@ async function executeOperation(operationId) {
       // Hub: uma revogação ocorrida enquanto o job aguardava na fila bloqueia
       // a escrita sem tocar o recurso remoto.
       try {
-        await assertFreshHubWriteAccess(operation);
+        await assertFreshHubWriteAccess(operation, account);
       } catch (error) {
         if (error?.code !== "MAGALU_WRITE_HUB_ACCESS_DENIED") throw error;
         return fail(operation, error.code, error.message, { hubReason: error.hubReason });

@@ -167,6 +167,7 @@ test("dispatching is persisted before remote write and network ambiguity becomes
   let dispatching = false;
   let finished = null;
   clearModule("../src/services/writeExecutionService");
+  clearModule("../src/services/hubResourceAccessService");
   await withLoadStubs({
     "../config/postgres": { withClient: async (fn) => fn({ query: async () => ({ rows: [] }) }) },
     "../repositories/accountRepository": { findAccountById: async () => ({ id: 7, dach_tenant_id: "dach-7", status: "active", scopes: ["open:portfolio-stocks-seller:write"] }) },
@@ -326,14 +327,15 @@ test("worker revalidates Hub immediately before dispatch and denial prevents rem
   };
   let writes = 0;
   let dispatches = 0;
-  let hubOptions = null;
+  let hubArgs = null;
   let finished = null;
   const sequence = [];
 
   clearModule("../src/services/writeExecutionService");
+  clearModule("../src/services/hubResourceAccessService");
   await withLoadStubs({
     "../config/postgres": { withClient: async (fn) => fn({ query: async () => ({ rows: [] }) }) },
-    "../repositories/accountRepository": { findAccountById: async () => ({ id: 7, dach_tenant_id: "dach-7", status: "active", scopes: ["open:portfolio-stocks-seller:write"] }) },
+    "../repositories/accountRepository": { findAccountById: async () => ({ id: 7, dach_tenant_id: "dach-7", magalu_tenant_id: "magalu-7", status: "active", scopes: ["open:portfolio-stocks-seller:write"], access_token: "must-not-pass" }) },
     "../repositories/catalogRepository": { upsertStock: async () => {} },
     "../repositories/writeRepository": {
       getOperation: async () => operation,
@@ -349,9 +351,9 @@ test("worker revalidates Hub immediately before dispatch and denial prevents rem
     },
     "./portfolioWriteService": { writeResource: async () => { writes += 1; sequence.push("write"); } },
     "./hubAccessService": {
-      checkHubAccess: async (_identity, options) => {
+      checkHubAccess: async (...args) => {
         sequence.push("hub");
-        hubOptions = options;
+        hubArgs = args;
         return { allow: false, reason: "module_revoked" };
       },
     },
@@ -360,7 +362,10 @@ test("worker revalidates Hub immediately before dispatch and denial prevents rem
     assert.equal(result.status, "failed");
   });
 
-  assert.deepEqual(hubOptions, { force: true, action: "WRITE magalu" });
+  assert.deepEqual(hubArgs, [
+    { dachTenantId: "dach-7", dachUserId: "user-7" },
+    { force: true, action: "WRITE magalu", resourceKey: "magalu:magalu-7" },
+  ]);
   assert.equal(writes, 0);
   assert.equal(dispatches, 0);
   assert.equal(finished.errorCode, "MAGALU_WRITE_HUB_ACCESS_DENIED");
