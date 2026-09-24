@@ -154,10 +154,22 @@ async function setHubResourceSyncState(accountId, { status, hubResourceKey = nul
   );
 }
 
+async function listHubResourceSyncCandidates({ limit = 100 } = {}) {
+  const safeLimit = Math.min(100, Math.max(1, Number(limit) || 100));
+  const { rows } = await db.query(
+    `select id from magalu.accounts
+      where hub_sync_status in ('pending', 'failed')
+      order by updated_at asc
+      limit $1`,
+    [safeLimit],
+  );
+  return rows;
+}
+
 async function markAccountActive(accountId) { await db.query(`update magalu.accounts set status = 'active', updated_at = now() where id = $1`, [Number(accountId)]); }
 
 module.exports = {
   listAccountsForTenant, findAccountByTenantId, findAccountById, findAccountByIdForTenant,
-  upsertConnectedAccount, updateAccountAfterRefresh, updateSellerProfile, setCatalogSyncState, setHubResourceSyncState, markAccountActive,
+  upsertConnectedAccount, updateAccountAfterRefresh, updateSellerProfile, setCatalogSyncState, setHubResourceSyncState, listHubResourceSyncCandidates, markAccountActive,
   _test: { ownershipConflict, normalizeScopes },
 };

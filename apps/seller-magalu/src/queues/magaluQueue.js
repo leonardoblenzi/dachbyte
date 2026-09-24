@@ -59,13 +59,17 @@ async function enqueueHubResourceSync(accountId) {
   const id = Number(accountId);
   if (!Number.isFinite(id) || id <= 0) throw new Error("accountId inválido para recurso Hub Magalu.");
   const queue = await getQueue(queueNames.hubResourceSync);
-  return queue.add("sync-resource", { accountId: id }, {
-    jobId: `magalu-hub-resource-${id}`,
+  const jobId = `magalu-hub-resource-${id}`;
+  const existing = typeof queue.getJob === "function" ? await queue.getJob(jobId) : null;
+  if (existing) return { id: existing.id, scheduled: false };
+  const job = await queue.add("sync-resource", { accountId: id }, {
+    jobId,
     attempts: 5,
     backoff: { type: "exponential", delay: 5000 },
     removeOnComplete: true,
     removeOnFail: true,
   });
+  return { id: job.id, scheduled: true };
 }
 
 async function enqueueCatalogReconcile(accountId, sku, { topic = "manual", eventId = null } = {}) {

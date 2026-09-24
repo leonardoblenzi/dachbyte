@@ -152,12 +152,17 @@ async function callback(req, res) {
     } catch (syncError) {
       console.warn("[seller-magalu:oauth] initial catalog sync was not queued", { accountId: connected.account.id, message: syncError?.message || String(syncError) });
     }
-    await accountRepository.setHubResourceSyncState(connected.account.id, { status: "pending", error: null }).catch(() => {});
-    try {
-      const syncJob = await enqueueHubResourceSync(connected.account.id);
-      if (syncJob?.id) await accountRepository.setHubResourceSyncState(connected.account.id, { status: "queued", error: null });
-    } catch (syncError) {
-      console.warn("[seller-magalu:oauth] Hub resource sync was not queued", { accountId: connected.account.id, message: syncError?.message || String(syncError) });
+    const hubAccount = await accountRepository.findAccountById(connected.account.id).catch(() => null);
+    if (hubAccount?.hub_sync_status !== "synced") {
+      if (!["pending", "queued", "syncing"].includes(hubAccount?.hub_sync_status)) {
+        await accountRepository.setHubResourceSyncState(connected.account.id, { status: "pending", error: null }).catch(() => {});
+      }
+      try {
+        const syncJob = await enqueueHubResourceSync(connected.account.id);
+        if (syncJob?.scheduled) await accountRepository.setHubResourceSyncState(connected.account.id, { status: "queued", error: null });
+      } catch (syncError) {
+        console.warn("[seller-magalu:oauth] Hub resource sync was not queued", { accountId: connected.account.id, message: syncError?.message || String(syncError) });
+      }
     }
     return res.redirect(302, withOAuthResult(redirectAfter, "connected", null, connected.account.id));
   } catch (error) {

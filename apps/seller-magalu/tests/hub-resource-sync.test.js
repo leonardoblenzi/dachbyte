@@ -113,7 +113,7 @@ test("OAuth remains connected when Hub resource enqueue fails", async () => {
   await withLoadStubs({
     "../config/env": { NODE_ENV: "test", MAGALU_TOKEN_REFRESH_SKEW_SECONDS: 900 },
     "../repositories/oauthStateRepository": { consumeState: async () => ({ dach_tenant_id: "dach", dach_user_id: "user", redirect_after: "/magalu/contas" }) },
-    "../repositories/accountRepository": { setCatalogSyncState: async () => {}, setHubResourceSyncState: async (_id, state) => hubStates.push(state) },
+    "../repositories/accountRepository": { findAccountById: async () => ({ id: 7, hub_sync_status: "pending" }), setCatalogSyncState: async () => {}, setHubResourceSyncState: async (_id, state) => hubStates.push(state) },
     "../queues/magaluQueue": { enqueueTokenRefresh: async () => null, enqueueCatalogSync: async () => ({ id: "catalog" }), enqueueHubResourceSync: async () => { throw new Error("redis unavailable"); } },
     "../services/magaluTokenService": { refreshAccount: async () => ({}) },
     "../services/hubAccessService": { checkHubAccess: async () => ({ allow: true }) },
@@ -130,6 +130,58 @@ test("OAuth remains connected when Hub resource enqueue fails", async () => {
       assert.match(location, /oauth=connected/);
     } finally { console.warn = originalWarn; }
   });
-  assert.equal(hubStates.length, 1);
-  assert.equal(hubStates[0].status, "pending");
+  assert.deepEqual(hubStates, []);
+});
+
+test("Hub resource worker bootstraps a bounded batch of pending and failed accounts", async () => {
+  const queued = [];
+  const states = [];
+  clearModule("../src/jobs/hubResourceSync.worker");
+  await withLoadStubs({
+    bullmq: { Worker: class Worker {} },
+    "../config/redis": { ensureRedisConnected: async () => ({}) },
+    "../config/queueNames": { hubResourceSync: "magalu:hub-resource:sync" },
+    "../repositories/accountRepository": {
+      listHubResourceSyncCandidates: async ({ limit }) => { assert.equal(limit, 100); return [{ id: 7 }, { id: 8 }]; },
+      setHubResourceSyncState: async (id, state) => states.push({ id, state }),
+    },
+    "../services/hubResourceSyncService": { syncHubResource: async () => ({}) },
+    "../queues/magaluQueue": { enqueueHubResourceSync: async (id) => { queued.push(id); return { id: `job-${id}`, scheduled: true }; } },
+  }, () => require("../src/jobs/hubResourceSync.worker"), async (worker) => {
+    assert.equal(await worker._test.enqueuePendingHubResourceSyncs(), 2);
+  });
+  assert.deepEqual(queued, [7, 8]);
+  assert.deepEqual(states, [
+    { id: 7, state: { status: "queued", error: null } },
+    { id: 8, state: { status: "queued", error: null } },
+  ]);
+});
+
+test("OAuth preserves an already synced Hub resource when its stable job exists", async () => {
+  const hubStates = [];
+  let enqueueCalls = 0;
+  clearModule("../src/controllers/oauthController");
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  await withLoadStubs({
+    "../config/env": { NODE_ENV: "test", MAGALU_TOKEN_REFRESH_SKEW_SECONDS: 900 },
+    "../repositories/oauthStateRepository": { consumeState: async () => ({ dach_tenant_id: "dach", dach_user_id: "user", redirect_after: "/magalu/contas" }) },
+    "../repositories/accountRepository": { setCatalogSyncState: async () => {}, setHubResourceSyncState: async (_id, state) => hubStates.push(state), findAccountById: async () => ({ id: 7, hub_sync_status: "synced" }) },
+    "../queues/magaluQueue": { enqueueTokenRefresh: async () => null, enqueueCatalogSync: async () => ({ id: "catalog" }), enqueueHubResourceSync: async () => { enqueueCalls++; return { id: "existing", scheduled: false }; } },
+    "../services/magaluTokenService": { refreshAccount: async () => ({}) },
+    "../services/hubAccessService": { checkHubAccess: async () => ({ allow: true }) },
+    "../middlewares/suiteAuth": { readSuiteIdentity: () => ({ ok: true, identity: { dachTenantId: "dach", dachUserId: "user" } }) },
+    "../services/magaluOAuthService": { beginAuthorization: async () => ({}), finishAuthorization: async () => ({ account: { id: 7 }, accessExpiresAt: null }), publicOAuthConfig: () => ({}) },
+    "../services/oauthSecurity": { hashOAuthState: (value) => value, safeRedirectAfter: (value) => value, secureEqual: () => true },
+  }, () => require("../src/controllers/oauthController"), async (controller) => {
+    try {
+      let location = null;
+      await controller.callback({ query: { state: "state", code: "code" }, headers: { cookie: "magalu_oauth_state=state" } }, {
+        clearCookie() {}, redirect(_status, target) { location = target; },
+      });
+      assert.match(location, /oauth=connected/);
+    } finally { console.warn = originalWarn; }
+  });
+  assert.equal(enqueueCalls, 0);
+  assert.deepEqual(hubStates, []);
 });
