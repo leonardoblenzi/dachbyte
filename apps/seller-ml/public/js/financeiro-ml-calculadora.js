@@ -4,6 +4,7 @@
   const $ = (id) => document.getElementById(id);
   const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
   const pct = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const rules = window.MLCalculatorRules;
 
   const state = {
     mode: "listing",
@@ -13,6 +14,7 @@
     selected: null,
     shippingMode: "mercado_envios",
     busy: false,
+    recalculateAfterBusy: false,
   };
 
   function api(path) {
@@ -70,12 +72,14 @@
     return data;
   }
 
-  function setBusy(active, message = "Calculando...") {
+  function setBusy(active, message = "Calculando...", { overlay = true, disableControls = overlay } = {}) {
     state.busy = !!active;
-    [$("calc-lookup-button"), $("calc-submit"), $("calc-reset")].filter(Boolean).forEach((button) => {
-      button.disabled = state.busy;
-    });
-    if (state.busy) {
+    if (disableControls) {
+      [$("calc-lookup-button"), $("calc-reset")].filter(Boolean).forEach((button) => {
+        button.disabled = state.busy;
+      });
+    }
+    if (state.busy && overlay) {
       window.MLLoadingOverlay?.show({
         context: "Calculadora de margem",
         label: "Precificação",
@@ -84,7 +88,7 @@
         initialProgress: 20,
         maxProgress: 91,
       });
-    } else {
+    } else if (overlay) {
       window.MLLoadingOverlay?.hide();
     }
   }
@@ -100,13 +104,30 @@
   }
 
   function syncFeeInputs() {
-    const auto = !!$("calc-use-ml-fee")?.checked;
-    const hasSource = Boolean($("calc-category")?.value && $("calc-listing-type")?.value);
-    if ($("calc-use-ml-fee")) $("calc-use-ml-fee").disabled = !hasSource;
-    const locked = auto && hasSource;
-    if ($("calc-commission-pct")) $("calc-commission-pct").disabled = locked;
-    if ($("calc-commission-fixed")) $("calc-commission-fixed").disabled = locked;
-    setBadge("calc-fee-mode", locked ? "Comissão Mercado Livre" : "Comissão manual", locked ? "info" : "neutral");
+    const loaded = isLoadedListing();
+    const manual = state.mode === "manual";
+    const checkbox = $("calc-use-ml-fee");
+    if (checkbox) {
+      checkbox.checked = loaded;
+      checkbox.disabled = !loaded;
+    }
+    if ($("calc-commission-pct")) $("calc-commission-pct").disabled = manual || loaded;
+    if ($("calc-commission-fixed")) $("calc-commission-fixed").disabled = manual || loaded;
+    document.querySelectorAll("[data-calc-ml-fee-control]").forEach((control) => {
+      control.hidden = manual;
+    });
+    setBadge(
+      "calc-fee-mode",
+      loaded ? "Comissão Mercado Livre" : manual ? "Comissão predefinida" : "Comissão manual",
+      loaded ? "info" : "neutral",
+    );
+  }
+
+  function applyManualListingFee() {
+    if (state.mode !== "manual") return;
+    const fee = rules.manualListingFee($("calc-listing-type")?.value);
+    setInput("calc-commission-pct", fee.commissionRatePct);
+    setInput("calc-commission-fixed", fee.commissionFixed);
   }
 
   function isLoadedListing() {
@@ -115,7 +136,7 @@
 
   function syncListingTypeControl() {
     const value = $("calc-listing-type")?.value || "gold_special";
-    const locked = isLoadedListing();
+    const locked = state.mode !== "manual" || isLoadedListing();
     document.querySelectorAll("[data-listing-type]").forEach((button) => {
       const active = button.dataset.listingType === value;
       button.classList.toggle("is-active", active);
@@ -126,16 +147,19 @@
 
   function setListingType(value) {
     const select = $("calc-listing-type");
-    if (!select || isLoadedListing()) return;
+    if (!select || state.mode !== "manual" || isLoadedListing()) return;
     select.value = value === "gold_pro" ? "gold_pro" : "gold_special";
+    applyManualListingFee();
     syncListingTypeControl();
     syncFeeInputs();
+    scheduleCalculation();
   }
 
   function syncShippingMode(mode = state.shippingMode) {
     state.shippingMode = mode === "comprador" ? "comprador" : "mercado_envios";
-    if ($("calc-seller-shipping-wrap")) $("calc-seller-shipping-wrap").hidden = state.shippingMode !== "mercado_envios";
-    if ($("calc-buyer-shipping-wrap")) $("calc-buyer-shipping-wrap").hidden = state.shippingMode !== "comprador";
+    const visible = rules.shippingVisibility(state.shippingMode);
+    if ($("calc-seller-shipping-wrap")) $("calc-seller-shipping-wrap").hidden = !visible.seller;
+    if ($("calc-buyer-shipping-wrap")) $("calc-buyer-shipping-wrap").hidden = !visible.buyer;
     document.querySelectorAll("[data-shipping-mode]").forEach((button) => {
       const active = button.dataset.shippingMode === state.shippingMode;
       button.classList.toggle("is-active", active);
@@ -158,14 +182,14 @@
       setInput("calc-item-id", "");
       setInput("calc-variation-id", "");
       setInput("calc-reference-sku", "");
-      $("calc-use-ml-fee").checked = false;
+      applyManualListingFee();
       setBadge("calc-lookup-badge", "Manual", "neutral");
       syncFeeInputs();
     } else if (state.selected) {
-      $("calc-use-ml-fee").checked = true;
       syncFeeInputs();
     }
     syncListingTypeControl();
+    scheduleCalculation();
   }
 
   async function loadAccountTax() {
@@ -239,7 +263,6 @@
     if ($("calc-tax-preset")) $("calc-tax-preset").value = "account";
     applyTaxPreset();
 
-    if ($("calc-use-ml-fee")) $("calc-use-ml-fee").checked = true;
     syncFeeInputs();
     syncListingTypeControl();
     syncShippingMode(row.free_shipping ? "mercado_envios" : "comprador");
@@ -255,7 +278,8 @@
     setText("calc-item-meta", [row.item_id, row.reference_sku || "Sem SKU", row.variation_label || ""].filter(Boolean).join(" · "));
     setText("calc-item-source", `${row.listing_type_label || row.listing_type_id || "Anúncio"} · comissão ${fmtMoney(row.commission)} · frete vendedor ${fmtMoney(row.seller_shipping)}`);
     setBadge("calc-lookup-badge", "Carregado", "positive");
-    setFeedback(payload.note || "Anúncio carregado. Revise os campos e calcule.", "ok");
+    setFeedback(payload.note || "Anúncio carregado. Os resultados serão atualizados automaticamente.", "ok");
+    scheduleCalculation();
   }
 
   async function lookup(variationId = "") {
@@ -281,7 +305,7 @@
   }
 
   function buildPayload() {
-    const autoFee = !!$("calc-use-ml-fee")?.checked;
+    const autoFee = isLoadedListing();
     const shippingMode = state.shippingMode;
     return {
       mode: state.mode,
@@ -360,8 +384,25 @@
     setText("calc-result-note", payload.note || "Simulação concluída. Nenhum preço foi alterado no Mercado Livre.");
   }
 
-  async function calculate(event) {
+  const calculationScheduler = rules.createCalculationScheduler(() => {
+    if (state.busy) {
+      state.recalculateAfterBusy = true;
+      return;
+    }
+    calculate(null, { automatic: true });
+  });
+
+  function scheduleCalculation() {
+    if (!(inputValue("calc-price") > 0)) return;
+    calculationScheduler.schedule();
+  }
+
+  async function calculate(event, { automatic = false } = {}) {
     event?.preventDefault?.();
+    if (state.busy) {
+      state.recalculateAfterBusy = true;
+      return;
+    }
     const payload = buildPayload();
     if (!(payload.price > 0)) {
       setFeedback("Informe um preço de venda maior que zero.", "error");
@@ -371,19 +412,23 @@
       setFeedback("A margem desejada deve ser menor que 95%.", "error");
       return;
     }
-    setBusy(true, "Calculando margem, custos e preço-alvo...");
-    setFeedback("Calculando...", "");
+    setBusy(true, "Calculando margem, custos e preço-alvo...", { overlay: !automatic, disableControls: !automatic });
+    if (!automatic) setFeedback("Calculando...", "");
     try {
       const result = await fetchJson("/api/financeiro-ml/calculator/calculate", {
         method: "POST",
         body: JSON.stringify(payload),
       });
       renderResult(result);
-      setFeedback("Simulação atualizada.", "ok");
+      setFeedback(automatic ? "Resultados atualizados automaticamente." : "Simulação atualizada.", "ok");
     } catch (error) {
       setFeedback(error.message || "Falha ao calcular.", "error");
     } finally {
-      setBusy(false);
+      setBusy(false, "", { overlay: !automatic, disableControls: !automatic });
+      if (state.recalculateAfterBusy) {
+        state.recalculateAfterBusy = false;
+        scheduleCalculation();
+      }
     }
   }
 
@@ -408,6 +453,7 @@
     if ($("calc-variation-wrap")) $("calc-variation-wrap").hidden = true;
     syncShippingMode("mercado_envios");
     setBadge("calc-lookup-badge", state.mode === "manual" ? "Manual" : "Não carregado", "neutral");
+    applyManualListingFee();
     syncFeeInputs();
     syncListingTypeControl();
     setText("calc-result-profit", "R$ 0,00");
@@ -416,7 +462,7 @@
     setText("calc-result-equilibrium", "--");
     setText("calc-result-target", "--");
     setText("calc-target-label", "Preço para a meta");
-    setText("calc-result-caption", "Preencha os dados e calcule para ver o resultado.");
+    setText("calc-result-caption", "Preencha os dados para ver o resultado automaticamente.");
     setBadge("calc-result-status", "Aguardando", "neutral");
     if ($("calc-target-callout")) $("calc-target-callout").hidden = true;
     ["calc-breakdown-price", "calc-breakdown-product", "calc-breakdown-commission", "calc-breakdown-tax", "calc-breakdown-shipping", "calc-breakdown-operation", "calc-breakdown-other", "calc-breakdown-total"].forEach((id) => setText(id, "R$ 0,00"));
@@ -436,17 +482,26 @@
       }
     });
     $("calc-variation-select")?.addEventListener("change", (event) => lookup(event.target.value));
-    $("calc-tax-preset")?.addEventListener("change", applyTaxPreset);
-    $("calc-use-ml-fee")?.addEventListener("change", syncFeeInputs);
-    $("calc-category")?.addEventListener("input", syncFeeInputs);
-    $("calc-listing-type")?.addEventListener("change", syncFeeInputs);
+    $("calc-tax-preset")?.addEventListener("change", () => {
+      applyTaxPreset();
+      scheduleCalculation();
+    });
     document.querySelectorAll("[data-listing-type]").forEach((button) => {
       button.addEventListener("click", () => setListingType(button.dataset.listingType));
     });
     document.querySelectorAll("[data-shipping-mode]").forEach((button) => {
-      button.addEventListener("click", () => syncShippingMode(button.dataset.shippingMode));
+      button.addEventListener("click", () => {
+        syncShippingMode(button.dataset.shippingMode);
+        scheduleCalculation();
+      });
     });
     $("calc-form")?.addEventListener("submit", calculate);
+    $("calc-form")?.addEventListener("input", (event) => {
+      if (event.target.matches("input, select")) scheduleCalculation();
+    });
+    $("calc-form")?.addEventListener("change", (event) => {
+      if (event.target.matches("input, select")) scheduleCalculation();
+    });
     $("calc-reset")?.addEventListener("click", resetForm);
   }
 

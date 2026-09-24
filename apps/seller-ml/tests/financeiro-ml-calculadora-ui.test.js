@@ -25,9 +25,12 @@ test("calculator sends only the freight relevant to the selected mode", () => {
   assert.match(script, /shippingMode === "comprador" \? inputValue\("calc-buyer-shipping"\) : 0/);
 });
 
-test("calculator removes the redundant result heading and retains DACH ML tokens", () => {
+test("calculator removes the redundant result heading and inherits Margin tokens", () => {
   assert.match(html, /<h2>Lucro por unidade<\/h2>/);
   assert.doesNotMatch(html, /<span class="calc-eyebrow">Resultado<\/span>\s*<h2>Resultado da simulação<\/h2>/);
-  assert.match(css, /#ff9a4d/);
-  assert.match(css, /#0f766e/);
+  assert.match(html, /class="calc-shell container"/);
+  assert.match(html, /financeiro-ml\.css/);
+  assert.match(css, /var\(--fml-blue/);
+  assert.match(css, /var\(--fml-yellow/);
+  assert.doesNotMatch(css, /#0f766e/);
 });
