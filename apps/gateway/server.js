@@ -10,6 +10,7 @@ const crypto = require("crypto");
 const { loadRuntimeEnv } = require("../../lib/runtimeEnv");
 const { createSupportWidgetInjector } = require("../../lib/supportWidgetInjector");
 const { DACHBYTE_BRAND } = require("../../lib/dachbyteBrand");
+const { createSuiteSessionSnapshotService } = require("./services/suiteSessionSnapshot");
 
 loadRuntimeEnv({
   defaultCandidates: [
@@ -160,6 +161,11 @@ function hubConfig() {
     baseUrl: String(process.env.HUB_BASE_URL || "").trim().replace(/\/+$/, ""),
     token: String(process.env.HUB_INTERNAL_TOKEN || "").trim(),
   };
+}
+
+function suiteSessionSnapshotService() {
+  const { baseUrl, token } = hubConfig();
+  return createSuiteSessionSnapshotService({ baseUrl, internalToken: token });
 }
 
 async function checkSuiteModuleAccess(payload, moduleId) {
@@ -771,6 +777,13 @@ async function main() {
   app.get("/healthz", (_req, res) =>
     res.json({ ok: true, app: "davanttiSuite", brand: DACHBYTE_BRAND.name }),
   );
+
+  app.get("/api/suite/session", async (req, res) => {
+    const payload = readSuitePayload(req);
+    res.set("cache-control", "no-store, max-age=0");
+    if (!payload) return res.status(401).json({ ok: false, logged: false, code: "unauthorized" });
+    return res.json(await suiteSessionSnapshotService().resolve(payload));
+  });
 
   // Compatibilidade OAuth:
   // se o callback for configurado sem prefixo /ml no app do Mercado Livre,
