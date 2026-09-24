@@ -491,7 +491,7 @@ class FinanceiroMlCalculatorService {
     };
   }
 
-  static async calculate(body = {}, context = {}) {
+  static async calculate(body = {}, context = {}, options = {}) {
     requireAccountKey(context);
     const price = Math.max(0, num(body.price ?? body.sale_price));
     if (!(price > 0)) throw error("Informe um preço de venda maior que zero.");
@@ -510,10 +510,13 @@ class FinanceiroMlCalculatorService {
 
     const categoryId = text(body.category_id);
     const listingTypeId = text(body.listing_type_id);
-    const useMlFee = bool(body.use_ml_fee, Boolean(categoryId && listingTypeId));
+    const mode = text(body.mode || "manual") || "manual";
+    const requestedMlFee = bool(body.use_ml_fee, Boolean(categoryId && listingTypeId));
+    const useMlFee = requestedMlFee && !options.estimatedFallback;
     if (useMlFee && (!categoryId || !listingTypeId)) {
       throw error("A categoria e o tipo de anuncio sao obrigatorios para consultar a tarifa do Mercado Livre.");
     }
+    try {
     const state = useMlFee
       ? await prepareAuthState({
           accessToken: context?.mlCreds?.access_token || null,
@@ -612,8 +615,8 @@ class FinanceiroMlCalculatorService {
 
     return {
       success: true,
-      mode: text(body.mode || "manual") || "manual",
-      fee_mode: useMlFee && categoryId && listingTypeId ? "mercado_livre" : "manual",
+      mode,
+      fee_mode: useMlFee && categoryId && listingTypeId ? "mercado_livre" : mode === "manual" ? "estimativa" : "manual",
       listing: {
         item_id: text(body.item_id),
         variation_id: text(body.variation_id),
@@ -649,8 +652,18 @@ class FinanceiroMlCalculatorService {
       },
       note: useMlFee && categoryId && listingTypeId
         ? "A comissão foi consultada no Mercado Livre para o preço informado. O preço-alvo recalcula a tarifa por faixa durante a simulação."
-        : "A simulação usa a comissão percentual/fixa informada manualmente.",
+        : options.estimatedFallback
+          ? "Não foi possível consultar a comissão agora. A simulação usa a estimativa selecionada."
+          : mode === "manual"
+            ? "A simulação usa a comissão estimada até que categoria e preço permitam a consulta no Mercado Livre."
+            : "A simulação usa a comissão percentual/fixa informada manualmente.",
     };
+    } catch (cause) {
+      if (mode === "manual" && requestedMlFee && !options.estimatedFallback && Number(cause?.status) === 502) {
+        return FinanceiroMlCalculatorService.calculate({ ...body, use_ml_fee: false }, context, { estimatedFallback: true });
+      }
+      throw cause;
+    }
   }
 }
 

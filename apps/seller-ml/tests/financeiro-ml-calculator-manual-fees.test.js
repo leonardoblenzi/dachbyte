@@ -35,3 +35,25 @@ test("category discovery URL follows the MLB predictor contract", () => {
   assert.equal(url.searchParams.get("q"), "fone bluetooth");
   assert.equal(url.searchParams.get("limit"), "3");
 });
+
+test("manual calculation falls back to its estimate when listing prices is unavailable", async () => {
+  Calculator._test.setListingPriceRequest(async () => {
+    throw Object.assign(new Error("upstream unavailable"), { status: 503 });
+  });
+  try {
+    const result = await Calculator.calculate({
+      mode: "manual",
+      price: 100,
+      category_id: "MLB1055",
+      listing_type_id: "gold_special",
+      use_ml_fee: true,
+      commission_rate_pct: 11.5,
+      commission_fixed: 0,
+    }, { accountKey: "drossi", mlCreds: { access_token: "token" } });
+    assert.equal(result.fee_mode, "estimativa");
+    assert.equal(result.commission.rate_pct, 11.5);
+    assert.match(result.note, /estimativa/i);
+  } finally {
+    Calculator._test.resetListingPriceRequest();
+  }
+});

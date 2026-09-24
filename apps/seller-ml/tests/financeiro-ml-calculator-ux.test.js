@@ -9,13 +9,28 @@ const rules = require("../public/js/financeiro-ml-calculator-rules.js");
 
 test("manual listing type supplies its preset fee and leaves fixed fee optional", () => {
   assert.deepEqual(rules.manualListingFee("gold_special"), {
-    commissionRatePct: 12,
+    commissionRatePct: 11.5,
     commissionFixed: 0,
   });
   assert.deepEqual(rules.manualListingFee("gold_pro"), {
-    commissionRatePct: 17,
+    commissionRatePct: 16.5,
     commissionFixed: 0,
   });
+});
+
+test("manual fee quote needs price, category and a supported listing type", () => {
+  assert.equal(rules.canQuoteMarketplaceFee({
+    price: 100, categoryId: "MLB1055", listingTypeId: "gold_pro",
+  }), true);
+  assert.equal(rules.canQuoteMarketplaceFee({
+    price: 0, categoryId: "MLB1055", listingTypeId: "gold_pro",
+  }), false);
+  assert.deepEqual(rules.manualFeeMode({ price: 100, categoryId: "" }), {
+    source: "estimativa", quote: false,
+  });
+  assert.deepEqual(rules.manualFeeMode({
+    price: 100, categoryId: "MLB1055", listingTypeId: "gold_special",
+  }), { source: "consultando", quote: true });
 });
 
 test("shipping mode reveals exactly one relevant monetary field", () => {

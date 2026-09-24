@@ -63,13 +63,13 @@ test("ML fee mode rejects a missing fee category or listing type", async () => {
   );
 });
 
-test("manual fee mode remains available without listing fee metadata", async () => {
+test("manual fee mode remains available as an explicit estimate without listing fee metadata", async () => {
   const result = await Calculator.calculate({
     price: 100,
     use_ml_fee: false,
     commission_rate_pct: 15,
   }, { accountKey: "drossi" });
-  assert.equal(result.fee_mode, "manual");
+  assert.equal(result.fee_mode, "estimativa");
   assert.equal(result.commission.amount, 15);
 });
 
