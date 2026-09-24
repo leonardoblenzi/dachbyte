@@ -55,6 +55,19 @@ async function enqueueCatalogSync(accountId, { dachTenantId = null, reason = "ma
   });
 }
 
+async function enqueueHubResourceSync(accountId) {
+  const id = Number(accountId);
+  if (!Number.isFinite(id) || id <= 0) throw new Error("accountId inválido para recurso Hub Magalu.");
+  const queue = await getQueue(queueNames.hubResourceSync);
+  return queue.add("sync-resource", { accountId: id }, {
+    jobId: `magalu-hub-resource-${id}`,
+    attempts: 5,
+    backoff: { type: "exponential", delay: 5000 },
+    removeOnComplete: true,
+    removeOnFail: true,
+  });
+}
+
 async function enqueueCatalogReconcile(accountId, sku, { topic = "manual", eventId = null } = {}) {
   const id = Number(accountId);
   const normalizedSku = String(sku || "").trim();
@@ -104,6 +117,7 @@ module.exports = {
   enqueueWebhookEvent,
   enqueueTokenRefresh,
   enqueueCatalogSync,
+  enqueueHubResourceSync,
   enqueueCatalogReconcile,
   enqueueWriteOperation,
   closeQueues,

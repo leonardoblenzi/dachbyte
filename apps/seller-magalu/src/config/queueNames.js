@@ -6,4 +6,5 @@ module.exports = Object.freeze({
   webhookProcess: "magalu:webhook:process",
   priceUpdate: "magalu:price:update",
   stockUpdate: "magalu:stock:update",
+  hubResourceSync: "magalu:hub-resource:sync",
 });

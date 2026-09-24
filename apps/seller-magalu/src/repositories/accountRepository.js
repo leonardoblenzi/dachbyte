@@ -16,6 +16,7 @@ async function listAccountsForTenant(dachTenantId) {
     `select a.id, a.dach_tenant_id, a.magalu_tenant_id, a.magalu_tenant_name,
             a.status, a.scopes, a.connected_at, a.last_oauth_at,
             a.catalog_sync_status, a.catalog_last_synced_at, a.catalog_last_error,
+            a.hub_resource_key, a.hub_sync_status, a.hub_synced_at, a.hub_sync_error,
             a.created_at, a.updated_at,
             t.access_expires_at, t.refresh_expires_at, t.token_type,
             t.token_version, t.last_refresh_at, t.last_refresh_attempt_at,
@@ -35,7 +36,8 @@ async function findAccountByTenantId(magaluTenantId) {
     `select id, dach_tenant_id, dach_created_by_user_id, magalu_tenant_id,
             magalu_tenant_name, status, scopes, metadata, connected_at,
             last_oauth_at, catalog_sync_status, catalog_last_synced_at,
-            catalog_last_error, created_at, updated_at
+            catalog_last_error, hub_resource_key, hub_sync_status, hub_synced_at,
+            hub_sync_error, created_at, updated_at
        from magalu.accounts where magalu_tenant_id = $1 limit 1`,
     [String(magaluTenantId)],
   );
@@ -46,7 +48,8 @@ async function findAccountById(accountId) {
     `select a.id, a.dach_tenant_id, a.dach_created_by_user_id, a.magalu_tenant_id,
             a.magalu_tenant_name, a.status, a.scopes, a.metadata, a.connected_at,
             a.last_oauth_at, a.catalog_sync_status, a.catalog_last_synced_at,
-            a.catalog_last_error, a.created_at, a.updated_at,
+            a.catalog_last_error, a.hub_resource_key, a.hub_sync_status, a.hub_synced_at,
+            a.hub_sync_error, a.created_at, a.updated_at,
             t.access_expires_at, t.refresh_expires_at, t.token_type,
             t.token_version, t.last_refresh_at, t.last_refresh_attempt_at,
             t.last_refresh_error
@@ -59,7 +62,8 @@ async function findAccountByIdForTenant(accountId, dachTenantId) {
     `select a.id, a.dach_tenant_id, a.dach_created_by_user_id, a.magalu_tenant_id,
             a.magalu_tenant_name, a.status, a.scopes, a.metadata, a.connected_at,
             a.last_oauth_at, a.catalog_sync_status, a.catalog_last_synced_at,
-            a.catalog_last_error, a.created_at, a.updated_at,
+            a.catalog_last_error, a.hub_resource_key, a.hub_sync_status, a.hub_synced_at,
+            a.hub_sync_error, a.created_at, a.updated_at,
             t.access_expires_at, t.refresh_expires_at, t.token_type,
             t.token_version, t.last_refresh_at, t.last_refresh_attempt_at,
             t.last_refresh_error
@@ -137,10 +141,23 @@ async function setCatalogSyncState(accountId, { status, error = null, syncedAt =
     [Number(accountId), status || null, error ? String(error).slice(0, 2000) : null, syncedAt || null]);
 }
 
+async function setHubResourceSyncState(accountId, { status, hubResourceKey = null, error = null, syncedAt = null } = {}) {
+  await db.query(
+    `update magalu.accounts
+        set hub_sync_status = coalesce($2, hub_sync_status),
+            hub_resource_key = coalesce($3, hub_resource_key),
+            hub_sync_error = $4,
+            hub_synced_at = coalesce($5::timestamptz, hub_synced_at),
+            updated_at = now()
+      where id = $1`,
+    [Number(accountId), status || null, hubResourceKey || null, error ? String(error).slice(0, 2000) : null, syncedAt || null],
+  );
+}
+
 async function markAccountActive(accountId) { await db.query(`update magalu.accounts set status = 'active', updated_at = now() where id = $1`, [Number(accountId)]); }
 
 module.exports = {
   listAccountsForTenant, findAccountByTenantId, findAccountById, findAccountByIdForTenant,
-  upsertConnectedAccount, updateAccountAfterRefresh, updateSellerProfile, setCatalogSyncState, markAccountActive,
+  upsertConnectedAccount, updateAccountAfterRefresh, updateSellerProfile, setCatalogSyncState, setHubResourceSyncState, markAccountActive,
   _test: { ownershipConflict, normalizeScopes },
 };

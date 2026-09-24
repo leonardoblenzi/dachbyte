@@ -3,7 +3,7 @@
 const env = require("../config/env");
 const oauthStateRepository = require("../repositories/oauthStateRepository");
 const accountRepository = require("../repositories/accountRepository");
-const { enqueueTokenRefresh, enqueueCatalogSync } = require("../queues/magaluQueue");
+const { enqueueTokenRefresh, enqueueCatalogSync, enqueueHubResourceSync } = require("../queues/magaluQueue");
 const { refreshAccount } = require("../services/magaluTokenService");
 const { checkHubAccess } = require("../services/hubAccessService");
 const { checkAccountAccess } = require("../services/hubResourceAccessService");
@@ -151,6 +151,13 @@ async function callback(req, res) {
       if (syncJob?.id) await accountRepository.setCatalogSyncState(connected.account.id, { status: "queued", error: null });
     } catch (syncError) {
       console.warn("[seller-magalu:oauth] initial catalog sync was not queued", { accountId: connected.account.id, message: syncError?.message || String(syncError) });
+    }
+    await accountRepository.setHubResourceSyncState(connected.account.id, { status: "pending", error: null }).catch(() => {});
+    try {
+      const syncJob = await enqueueHubResourceSync(connected.account.id);
+      if (syncJob?.id) await accountRepository.setHubResourceSyncState(connected.account.id, { status: "queued", error: null });
+    } catch (syncError) {
+      console.warn("[seller-magalu:oauth] Hub resource sync was not queued", { accountId: connected.account.id, message: syncError?.message || String(syncError) });
     }
     return res.redirect(302, withOAuthResult(redirectAfter, "connected", null, connected.account.id));
   } catch (error) {
