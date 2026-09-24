@@ -19,9 +19,8 @@ function localResourceKey(account) {
 async function processHubResourceSyncJob(job) {
   const accountId = Number(job?.data?.accountId);
   if (!Number.isFinite(accountId) || accountId <= 0) throw new Error("Job de recurso Hub Magalu sem accountId válido.");
-  const account = await accountRepository.findAccountById(accountId);
-  if (!account) throw new Error("Conta Magalu não encontrada para sincronização de recurso Hub.");
-  await accountRepository.setHubResourceSyncState(accountId, { status: "syncing", error: null });
+  const account = await accountRepository.claimHubResourceSync(accountId);
+  if (!account) return { ignored: true, reason: "hub_resource_not_claimable" };
   try {
     await syncHubResource(account);
     const resourceKey = localResourceKey(account);

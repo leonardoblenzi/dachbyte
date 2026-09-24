@@ -105,7 +105,7 @@ test("Hub resource worker persists synced state and truncates sync errors", asyn
     "../config/redis": { ensureRedisConnected: async () => ({}) },
     "../config/queueNames": { hubResourceSync: "magalu:hub-resource:sync" },
     "../repositories/accountRepository": {
-      findAccountById: async () => ({ id: 7, dach_tenant_id: "dach-tenant", magalu_tenant_id: "magalu-tenant", magalu_tenant_name: "Loja", scopes: [] }),
+      claimHubResourceSync: async () => ({ id: 7, dach_tenant_id: "dach-tenant", magalu_tenant_id: "magalu-tenant", magalu_tenant_name: "Loja", scopes: [] }),
       setHubResourceSyncState: async (_id, state) => states.push(state),
     },
     "../services/hubResourceSyncService": { syncHubResource: async () => ({ resourceKey: "untrusted-hub-value" }) },
@@ -113,8 +113,7 @@ test("Hub resource worker persists synced state and truncates sync errors", asyn
     const result = await worker._test.processHubResourceSyncJob({ data: { accountId: 7 } });
     assert.equal(result.resourceKey, "magalu:magalu-tenant");
   });
-  assert.equal(states[0].status, "syncing");
-  assert.deepEqual(states[1], { status: "synced", hubResourceKey: "magalu:magalu-tenant", syncedAt: states[1].syncedAt, error: null });
+  assert.deepEqual(states[0], { status: "synced", hubResourceKey: "magalu:magalu-tenant", syncedAt: states[0].syncedAt, error: null });
 
   const failures = [];
   clearModule("../src/jobs/hubResourceSync.worker");
@@ -122,13 +121,36 @@ test("Hub resource worker persists synced state and truncates sync errors", asyn
     bullmq: { Worker: class Worker {} },
     "../config/redis": { ensureRedisConnected: async () => ({}) },
     "../config/queueNames": { hubResourceSync: "magalu:hub-resource:sync" },
-    "../repositories/accountRepository": { findAccountById: async () => ({ id: 7 }), setHubResourceSyncState: async (_id, state) => failures.push(state) },
+    "../repositories/accountRepository": { claimHubResourceSync: async () => ({ id: 7 }), setHubResourceSyncState: async (_id, state) => failures.push(state) },
     "../services/hubResourceSyncService": { syncHubResource: async () => { throw new Error("x".repeat(2500)); } },
   }, () => require("../src/jobs/hubResourceSync.worker"), async (worker) => {
     await assert.rejects(worker._test.processHubResourceSyncJob({ data: { accountId: 7 } }));
   });
-  assert.equal(failures[1].status, "failed");
-  assert.equal(failures[1].error.length, 2000);
+  assert.equal(failures[0].status, "failed");
+  assert.equal(failures[0].error.length, 2000);
+});
+
+test("late duplicate job skips an account already synced by a successful retry", async () => {
+  let hubCalls = 0;
+  let stateWrites = 0;
+  clearModule("../src/jobs/hubResourceSync.worker");
+  await withLoadStubs({
+    bullmq: { Worker: class Worker {} },
+    "../config/redis": { ensureRedisConnected: async () => ({}) },
+    "../config/queueNames": { hubResourceSync: "magalu:hub-resource:sync" },
+    "../repositories/accountRepository": {
+      // Retry reached synced after failed -> pending, before this duplicate starts.
+      claimHubResourceSync: async () => null,
+      setHubResourceSyncState: async () => { stateWrites++; },
+    },
+    "../services/hubResourceSyncService": { syncHubResource: async () => { hubCalls++; } },
+    "../queues/magaluQueue": { enqueueHubResourceSync: async () => { throw new Error("must not requeue"); } },
+  }, () => require("../src/jobs/hubResourceSync.worker"), async (worker) => {
+    const result = await worker._test.processHubResourceSyncJob({ data: { accountId: 7 } });
+    assert.deepEqual(result, { ignored: true, reason: "hub_resource_not_claimable" });
+  });
+  assert.equal(hubCalls, 0);
+  assert.equal(stateWrites, 0);
 });
 
 test("OAuth remains connected when Hub resource enqueue fails", async () => {
