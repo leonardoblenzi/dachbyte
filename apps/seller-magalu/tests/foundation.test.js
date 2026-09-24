@@ -38,6 +38,7 @@ test("queue names are isolated by magalu prefix", () => {
   for (const name of Object.values(queueNames)) assert.match(name, /^magalu:/);
   assert.deepEqual(Object.values(queueNames).sort(), [
     "magalu:catalog:sync",
+    "magalu:hub-resource:sync",
     "magalu:price:update",
     "magalu:stock:update",
     "magalu:token:refresh",
