@@ -220,6 +220,22 @@ function filterOwnedItems(items = [], sellerId) {
   });
 }
 
+function buildCategoryDiscoveryUrl(query) {
+  const url = new URL(`${ML_API}/sites/MLB/domain_discovery/search`);
+  url.searchParams.set("q", text(query));
+  url.searchParams.set("limit", "3");
+  return url;
+}
+
+function normalizeCategorySuggestions(rows) {
+  return (Array.isArray(rows) ? rows : []).map((row) => ({
+    id: text(row?.category_id),
+    name: text(row?.category_name),
+    domain_id: text(row?.domain_id),
+    domain_name: text(row?.domain_name),
+  })).filter((row) => row.id && row.name).slice(0, 3);
+}
+
 function buildListingFeeUrl({ price, categoryId, listingTypeId, shippingMode, logisticType, dimensions, weight }) {
   const url = new URL(`${ML_API}/sites/MLB/listing_prices`);
   url.searchParams.set("price", Number(num(price).toFixed(2)));
@@ -409,6 +425,18 @@ async function pricingForCandidate({ state, candidate, itemBody, seller, context
 }
 
 class FinanceiroMlCalculatorService {
+  static async categories(query = {}, context = {}) {
+    requireAccountKey(context);
+    const term = text(query.q || query.query);
+    if (term.length < 3) return { success: true, categories: [] };
+    const state = await prepareAuthState({
+      accessToken: context?.mlCreds?.access_token || null,
+      mlCreds: context.mlCreds || {},
+    });
+    const payload = await mlJson(state, buildCategoryDiscoveryUrl(term).toString());
+    return { success: true, categories: normalizeCategorySuggestions(payload) };
+  }
+
   static async lookup(query = {}, context = {}) {
     requireAccountKey(context);
     const term = text(query.q || query.query || query.identifier);
@@ -630,6 +658,8 @@ FinanceiroMlCalculatorService._test = {
   candidatesFromItem,
   extractSku,
   listingTypeLabel,
+  buildCategoryDiscoveryUrl,
+  normalizeCategorySuggestions,
   buildListingFeeUrl,
   filterOwnedItems,
   fetchListingFee,

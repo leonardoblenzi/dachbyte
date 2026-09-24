@@ -29,6 +29,14 @@ module.exports = {
     }
   },
 
+  async categories(req, res) {
+    try {
+      return res.json(await FinanceiroMlCalculatorService.categories(req.query || {}, context(req, res)));
+    } catch (error) {
+      return handleError(res, error, "Falha ao buscar categorias para a calculadora.");
+    }
+  },
+
   async calculate(req, res) {
     try {
       return res.json(await FinanceiroMlCalculatorService.calculate(req.body || {}, context(req, res)));

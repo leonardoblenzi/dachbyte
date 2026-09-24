@@ -25,6 +25,7 @@ const allowMarginCalculator = companyAccess.requireModuleAccess("ml.precificacao
   defaultAllowIfUnconfigured: true,
 });
 router.get("/calculator/lookup", allowMarginCalculator, FinanceiroMlCalculatorController.lookup);
+router.get("/calculator/categories", allowMarginCalculator, FinanceiroMlCalculatorController.categories);
 router.post("/calculator/calculate", allowMarginCalculator, FinanceiroMlCalculatorController.calculate);
 
 module.exports = router;
