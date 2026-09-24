@@ -50,9 +50,9 @@ test("all public Business landings load the shared navigation experience", () =>
 });
 
 test("Seller shared assets map every public route to a distinct decision demo", () => {
-  const js = read("apps", "seller-ml", "public", "seller-landing.js");
-  const css = read("apps", "seller-ml", "public", "seller-landing.css");
-  for (const [route, experience] of [["/seller", "seller"], ["/seller/mercado-livre", "ml"], ["/seller/shopee", "shopee"], ["/seller/rastreio", "tracking"]]) {
+  const js = read("public", "brand", "dachbyte", "seller", "landing.js");
+  const css = read("public", "brand", "dachbyte", "seller", "landing.css");
+  for (const [route, experience] of [["/seller", "seller"], ["/seller/mercado-livre", "ml"], ["/seller/shopee", "shopee"], ["/seller/magalu", "magalu"], ["/seller/rastreio", "tracking"]]) {
     assert.match(js, new RegExp(`'${route.replaceAll("/", "\\/")}'\\s*:\\s*'${experience}'`));
   }
   assert.match(js, /initSellerDemos/);

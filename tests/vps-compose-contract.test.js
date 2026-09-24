@@ -50,6 +50,8 @@ test("Hub shared environment overrides service-specific legacy settings", () => 
     "seller-ml-web",
     "seller-ml-worker",
     "seller-shopee",
+    "seller-magalu-web",
+    "seller-magalu-worker",
     "seller-madeira",
     "seller-tracking",
     "seller-log",
@@ -84,7 +86,7 @@ test("Business products run separately and Python is private", () => {
 
 test("Caddy preserves route boundaries, Core assets and websocket API", () => {
   const source = read("infra/Caddyfile");
-  for (const prefix of ["ml", "shopee", "madeiramadeira", "avantracking", "davanttilog", "skuleader", "voltstock", "volt-price", "chat", "business", "ads"]) {
+  for (const prefix of ["ml", "shopee", "magalu", "madeiramadeira", "avantracking", "davanttilog", "skuleader", "voltstock", "volt-price", "chat", "business", "ads"]) {
     assert.ok(source.includes(`path /${prefix} /${prefix}/*`), prefix);
   }
   assert.match(source, /\/api\/core/);

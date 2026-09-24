@@ -80,6 +80,53 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
+  seller-magalu-web:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-magalu/start.js"]
+    env_file: ["./env/seller-magalu.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/magalu/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+  seller-magalu-worker:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-magalu/src/worker.js"]
+    env_file: ["./env/seller-magalu.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/apps/seller-magalu/scripts/worker-health.cjs"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+  seller-magalu-migrate:
+    profiles: [ops]
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-magalu/db/migrate.js", "deploy"]
+    env_file: ["./env/seller-magalu.env"]
+    environment:
+      NODE_ENV: production
+    networks: [data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
   seller-shopee:
     <<: *runtime
     build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}

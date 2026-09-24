@@ -9,7 +9,7 @@
     seller: [
       { label: 'Mercado Livre', href: '/seller/mercado-livre', login: '/ml/login', key: 'ml' },
       { label: 'Shopee', href: '/seller/shopee', login: '/shopee', key: 'shopee' },
-      { label: 'Magalu · em breve', href: '/seller/magalu', key: 'magalu' },
+      { label: 'Magalu', href: '/seller/magalu', login: '/go/magalu', key: 'magalu' },
       { label: 'Rastreio', href: '/seller/rastreio', login: '/avantracking', key: 'tracking' }
     ],
     business: [

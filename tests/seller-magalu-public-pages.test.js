@@ -7,27 +7,31 @@ const assert = require("node:assert/strict");
 
 const root = path.resolve(__dirname, "..");
 const gateway = () => fs.readFileSync(path.join(root, "apps", "gateway", "server.js"), "utf8");
-const view = (fileName) => fs.readFileSync(path.join(root, "apps", "seller-ml", "views", fileName), "utf8");
+const view = (fileName) => fs.readFileSync(path.join(root, "apps", "gateway", "views", "seller", fileName), "utf8");
+const magaluPublicRoutes = () => fs.readFileSync(path.join(root, "apps", "seller-magalu", "src", "routes", "public.routes.js"), "utf8");
 
-test("gateway publishes the public Magalu landing, legal, and OAuth callback routes without a client secret", () => {
+test("Gateway owns Magalu public pages and protected entry while seller-magalu owns OAuth callback", () => {
   const source = gateway();
 
   for (const route of [
     '"/seller/magalu"',
     '"/seller/magalu/termos"',
     '"/seller/magalu/privacidade"',
-    '"/magalu/auth/callback"',
+    '"/go/magalu"',
   ]) {
     assert.ok(source.includes(route), route);
   }
-  assert.ok(source.includes("magalu_oauth_not_configured"));
-  assert.doesNotMatch(source, /MAGALU_CLIENT_SECRET/);
+  assert.doesNotMatch(source, /magalu_oauth_not_configured/);
+  assert.doesNotMatch(source, /app\.get\("\/magalu\/auth\/callback"/);
+
+  const productRoutes = magaluPublicRoutes();
+  assert.match(productRoutes, /router\.get\("\/auth\/callback",\s*oauthController\.callback\)/);
 });
 
 test("Magalu landing presents catalog, pricing, inventory, availability, and legal links", () => {
   const source = view("landing-magalu.html");
 
-  for (const copy of ["Catálogo", "Preços", "Estoque", "Em breve"]) {
+  for (const copy of ["Catálogo", "Preços", "Estoque", "Piloto"]) {
     assert.ok(source.includes(copy), copy);
   }
   for (const href of ['href="/seller/magalu/termos"', 'href="/seller/magalu/privacidade"']) {
@@ -61,7 +65,7 @@ test("all Seller public landings load the global menu that exposes Magalu", () =
   }
 
   const shell = fs.readFileSync(path.join(root, "public", "brand", "dachbyte", "landing-experience.js"), "utf8");
-  assert.match(shell, /label: 'Magalu · em breve', href: '\/seller\/magalu'/);
+  assert.match(shell, /label: 'Magalu', href: '\/seller\/magalu', login: '\/go\/magalu'/);
 });
 
 test("Magalu public journey mounts the canonical Seller global shell", () => {

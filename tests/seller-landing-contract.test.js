@@ -6,10 +6,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const root = path.join(__dirname, "..");
-const view = (...segments) => path.join(root, "apps", "seller-ml", "views", ...segments);
+const view = (...segments) => path.join(root, "apps", "gateway", "views", "seller", ...segments);
 
 test("Seller public landings share the Business typography contract", () => {
-  const stylesheet = fs.readFileSync(path.join(root, "apps", "seller-ml", "public", "seller-landing.css"), "utf8");
+  const stylesheet = fs.readFileSync(path.join(root, "public", "brand", "dachbyte", "seller", "landing.css"), "utf8");
 
   for (const font of ["Exo+2", "Rajdhani", "Share+Tech+Mono"]) {
     assert.equal(stylesheet.includes(font), true, font);
@@ -23,18 +23,19 @@ test("Seller exposes a compact general landing and three module landings", () =>
     ["landing-general.html", "DACHBYTE Seller"],
     ["landing-mercado-livre.html", "DACHBYTE Mercado Livre"],
     ["landing-shopee.html", "DACHBYTE Shopee"],
+    ["landing-magalu.html", "DACHBYTE Magalu"],
     ["landing-tracking.html", "DACHBYTE Tracking"],
   ];
 
   for (const [fileName, heading] of expectedPages) {
     const source = fs.readFileSync(view(fileName), "utf8");
     assert.match(source, new RegExp(heading));
-    assert.match(source, /seller-landing\.css/);
-    assert.match(source, /seller-landing\.js/);
+    assert.match(source, /\/brand\/dachbyte\/seller\/landing\.css/);
+    assert.match(source, /\/brand\/dachbyte\/seller\/landing\.js/);
   }
 
   const generalLanding = fs.readFileSync(view("landing-general.html"), "utf8");
-  for (const destination of ["/seller/mercado-livre", "/seller/shopee", "/seller/rastreio"]) {
+  for (const destination of ["/seller/mercado-livre", "/seller/shopee", "/seller/magalu", "/seller/rastreio"]) {
     assert.match(generalLanding, new RegExp(destination.replaceAll("/", "\\/")));
   }
 });
@@ -48,9 +49,10 @@ test("Seller landings delegate product navigation to the global shell", () => {
   const modulePages = [
     "landing-mercado-livre.html",
     "landing-shopee.html",
+    "landing-magalu.html",
     "landing-tracking.html",
   ];
-  for (const [pageName, moduleName] of modulePages.map((pageName, index) => [pageName, ["Mercado Livre", "Shopee", "Rastreio"][index]])) {
+  for (const [pageName, moduleName] of modulePages.map((pageName, index) => [pageName, ["Mercado Livre", "Shopee", "Magalu", "Rastreio"][index]])) {
     const html = fs.readFileSync(view(pageName), "utf8");
     assert.match(html, new RegExp(`data-dx-shell="seller" data-dx-module="${moduleName}"`));
     assert.match(html, /landing-experience\.js/);

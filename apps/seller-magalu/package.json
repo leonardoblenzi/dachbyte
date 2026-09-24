@@ -1,0 +1,25 @@
+{
+  "name": "dachbyte-seller-magalu",
+  "version": "0.4.1",
+  "private": true,
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node start.js",
+    "dev": "node --watch start.js",
+    "worker": "node src/worker.js",
+    "migrate": "node db/migrate.js deploy",
+    "migrate:status": "node db/migrate.js status",
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bullmq": "^5.66.2",
+    "express": "^4.19.2",
+    "ioredis": "^5.9.2",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.18.0"
+  }
+}

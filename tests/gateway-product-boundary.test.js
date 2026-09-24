@@ -19,6 +19,7 @@ test("gateway does not mount product applications in-process", () => {
   for (const forbidden of [
     'require("../seller-ml")',
     'require("../seller-shopee")',
+    'require("../seller-magalu")',
     'require("../seller-madeira")',
     'require("../seller-tracking")',
     'require("../seller-log")',
@@ -27,6 +28,7 @@ test("gateway does not mount product applications in-process", () => {
     'app.use("/business"',
     'app.use("/ml"',
     'app.use("/shopee"',
+    'app.use("/magalu"',
     'app.use("/madeira"',
     'app.use("/madeiramadeira"',
     'app.use("/tracking"',
@@ -46,6 +48,7 @@ test("products expose their own runtime starters and Business uses an external C
   const expectedStarters = [
     "apps/seller-ml/start.js",
     "apps/seller-shopee/start.js",
+    "apps/seller-magalu/start.js",
     "apps/seller-madeira/start.js",
     "apps/seller-tracking/start.js",
     "apps/seller-log/start.js",

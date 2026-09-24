@@ -195,7 +195,7 @@
     .meta-list{
       grid-column:1 / -1;
       display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+      grid-template-columns:repeat(4,minmax(0,1fr));
       gap:10px 14px;
       margin-top:0;
     }
@@ -353,6 +353,19 @@
       opacity:.72;
       cursor:not-allowed;
     }
+
+    .module-card[data-module="magalu"]{
+      background:
+        radial-gradient(circle at top left, rgba(22,131,232,.18), transparent 38%),
+        linear-gradient(180deg, rgba(85,174,255,.08), rgba(255,255,255,.025));
+    }
+    .module-card[data-module="magalu"]:hover{border-color:rgba(85,174,255,.34)}
+    .module-card[data-module="magalu"] .module-mark{
+      color:#79c9ff;
+      border-color:rgba(85,174,255,.24);
+      background:linear-gradient(180deg, rgba(85,174,255,.16), rgba(57,199,243,.06));
+    }
+    .module-card[data-module="magalu"] .module-action span{color:#79c9ff}
     .module-card.is-renewal-required{
       border-color:rgba(255,84,112,.28);
       background:
@@ -661,6 +674,15 @@
             <div class="module-action">Entrar <span>→</span></div>
           </a>
 
+          <a class="module-card" href="/go/magalu" data-module="magalu" aria-disabled="false">
+            <div class="module-card__top">
+              <div class="module-mark" aria-hidden="true">MG</div>
+              <span class="module-badge">Disponível</span>
+            </div>
+            <div class="module-name">DACHBYTE Magalu</div>
+            <div class="module-action">Entrar <span>→</span></div>
+          </a>
+
           <a class="module-card" href="/go/tracking" data-module="tracking" aria-disabled="false">
             <div class="module-card__top">
               <div class="module-mark">TR</div>
@@ -771,6 +793,7 @@
         const aliases = {
           ml: ["ml", "meli", "mercadolivre", "mercado_livre", "mercado-livre", "mercado livre"],
           shopee: ["shopee"],
+          magalu: ["magalu", "magazine luiza", "magazineluiza"],
           tracking: ["tracking", "rastreio", "logistica", "logística", "correios", "avantracking"]
         };
         return aliases[slug] || [slug];
@@ -846,7 +869,7 @@
       }
 
       function moduleLabel(moduleSlug) {
-        const labels = { ml: "Mercado Livre", shopee: "Shopee", tracking: "Rastreio" };
+        const labels = { ml: "Mercado Livre", shopee: "Shopee", magalu: "Magalu", tracking: "Rastreio" };
         const normalized = normalizeText(moduleSlug).toLowerCase();
         return labels[normalized] || normalized.toUpperCase() || "Modulo";
       }
@@ -983,9 +1006,14 @@
 
         const subscription = subscriptionFrom(data);
         const subscriptionState = applySubscriptionNotice(subscription);
-        const allowed = collectEntitlements(data);
+        const visibleOrLegacy = collectEntitlements(data);
+        const rawAllowed = data && data.entitlements && Array.isArray(data.entitlements.modules)
+          ? data.entitlements.modules
+          : [];
+        const allowed = new Set(rawAllowed.map((item) => String(item || "").trim().toLowerCase()).filter(Boolean));
+        const accessSet = subscriptionState.expired ? visibleOrLegacy : allowed;
         let visibleCount = 0;
-        const shouldFilter = allowed.size > 0;
+        const hasSessionEntitlements = Boolean(data && data.entitlements);
 
         modules.forEach((card) => {
           const slug = card.dataset.module;
@@ -993,7 +1021,7 @@
           const badge = card.querySelector(".module-badge");
           if (badge && !badge.dataset.defaultText) badge.dataset.defaultText = badge.textContent;
 
-          const canAccess = !shouldFilter || aliasesFor(slug).some((key) => allowed.has(key));
+          const canAccess = hasSessionEntitlements && aliasesFor(slug).some((key) => accessSet.has(key));
           card.hidden = !canAccess;
           card.classList.toggle("is-renewal-required", Boolean(canAccess && subscriptionState.expired));
           card.setAttribute("aria-disabled", canAccess && !subscriptionState.expired ? "false" : "true");

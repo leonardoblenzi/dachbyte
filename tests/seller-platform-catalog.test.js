@@ -11,7 +11,7 @@ test("Seller selector exposes only shared Seller modules", () => {
   const source = fs.readFileSync(path.join(root, "apps/seller-ml/views/selecao-plataforma.html"), "utf8");
   const cards = Array.from(source.matchAll(/class="module-card" href="[^"]+" data-module="([^"]+)"/g), (match) => match[1]);
 
-  assert.deepEqual(cards, ["ml", "shopee", "tracking"]);
+  assert.deepEqual(cards, ["ml", "shopee", "magalu", "tracking"]);
   assert.doesNotMatch(source, /dach_ads:/);
   assert.doesNotMatch(source, /davanttilog:/);
   assert.doesNotMatch(source, /madeiramadeira:/);

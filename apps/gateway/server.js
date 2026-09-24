@@ -205,7 +205,7 @@ async function checkSuiteModuleAccess(payload, moduleId) {
 }
 
 function clearModuleCookies(res) {
-  const cookiePaths = ["/", "/ml", "/shopee"];
+  const cookiePaths = ["/", "/ml", "/shopee", "/magalu"];
   ["auth_token", "sid", "skuleader_auth_token", "davanttilog_token"].forEach((name) => {
     cookiePaths.forEach((path) => res.clearCookie(name, { path }));
   });
@@ -251,11 +251,18 @@ function createSuiteGoHandler(moduleId, targetPath, options = {}) {
       if (moduleId === "shopee") {
         return res.redirect("/selecao-plataforma?session=shopee_bootstrap_failed");
       }
+      if (moduleId === "magalu") {
+        return res.redirect("/selecao-plataforma?session=magalu_bootstrap_failed");
+      }
     }
 
     if (moduleId === "shopee" && !resolvedTargetPath) {
       console.error("[suite] Sessao Shopee nao foi iniciada", { moduleId });
       return res.redirect("/selecao-plataforma?session=shopee_bootstrap_unavailable");
+    }
+    if (moduleId === "magalu" && !resolvedTargetPath) {
+      console.error("[suite] Identidade Magalu nao foi iniciada", { moduleId });
+      return res.redirect("/selecao-plataforma?session=magalu_bootstrap_unavailable");
     }
     return res.redirect(resolvedTargetPath || targetPath);
   };
@@ -638,12 +645,26 @@ async function bootstrapShopeeSession(payload, res) {
   return Number(shopsCount || 0) > 0 ? "/shopee/" : "/shopee/?tab=auth&startOauth=1";
 }
 
+async function bootstrapMagaluSession(payload) {
+  const tenantId = String(payload?.tenant_id || "").trim();
+  const userId = String(payload?.user_id || "").trim();
+  const email = String(payload?.email || "").trim().toLowerCase();
+  if (!tenantId || !userId || !email) return null;
+
+  // O módulo Magalu usa a identidade global da suíte diretamente. Não cria
+  // usuário local e não importa autenticação de ML/Shopee.
+  return "/magalu/";
+}
+
 async function bootstrapModuleSession(moduleId, payload, res) {
   if (moduleId === "ml") {
     return bootstrapMlSession(payload, res);
   }
   if (moduleId === "shopee") {
     return bootstrapShopeeSession(payload, res);
+  }
+  if (moduleId === "magalu") {
+    return bootstrapMagaluSession(payload, res);
   }
   if (moduleId === "skuleader") {
     return bootstrapSkuLeaderSession(payload, res);
@@ -759,9 +780,9 @@ async function main() {
     return res.redirect(302, `/ml/api/meli/oauth/callback${query}`);
   });
 
+  const sellerViewRoot = path.join(__dirname, "views", "seller");
   function sendSellerLanding(fileName) {
-    return (_req, res) =>
-      res.sendFile(path.join(__dirname, "..", "seller-ml", "views", fileName));
+    return (_req, res) => res.sendFile(path.join(sellerViewRoot, fileName));
   }
 
   app.get(["/seller", "/seller/", "/dach/seller", "/dach/seller/"], sendSellerLanding("landing-general.html"));
@@ -785,7 +806,7 @@ async function main() {
       return res.redirect(nextUrl);
     }
 
-    return res.sendFile(path.join(__dirname, "..", "seller-ml", "views", "landing-general.html"));
+    return res.sendFile(path.join(sellerViewRoot, "landing-general.html"));
   });
 
   app.get("/landing", (req, res) => {
@@ -797,7 +818,7 @@ async function main() {
       return res.redirect(nextUrl);
     }
 
-    return res.sendFile(path.join(__dirname, "..", "seller-ml", "views", "landing-general.html"));
+    return res.sendFile(path.join(sellerViewRoot, "landing-general.html"));
   });
 
   app.get("/login", (_req, res) => {
@@ -845,6 +866,7 @@ async function main() {
 
   app.get("/go/ml", createSuiteGoHandler("ml", "/ml"));
   app.get("/go/shopee", createSuiteGoHandler("shopee", "/shopee"));
+  app.get("/go/magalu", createSuiteGoHandler("magalu", "/magalu/"));
   app.get(
     "/go/madeiramadeira",
     createSuiteGoHandler("madeiramadeira", "/madeiramadeira"),
@@ -857,14 +879,6 @@ async function main() {
     deniedPath: "/ads/access-denied",
   }));
   app.get("/go/voltstock", createExternalVoltStockHandler());
-
-  app.get("/magalu/auth/callback", (_req, res) => {
-    return res.status(503).json({
-      ok: false,
-      error: "magalu_oauth_not_configured",
-      message: "A integração DACHBYTE Magalu ainda não está disponível.",
-    });
-  });
 
   app.use((req, res) => {
     res.status(404).json({

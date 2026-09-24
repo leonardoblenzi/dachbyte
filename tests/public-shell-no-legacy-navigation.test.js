@@ -9,13 +9,13 @@ const root = path.join(__dirname, "..");
 const read = (...segments) => fs.readFileSync(path.join(root, ...segments), "utf8");
 
 const publicShellPages = [
-  ["apps", "seller-ml", "views", "landing-general.html"],
-  ["apps", "seller-ml", "views", "landing-mercado-livre.html"],
-  ["apps", "seller-ml", "views", "landing-shopee.html"],
-  ["apps", "seller-ml", "views", "landing-tracking.html"],
-  ["apps", "seller-ml", "views", "landing-magalu.html"],
-  ["apps", "seller-ml", "views", "legal-magalu-terms.html"],
-  ["apps", "seller-ml", "views", "legal-magalu-privacy.html"],
+  ["apps", "gateway", "views", "seller", "landing-general.html"],
+  ["apps", "gateway", "views", "seller", "landing-mercado-livre.html"],
+  ["apps", "gateway", "views", "seller", "landing-shopee.html"],
+  ["apps", "gateway", "views", "seller", "landing-tracking.html"],
+  ["apps", "gateway", "views", "seller", "landing-magalu.html"],
+  ["apps", "gateway", "views", "seller", "legal-magalu-terms.html"],
+  ["apps", "gateway", "views", "seller", "legal-magalu-privacy.html"],
   ["apps", "business", "public", "landing.html"],
   ["apps", "business", "core", "public", "landing.html"],
   ["apps", "business", "stock", "apps", "web", "public", "landing.html"],
@@ -44,7 +44,7 @@ test("the global shell owns the Magalu entry and never hides an older header", (
   const shell = read("public", "brand", "dachbyte", "landing-experience.js");
   const css = read("public", "brand", "dachbyte", "landing-experience.css");
 
-  assert.match(shell, /label: 'Magalu · em breve', href: '\/seller\/magalu'/);
+  assert.match(shell, /label: 'Magalu', href: '\/seller\/magalu', login: '\/go\/magalu'/);
   assert.doesNotMatch(shell, /hideLegacyNavigation|dx-legacy-nav/);
   assert.doesNotMatch(css, /dx-legacy-nav|seller-nav__inner|seller-nav__links/);
 });

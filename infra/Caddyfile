@@ -29,6 +29,10 @@
   handle @seller-shopee {
     reverse_proxy seller-shopee:3000
   }
+  @seller-magalu path /magalu /magalu/*
+  handle @seller-magalu {
+    reverse_proxy seller-magalu-web:3000
+  }
   @seller-madeira path /madeiramadeira /madeiramadeira/*
   handle @seller-madeira {
     reverse_proxy seller-madeira:3000

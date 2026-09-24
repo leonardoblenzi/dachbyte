@@ -6,7 +6,8 @@
   "main": "apps/gateway/server.js",
   "workspaces": [
     "apps/seller-ml",
-    "apps/seller-shopee"
+    "apps/seller-shopee",
+    "apps/seller-magalu"
   ],
   "scripts": {
     "start": "node apps/gateway/server.js",
@@ -32,7 +33,11 @@
     "ads:start": "node apps/ads/start.js",
     "ads:worker": "node apps/ads/worker.js",
     "ads:migrate": "node apps/ads/infrastructure/db/migrate.js",
-    "ads:test": "node --test tests/ads-foundation.test.js tests/ads-visual-contract.test.js tests/ads-google-stage2.test.js tests/ads-google-analytics-stage3.test.js tests/ads-meta-stage4.test.js tests/ads-multichannel-fz-stage5.test.js tests/ads-hub-stage6.test.js"
+    "ads:test": "node --test tests/ads-foundation.test.js tests/ads-visual-contract.test.js tests/ads-google-stage2.test.js tests/ads-google-analytics-stage3.test.js tests/ads-meta-stage4.test.js tests/ads-multichannel-fz-stage5.test.js tests/ads-hub-stage6.test.js",
+    "dev:magalu": "npm --workspace apps/seller-magalu run dev",
+    "worker:seller-magalu": "npm --workspace apps/seller-magalu run worker",
+    "magalu:migrate": "npm --workspace apps/seller-magalu run migrate",
+    "magalu:migrate:status": "npm --workspace apps/seller-magalu run migrate:status"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

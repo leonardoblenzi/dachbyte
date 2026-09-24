@@ -25,6 +25,7 @@ const MASTER_ADMIN_EMAIL = String(
 const MODULE_MATRIX = [
   { id: "ml", hubModule: "ml" },
   { id: "shopee", hubModule: "shopee" },
+  { id: "magalu", hubModule: "magalu" },
   { id: "tracking", hubModule: "tracking" },
   { id: "davanttilog", hubModule: "davanttilog" },
   { id: "madeiramadeira", hubModule: "madeira" },
@@ -35,6 +36,7 @@ const HUB_AUTH_MODULE_CANDIDATES = [
   "suite",
   "ml",
   "shopee",
+  "magalu",
   "tracking",
   "davanttilog",
   "madeira",
