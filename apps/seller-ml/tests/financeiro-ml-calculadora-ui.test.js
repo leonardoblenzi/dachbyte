@@ -34,3 +34,12 @@ test("calculator removes the redundant result heading and inherits Margin tokens
   assert.match(css, /var\(--fml-yellow/);
   assert.doesNotMatch(css, /#0f766e/);
 });
+
+test("manual calculator selects a category suggestion before requesting ML fees", () => {
+  assert.match(html, /id="calc-category-query"/);
+  assert.match(html, /id="calc-category-id"[^>]*type="hidden"/);
+  assert.match(html, /id="calc-category-suggestions"[^>]*role="listbox"/);
+  assert.doesNotMatch(html, /id="calc-use-ml-fee"/);
+  assert.match(script, /calculator\/categories/);
+  assert.match(script, /canQuoteMarketplaceFee/);
+});

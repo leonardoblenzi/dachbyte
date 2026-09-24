@@ -15,6 +15,9 @@
     shippingMode: "mercado_envios",
     busy: false,
     recalculateAfterBusy: false,
+    categorySuggestions: [],
+    categorySearchRevision: 0,
+    categorySearchTimer: null,
   };
 
   function api(path) {
@@ -106,20 +109,21 @@
   function syncFeeInputs() {
     const loaded = isLoadedListing();
     const manual = state.mode === "manual";
-    const checkbox = $("calc-use-ml-fee");
-    if (checkbox) {
-      checkbox.checked = loaded;
-      checkbox.disabled = !loaded;
-    }
     if ($("calc-commission-pct")) $("calc-commission-pct").disabled = manual || loaded;
     if ($("calc-commission-fixed")) $("calc-commission-fixed").disabled = manual || loaded;
-    document.querySelectorAll("[data-calc-ml-fee-control]").forEach((control) => {
-      control.hidden = manual;
+    const categoryWrap = $("calc-category-wrap");
+    if (categoryWrap) categoryWrap.hidden = !manual;
+    if ($("calc-category-query")) $("calc-category-query").disabled = loaded;
+    if ($("calc-category-id")) $("calc-category-id").disabled = loaded;
+    const manualQuote = rules.manualFeeMode({
+      price: inputValue("calc-price"),
+      categoryId: $("calc-category-id")?.value || "",
+      listingTypeId: $("calc-listing-type")?.value || "gold_special",
     });
     setBadge(
       "calc-fee-mode",
-      loaded ? "Comissão Mercado Livre" : manual ? "Comissão predefinida" : "Comissão manual",
-      loaded ? "info" : "neutral",
+      loaded ? "Comissão Mercado Livre" : manual ? manualQuote.quote ? "Consultando comissão…" : "Comissão estimada" : "Comissão manual",
+      loaded ? "info" : manual ? manualQuote.quote ? "neutral" : "estimate" : "neutral",
     );
   }
 
@@ -128,6 +132,67 @@
     const fee = rules.manualListingFee($("calc-listing-type")?.value);
     setInput("calc-commission-pct", fee.commissionRatePct);
     setInput("calc-commission-fixed", fee.commissionFixed);
+  }
+
+  function clearCategorySuggestions() {
+    const list = $("calc-category-suggestions");
+    if (list) {
+      list.replaceChildren();
+      list.hidden = true;
+    }
+    $("calc-category-query")?.setAttribute("aria-expanded", "false");
+    state.categorySuggestions = [];
+  }
+
+  function selectCategorySuggestion(row) {
+    if (!row?.id || state.mode !== "manual") return;
+    state.categorySearchRevision += 1;
+    setInput("calc-category-query", row.name);
+    setInput("calc-category-id", row.id);
+    clearCategorySuggestions();
+    applyManualListingFee();
+    syncFeeInputs();
+    scheduleCalculation();
+  }
+
+  function renderCategorySuggestions(rows = []) {
+    const list = $("calc-category-suggestions");
+    if (!list) return;
+    state.categorySuggestions = Array.isArray(rows) ? rows : [];
+    list.replaceChildren(...state.categorySuggestions.map((row, index) => {
+      const option = document.createElement("li");
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", "false");
+      option.dataset.index = String(index);
+      option.tabIndex = -1;
+      option.textContent = row.domain_name && row.domain_name !== row.name
+        ? `${row.name} · ${row.domain_name}`
+        : row.name;
+      option.addEventListener("click", () => selectCategorySuggestion(row));
+      return option;
+    }));
+    list.hidden = !state.categorySuggestions.length;
+    $("calc-category-query")?.setAttribute("aria-expanded", state.categorySuggestions.length ? "true" : "false");
+  }
+
+  function scheduleCategorySearch() {
+    if (state.categorySearchTimer) window.clearTimeout(state.categorySearchTimer);
+    const query = String($("calc-category-query")?.value || "").trim();
+    if (query.length < 3) {
+      clearCategorySuggestions();
+      return;
+    }
+    state.categorySearchTimer = window.setTimeout(async () => {
+      const revision = ++state.categorySearchRevision;
+      try {
+        const params = new URLSearchParams({ q: query });
+        const payload = await fetchJson(`/api/financeiro-ml/calculator/categories?${params.toString()}`);
+        if (revision !== state.categorySearchRevision || state.mode !== "manual") return;
+        renderCategorySuggestions(payload.categories);
+      } catch (_error) {
+        if (revision === state.categorySearchRevision) clearCategorySuggestions();
+      }
+    }, 300);
   }
 
   function isLoadedListing() {
@@ -182,6 +247,9 @@
       setInput("calc-item-id", "");
       setInput("calc-variation-id", "");
       setInput("calc-reference-sku", "");
+      setInput("calc-category-query", "");
+      setInput("calc-category-id", "");
+      clearCategorySuggestions();
       applyManualListingFee();
       setBadge("calc-lookup-badge", "Manual", "neutral");
       syncFeeInputs();
@@ -254,7 +322,8 @@
       listingSelect.appendChild(option);
     }
     setInput("calc-listing-type", row.listing_type_id || "gold_special");
-    setInput("calc-category", row.category_id);
+    setInput("calc-category-query", row.category_id);
+    setInput("calc-category-id", row.category_id);
     setInput("calc-commission-pct", row.commission_rate_pct);
     setInput("calc-commission-fixed", row.commission_fixed);
     setInput("calc-seller-shipping", row.seller_shipping);
@@ -305,7 +374,15 @@
   }
 
   function buildPayload() {
-    const autoFee = isLoadedListing();
+    const loaded = isLoadedListing();
+    const categoryId = loaded
+      ? state.selected?.category_id || $("calc-category-id")?.value || ""
+      : $("calc-category-id")?.value || "";
+    const autoFee = loaded || rules.canQuoteMarketplaceFee({
+      price: inputValue("calc-price"),
+      categoryId,
+      listingTypeId: $("calc-listing-type")?.value || "",
+    });
     const shippingMode = state.shippingMode;
     return {
       mode: state.mode,
@@ -315,7 +392,7 @@
       price: inputValue("calc-price"),
       product_cost: inputValue("calc-product-cost"),
       listing_type_id: $("calc-listing-type")?.value || "",
-      category_id: String($("calc-category")?.value || "").trim(),
+      category_id: String(categoryId).trim(),
       use_ml_fee: autoFee,
       shipping_mode: state.selected?.shipping_mode || "",
       logistic_type: state.selected?.logistic_type || "",
@@ -382,6 +459,15 @@
     setText("calc-breakdown-other", fmtMoney(result.other_costs));
     setText("calc-breakdown-total", fmtMoney(result.total_costs));
     setText("calc-result-note", payload.note || "Simulação concluída. Nenhum preço foi alterado no Mercado Livre.");
+    if (state.mode === "manual") {
+      if (payload.fee_mode === "mercado_livre") {
+        setInput("calc-commission-pct", payload.commission?.rate_pct);
+        setInput("calc-commission-fixed", payload.commission?.fixed);
+        setBadge("calc-fee-mode", "Comissão Mercado Livre", "info");
+      } else {
+        setBadge("calc-fee-mode", "Comissão estimada", "estimate");
+      }
+    }
   }
 
   const calculationScheduler = rules.createCalculationScheduler(() => {
@@ -447,6 +533,9 @@
     setInput("calc-item-id", "");
     setInput("calc-variation-id", "");
     setInput("calc-reference-sku", "");
+    setInput("calc-category-query", "");
+    setInput("calc-category-id", "");
+    clearCategorySuggestions();
     if ($("calc-tax-preset")) $("calc-tax-preset").value = "account";
     applyTaxPreset();
     if ($("calc-loaded-item")) $("calc-loaded-item").hidden = true;
@@ -489,6 +578,22 @@
     document.querySelectorAll("[data-listing-type]").forEach((button) => {
       button.addEventListener("click", () => setListingType(button.dataset.listingType));
     });
+    $("calc-category-query")?.addEventListener("input", () => {
+      if (state.mode !== "manual") return;
+      state.categorySearchRevision += 1;
+      setInput("calc-category-id", "");
+      applyManualListingFee();
+      syncFeeInputs();
+      scheduleCategorySearch();
+    });
+    $("calc-category-query")?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && state.categorySuggestions.length) {
+        event.preventDefault();
+        selectCategorySuggestion(state.categorySuggestions[0]);
+      } else if (event.key === "Escape") {
+        clearCategorySuggestions();
+      }
+    });
     document.querySelectorAll("[data-shipping-mode]").forEach((button) => {
       button.addEventListener("click", () => {
         syncShippingMode(button.dataset.shippingMode);
@@ -497,6 +602,10 @@
     });
     $("calc-form")?.addEventListener("submit", calculate);
     $("calc-form")?.addEventListener("input", (event) => {
+      if (event.target.id === "calc-price" && state.mode === "manual") {
+        applyManualListingFee();
+        syncFeeInputs();
+      }
       if (event.target.matches("input, select")) scheduleCalculation();
     });
     $("calc-form")?.addEventListener("change", (event) => {

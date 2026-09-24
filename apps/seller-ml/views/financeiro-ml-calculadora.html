@@ -6,7 +6,7 @@
   <title>Calculadora | DACHBYTE Mercado Livre</title>
   <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
   <link rel="stylesheet" href="/ml/css/financeiro-ml.css?v=2026090401" />
-  <link rel="stylesheet" href="/ml/css/financeiro-ml-calculadora.css?v=2026092401" />
+  <link rel="stylesheet" href="/ml/css/financeiro-ml-calculadora.css?v=2026092402" />
   <script src="/ml/js/ml-base.js?v=12"></script>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
@@ -95,9 +95,12 @@
                   </select>
                   <small class="calc-field__hint">Ao carregar um anúncio, o tipo real fica selecionado e não pode ser alterado.</small>
                 </div>
-                <label class="calc-field" data-calc-ml-fee-control>
-                  <span>Categoria ML <em>opcional no manual</em></span>
-                  <input id="calc-category" name="category_id" type="text" placeholder="MLB1234" autocomplete="off" />
+                <label id="calc-category-wrap" class="calc-field calc-category-field">
+                  <span>Categoria ML <em>opcional para a estimativa</em></span>
+                  <input id="calc-category-query" type="search" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="calc-category-suggestions" placeholder="Digite o produto para buscar a categoria" />
+                  <input id="calc-category-id" name="category_id" type="hidden" />
+                  <ul id="calc-category-suggestions" class="calc-category-suggestions" role="listbox" hidden></ul>
+                  <small id="calc-category-hint" class="calc-field__hint">Sem categoria, usamos uma comissão estimada.</small>
                 </label>
                 <label class="calc-field">
                   <span>Comissão percentual</span>
@@ -108,10 +111,6 @@
                   <div class="calc-money-input"><span>R$</span><input id="calc-commission-fixed" name="commission_fixed" type="number" min="0" step="0.01" value="0" /></div>
                 </label>
               </div>
-              <label class="calc-check" data-calc-ml-fee-control>
-                <input id="calc-use-ml-fee" type="checkbox" />
-                <span><strong>Consultar comissão no Mercado Livre</strong><small>Disponível quando categoria e tipo do anúncio estão preenchidos.</small></span>
-              </label>
             </section>
 
             <section class="calc-subcard">
@@ -229,8 +228,8 @@
     </section>
   </main>
 
-  <script src="/ml/js/financeiro-ml-calculator-rules.js?v=2026092401" defer></script>
-  <script src="/ml/js/financeiro-ml-calculadora.js?v=2026092401" defer></script>
+  <script src="/ml/js/financeiro-ml-calculator-rules.js?v=2026092402" defer></script>
+  <script src="/ml/js/financeiro-ml-calculadora.js?v=2026092402" defer></script>
 </body>
 </html>
 
