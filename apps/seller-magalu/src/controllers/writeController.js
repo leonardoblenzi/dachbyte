@@ -35,9 +35,22 @@ async function checkWriteAccess(identity, account) {
   return checkAccountAccess(identity, account, { force: true, action: "WRITE magalu" });
 }
 
+function accountNotFoundError() {
+  const error = new Error("Conta Magalu não encontrada para este tenant DACH.");
+  error.code = "MAGALU_ACCOUNT_NOT_FOUND";
+  error.status = 404;
+  return error;
+}
+
+async function requireReadAccess(identity, account) {
+  const hub = await checkAccountAccess(identity, account, { action: "READ magalu" });
+  if (!hub.allow) throw accountNotFoundError();
+}
+
 async function status(req, res, next) {
   try {
     const account = await resolveAccount(req);
+    await requireReadAccess(req.magaluIdentity, account);
     const scopes = Array.isArray(account.scopes) ? account.scopes : [];
     const operations = await writeRepository.listOperations(account.id, req.magaluIdentity.dachTenantId, int(req.query?.limit, 20));
     return res.json({
@@ -150,6 +163,7 @@ async function reverify(req, res, next) {
 async function operations(req, res, next) {
   try {
     const account = await resolveAccount(req);
+    await requireReadAccess(req.magaluIdentity, account);
     const rows = await writeRepository.listOperations(account.id, req.magaluIdentity.dachTenantId, int(req.query?.limit, 50));
     return res.json({ ok: true, operations: rows });
   } catch (error) { return next(error); }
@@ -159,6 +173,16 @@ async function operation(req, res, next) {
   try {
     const row = await writeRepository.getOperationForTenant(int(req.params.operationId, 0), req.magaluIdentity.dachTenantId);
     if (!row) return res.status(404).json({ ok: false, error: "MAGALU_WRITE_OPERATION_NOT_FOUND" });
+    const account = await accountRepository.findAccountByIdForTenant(row.account_id, req.magaluIdentity.dachTenantId);
+    if (!account) return res.status(404).json({ ok: false, error: "MAGALU_WRITE_OPERATION_NOT_FOUND" });
+    try {
+      await requireReadAccess(req.magaluIdentity, account);
+    } catch (error) {
+      if (error?.code === "MAGALU_ACCOUNT_NOT_FOUND") {
+        return res.status(404).json({ ok: false, error: "MAGALU_WRITE_OPERATION_NOT_FOUND" });
+      }
+      throw error;
+    }
     return res.json({ ok: true, operation: row });
   } catch (error) { return next(error); }
 }

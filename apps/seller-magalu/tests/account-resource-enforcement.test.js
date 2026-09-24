@@ -45,8 +45,8 @@ test("catalog reads deny through the controller error convention when Hub blocks
   }, () => require("../src/controllers/catalogController"), async (controller) => {
     let received = null;
     await controller.list({ query: { account_id: "7" }, body: {}, params: {}, magaluIdentity: identity }, response(), (error) => { received = error; });
-    assert.equal(received.code, "MAGALU_HUB_ACCESS_DENIED");
-    assert.equal(received.status, 403);
+    assert.equal(received.code, "MAGALU_ACCOUNT_NOT_FOUND");
+    assert.equal(received.status, 404);
   });
 });
 
@@ -105,5 +105,101 @@ test("write preview denial stops before preview creation and missing accounts sk
     await controller.preview({ query: { account_id: "99" }, body: {}, params: {}, magaluIdentity: identity }, response(), (error) => { received = error; });
     assert.equal(received.code, "MAGALU_ACCOUNT_NOT_FOUND");
     assert.equal(checks, 1);
+  });
+});
+
+test("catalog sync and reconcile require allowed READ access to the tenant-owned account before enqueueing", async () => {
+  const accesses = [];
+  const queued = [];
+  clearModule("../src/controllers/catalogController");
+  await withLoadStubs({
+    "../repositories/accountRepository": { findAccountByIdForTenant: async () => account, setCatalogSyncState: async () => {} },
+    "../repositories/catalogRepository": {}, "../repositories/syncRunRepository": {}, "../repositories/webhookRepository": {},
+    "../queues/magaluQueue": { enqueueCatalogSync: async (...args) => { queued.push(["sync", ...args]); return { id: "sync-job" }; }, enqueueCatalogReconcile: async (...args) => { queued.push(["reconcile", ...args]); return { id: "reconcile-job" }; } },
+    "../services/hubResourceAccessService": { checkAccountAccess: async (...args) => { accesses.push(args); return { allow: true }; } },
+  }, () => require("../src/controllers/catalogController"), async (controller) => {
+    const sync = response();
+    await controller.sync({ query: { account_id: "7" }, body: {}, params: {}, magaluIdentity: identity }, sync, (error) => { if (error) throw error; });
+    const reconcile = response();
+    await controller.reconcile({ query: { account_id: "7" }, body: {}, params: { sku: "SKU-7" }, magaluIdentity: identity }, reconcile, (error) => { if (error) throw error; });
+    assert.deepEqual(accesses, [[identity, account, { action: "READ magalu" }], [identity, account, { action: "READ magalu" }]]);
+    assert.equal(queued.length, 2);
+  });
+});
+
+test("catalog enqueue denial is indistinguishable from a missing or foreign account and skips Hub when unresolved", async () => {
+  let checks = 0;
+  let enqueues = 0;
+  clearModule("../src/controllers/catalogController");
+  await withLoadStubs({
+    "../repositories/accountRepository": { findAccountByIdForTenant: async (id) => id === 7 ? account : null, setCatalogSyncState: async () => {} },
+    "../repositories/catalogRepository": {}, "../repositories/syncRunRepository": {}, "../repositories/webhookRepository": {},
+    "../queues/magaluQueue": { enqueueCatalogSync: async () => { enqueues += 1; }, enqueueCatalogReconcile: async () => { enqueues += 1; } },
+    "../services/hubResourceAccessService": { checkAccountAccess: async () => { checks += 1; return { allow: false }; } },
+  }, () => require("../src/controllers/catalogController"), async (controller) => {
+    for (const [method, request] of [["sync", { query: { account_id: "7" }, body: {}, params: {} }], ["reconcile", { query: { account_id: "7" }, body: {}, params: { sku: "SKU-7" } }]]) {
+      let denied = null;
+      await controller[method]({ ...request, magaluIdentity: identity }, response(), (error) => { denied = error; });
+      assert.equal(denied.code, "MAGALU_ACCOUNT_NOT_FOUND");
+      assert.equal(denied.status, 404);
+    }
+    for (const [method, request] of [["sync", { query: { account_id: "99" }, body: {}, params: {} }], ["reconcile", { query: { account_id: "99" }, body: {}, params: { sku: "SKU-7" } }]]) {
+      let missing = null;
+      await controller[method]({ ...request, magaluIdentity: identity }, response(), (error) => { missing = error; });
+      assert.equal(missing.code, "MAGALU_ACCOUNT_NOT_FOUND");
+      assert.equal(missing.status, 404);
+    }
+    assert.equal(checks, 2);
+    assert.equal(enqueues, 0);
+  });
+});
+
+test("write status, history, and single-operation reads require account-scoped READ access", async () => {
+  const accesses = [];
+  clearModule("../src/controllers/writeController");
+  await withLoadStubs({
+    "../config/env": { MAGALU_WRITE_ENABLED: true, MAGALU_WRITE_MAX_BATCH_SIZE: 50, MAGALU_WRITE_PREVIEW_TTL_SECONDS: 300 },
+    "../repositories/accountRepository": { findAccountByIdForTenant: async () => account },
+    "../repositories/writeRepository": { listOperations: async () => [], getOperationForTenant: async () => ({ id: 9, account_id: 7 }) },
+    "../services/writePreviewService": { buildPreview: async () => ({}), assertWriteReady: () => {} },
+    "../services/hubResourceAccessService": { checkAccountAccess: async (...args) => { accesses.push(args); return { allow: true }; } },
+    "../queues/magaluQueue": {}, "../services/writePayload": { PRICE_WRITE_SCOPE: "p", STOCK_WRITE_SCOPE: "s", hasScope: () => true },
+  }, () => require("../src/controllers/writeController"), async (controller) => {
+    for (const [method, request] of [["status", { query: { account_id: "7" }, body: {}, params: {} }], ["operations", { query: { account_id: "7" }, body: {}, params: {} }], ["operation", { query: {}, body: {}, params: { operationId: "9" } }]]) {
+      const res = response();
+      await controller[method]({ ...request, magaluIdentity: identity }, res, (error) => { if (error) throw error; });
+      assert.equal(res.result.body.ok, true);
+    }
+    assert.deepEqual(accesses, [[identity, account, { action: "READ magalu" }], [identity, account, { action: "READ magalu" }], [identity, account, { action: "READ magalu" }]]);
+  });
+});
+
+test("write read denials are non-disclosing and missing or foreign records skip Hub", async () => {
+  let checks = 0;
+  clearModule("../src/controllers/writeController");
+  await withLoadStubs({
+    "../config/env": { MAGALU_WRITE_ENABLED: true, MAGALU_WRITE_MAX_BATCH_SIZE: 50, MAGALU_WRITE_PREVIEW_TTL_SECONDS: 300 },
+    "../repositories/accountRepository": { findAccountByIdForTenant: async (id) => id === 7 ? account : null },
+    "../repositories/writeRepository": { listOperations: async () => { throw new Error("must not list"); }, getOperationForTenant: async (id) => id === 9 ? { id: 9, account_id: 7 } : null },
+    "../services/writePreviewService": { buildPreview: async () => ({}), assertWriteReady: () => {} },
+    "../services/hubResourceAccessService": { checkAccountAccess: async () => { checks += 1; return { allow: false }; } },
+    "../queues/magaluQueue": {}, "../services/writePayload": { PRICE_WRITE_SCOPE: "p", STOCK_WRITE_SCOPE: "s", hasScope: () => true },
+  }, () => require("../src/controllers/writeController"), async (controller) => {
+    for (const method of ["status", "operations"]) {
+      let denied = null;
+      await controller[method]({ query: { account_id: "7" }, body: {}, params: {}, magaluIdentity: identity }, response(), (error) => { denied = error; });
+      assert.equal(denied.code, "MAGALU_ACCOUNT_NOT_FOUND");
+      assert.equal(denied.status, 404);
+      let missing = null;
+      await controller[method]({ query: { account_id: "99" }, body: {}, params: {}, magaluIdentity: identity }, response(), (error) => { missing = error; });
+      assert.equal(missing.code, "MAGALU_ACCOUNT_NOT_FOUND");
+    }
+    const deniedOperation = response();
+    await controller.operation({ query: {}, body: {}, params: { operationId: "9" }, magaluIdentity: identity }, deniedOperation, (error) => { if (error) throw error; });
+    assert.deepEqual(deniedOperation.result, { status: 404, body: { ok: false, error: "MAGALU_WRITE_OPERATION_NOT_FOUND" } });
+    const missingOperation = response();
+    await controller.operation({ query: {}, body: {}, params: { operationId: "99" }, magaluIdentity: identity }, missingOperation, (error) => { if (error) throw error; });
+    assert.deepEqual(missingOperation.result, { status: 404, body: { ok: false, error: "MAGALU_WRITE_OPERATION_NOT_FOUND" } });
+    assert.equal(checks, 3);
   });
 });
