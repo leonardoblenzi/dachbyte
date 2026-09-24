@@ -243,3 +243,38 @@ test("OAuth cannot downgrade a resource that syncs between enqueue reservation a
   assert.equal(syncStatus, "synced");
   assert.equal(guardedTransitions, 1);
 });
+
+test("OAuth cannot downgrade a resource that syncs after a stale failed read", async () => {
+  let syncStatus = "failed";
+  let pendingTransitions = 0;
+  clearModule("../src/controllers/oauthController");
+  await withLoadStubs({
+    "../config/env": { NODE_ENV: "test", MAGALU_TOKEN_REFRESH_SKEW_SECONDS: 900 },
+    "../repositories/oauthStateRepository": { consumeState: async () => ({ dach_tenant_id: "dach", dach_user_id: "user", redirect_after: "/magalu/contas" }) },
+    "../repositories/accountRepository": {
+      findAccountById: async () => { const account = { id: 7, hub_sync_status: syncStatus }; syncStatus = "synced"; return account; },
+      setCatalogSyncState: async () => {},
+      setHubResourceSyncState: async () => { throw new Error("must not write pending directly"); },
+      markHubResourceSyncPendingIfFailed: async () => { pendingTransitions++; return syncStatus === "failed"; },
+      markHubResourceSyncQueuedIfPending: async () => false,
+    },
+    "../queues/magaluQueue": {
+      enqueueTokenRefresh: async () => null,
+      enqueueCatalogSync: async () => ({ id: "catalog" }),
+      enqueueHubResourceSync: async () => { throw new Error("enqueue should happen after guarded pending transition"); },
+    },
+    "../services/magaluTokenService": { refreshAccount: async () => ({}) },
+    "../services/hubAccessService": { checkHubAccess: async () => ({ allow: true }) },
+    "../middlewares/suiteAuth": { readSuiteIdentity: () => ({ ok: true, identity: { dachTenantId: "dach", dachUserId: "user" } }) },
+    "../services/magaluOAuthService": { beginAuthorization: async () => ({}), finishAuthorization: async () => ({ account: { id: 7 }, accessExpiresAt: null }), publicOAuthConfig: () => ({}) },
+    "../services/oauthSecurity": { hashOAuthState: (value) => value, safeRedirectAfter: (value) => value, secureEqual: () => true },
+  }, () => require("../src/controllers/oauthController"), async (controller) => {
+    let location = null;
+    await controller.callback({ query: { state: "state", code: "code" }, headers: { cookie: "magalu_oauth_state=state" } }, {
+      clearCookie() {}, redirect(_status, target) { location = target; },
+    });
+    assert.match(location, /oauth=connected/);
+  });
+  assert.equal(syncStatus, "synced");
+  assert.equal(pendingTransitions, 1);
+});
