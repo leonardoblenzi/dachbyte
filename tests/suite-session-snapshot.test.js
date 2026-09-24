@@ -81,3 +81,24 @@ test("fails closed when the Hub denies the suite session", async () => {
     code: "subscription_inactive",
   });
 });
+
+test("keeps Seller modules active when Hub authorizes the suite but omits optional billing fields", async () => {
+  const service = createSuiteSessionSnapshotService({
+    baseUrl: "https://paymentcontrol.example",
+    internalToken: "test-internal-token",
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => ({
+        allow: true,
+        status: "active",
+        seller_modules: ["ml", "magalu"],
+      }),
+    }),
+  });
+
+  const snapshot = await service.resolve({ tenant_id: "tenant", user_id: "user" });
+
+  assert.deepEqual(snapshot.entitlements.modules, ["ml", "magalu"]);
+  assert.equal(snapshot.subscription.status, "active");
+  assert.equal(snapshot.subscription.active, true);
+});

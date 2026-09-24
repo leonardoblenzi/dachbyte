@@ -1006,12 +1006,11 @@
 
         const subscription = subscriptionFrom(data);
         const subscriptionState = applySubscriptionNotice(subscription);
-        const visibleOrLegacy = collectEntitlements(data);
         const rawAllowed = data && data.entitlements && Array.isArray(data.entitlements.modules)
           ? data.entitlements.modules
           : [];
         const allowed = new Set(rawAllowed.map((item) => String(item || "").trim().toLowerCase()).filter(Boolean));
-        const accessSet = subscriptionState.expired ? visibleOrLegacy : allowed;
+        const accessSet = allowed;
         let visibleCount = 0;
         const hasSessionEntitlements = Boolean(data && data.entitlements);
 

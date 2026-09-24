@@ -46,6 +46,7 @@ function createSuiteSessionSnapshotService({ baseUrl, internalToken, fetchImpl =
       }
 
       const sellerModules = normalizedStrings(access?.seller_modules);
+      const policyIsActive = access?.allow === true && String(access?.status || "").trim().toLowerCase() === "active";
       return {
         ok: true,
         logged: true,
@@ -58,8 +59,8 @@ function createSuiteSessionSnapshotService({ baseUrl, internalToken, fetchImpl =
           seller_modules: sellerModules,
         },
         subscription: {
-          status: String(access?.subscription_status || "inactive").trim(),
-          active: access?.subscription_active === true,
+          status: String(access?.subscription_status || (policyIsActive ? "active" : "inactive")).trim(),
+          active: access?.subscription_active === true || policyIsActive,
           expires_at: access?.expires_at || null,
           days_until_expiration: access?.days_until_expiration ?? null,
           renewal_url: access?.renewal_url || null,
