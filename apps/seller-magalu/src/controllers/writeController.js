@@ -4,7 +4,7 @@ const env = require("../config/env");
 const accountRepository = require("../repositories/accountRepository");
 const writeRepository = require("../repositories/writeRepository");
 const { buildPreview, assertWriteReady } = require("../services/writePreviewService");
-const { checkHubAccess } = require("../services/hubAccessService");
+const { checkAccountAccess } = require("../services/hubResourceAccessService");
 const { enqueueWriteOperation } = require("../queues/magaluQueue");
 const { PRICE_WRITE_SCOPE, STOCK_WRITE_SCOPE, hasScope } = require("../services/writePayload");
 
@@ -29,6 +29,10 @@ async function resolveAccount(req) {
     throw error;
   }
   return account;
+}
+
+async function checkWriteAccess(identity, account) {
+  return checkAccountAccess(identity, account, { force: true, action: "WRITE magalu" });
 }
 
 async function status(req, res, next) {
@@ -56,6 +60,8 @@ async function status(req, res, next) {
 async function preview(req, res, next) {
   try {
     const account = await resolveAccount(req);
+    const hub = await checkWriteAccess(req.magaluIdentity, account);
+    if (!hub.allow) return res.status(403).json({ ok: false, error: "MAGALU_WRITE_HUB_ACCESS_DENIED", message: "O Hub não confirmou acesso para alteração no Magalu." });
     const result = await buildPreview({
       account,
       identity: req.magaluIdentity,
@@ -78,7 +84,7 @@ async function apply(req, res, next) {
     assertWriteReady(account, previewRecord.resource_type);
 
     // O efeito colateral remoto exige confirmação fresca do Hub, sem cache.
-    const hub = await checkHubAccess(req.magaluIdentity, { force: true, action: "WRITE magalu" });
+    const hub = await checkWriteAccess(req.magaluIdentity, account);
     if (!hub.allow) return res.status(403).json({ ok: false, error: "MAGALU_WRITE_HUB_ACCESS_DENIED", message: "O Hub não confirmou acesso para alteração no Magalu." });
 
     const created = await writeRepository.createOperationsFromPreview(previewId, req.magaluIdentity);
@@ -130,7 +136,7 @@ async function reverify(req, res, next) {
     if (String(account.status || "") !== "active") {
       return res.status(409).json({ ok: false, error: "MAGALU_ACCOUNT_NOT_ACTIVE" });
     }
-    const hub = await checkHubAccess(req.magaluIdentity, { force: true, action: "WRITE magalu" });
+    const hub = await checkWriteAccess(req.magaluIdentity, account);
     if (!hub.allow) return res.status(403).json({ ok: false, error: "MAGALU_WRITE_HUB_ACCESS_DENIED", message: "O Hub não confirmou acesso para reverificar a alteração no Magalu." });
     const job = await enqueueWriteOperation(operation, { reason: "reverify" });
     await writeRepository.appendAudit({

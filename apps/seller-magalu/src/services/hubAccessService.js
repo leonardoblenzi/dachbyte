@@ -6,8 +6,10 @@ const cache = new Map();
 const CACHE_TTL_MS = 45 * 1000;
 const DEFAULT_ACTION = "ACCESS magalu";
 
-function cacheKey(identity, action = DEFAULT_ACTION) {
-  return `${identity.dachTenantId}:${identity.dachUserId}:magalu:${String(action || DEFAULT_ACTION)}`;
+function cacheKey(identity, action = DEFAULT_ACTION, resourceKey = "") {
+  const resource = String(resourceKey || "").trim();
+  const base = `${identity.dachTenantId}:${identity.dachUserId}:magalu:${String(action || DEFAULT_ACTION)}`;
+  return resource ? `${base}:${resource}` : base;
 }
 
 function isStrict() {
@@ -16,8 +18,9 @@ function isStrict() {
 
 async function checkHubAccess(identity, options = {}) {
   const action = String(options.action || DEFAULT_ACTION).trim() || DEFAULT_ACTION;
+  const resourceKey = String(options.resourceKey || "").trim();
   const force = options.force === true;
-  const key = cacheKey(identity, action);
+  const key = cacheKey(identity, action, resourceKey);
   const current = cache.get(key);
   if (!force && current && current.expiresAt > Date.now()) {
     return { ...current.value, cached: true };
@@ -43,6 +46,7 @@ async function checkHubAccess(identity, options = {}) {
         user_id: identity.dachUserId,
         module: "magalu",
         action,
+        ...(resourceKey ? { resource_key: resourceKey } : {}),
       }),
       signal: controller.signal,
     });

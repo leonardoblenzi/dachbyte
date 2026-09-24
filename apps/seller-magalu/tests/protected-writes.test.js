@@ -136,19 +136,19 @@ test("accepted operation resumes verification without resending remote write", a
   });
 });
 
-test("apply revalidates Hub with WRITE magalu before creating operations", async () => {
-  let hubOptions = null;
+test("apply revalidates Hub with WRITE magalu for the account resource before creating operations", async () => {
+  let hubArgs = null;
   let created = 0;
   clearModule("../src/controllers/writeController");
   await withLoadStubs({
     "../config/env": { MAGALU_WRITE_ENABLED:true, MAGALU_WRITE_MAX_BATCH_SIZE:50, MAGALU_WRITE_PREVIEW_TTL_SECONDS:300 },
-    "../repositories/accountRepository": { findAccountByIdForTenant: async () => ({ id:7, dach_tenant_id:"dach-7", status:"active", scopes:["open:portfolio-prices-seller:write"] }) },
+    "../repositories/accountRepository": { findAccountByIdForTenant: async () => ({ id:7, dach_tenant_id:"dach-7", magalu_tenant_id:"magalu-7", status:"active", scopes:["open:portfolio-prices-seller:write"] }) },
     "../repositories/writeRepository": {
       getPreviewForIdentity: async () => ({ id:"pv", account_id:7, resource_type:"price" }),
       createOperationsFromPreview: async () => { created += 1; return { operations:[] }; },
     },
     "../services/writePreviewService": { assertWriteReady: () => true, buildPreview: async () => ({}) },
-    "../services/hubAccessService": { checkHubAccess: async (_identity, options) => { hubOptions = options; return { allow:true }; } },
+    "../services/hubResourceAccessService": { checkAccountAccess: async (...args) => { hubArgs = args; return { allow:true }; } },
     "../queues/magaluQueue": { enqueueWriteOperation: async () => ({ id:"j" }) },
     "../services/writePayload": { PRICE_WRITE_SCOPE:"p", STOCK_WRITE_SCOPE:"s", hasScope:()=>true },
   }, () => require("../src/controllers/writeController"), async (controller) => {
@@ -156,7 +156,7 @@ test("apply revalidates Hub with WRITE magalu before creating operations", async
     const result = {};
     const res = { status(code){ result.status=code; return this; }, json(value){ result.body=value; return value; } };
     await controller.apply(req,res,(error)=>{ if(error) throw error; });
-    assert.deepEqual(hubOptions,{ force:true, action:"WRITE magalu" });
+    assert.deepEqual(hubArgs,[req.magaluIdentity,{ id:7, dach_tenant_id:"dach-7", magalu_tenant_id:"magalu-7", status:"active", scopes:["open:portfolio-prices-seller:write"] },{ force:true, action:"WRITE magalu" }]);
     assert.equal(created,1);
     assert.equal(result.status,202);
   });
@@ -216,19 +216,19 @@ test("resumed dispatching operation only verifies and never sends again", async 
   });
 });
 
-test("reverify endpoint queues verification-only job after a fresh Hub check even with writes disabled", async () => {
+test("reverify endpoint queues verification-only job after a fresh account-resource Hub check even with writes disabled", async () => {
   let queueOptions = null;
-  let hubOptions = null;
+  let hubArgs = null;
   clearModule("../src/controllers/writeController");
   await withLoadStubs({
     "../config/env": { MAGALU_WRITE_ENABLED:false, MAGALU_WRITE_MAX_BATCH_SIZE:50, MAGALU_WRITE_PREVIEW_TTL_SECONDS:300 },
-    "../repositories/accountRepository": { findAccountByIdForTenant: async () => ({ id:7, dach_tenant_id:"dach-7", status:"active", scopes:[] }) },
+    "../repositories/accountRepository": { findAccountByIdForTenant: async () => ({ id:7, dach_tenant_id:"dach-7", magalu_tenant_id:"magalu-7", status:"active", scopes:[] }) },
     "../repositories/writeRepository": {
       getOperationForTenant: async () => ({ id:14, account_id:7, dach_tenant_id:"dach-7", dach_user_id:"u", resource_type:"price", sku:"P2", status:"uncertain" }),
       appendAudit: async () => {},
     },
     "../services/writePreviewService": { assertWriteReady: () => true, buildPreview: async () => ({}) },
-    "../services/hubAccessService": { checkHubAccess: async (_identity, options) => { hubOptions = options; return { allow:true }; } },
+    "../services/hubResourceAccessService": { checkAccountAccess: async (...args) => { hubArgs = args; return { allow:true }; } },
     "../queues/magaluQueue": { enqueueWriteOperation: async (_operation, options) => { queueOptions = options; return { id:"verify-job" }; } },
     "../services/writePayload": { PRICE_WRITE_SCOPE:"p", STOCK_WRITE_SCOPE:"s", hasScope:()=>true },
   }, () => require("../src/controllers/writeController"), async (controller) => {
@@ -236,7 +236,7 @@ test("reverify endpoint queues verification-only job after a fresh Hub check eve
     const result = {};
     const res = { status(code){ result.status=code; return this; }, json(value){ result.body=value; return value; } };
     await controller.reverify(req,res,(error)=>{ if(error) throw error; });
-    assert.deepEqual(hubOptions,{ force:true, action:"WRITE magalu" });
+    assert.deepEqual(hubArgs,[req.magaluIdentity,{ id:7, dach_tenant_id:"dach-7", magalu_tenant_id:"magalu-7", status:"active", scopes:[] },{ force:true, action:"WRITE magalu" }]);
     assert.deepEqual(queueOptions,{ reason:"reverify" });
     assert.equal(result.status,202);
     assert.equal(result.body.mode,"verification_only");
