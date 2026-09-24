@@ -8,6 +8,12 @@ const { syncHubResource } = require("../services/hubResourceSyncService");
 
 let worker = null;
 
+function localResourceKey(account) {
+  const tenantId = String(account?.magalu_tenant_id || "").trim();
+  if (!tenantId) throw new Error("Conta Magalu sem tenant para chave de recurso Hub.");
+  return `magalu:${tenantId}`;
+}
+
 async function processHubResourceSyncJob(job) {
   const accountId = Number(job?.data?.accountId);
   if (!Number.isFinite(accountId) || accountId <= 0) throw new Error("Job de recurso Hub Magalu sem accountId válido.");
@@ -15,10 +21,11 @@ async function processHubResourceSyncJob(job) {
   if (!account) throw new Error("Conta Magalu não encontrada para sincronização de recurso Hub.");
   await accountRepository.setHubResourceSyncState(accountId, { status: "syncing", error: null });
   try {
-    const result = await syncHubResource(account);
+    await syncHubResource(account);
+    const resourceKey = localResourceKey(account);
     const syncedAt = new Date();
-    await accountRepository.setHubResourceSyncState(accountId, { status: "synced", hubResourceKey: result.resourceKey, syncedAt, error: null });
-    return { accountId, resourceKey: result.resourceKey, syncedAt: syncedAt.toISOString() };
+    await accountRepository.setHubResourceSyncState(accountId, { status: "synced", hubResourceKey: resourceKey, syncedAt, error: null });
+    return { accountId, resourceKey, syncedAt: syncedAt.toISOString() };
   } catch (error) {
     await accountRepository.setHubResourceSyncState(accountId, { status: "failed", error: String(error?.message || error).slice(0, 2000) }).catch(() => {});
     throw error;

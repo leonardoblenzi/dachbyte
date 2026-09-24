@@ -23,7 +23,7 @@ test("Hub resource sync sends only the allowed connected-account payload", async
     const originalFetch = global.fetch;
     global.fetch = async (url, options) => {
       request = { url, options };
-      return new Response(JSON.stringify({ resource_key: "hub-resource-7" }), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ resource_key: "untrusted-hub-value" }), { status: 200, headers: { "content-type": "application/json" } });
     };
     try {
       const result = await service.syncHubResource({
@@ -34,7 +34,7 @@ test("Hub resource sync sends only the allowed connected-account payload", async
         scopes: ["catalog:read"],
         metadata: { access_token: "must-not-leak", refresh_expires_at: "must-not-leak" },
       });
-      assert.equal(result.resourceKey, "hub-resource-7");
+      assert.equal(result.resourceKey, "magalu:magalu-tenant");
       assert.equal(request.url, "https://hub.example/v1/internal/resources/sync");
       assert.equal(request.options.headers.authorization, "Bearer internal-token");
       assert.deepEqual(JSON.parse(request.options.body), {
@@ -82,13 +82,13 @@ test("Hub resource worker persists synced state and truncates sync errors", asyn
       findAccountById: async () => ({ id: 7, dach_tenant_id: "dach-tenant", magalu_tenant_id: "magalu-tenant", magalu_tenant_name: "Loja", scopes: [] }),
       setHubResourceSyncState: async (_id, state) => states.push(state),
     },
-    "../services/hubResourceSyncService": { syncHubResource: async () => ({ resourceKey: "hub-resource-7" }) },
+    "../services/hubResourceSyncService": { syncHubResource: async () => ({ resourceKey: "untrusted-hub-value" }) },
   }, () => require("../src/jobs/hubResourceSync.worker"), async (worker) => {
     const result = await worker._test.processHubResourceSyncJob({ data: { accountId: 7 } });
-    assert.equal(result.resourceKey, "hub-resource-7");
+    assert.equal(result.resourceKey, "magalu:magalu-tenant");
   });
   assert.equal(states[0].status, "syncing");
-  assert.deepEqual(states[1], { status: "synced", hubResourceKey: "hub-resource-7", syncedAt: states[1].syncedAt, error: null });
+  assert.deepEqual(states[1], { status: "synced", hubResourceKey: "magalu:magalu-tenant", syncedAt: states[1].syncedAt, error: null });
 
   const failures = [];
   clearModule("../src/jobs/hubResourceSync.worker");

@@ -6,6 +6,12 @@ function normalizedScopes(scopes) {
   return Array.from(new Set((Array.isArray(scopes) ? scopes : []).map((scope) => String(scope || "").trim()).filter(Boolean)));
 }
 
+function localResourceKey(account) {
+  const accountId = String(account?.magalu_tenant_id || "").trim();
+  if (!accountId) throw new Error("Conta Magalu sem tenant para chave de recurso Hub.");
+  return `magalu:${accountId}`;
+}
+
 function buildHubResourcePayload(account) {
   const tenantId = String(account?.dach_tenant_id || "").trim();
   const accountId = String(account?.magalu_tenant_id || "").trim();
@@ -34,13 +40,10 @@ async function syncHubResource(account) {
       signal: controller.signal,
     });
     if (!response.ok) throw new Error(`Hub resource sync failed (HTTP ${response.status}).`);
-    const payload = await response.json().catch(() => ({}));
-    const resourceKey = String(payload?.resource_key || payload?.resourceKey || payload?.key || "").trim();
-    if (!resourceKey) throw new Error("Hub resource sync response missing resource key.");
-    return { resourceKey };
+    return { resourceKey: localResourceKey(account) };
   } finally {
     clearTimeout(timer);
   }
 }
 
-module.exports = { syncHubResource, _test: { buildHubResourcePayload, normalizedScopes } };
+module.exports = { syncHubResource, _test: { buildHubResourcePayload, normalizedScopes, localResourceKey } };
