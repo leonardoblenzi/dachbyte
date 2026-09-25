@@ -5,6 +5,7 @@ const queueNames = require("../config/queueNames");
 const oauthController = require("../controllers/oauthController");
 const catalogController = require("../controllers/catalogController");
 const writeController = require("../controllers/writeController");
+const accountRoutes = require("./account.routes");
 const env = require("../config/env");
 
 const router = express.Router();
@@ -22,6 +23,7 @@ router.get("/session", (req, res) => {
 router.get("/accounts", oauthController.accounts);
 router.get("/oauth/status", oauthController.status);
 router.post("/accounts/:accountId/refresh", oauthController.refresh);
+router.use("/account", accountRoutes);
 
 router.get("/catalog/status", catalogController.status);
 router.get("/catalog/skus", catalogController.list);

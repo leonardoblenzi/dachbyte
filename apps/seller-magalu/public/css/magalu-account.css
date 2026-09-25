@@ -1,0 +1,27 @@
+.mg-account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.mg-info-callout,.mg-warning-callout{border:1px solid var(--mg-border,#dbe5f1);border-radius:16px;padding:16px;background:var(--mg-surface-soft,#f8fafc);margin:0 0 16px;line-height:1.55}
+.mg-info-callout strong,.mg-warning-callout strong{display:block;margin-bottom:6px;color:var(--mg-ink,#172033)}
+.mg-info-callout p,.mg-warning-callout p{margin:0;color:var(--mg-muted,#64748b)}
+.mg-warning-callout{border-color:#f3d18b;background:#fff8e7;color:#92400e}
+.mg-danger-btn{min-height:40px;border:1px solid #efb4b4;border-radius:14px;background:#fff4f4;color:#b42318;padding:0 14px;font:inherit;font-weight:800;cursor:pointer}
+.mg-danger-btn:hover{background:#ffebeb;border-color:#e58c8c}
+.mg-danger-btn--soft{min-height:38px}
+.mg-account-row__actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.mg-credit-balance{display:grid;gap:5px;padding:18px;border:1px solid var(--mg-border,#dbe5f1);border-radius:18px;background:var(--mg-surface-soft,#f8fafc);margin-bottom:14px}
+.mg-credit-balance span,.mg-credit-balance small{color:var(--mg-muted,#64748b)}
+.mg-credit-balance strong{font-size:1.7rem;color:var(--mg-ink,#172033)}
+.mg-help-form{display:grid;gap:16px}.mg-help-form>label{display:grid;gap:7px;font-weight:800;color:var(--mg-ink,#172033)}
+.mg-help-form input,.mg-help-form select,.mg-help-form textarea,.mg-unlink-dialog textarea{width:100%;border:1px solid var(--mg-border,#dbe5f1);border-radius:14px;background:var(--mg-surface,#fff);color:var(--mg-ink,#172033);padding:11px 13px;font:inherit;resize:vertical}
+.mg-help-form fieldset{border:1px solid var(--mg-border,#dbe5f1);border-radius:16px;padding:14px}.mg-help-form legend{padding:0 6px;font-weight:800}
+.mg-radio{display:inline-flex!important;align-items:center;gap:8px;margin-right:18px;font-weight:700!important}.mg-radio input{width:auto!important}
+.mg-help-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.mg-form-feedback{font-size:.86rem;color:var(--mg-muted,#64748b)}.mg-form-feedback[data-state="success"]{color:#15803d}.mg-form-feedback[data-state="error"]{color:#b42318}
+.mg-unlink-dialog{width:min(620px,calc(100vw - 32px));border:0;padding:0;background:transparent}.mg-unlink-dialog::backdrop{background:rgba(15,23,42,.38);backdrop-filter:blur(6px)}
+.mg-unlink-dialog__card{border:1px solid var(--mg-border,#dbe5f1);border-radius:22px;background:var(--mg-surface,#fff);color:var(--mg-text,#334155);padding:22px;box-shadow:0 28px 64px rgba(15,23,42,.18)}
+.mg-unlink-dialog__card>p{line-height:1.6;color:var(--mg-muted,#64748b)}.mg-unlink-dialog__card>label{display:grid;gap:7px;font-weight:800}.mg-confirm-unlink{grid-template-columns:auto 1fr!important;align-items:flex-start;margin-top:16px;font-weight:700!important}.mg-confirm-unlink input{margin-top:3px}
+.mg-dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}.mg-unlink-dialog__card .mg-section-head{margin-bottom:10px}
+[data-theme="dark"] .mg-info-callout,[data-theme="dark"] .mg-credit-balance{background:#122944;border-color:rgba(148,163,184,.18)}
+[data-theme="dark"] .mg-warning-callout{background:rgba(146,64,14,.18);border-color:rgba(251,191,36,.26);color:#fde68a}
+[data-theme="dark"] .mg-unlink-dialog__card{background:#0d1f35;border-color:rgba(148,163,184,.18);color:#dbeafe}
+[data-theme="dark"] .mg-help-form input,[data-theme="dark"] .mg-help-form select,[data-theme="dark"] .mg-help-form textarea,[data-theme="dark"] .mg-unlink-dialog textarea{background:#0b1c30;border-color:rgba(148,163,184,.22);color:#f1f5f9}
+[data-theme="dark"] .mg-danger-btn{background:rgba(127,29,29,.20);border-color:rgba(248,113,113,.24);color:#fecaca}
+@media(max-width:900px){.mg-account-grid{grid-template-columns:1fr}.mg-account-row__actions{justify-content:flex-start}}

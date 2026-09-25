@@ -17,8 +17,8 @@ async function withLoadStubs(stubs, load, run) {
 }
 function response() { const result = {}; return { result, status(code) { result.status = code; return this; }, json(body) { result.body = body; return body; } }; }
 const identity = { dachTenantId: "dach-7", dachUserId: "user-7" };
-const allowed = { id: 7, dach_tenant_id: "dach-7", magalu_tenant_id: "magalu-7" };
-const denied = { id: 8, dach_tenant_id: "dach-7", magalu_tenant_id: "magalu-8" };
+const allowed = { id: 7, dach_tenant_id: "dach-7", magalu_tenant_id: "magalu-7", status: "active" };
+const denied = { id: 8, dach_tenant_id: "dach-7", magalu_tenant_id: "magalu-8", status: "active" };
 
 function stubs(overrides = {}) {
   return {
@@ -86,5 +86,20 @@ test("accounts and OAuth status omit denied account resources", async () => {
     assert.deepEqual(accounts.result.body.accounts, [allowed]);
     assert.deepEqual(status.result.body.accounts, [allowed]);
     assert.deepEqual(accesses.map((args) => args[2]), [{ action: "READ magalu" }, { action: "READ magalu" }, { action: "READ magalu" }, { action: "READ magalu" }]);
+  });
+});
+
+test("OAuth status omits revoked accounts before checking Hub resources", async () => {
+  const revoked = { id: 9, dach_tenant_id: "dach-7", magalu_tenant_id: "magalu-9", status: "revoked" };
+  const checked = [];
+  clearModule("../src/controllers/oauthController");
+  await withLoadStubs(stubs({
+    "../repositories/accountRepository": { listAccountsForTenant: async () => [allowed, revoked] },
+    "../services/hubResourceAccessService": { checkAccountAccess: async (...args) => { checked.push(args[1].id); return { allow: true }; } },
+  }), () => require("../src/controllers/oauthController"), async (controller) => {
+    const status = response();
+    await controller.status({ magaluIdentity: identity }, status);
+    assert.deepEqual(status.result.body.accounts, [allowed]);
+    assert.deepEqual(checked, [7]);
   });
 });

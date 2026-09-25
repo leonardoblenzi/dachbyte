@@ -188,7 +188,8 @@ async function status(req, res) {
 }
 
 async function authorizedAccounts(identity) {
-  const accounts = await accountRepository.listAccountsForTenant(identity.dachTenantId);
+  const accounts = (await accountRepository.listAccountsForTenant(identity.dachTenantId))
+    .filter((account) => String(account?.status || "").toLowerCase() === "active");
   const checks = await Promise.all(accounts.map(async (account) => ({
     account,
     hub: await checkAccountAccess(identity, account, { action: "READ magalu" }),

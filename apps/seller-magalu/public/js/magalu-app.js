@@ -28,6 +28,10 @@
     "/estoque": { title: "Estoque", page: "mg-stock-page", group: "operations" },
     "/contas": { title: "Contas Magalu", page: "mg-accounts-page", group: "account" },
     "/sincronizacao": { title: "Sincronização", page: "mg-sync-page", group: "account" },
+    "/integracoes": { title: "Integrações", page: "mg-sync-page", group: "account" },
+    "/usuarios": { title: "Usuários", page: "mg-users-page", group: "account" },
+    "/plano": { title: "Plano e créditos", page: "mg-plan-page", group: "account" },
+    "/ajuda": { title: "Ajuda e contato", page: "mg-help-page", group: "account" },
   };
 
   const REQUIRED_SCOPES = [
@@ -218,7 +222,7 @@
     openNavGroup(meta.group || storedOpen || "overview", { persist: false });
 
     if (["/", "/catalogo", "/precos", "/estoque"].includes(path)) void loadCatalog();
-    if (path === "/sincronizacao") void loadSyncCenter();
+    if (path === "/sincronizacao" || path === "/integracoes") void loadSyncCenter();
   }
 
   async function loadSession() {
@@ -296,6 +300,7 @@
     for (const account of state.accounts) {
       const row = document.createElement("article");
       row.className = "mg-account-row";
+      row.dataset.accountId = String(account.id);
       if (Number(account.id) === Number(state.selectedAccountId)) row.dataset.selected = "true";
       const scopeSet = new Set(Array.isArray(account.scopes) ? account.scopes : []);
       const writeLabel = scopeSet.has("open:portfolio-prices-seller:write") && scopeSet.has("open:portfolio-stocks-seller:write")
