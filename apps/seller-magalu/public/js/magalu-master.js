@@ -89,7 +89,7 @@
     audit: ["Auditoria", "Eventos operacionais sanitizados, filtros e exportações."],
     retention: ["Retenção", "Políticas, dry-run e manutenção automática da Auditoria V2."],
     workers: ["Workers e filas", "Heartbeat e métricas BullMQ lidas exclusivamente pelo backend."],
-    integrations: ["Integrações", "Estado do Hub resource sync, webhooks e sincronizações."],
+    integrations: ["Integrações", "OAuth, Hub, webhooks, API Magalu e saúde da infraestrutura por conta."],
   };
 
   async function switchView(view, { force = false } = {}) {
@@ -256,7 +256,7 @@
 
   async function reverify(id, source="protected_write") {
     const button = $(`[data-reverify="${id}"]`); if (button) button.disabled = true;
-    try { const path = source === "mass_sku" ? `/operations/mass/${id}/reverify` : `/operations/write/${id}/reverify`; await api(path, { method:"POST", body:"{}" }); alert(`Reverificação da operação #${id} enfileirada em modo somente-verificação.`, "success"); await loadOperations(); }
+    try { const path = source === "mass_sku" ? `/operations/mass/${id}/reverify` : source === "delivery_write" ? `/operations/delivery/${id}/reverify` : `/operations/write/${id}/reverify`; await api(path, { method:"POST", body:"{}" }); alert(`Reverificação da operação #${id} enfileirada em modo somente-verificação.`, "success"); await loadOperations(); }
     catch (error) { alert(error.message); }
     finally { if (button) button.disabled = false; }
   }
@@ -276,8 +276,11 @@
     return `<article class="panel integration-card"><p class="eyebrow">INTEGRAÇÃO</p><h2>${esc(title)}</h2><div class="summary-list">${(rows||[]).map(row=>`<div><span>${esc(row.status||"unknown")}</span><strong>${fmtInt(row.total)}</strong></div>`).join("") || '<div><span>sem registros</span><strong>0</strong></div>'}</div>${note?`<p class="muted">${esc(note)}</p>`:""}</article>`;
   }
   async function loadIntegrations() {
+    if (window.MagaluMasterIntegrations?.load) return window.MagaluMasterIntegrations.load();
     const data = await api("/integrations");
-    $("#integration-grid").innerHTML = summaryCard("Hub resources",data.hubResources,"module_slug = magalu") + summaryCard("Webhooks",data.webhooks,"subscriptions locais Magalu") + summaryCard("Sincronizações · 7 dias",data.syncs7d,"sync_runs no schema magalu");
+    const target = $("#integration-accounts-body") || $("#integration-grid");
+    if (target) target.innerHTML = '<tr><td colspan="9" class="empty">Módulo visual de integrações indisponível; backend respondeu com sucesso.</td></tr>';
+    return data;
   }
   async function loadReadinessOnly() {
     const data = await api("/readiness");

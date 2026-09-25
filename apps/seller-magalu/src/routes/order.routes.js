@@ -1,0 +1,13 @@
+"use strict";
+const express=require("express");
+const controller=require("../controllers/orderController");
+const deliveryWriteRoutes=require("./deliveryWrite.routes");
+const router=express.Router();
+router.get("/status",controller.status);
+router.get("/runs",controller.runs);
+router.post("/sync",controller.sync);
+router.get("/list",controller.list);
+router.use("/delivery-writes",deliveryWriteRoutes);
+router.get("/:code",controller.detail);
+router.post("/:code/reconcile",controller.reconcile);
+module.exports=router;

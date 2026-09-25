@@ -70,6 +70,8 @@ function safeReason(error) {
     "MAGALU_OAUTH_SESSION_REQUIRED",
     "MAGALU_OAUTH_IDENTITY_MISMATCH",
     "MAGALU_OAUTH_HUB_ACCESS_REVOKED",
+    "MAGALU_MASTER_RECONNECT_SUBJECT_MISMATCH",
+    "MAGALU_MASTER_RECONNECT_ACCOUNT_MISMATCH",
     "access_denied",
   ]);
   return allowed.has(code) ? code.toLowerCase() : "oauth_failed";
@@ -86,12 +88,27 @@ function oauthError(code, message, status) {
 async function revalidateCallbackAccess(req, stateRecord) {
   const session = readSuiteIdentity(req);
   if (!session.ok) throw oauthError("MAGALU_OAUTH_SESSION_REQUIRED", "A sessão DACH não está mais válida para concluir o OAuth Magalu.", 401);
-  if (String(session.identity.dachTenantId) !== String(stateRecord.dach_tenant_id) || String(session.identity.dachUserId) !== String(stateRecord.dach_user_id)) {
+  const sameUser = String(session.identity.dachUserId) === String(stateRecord.dach_user_id);
+  const masterReconnect = String(stateRecord.flow_mode || "tenant") === "master_reconnect";
+  if (!sameUser) throw oauthError("MAGALU_OAUTH_IDENTITY_MISMATCH", "A sessão DACH atual não corresponde à sessão que iniciou o OAuth Magalu.", 403);
+  if (!masterReconnect && String(session.identity.dachTenantId) !== String(stateRecord.dach_tenant_id)) {
     throw oauthError("MAGALU_OAUTH_IDENTITY_MISMATCH", "A sessão DACH atual não corresponde à sessão que iniciou o OAuth Magalu.", 403);
   }
   const hub = await checkHubAccess(session.identity, { force: true, action: "ACCESS magalu" });
   if (!hub.allow) throw oauthError("MAGALU_OAUTH_HUB_ACCESS_REVOKED", "O Hub não confirmou mais acesso ao módulo Magalu.", 403);
-  return session.identity;
+  if (!masterReconnect) return session.identity;
+  const reason = String(hub?.payload?.reason || hub?.reason || "").toLowerCase();
+  if (!["platform_admin","platform_module_master"].includes(reason)) {
+    throw oauthError("MAGALU_OAUTH_HUB_ACCESS_REVOKED", "O Hub não confirmou escopo Master para concluir a reconexão OAuth Magalu.", 403);
+  }
+  const account = await accountRepository.findAccountById(stateRecord.target_account_id);
+  if (!account || String(account.dach_tenant_id) !== String(stateRecord.dach_tenant_id) || String(account.magalu_tenant_id) !== String(stateRecord.expected_magalu_tenant_id)) {
+    throw oauthError("MAGALU_MASTER_RECONNECT_ACCOUNT_MISMATCH", "A conta alvo do OAuth Master não corresponde mais ao vínculo salvo.", 409);
+  }
+  const targetIdentity = { dachTenantId: account.dach_tenant_id, dachUserId: session.identity.dachUserId };
+  const resourceHub = await checkAccountAccess(targetIdentity, account, { force:true, action:"ACCESS magalu" });
+  if (!resourceHub.allow) throw oauthError("MAGALU_OAUTH_HUB_ACCESS_REVOKED", "O Hub não confirmou mais acesso à conta Magalu alvo.", 403);
+  return targetIdentity;
 }
 
 async function start(req, res, next) {
@@ -106,6 +123,28 @@ async function start(req, res, next) {
   } catch (error) {
     return next(error);
   }
+}
+
+async function masterReconnectStart(req, res, next) {
+  try {
+    const accountId = Number(req.params.accountId);
+    const account = Number.isFinite(accountId) && accountId > 0 ? await accountRepository.findAccountById(accountId) : null;
+    if (!account) return res.status(404).json({ ok:false, error:"MAGALU_MASTER_ACCOUNT_NOT_FOUND" });
+    if (String(account.status) !== "active") return res.status(409).json({ ok:false, error:"MAGALU_MASTER_ACCOUNT_INACTIVE", message:"Somente contas ativas podem ser reconectadas." });
+    const identity = { dachTenantId: account.dach_tenant_id, dachUserId: req.magaluMaster?.userId };
+    const hub = await checkAccountAccess(identity, account, { force:true, action:"ACCESS magalu" });
+    if (!hub.allow) return res.status(403).json({ ok:false, error:"MAGALU_MASTER_ACCOUNT_HUB_DENIED" });
+    const flow = await beginAuthorization({
+      identity,
+      redirectAfter: "/magalu/master#integrations",
+      flowMode: "master_reconnect",
+      targetAccountId: account.id,
+      expectedMagaluTenantId: account.magalu_tenant_id,
+    });
+    const maxAge = Math.max(120, env.MAGALU_OAUTH_STATE_TTL_SECONDS) * 1000;
+    res.cookie(STATE_COOKIE, flow.stateHash, stateCookieOptions(maxAge));
+    return res.redirect(302, flow.authorizationUrl);
+  } catch (error) { return next(error); }
 }
 
 async function callback(req, res) {
@@ -227,4 +266,4 @@ async function refresh(req, res, next) {
   }
 }
 
-module.exports = { start, callback, status, accounts, refresh, _test: { parseCookies, withOAuthResult, safeReason, revalidateCallbackAccess, authorizedAccounts } };
+module.exports = { start, masterReconnectStart, callback, status, accounts, refresh, _test: { parseCookies, withOAuthResult, safeReason, revalidateCallbackAccess, authorizedAccounts } };

@@ -1,0 +1,13 @@
+"use strict";
+const express=require("express");
+const controller=require("../controllers/deliveryWriteController");
+const router=express.Router();
+router.get("/status",controller.status);
+router.get("/deliveries/:deliveryId/history",controller.history);
+router.get("/deliveries/:deliveryId/invoices",controller.invoices);
+router.post("/preview",controller.preview);
+router.post("/apply",controller.apply);
+router.get("/operations",controller.operations);
+router.get("/operations/:operationId",controller.operation);
+router.post("/operations/:operationId/reverify",controller.reverify);
+module.exports=router;

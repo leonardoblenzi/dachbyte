@@ -40,7 +40,9 @@ test("queue names are isolated by a BullMQ-safe Magalu prefix", () => {
   assert.deepEqual(Object.values(queueNames).sort(), [
     "magalu-audit-maintenance",
     "magalu-catalog-sync",
+    "magalu-delivery-write",
     "magalu-hub-resource-sync",
+    "magalu-orders-sync",
     "magalu-price-update",
     "magalu-sku-update",
     "magalu-stock-update",

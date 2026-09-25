@@ -9,4 +9,6 @@ module.exports = Object.freeze({
   hubResourceSync: "magalu-hub-resource-sync",
   auditMaintenance: "magalu-audit-maintenance",
   skuUpdate: "magalu-sku-update",
+  ordersSync: "magalu-orders-sync",
+  deliveryWrite: "magalu-delivery-write",
 });

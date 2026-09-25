@@ -7,8 +7,10 @@
   <title>Painel Master Magalu | DACHBYTE Seller</title>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
   <link rel="stylesheet" href="/magalu/assets/css/magalu-master.css?v=20260925" />
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-master-integrations.css?v=20260925e6" />
   <script src="/magalu/assets/js/magalu-master.js?v=20260925" defer></script>
   <script src="/magalu/assets/js/magalu-master-audit.js?v=20260925" defer></script>
+  <script src="/magalu/assets/js/magalu-master-integrations.js?v=20260925e6" defer></script>
 </head>
 <body>
   <div class="master-shell">
@@ -164,7 +166,16 @@
       </section>
 
       <section class="view" data-view-panel="integrations">
-        <div class="integration-grid" id="integration-grid"><article class="panel"><div class="empty">Carregando integrações…</div></article></div>
+        <div class="integration-health-grid" id="integration-health-grid"><article class="panel"><div class="empty">Carregando saúde operacional…</div></article></div>
+        <div class="integration-summary-grid" id="integration-summary-grid"></div>
+        <div class="integration-layout">
+          <article class="panel">
+            <div class="panel__head"><div><p class="eyebrow">CONTAS</p><h2>Saúde das integrações</h2></div><span class="muted">sem exibir tokens ou secrets</span></div>
+            <div class="table-scroll"><table class="data-table"><thead><tr><th>Organização</th><th>Tenant DACH</th><th>Status</th><th>Scopes</th><th>OAuth</th><th>Hub</th><th>Webhooks</th><th>Sync</th><th></th></tr></thead><tbody id="integration-accounts-body"><tr><td colspan="9" class="empty">Carregando contas…</td></tr></tbody></table></div>
+          </article>
+          <article class="panel"><div class="panel__head"><div><p class="eyebrow">OAUTH</p><h2>Configuração efetiva</h2></div></div><div id="integration-oauth-config"><div class="empty">Carregando configuração…</div></div></article>
+        </div>
+        <article class="panel integration-detail" id="integration-detail" hidden></article>
       </section>
     </main>
   </div>

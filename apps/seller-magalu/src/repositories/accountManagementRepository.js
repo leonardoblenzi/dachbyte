@@ -79,6 +79,14 @@ async function massOperationBlockers(queryable, accountId, dachTenantId, { lock 
   }];
 }
 
+async function deliveryOperationBlockers(queryable, accountId, dachTenantId, { lock = false } = {}) {
+  const rel = await queryable.query(`select to_regclass('magalu.delivery_write_operations')::text as relation`);
+  if (!rel.rows[0]?.relation) return [];
+  const suffix = lock ? " for update" : "";
+  const { rows } = await queryable.query(`select id,status,delivery_id,action,created_at,updated_at from magalu.delivery_write_operations where account_id=$1 and dach_tenant_id=$2 and status=any($3::text[]) order by id asc${suffix}`, [Number(accountId), String(dachTenantId), BLOCKING_WRITE_STATES]);
+  return rows.map((row) => ({ source:"delivery_write_operation", ...row }));
+}
+
 async function blockingWrites(accountId, dachTenantId) {
   const { rows } = await db.query(
     `select id,status,resource_type,sku,created_at,updated_at
@@ -88,9 +96,11 @@ async function blockingWrites(accountId, dachTenantId) {
     [Number(accountId), String(dachTenantId), BLOCKING_WRITE_STATES],
   );
   const mass = await massOperationBlockers(db, accountId, dachTenantId);
+  const delivery = await deliveryOperationBlockers(db, accountId, dachTenantId);
   return [
     ...rows.map((row) => ({ source: "write_operation", ...row })),
     ...mass,
+    ...delivery,
   ];
 }
 
@@ -117,7 +127,8 @@ async function unlinkLocalAccount(accountId, dachTenantId, dachUserId, reason) {
         [Number(accountId), String(dachTenantId), BLOCKING_WRITE_STATES],
       )).rows.map((row) => ({ source: "write_operation", ...row }));
       const massWrites = await massOperationBlockers(client, accountId, dachTenantId, { lock: true });
-      const blockers = [...currentWrites, ...massWrites];
+      const deliveryWrites = await deliveryOperationBlockers(client, accountId, dachTenantId, { lock: true });
+      const blockers = [...currentWrites, ...massWrites, ...deliveryWrites];
       if (blockers.length) {
         const error = new Error("Existem operações Magalu ainda pendentes ou ambíguas. Reverifique/conclua as operações antes de desvincular a conta.");
         error.code = "MAGALU_ACCOUNT_UNLINK_BLOCKED_BY_WRITE";
@@ -193,5 +204,5 @@ module.exports = {
   unlinkLocalAccount,
   recordHubUnlinkResult,
   BLOCKING_WRITE_STATES,
-  _test: { massOperationBlockers, tableColumns },
+  _test: { massOperationBlockers, deliveryOperationBlockers, tableColumns },
 };

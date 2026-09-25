@@ -9,6 +9,7 @@ const TABLES = Object.freeze({
   skuMassPreviews: "magalu.sku_mass_previews",
   massBatches: "magalu.mass_operation_batches",
   massItems: "magalu.mass_operation_items",
+  deliveryWrites: "magalu.delivery_write_operations",
 });
 
 function clampInt(value, min, max, fallback) {
@@ -40,6 +41,7 @@ async function schemaCapabilities() {
   const out = Object.fromEntries(entries);
   out.auditV2Retention = out.auditRetentionRules && out.auditMaintenanceRuns;
   out.massSkuOperations = out.skuMassPreviews && out.massBatches && out.massItems;
+  out.deliveryWriteOperations = out.deliveryWrites;
   return out;
 }
 
@@ -313,15 +315,22 @@ async function listMassBatchesForMaster(filters = {}, maxRows = 5000) {
   const {rows}=await db.query(`select 'mass:'||b.id::text batch_id,'mass_sku'::text source,b.created_at,b.updated_at,b.dach_tenant_id,b.account_id,a.magalu_tenant_name account_name,a.magalu_tenant_id,b.dach_user_id,b.operation_type,b.action,b.status,b.total_count::int total,b.success_count::int success,b.failed_count::int failed,b.stale_count::int stale,b.uncertain_count::int uncertain,b.divergent_count::int divergent,b.pending_count::int pending from magalu.mass_operation_batches b left join magalu.accounts a on a.id=b.account_id where ${f.where.join(" and ")} order by b.created_at desc limit $${params.length}`,params);
   return rows;
 }
+async function listDeliveryWritesForMaster(filters = {}, maxRows = 5000) {
+  const caps=await schemaCapabilities(); if(!caps.deliveryWriteOperations)return[];
+  const where=["1=1"],params=[]; const tenant=clean(filters.tenant,160),accountId=Number.parseInt(filters.accountId,10),user=clean(filters.user,160),status=clean(filters.status,40).toLowerCase(),batchId=clean(filters.batchId,200),from=parseDate(filters.from),to=parseDate(filters.to,true);
+  if(tenant)addFilter(where,params,"o.dach_tenant_id =",tenant); if(Number.isFinite(accountId)&&accountId>0)addFilter(where,params,"o.account_id =",accountId); if(user)addFilter(where,params,"o.dach_user_id =",user); if(status)addFilter(where,params,"o.status =",status); if(batchId){params.push(batchId.replace(/^delivery:/,""));where.push(`o.id::text = $${params.length}`);} if(from){params.push(from);where.push(`o.created_at >= $${params.length}::timestamptz`);} if(to){params.push(to);where.push(`o.created_at <= $${params.length}::timestamptz`);}
+  const safeLimit=clampInt(maxRows,1,10000,5000),activeIndex=params.length+1,limitIndex=params.length+2; const {rows}=await db.query(`select 'delivery:'||o.id::text batch_id,'delivery_write'::text source,o.created_at,o.updated_at,o.dach_tenant_id,o.account_id,a.magalu_tenant_name account_name,a.magalu_tenant_id,o.dach_user_id,'delivery'::text operation_type,o.action,o.status,1::int total,(o.status='succeeded')::int success,(o.status='failed')::int failed,(o.status='stale')::int stale,(o.status='uncertain')::int uncertain,(o.status='divergent')::int divergent,(o.status=any($${activeIndex}::text[]))::int pending from magalu.delivery_write_operations o left join magalu.accounts a on a.id=o.account_id where ${where.join(" and ")} order by o.created_at desc limit $${limitIndex}`,[...params,ACTIVE_OPERATION_STATES,safeLimit]); return rows;
+}
 async function listOperationBatches(filters = {}) {
   const page=clampInt(filters.page,1,100000,1),limit=clampInt(filters.limit,1,100,30);
-  const [protectedRows,massRows]=await Promise.all([listProtectedBatchesForMaster(filters,5000),listMassBatchesForMaster(filters,5000)]);
-  const merged=[...protectedRows,...massRows].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const [protectedRows,massRows,deliveryRows]=await Promise.all([listProtectedBatchesForMaster(filters,5000),listMassBatchesForMaster(filters,5000),listDeliveryWritesForMaster(filters,5000)]);
+  const merged=[...protectedRows,...massRows,...deliveryRows].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   const total=merged.length,offset=(page-1)*limit;
   return{rows:merged.slice(offset,offset+limit),total,page,limit};
 }
 async function operationBatchDetail(batchId) {
   const id=clean(batchId,200);if(!id)return null;
+  if(id.startsWith("delivery:")){const raw=Number.parseInt(id.slice(9),10);if(!Number.isFinite(raw))return null;const caps=await schemaCapabilities();if(!caps.deliveryWriteOperations)return null;const row=await db.queryOne(`select o.id,o.account_id,o.dach_tenant_id,o.dach_user_id,'delivery'::text resource_type,o.delivery_id as sku,o.delivery_id,o.order_code,o.channel_id,o.action,o.status,o.before_payload,o.requested_metadata as requested_payload,o.after_payload,o.response_status,o.request_id,o.error_code,o.error_message,o.remote_accepted_at,o.started_at,o.completed_at,o.created_at,o.updated_at,a.magalu_tenant_id,a.magalu_tenant_name from magalu.delivery_write_operations o left join magalu.accounts a on a.id=o.account_id where o.id=$1`,[raw]);if(!row)return null;return{batchId:id,source:"delivery_write",items:[row]};}
   if(id.startsWith("mass:")){
     const raw=id.slice(5);const caps=await schemaCapabilities();if(!caps.massSkuOperations)return null;
     const batch=await db.queryOne(`select b.*,a.magalu_tenant_id,a.magalu_tenant_name from magalu.mass_operation_batches b left join magalu.accounts a on a.id=b.account_id where b.id::text=$1`,[raw]);
@@ -334,10 +343,12 @@ async function operationBatchDetail(batchId) {
   if(!rows.length)return null;return{batchId:id,source:"protected_write",items:rows};
 }
 async function getWriteOperation(operationId){return db.queryOne(`select w.*,a.magalu_tenant_id,a.magalu_tenant_name from magalu.write_operations w join magalu.accounts a on a.id=w.account_id where w.id=$1 limit 1`,[Number(operationId)]);}
+async function getDeliveryWriteOperation(operationId){const caps=await schemaCapabilities();if(!caps.deliveryWriteOperations)return null;return db.queryOne(`select o.id,o.preview_id,o.account_id,o.dach_tenant_id,o.dach_user_id,o.delivery_id,o.order_code,o.channel_id,o.action,o.status,o.request_hash,o.before_payload,o.requested_metadata,o.response_payload,o.after_payload,o.response_status,o.request_id,o.error_code,o.error_message,o.remote_accepted_at,o.started_at,o.completed_at,o.created_at,o.updated_at,a.magalu_tenant_id,a.magalu_tenant_name from magalu.delivery_write_operations o join magalu.accounts a on a.id=o.account_id where o.id=$1 limit 1`,[Number(operationId)]);}
 async function getMassOperationItem(itemId){const caps=await schemaCapabilities();if(!caps.massSkuOperations)return null;return db.queryOne(`select i.*,a.magalu_tenant_id,a.magalu_tenant_name from magalu.mass_operation_items i join magalu.accounts a on a.id=i.account_id where i.id=$1 limit 1`,[Number(itemId)]);}
+async function exportDeliveryOperations(filters = {}, maxRows = 5000) {const caps=await schemaCapabilities();if(!caps.deliveryWriteOperations)return[];const rows=await listDeliveryWritesForMaster(filters,maxRows);if(!rows.length)return[];const ids=rows.map(r=>Number(String(r.batch_id).replace("delivery:",""))).filter(Number.isFinite);const result=await db.query(`select 'delivery_write'::text source,o.id,'delivery:'||o.id::text batch_id,o.dach_tenant_id,o.account_id,a.magalu_tenant_id,a.magalu_tenant_name,o.dach_user_id,'delivery'::text resource_type,o.action,o.delivery_id as sku,o.status,o.request_id,o.error_code,o.error_message,o.created_at,o.started_at,o.remote_accepted_at,o.completed_at,o.updated_at,o.before_payload,o.requested_metadata as requested_payload,o.after_payload from magalu.delivery_write_operations o left join magalu.accounts a on a.id=o.account_id where o.id=any($1::bigint[]) order by o.created_at desc`,[ids]);return result.rows;}
 async function exportOperations(filters = {}, maxRows = 5000) {
-  const [protectedRows,massRows]=await Promise.all([exportWriteOperations(filters,maxRows),exportMassOperations(filters,maxRows)]);
-  return[...protectedRows,...massRows].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,maxRows);
+  const [protectedRows,massRows,deliveryRows]=await Promise.all([exportWriteOperations(filters,maxRows),exportMassOperations(filters,maxRows),exportDeliveryOperations(filters,maxRows)]);
+  return[...protectedRows,...massRows,...deliveryRows].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,maxRows);
 }
 async function exportWriteOperations(filters = {}, maxRows = 5000) {
   const f=operationWhere(filters);const params=[...f.params,clampInt(maxRows,1,10000,5000)];
@@ -370,9 +381,11 @@ module.exports = {
   operationBatchDetail,
   getWriteOperation,
   getMassOperationItem,
+  getDeliveryWriteOperation,
   exportOperations,
   exportWriteOperations,
   exportMassOperations,
+  exportDeliveryOperations,
   integrationSummary,
   _test: { clampInt, clean, parseDate, operationWhere, massBatchWhere },
 };

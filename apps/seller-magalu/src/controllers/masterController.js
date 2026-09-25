@@ -104,7 +104,7 @@ async function operations(req, res, next) {
     return res.json({
       ok: true,
       ...data,
-      sources: { protected_write: true, mass_sku: caps.massSkuOperations, mass_sku_schema_detected: caps.massSkuOperations },
+      sources: { protected_write: true, mass_sku: caps.massSkuOperations, mass_sku_schema_detected: caps.massSkuOperations, delivery_write: caps.deliveryWriteOperations },
       notice: caps.massSkuOperations ? null : "A migration 007 da Gestão Massiva de SKUs não está aplicada nesta base; o Master exibe apenas as operações protegidas existentes.",
     });
   } catch (error) { return next(error); }
@@ -124,6 +124,10 @@ async function reverifyMass(req, res) {
   try { return res.status(202).json({ ok: true, ...(await masterService.reverifyMassOperation(req.params.itemId, req.magaluMaster)) }); }
   catch (error) { return failure(res, error, "Não foi possível solicitar a reverificação do item massivo."); }
 }
+async function reverifyDelivery(req, res) {
+  try { return res.status(202).json({ ok:true, ...(await masterService.reverifyDeliveryOperation(req.params.operationId, req.magaluMaster)) }); }
+  catch (error) { return failure(res,error,"Não foi possível reverificar a operação de entrega."); }
+}
 async function exportOperations(req, res, next) {
   try {
     const result = await masterService.exportOperations(filters(req.query));
@@ -137,9 +141,32 @@ async function workers(_req, res, next) {
   try { return res.json({ ok: true, ...(await masterService.getWorkersAndQueues()) }); }
   catch (error) { return next(error); }
 }
-async function integrations(_req, res, next) {
-  try { return res.json({ ok: true, ...(await masterRepository.integrationSummary()) }); }
+async function integrations(req, res, next) {
+  try { return res.json({ ok: true, ...(await masterService.getIntegrations(req.magaluIdentity)) }); }
   catch (error) { return next(error); }
+}
+async function integrationAccount(req, res, next) {
+  try {
+    const result = await masterService.getIntegrationAccount(req.params.accountId);
+    if (!result) return res.status(404).json({ ok:false, error:"MAGALU_MASTER_ACCOUNT_NOT_FOUND" });
+    return res.json({ ok:true, ...result });
+  } catch (error) { return next(error); }
+}
+async function integrationDiagnose(req, res) {
+  try { return res.json({ ok:true, ...(await masterService.diagnoseIntegrationAccount(req.params.accountId, req.magaluMaster)) }); }
+  catch (error) { return failure(res,error,"Não foi possível concluir o diagnóstico das integrações."); }
+}
+async function integrationRefreshOAuth(req, res) {
+  try { return res.json({ ok:true, ...(await masterService.refreshIntegrationOAuth(req.params.accountId, req.magaluMaster)) }); }
+  catch (error) { return failure(res,error,"Não foi possível renovar o token OAuth."); }
+}
+async function integrationReconcileHub(req, res) {
+  try { return res.status(202).json({ ok:true, ...(await masterService.reconcileIntegrationHub(req.params.accountId, req.magaluMaster)) }); }
+  catch (error) { return failure(res,error,"Não foi possível reconciliar o recurso no Hub."); }
+}
+async function integrationReconcileWebhooks(req, res) {
+  try { return res.json({ ok:true, ...(await masterService.reconcileIntegrationWebhooks(req.params.accountId, req.magaluMaster)) }); }
+  catch (error) { return failure(res,error,"Não foi possível conferir os webhooks com a Magalu."); }
 }
 async function readiness(_req, res, next) {
   try {
@@ -160,6 +187,7 @@ async function readiness(_req, res, next) {
         implementation_ready: capabilities.massSkuOperations,
         reason: capabilities.massSkuOperations ? null : "migration_007_not_applied",
       },
+      delivery_write: { implementation_ready: capabilities.deliveryWriteOperations, reason: capabilities.deliveryWriteOperations ? null : "migration_010_not_applied" },
     });
   } catch (error) { return next(error); }
 }
@@ -175,7 +203,7 @@ async function retentionCleanup(req,res){try{return res.json({ok:true,run:await 
 
 module.exports = {
   page, session, overview, accounts, account, testConnection, forceSync, reconcile, unlink,
-  operations, operation, reverify, reverifyMass, exportOperations, workers, integrations, readiness,
+  operations, operation, reverify, reverifyMass, reverifyDelivery, exportOperations, workers, integrations, integrationAccount, integrationDiagnose, integrationRefreshOAuth, integrationReconcileHub, integrationReconcileWebhooks, readiness,
   auditEvents, auditEvent, exportAuditCsv, exportAuditXlsx, retention, retentionDryRun, retentionUpdate, retentionCleanup,
   _test: { statusFor, filters, auditFilters },
 };

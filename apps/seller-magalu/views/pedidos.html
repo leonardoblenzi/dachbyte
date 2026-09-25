@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-magalu-orders">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Pedidos | DACHBYTE Seller Magalu</title>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-orders.css?v=20260925e8" />
+  <script src="/magalu/assets/js/magalu-orders.js?v=20260925e8" defer></script>
+</head>
+<body>
+  <div class="orders-shell">
+    <aside class="orders-sidebar">
+      <a class="brand" href="/magalu/"><span class="mark">D</span><span><strong>DACHBYTE</strong><small>Seller · Magalu</small></span></a>
+      <nav>
+        <a href="/magalu/">Visão geral</a>
+        <a href="/magalu/catalogo">Catálogo</a>
+        <a class="active" href="/magalu/pedidos">Pedidos</a>
+        <a href="/magalu/gestao-skus">Gestão de SKUs</a>
+        <a href="/magalu/precos">Preços</a>
+        <a href="/magalu/estoque">Estoque</a>
+        <a href="/magalu/integracoes">Integrações</a>
+        <a href="/magalu/contas">Contas</a>
+      </nav>
+      <div class="sidebar-note"><span>Modo</span><strong>Escrita protegida</strong><small>Pedidos continuam read-only. NF-e e finalização usam preview, Hub WRITE e verificação remota.</small></div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div><p class="eyebrow">OPERAÇÃO · PEDIDOS</p><h1>Pedidos Magalu</h1><p>Espelho operacional de pedidos e entregas, com NF-e e finalização protegidas por preview e worker.</p></div>
+        <div class="account-box"><label for="account-select">Conta Magalu</label><select id="account-select"><option value="">Carregando…</option></select></div>
+      </header>
+
+      <div id="alert" class="alert" hidden></div>
+      <section class="scope-banner" id="scope-banner" data-state="checking"><div><strong id="scope-title">Verificando permissões…</strong><span id="scope-copy">Consultando os scopes de Pedidos e Entregas.</span></div><a id="reconnect" href="/magalu/contas" hidden>Reconectar conta</a></section>
+
+      <section class="stats">
+        <article><span>Pedidos · 30 dias</span><strong id="stat-total">—</strong><small>réplica local</small></article>
+        <article><span>Hoje</span><strong id="stat-today">—</strong><small>compras de hoje</small></article>
+        <article><span>Últimos 7 dias</span><strong id="stat-7d">—</strong><small>volume recente</small></article>
+        <article><span>GMV · 30 dias</span><strong id="stat-gmv">—</strong><small>valor bruto conhecido</small></article>
+        <article><span>Sincronização</span><strong id="stat-sync">—</strong><small id="stat-sync-time">aguardando</small></article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><div><p class="eyebrow">PEDIDOS SINCRONIZADOS</p><h2>Consulta operacional</h2></div><div class="head-actions"><button class="btn ghost" id="refresh" type="button">Atualizar</button><button class="btn primary" id="sync" type="button">Sincronizar pedidos</button></div></div>
+        <div class="filters">
+          <label class="grow"><span>Pedido, SKU ou produto</span><input id="q" placeholder="Ex.: LU-123... ou SKU" /></label>
+          <label><span>Status</span><select id="status"><option value="">Todos</option><option>new</option><option>approved</option><option>invoiced</option><option>shipped</option><option>delivered</option><option>cancelled</option><option>frozen</option></select></label>
+          <label><span>De</span><input id="from" type="date" /></label>
+          <label><span>Até</span><input id="to" type="date" /></label>
+          <button class="btn primary" id="filter" type="button">Filtrar</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Compra</th><th>Status</th><th>Entrega</th><th>Itens</th><th>Total</th><th>Última sync</th><th></th></tr></thead><tbody id="orders-body"><tr><td colspan="8" class="empty">Carregando pedidos…</td></tr></tbody></table></div>
+        <div class="pager"><span id="range">—</span><div><button class="btn ghost small" id="prev">Anterior</button><button class="btn ghost small" id="next">Próxima</button></div></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><div><p class="eyebrow">ESCRITA PROTEGIDA</p><h2>Operações de expedição</h2></div><span class="muted">NF-e / finalização</span></div>
+        <div class="runs" id="delivery-write-ops"><div class="empty">Nenhuma operação carregada.</div></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><div><p class="eyebrow">WORKER</p><h2>Sincronizações recentes</h2></div><span class="muted">orders_full</span></div>
+        <div class="runs" id="runs"><div class="empty">Nenhuma execução carregada.</div></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="detail-modal" class="modal"><div class="modal-card"><header><div><p class="eyebrow">PEDIDO</p><h2 id="detail-title">—</h2></div><button class="x" id="detail-close" type="button">×</button></header><div id="detail-content"></div><footer><button class="btn ghost" id="detail-close-footer" type="button">Fechar</button><button class="btn primary" id="detail-reconcile" type="button">Reconciliar agora</button></footer></div></dialog>
+  <dialog id="write-modal" class="modal write-modal"><div class="modal-card"><header><div><p class="eyebrow">EXPEDIÇÃO PROTEGIDA</p><h2 id="write-title">—</h2></div><button class="x" id="write-close" type="button">×</button></header><div class="modal-card__body"><div id="write-message" class="write-message"></div><div id="write-fields"></div><div id="write-preview" class="write-preview" hidden></div></div><footer><button class="btn ghost" id="write-cancel" type="button">Cancelar</button><button class="btn primary" id="write-preview-btn" type="button">Gerar preview</button><button class="btn danger" id="write-confirm-btn" type="button" hidden>Confirmar operação</button></footer></div></dialog>
+</body>
+</html>

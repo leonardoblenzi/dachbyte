@@ -17,7 +17,7 @@ function text(value) {
   return String(value == null ? "" : value).trim();
 }
 
-async function beginAuthorization({ identity, redirectAfter } = {}) {
+async function beginAuthorization({ identity, redirectAfter, flowMode = "tenant", targetAccountId = null, expectedMagaluTenantId = null } = {}) {
   if (!protocol.oauthConfigured()) {
     const error = new Error("OAuth Magalu não configurado. Preencha client ID, client secret e redirect URI.");
     error.code = "MAGALU_OAUTH_NOT_CONFIGURED";
@@ -45,6 +45,9 @@ async function beginAuthorization({ identity, redirectAfter } = {}) {
     redirectAfter: redirect,
     expiresAt,
     requestedScopes: scopes,
+    flowMode,
+    targetAccountId,
+    expectedMagaluTenantId,
   });
 
   return {
@@ -65,6 +68,13 @@ async function finishAuthorization({ stateRecord, code } = {}) {
   }
   const response = await protocol.exchangeAuthorizationCode(code);
   const tokenSet = protocol.normalizeTokenSet(response);
+  const expectedTenant = text(stateRecord.expected_magalu_tenant_id);
+  if (expectedTenant && String(tokenSet.subject) !== expectedTenant) {
+    const error = new Error("A organização Magalu autorizada não corresponde à conta escolhida no Painel Master.");
+    error.code = "MAGALU_MASTER_RECONNECT_SUBJECT_MISMATCH";
+    error.status = 409;
+    throw error;
+  }
   const authorizedScopes = tokenSet.scopes.length
     ? tokenSet.scopes
     : parseScopes(stateRecord.requested_scopes);
@@ -84,6 +94,12 @@ async function finishAuthorization({ stateRecord, code } = {}) {
           },
         },
       });
+      if (stateRecord.target_account_id && Number(account.id) !== Number(stateRecord.target_account_id)) {
+        const error = new Error("A conta OAuth resultante não corresponde ao alvo do Painel Master.");
+        error.code = "MAGALU_MASTER_RECONNECT_ACCOUNT_MISMATCH";
+        error.status = 409;
+        throw error;
+      }
       const token = await tokenRepository.saveTokens(client, account.id, tokenSet);
       await client.query("commit");
       return { account, token };

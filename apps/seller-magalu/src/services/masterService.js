@@ -8,11 +8,12 @@ const skuMassRepository = require("../repositories/skuMassRepository");
 const { runPortfolioDiagnostics } = require("./catalogDiagnosticsService");
 const { unlinkHubResource } = require("./hubAccountService");
 const { clearHubAccessCache } = require("./hubAccessService");
-const { enqueueCatalogSync, enqueueHubResourceSync, enqueueWriteOperation, enqueueSkuMassReverify, getQueue, queueNames } = require("../queues/magaluQueue");
+const { enqueueCatalogSync, enqueueHubResourceSync, enqueueWriteOperation, enqueueSkuMassReverify, enqueueDeliveryWriteOperation, getQueue, queueNames } = require("../queues/magaluQueue");
 const { ensureRedisConnected } = require("../config/redis");
 const auditRetentionService = require("./auditRetentionService");
 const { createXlsx } = require("./simpleXlsx");
 const { appendAuditEvent } = require("../repositories/auditRepository");
+const integrationHealthService = require("./integrationHealthService");
 
 const HEARTBEAT_KEY = "magalu:worker:heartbeat";
 const HEARTBEAT_FRESH_MS = 65_000;
@@ -216,6 +217,10 @@ async function reverifyMassOperation(id, actor) {
   return { queued:true,item_id:item.id,batch_id:item.batch_id,job_id:jobs?.[0]?.id||null,mode:"verification_only" };
 }
 
+async function reverifyDeliveryOperation(id, actor) {
+  const operationId=accountId(id),op=operationId?await masterRepository.getDeliveryWriteOperation(operationId):null; if(!op){const e=new Error("Operação de entrega não encontrada.");e.status=404;e.code="MAGALU_MASTER_DELIVERY_OPERATION_NOT_FOUND";throw e;} if(!["uncertain","divergent"].includes(String(op.status))){const e=new Error("Somente operações de entrega uncertain/divergent podem ser reverificadas.");e.status=409;e.code="MAGALU_MASTER_DELIVERY_REVERIFY_INVALID_STATE";throw e;} await appendAuditEvent({action:"MASTER_DELIVERY_REVERIFY_REQUESTED",category:"admin",outcome:"info",accountId:op.account_id,dachTenantId:op.dach_tenant_id,dachUserId:actor?.userId||null,magaluTenantId:op.magalu_tenant_id,resourceType:"delivery",batchId:`delivery:${op.id}`,requestId:op.request_id||null,source:"magalu-master",details:{operation_id:op.id,delivery_id:op.delivery_id,action:op.action,previous_status:op.status,mode:"verification_only"}}).catch(()=>{}); const job=await enqueueDeliveryWriteOperation(op,{reason:"reverify"}); return{queued:true,operation_id:op.id,job_id:job?.id||null,mode:"verification_only"};
+}
+
 async function getWorkersAndQueues() {
   const redis = await ensureRedisConnected();
   let heartbeat = null;
@@ -288,6 +293,16 @@ async function getRetention() {
 async function dryRunRetention(actor) { return auditRetentionService.dryRun(actor?.userId || null); }
 async function saveRetentionRules(rules, actor) { return auditRetentionService.updateRules(rules, actor?.userId || null); }
 async function runRetentionCleanup(actor) { return auditRetentionService.cleanup({ mode:"manual", actorUserId:actor?.userId || null }); }
+async function getIntegrations(identity) {
+  const [health, worker] = await Promise.all([integrationHealthService.overview(identity), getWorkersAndQueues().catch((error)=>({online:false,error:safeText(error?.message||error),queues:[],pending:null}))]);
+  return { ...health, worker };
+}
+async function getIntegrationAccount(id) { return integrationHealthService.accountDetails(id); }
+async function diagnoseIntegrationAccount(id, actor) { return integrationHealthService.diagnoseAccount(id, actor); }
+async function refreshIntegrationOAuth(id, actor) { return integrationHealthService.refreshOAuth(id, actor); }
+async function reconcileIntegrationHub(id, actor) { return integrationHealthService.reconcileHub(id, actor); }
+async function reconcileIntegrationWebhooks(id, actor) { return integrationHealthService.reconcileWebhooks(id, actor); }
+
 async function exportAudit(filters, format="csv") {
   const rows = await auditRetentionService.exportEvents(filters, 20000);
   const columns = [
@@ -310,8 +325,10 @@ module.exports = {
   unlinkAccount,
   reverifyOperation,
   reverifyMassOperation,
+  reverifyDeliveryOperation,
   getWorkersAndQueues,
   exportOperations,
   listAuditEvents, getAuditEvent, getRetention, dryRunRetention, saveRetentionRules, runRetentionCleanup, exportAudit,
+  getIntegrations, getIntegrationAccount, diagnoseIntegrationAccount, refreshIntegrationOAuth, reconcileIntegrationHub, reconcileIntegrationWebhooks,
   _test: { csvCell, csv, safeText, accountId, HEARTBEAT_KEY, HEARTBEAT_FRESH_MS, FUTURE_QUEUE_NAMES },
 };

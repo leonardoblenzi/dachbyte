@@ -5,12 +5,20 @@ function int(value, fallback) { const parsed = Number.parseInt(clean(value), 10)
 function bool(value, fallback = false) { const raw = clean(value).toLowerCase(); if (!raw) return fallback; if (["1","true","yes","on","enabled"].includes(raw)) return true; if (["0","false","no","off","disabled"].includes(raw)) return false; return fallback; }
 function list(value, fallback = []) { const raw = clean(value); if (!raw) return [...fallback]; return raw.split(/[\s,]+/).map((item) => item.trim()).filter(Boolean); }
 
-const DEFAULT_READ_SCOPES = [
+const CATALOG_READ_SCOPES = [
   "open:portfolio-skus-seller:read",
   "open:portfolio-prices-seller:read",
   "open:portfolio-stocks-seller:read",
   "open:portfolio-categories-seller:read",
 ];
+const ORDER_READ_SCOPES = [
+  "open:order-order-seller:read",
+  "open:order-delivery-seller:read",
+];
+const INVOICE_READ_SCOPES = ["open:order-invoice-seller:read"];
+const INVOICE_WRITE_SCOPES = ["open:order-order-seller:write","open:order-delivery-seller:write","open:order-logistics-seller:write"];
+const DELIVERY_FINISH_WRITE_SCOPES = ["open:order-delivery-seller:write"];
+const DEFAULT_READ_SCOPES = Array.from(new Set([...CATALOG_READ_SCOPES, ...ORDER_READ_SCOPES, ...INVOICE_READ_SCOPES]));
 const DEFAULT_WRITE_SCOPES = [
   "open:portfolio-prices-seller:write",
   "open:portfolio-stocks-seller:write",
@@ -19,11 +27,17 @@ const SKU_WRITE_SCOPE = "open:portfolio-skus-seller:write";
 
 const MAGALU_WRITE_ENABLED = bool(process.env.MAGALU_WRITE_ENABLED, false);
 const MAGALU_SKU_WRITE_ENABLED = bool(process.env.MAGALU_SKU_WRITE_ENABLED, false);
+const MAGALU_DELIVERY_WRITE_ENABLED = bool(process.env.MAGALU_DELIVERY_WRITE_ENABLED, false);
+const MAGALU_INVOICE_WRITE_ENABLED = bool(process.env.MAGALU_INVOICE_WRITE_ENABLED, false);
 const CONFIGURED_OAUTH_SCOPES = list(process.env.MAGALU_OAUTH_SCOPES, DEFAULT_READ_SCOPES);
 const DEFAULT_OAUTH_SCOPES = Array.from(new Set([
   ...CONFIGURED_OAUTH_SCOPES,
+  ...ORDER_READ_SCOPES,
+  ...INVOICE_READ_SCOPES,
   ...(MAGALU_WRITE_ENABLED ? DEFAULT_WRITE_SCOPES : []),
   ...(MAGALU_SKU_WRITE_ENABLED ? [SKU_WRITE_SCOPE] : []),
+  ...(MAGALU_INVOICE_WRITE_ENABLED ? INVOICE_WRITE_SCOPES : []),
+  ...(MAGALU_DELIVERY_WRITE_ENABLED ? DELIVERY_FINISH_WRITE_SCOPES : []),
 ]));
 
 module.exports = {
@@ -50,6 +64,19 @@ module.exports = {
   MAGALU_SYNC_PAGE_SIZE: Math.min(100, Math.max(1, int(process.env.MAGALU_SYNC_PAGE_SIZE, 100))),
   MAGALU_SYNC_DETAIL_CONCURRENCY: Math.min(12, Math.max(1, int(process.env.MAGALU_SYNC_DETAIL_CONCURRENCY, 6))),
   MAGALU_RATE_LIMIT_SKU_READ_PER_MINUTE: Math.max(1, int(process.env.MAGALU_RATE_LIMIT_SKU_READ_PER_MINUTE, 500)),
+  MAGALU_RATE_LIMIT_ORDER_READ_PER_MINUTE: Math.min(800, Math.max(1, int(process.env.MAGALU_RATE_LIMIT_ORDER_READ_PER_MINUTE, 800))),
+  MAGALU_RATE_LIMIT_DELIVERY_READ_PER_MINUTE: Math.min(800, Math.max(1, int(process.env.MAGALU_RATE_LIMIT_DELIVERY_READ_PER_MINUTE, 800))),
+  MAGALU_ORDER_SYNC_PAGE_SIZE: Math.min(100, Math.max(1, int(process.env.MAGALU_ORDER_SYNC_PAGE_SIZE, 50))),
+  MAGALU_ORDER_SYNC_MAX_PAGES: Math.min(100, Math.max(1, int(process.env.MAGALU_ORDER_SYNC_MAX_PAGES, 50))),
+  MAGALU_ORDER_SYNC_LOOKBACK_DAYS: Math.min(365, Math.max(1, int(process.env.MAGALU_ORDER_SYNC_LOOKBACK_DAYS, 90))),
+  MAGALU_RATE_LIMIT_INVOICE_READ_PER_MINUTE: Math.min(800, Math.max(1, int(process.env.MAGALU_RATE_LIMIT_INVOICE_READ_PER_MINUTE, 800))),
+  MAGALU_RATE_LIMIT_DELIVERY_WRITE_PER_MINUTE: Math.min(500, Math.max(1, int(process.env.MAGALU_RATE_LIMIT_DELIVERY_WRITE_PER_MINUTE, 300))),
+  MAGALU_DELIVERY_WRITE_ENABLED,
+  MAGALU_INVOICE_WRITE_ENABLED,
+  MAGALU_DELIVERY_WRITE_PREVIEW_TTL_SECONDS: Math.max(60, int(process.env.MAGALU_DELIVERY_WRITE_PREVIEW_TTL_SECONDS, 600)),
+  MAGALU_DELIVERY_WRITE_VERIFY_ATTEMPTS: Math.min(12, Math.max(1, int(process.env.MAGALU_DELIVERY_WRITE_VERIFY_ATTEMPTS, 6))),
+  MAGALU_DELIVERY_WRITE_VERIFY_DELAY_MS: Math.max(250, int(process.env.MAGALU_DELIVERY_WRITE_VERIFY_DELAY_MS, 1500)),
+  MAGALU_INVOICE_XML_MAX_BYTES: Math.min(2000000, Math.max(65536, int(process.env.MAGALU_INVOICE_XML_MAX_BYTES, 1500000))),
   MAGALU_RATE_LIMIT_SKU_WRITE_PER_MINUTE: Math.min(500, Math.max(1, int(process.env.MAGALU_RATE_LIMIT_SKU_WRITE_PER_MINUTE, 500))),
   MAGALU_RATE_LIMIT_PRICE_READ_PER_MINUTE: Math.max(1, int(process.env.MAGALU_RATE_LIMIT_PRICE_READ_PER_MINUTE, 800)),
   MAGALU_RATE_LIMIT_STOCK_READ_PER_MINUTE: Math.max(1, int(process.env.MAGALU_RATE_LIMIT_STOCK_READ_PER_MINUTE, 800)),
@@ -67,6 +94,11 @@ module.exports = {
   MAGALU_SKU_VERIFY_ATTEMPTS: Math.min(12, Math.max(1, int(process.env.MAGALU_SKU_VERIFY_ATTEMPTS, 6))),
   MAGALU_SKU_VERIFY_DELAY_MS: Math.max(250, int(process.env.MAGALU_SKU_VERIFY_DELAY_MS, 1500)),
   _DEFAULT_READ_SCOPES: DEFAULT_READ_SCOPES,
+  _CATALOG_READ_SCOPES: CATALOG_READ_SCOPES,
+  _ORDER_READ_SCOPES: ORDER_READ_SCOPES,
+  _INVOICE_READ_SCOPES: INVOICE_READ_SCOPES,
+  _INVOICE_WRITE_SCOPES: INVOICE_WRITE_SCOPES,
+  _DELIVERY_FINISH_WRITE_SCOPES: DELIVERY_FINISH_WRITE_SCOPES,
   _DEFAULT_WRITE_SCOPES: DEFAULT_WRITE_SCOPES,
   _SKU_WRITE_SCOPE: SKU_WRITE_SCOPE,
   _DEFAULT_OAUTH_SCOPES: DEFAULT_OAUTH_SCOPES,
