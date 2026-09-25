@@ -463,6 +463,164 @@ services:
       postgres: {condition: service_healthy}
     restart: "no"
 
+
+  hub-web:
+    <<: *runtime
+    build:
+      context: "${HUB_CHECKOUT_DIR:-/opt/dachbyte/hub-pagamento}"
+      dockerfile: Dockerfile
+    image: dachbyte/hub:local
+    command: ["npm", "run", "start:web"]
+    env_file: ["./env/hub-runtime.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "8787"
+    networks: [edge, data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  hub-scheduler:
+    profiles: [hub-scheduler]
+    <<: *runtime
+    build:
+      context: "${HUB_CHECKOUT_DIR:-/opt/dachbyte/hub-pagamento}"
+      dockerfile: Dockerfile
+    image: dachbyte/hub:local
+    command: ["npm", "run", "start:scheduler"]
+    env_file: ["./env/hub-runtime.env"]
+    environment:
+      NODE_ENV: production
+    networks: [data]
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  hub-migrate:
+    profiles: [ops]
+    build:
+      context: "${HUB_CHECKOUT_DIR:-/opt/dachbyte/hub-pagamento}"
+      dockerfile: Dockerfile
+    image: dachbyte/hub:local
+    command: ["npm", "run", "db:migrate"]
+    env_file: ["./env/hub-migrate.env"]
+    environment:
+      NODE_ENV: production
+    networks: [data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+
+  hub-rehearsal-db:
+    profiles: [rehearsal]
+    image: postgres:18-bookworm
+    env_file: ["./env/postgres.env", "./env/hub-rehearsal-db.env"]
+    entrypoint: ["/bin/bash", "/usr/local/bin/database-rehearsal"]
+    networks: [edge, data]
+    volumes:
+      - ./hub-rehearsal/database-rehearsal.sh:/usr/local/bin/database-rehearsal:ro
+      - ./backups/hub-rehearsal:/backups
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  hub-rehearsal-migrate:
+    profiles: [rehearsal]
+    build:
+      context: "${HUB_CHECKOUT_DIR:-/opt/dachbyte/hub-pagamento}"
+      dockerfile: Dockerfile
+    image: dachbyte/hub:local
+    command: ["npm", "run", "db:migrate"]
+    env_file: ["./env/hub-rehearsal-migrate.env"]
+    environment:
+      NODE_ENV: production
+    networks: [data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  hub-rehearsal-compare:
+    profiles: [rehearsal]
+    build:
+      context: "${HUB_CHECKOUT_DIR:-/opt/dachbyte/hub-pagamento}"
+      dockerfile: Dockerfile
+    image: dachbyte/hub:local
+    command: ["node", "scripts/rehearsal/compare-databases.mjs"]
+    env_file: ["./env/hub-rehearsal-compare.env"]
+    networks: [edge, data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  hub-rehearsal-web:
+    profiles: [rehearsal]
+    build:
+      context: "${HUB_CHECKOUT_DIR:-/opt/dachbyte/hub-pagamento}"
+      dockerfile: Dockerfile
+    image: dachbyte/hub:local
+    command: ["npm", "run", "start:web"]
+    env_file: ["./env/hub-rehearsal-runtime.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "8787"
+    networks: [edge, data]
+    ports: ["127.0.0.1:${HUB_REHEARSAL_BIND_PORT:-18787}:8787"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: "no"
+
+
+  hub-cutover-db:
+    profiles: [cutover]
+    image: postgres:18-bookworm
+    env_file: ["./env/postgres.env", "./env/hub-cutover.env"]
+    entrypoint: ["/bin/bash", "/usr/local/bin/database-cutover"]
+    networks: [edge, data]
+    volumes:
+      - ./hub-cutover/database-cutover.sh:/usr/local/bin/database-cutover:ro
+      - ./backups/hub-cutover:/backups
+      - ./.cutover:/cutover-state
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  hub-cutover-compare:
+    profiles: [cutover]
+    build:
+      context: "${HUB_CHECKOUT_DIR:-/opt/dachbyte/hub-pagamento}"
+      dockerfile: Dockerfile
+    image: dachbyte/hub:local
+    command: ["node", "scripts/rehearsal/compare-databases.mjs"]
+    env_file: ["./env/hub-runtime.env", "./env/hub-cutover.env"]
+    networks: [edge, data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  hub-cutover-tools:
+    profiles: [cutover]
+    build:
+      context: "${HUB_CHECKOUT_DIR:-/opt/dachbyte/hub-pagamento}"
+      dockerfile: Dockerfile
+    image: dachbyte/hub:local
+    command: ["npm", "run", "cutover:smoke"]
+    env_file: ["./env/hub-runtime.env", "./env/hub-cutover.env"]
+    networks: [edge, data]
+    volumes:
+      - ./.cutover:/cutover-state:ro
+    restart: "no"
+
   postgres-provision:
     profiles: [ops]
     image: postgres:18-bookworm

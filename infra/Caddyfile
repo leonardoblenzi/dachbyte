@@ -279,3 +279,9 @@
     reverse_proxy gateway:3000
   }
 }
+
+# DACH Hub public endpoint. Caddy is the only public ingress.
+hub.dachbyte.tech {
+  encode zstd gzip
+  reverse_proxy hub-web:8787
+}

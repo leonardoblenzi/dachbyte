@@ -25,6 +25,7 @@ CORE_DB="${DACHBYTE_CORE_DB:-dachbyte_core}"
 STOCK_DB="${DACHBYTE_STOCK_DB:-dachbyte_stock}"
 PRICE_DB="${DACHBYTE_PRICE_DB:-dachbyte_price}"
 ADS_DB="${DACHBYTE_ADS_DB:-dachbyte_ads}"
+HUB_DB="${DACHBYTE_HUB_DB:-dachbyte_hub}"
 
 CHAT_APP_ROLE="${DACHBYTE_CHAT_APP_ROLE:-dachbyte_chat_app}"
 CORE_APP_ROLE="${DACHBYTE_CORE_APP_ROLE:-dachbyte_core_app}"
@@ -35,6 +36,8 @@ PRICE_APP_ROLE="${DACHBYTE_PRICE_APP_ROLE:-dachbyte_price_app}"
 ADS_MIGRATION_ROLE="${DACHBYTE_ADS_MIGRATION_ROLE:-dachbyte_ads_migrator}"
 ADS_APP_ROLE="${DACHBYTE_ADS_APP_ROLE:-dachbyte_ads_app}"
 ADS_WORKER_ROLE="${DACHBYTE_ADS_WORKER_ROLE:-dachbyte_ads_worker}"
+HUB_MIGRATION_ROLE="${DACHBYTE_HUB_MIGRATION_ROLE:-dachbyte_hub_migrator}"
+HUB_APP_ROLE="${DACHBYTE_HUB_APP_ROLE:-dachbyte_hub_app}"
 
 : "${DACHBYTE_CHAT_APP_DB_PASSWORD:?DACHBYTE_CHAT_APP_DB_PASSWORD required}"
 : "${DACHBYTE_CORE_APP_DB_PASSWORD:?DACHBYTE_CORE_APP_DB_PASSWORD required}"
@@ -45,6 +48,8 @@ ADS_WORKER_ROLE="${DACHBYTE_ADS_WORKER_ROLE:-dachbyte_ads_worker}"
 : "${DACHBYTE_ADS_MIGRATION_DB_PASSWORD:?DACHBYTE_ADS_MIGRATION_DB_PASSWORD required}"
 : "${DACHBYTE_ADS_APP_DB_PASSWORD:?DACHBYTE_ADS_APP_DB_PASSWORD required}"
 : "${DACHBYTE_ADS_WORKER_DB_PASSWORD:?DACHBYTE_ADS_WORKER_DB_PASSWORD required}"
+: "${DACHBYTE_HUB_MIGRATION_DB_PASSWORD:?DACHBYTE_HUB_MIGRATION_DB_PASSWORD required}"
+: "${DACHBYTE_HUB_APP_DB_PASSWORD:?DACHBYTE_HUB_APP_DB_PASSWORD required}"
 
 validate_identifier() {
   local value="$1"
@@ -56,11 +61,12 @@ validate_identifier() {
 }
 
 for pair in \
-  "$CHAT_DB:CHAT_DB" "$CORE_DB:CORE_DB" "$STOCK_DB:STOCK_DB" "$PRICE_DB:PRICE_DB" "$ADS_DB:ADS_DB" \
+  "$CHAT_DB:CHAT_DB" "$CORE_DB:CORE_DB" "$STOCK_DB:STOCK_DB" "$PRICE_DB:PRICE_DB" "$ADS_DB:ADS_DB" "$HUB_DB:HUB_DB" \
   "$CHAT_APP_ROLE:CHAT_APP_ROLE" "$CORE_APP_ROLE:CORE_APP_ROLE" \
   "$STOCK_MIGRATION_ROLE:STOCK_MIGRATION_ROLE" "$STOCK_APP_ROLE:STOCK_APP_ROLE" \
   "$PRICE_MIGRATION_ROLE:PRICE_MIGRATION_ROLE" "$PRICE_APP_ROLE:PRICE_APP_ROLE" \
-  "$ADS_MIGRATION_ROLE:ADS_MIGRATION_ROLE" "$ADS_APP_ROLE:ADS_APP_ROLE" "$ADS_WORKER_ROLE:ADS_WORKER_ROLE"; do
+  "$ADS_MIGRATION_ROLE:ADS_MIGRATION_ROLE" "$ADS_APP_ROLE:ADS_APP_ROLE" "$ADS_WORKER_ROLE:ADS_WORKER_ROLE" \
+  "$HUB_MIGRATION_ROLE:HUB_MIGRATION_ROLE" "$HUB_APP_ROLE:HUB_APP_ROLE"; do
   validate_identifier "${pair%%:*}" "${pair##*:}"
 done
 
@@ -104,6 +110,8 @@ ensure_role "$PRICE_APP_ROLE" "$DACHBYTE_PRICE_APP_DB_PASSWORD"
 ensure_role "$ADS_MIGRATION_ROLE" "$DACHBYTE_ADS_MIGRATION_DB_PASSWORD"
 ensure_role "$ADS_APP_ROLE" "$DACHBYTE_ADS_APP_DB_PASSWORD"
 ensure_role "$ADS_WORKER_ROLE" "$DACHBYTE_ADS_WORKER_DB_PASSWORD"
+ensure_role "$HUB_MIGRATION_ROLE" "$DACHBYTE_HUB_MIGRATION_DB_PASSWORD"
+ensure_role "$HUB_APP_ROLE" "$DACHBYTE_HUB_APP_DB_PASSWORD"
 
 # Chat owns its database. Core migrations deliberately use the postgres admin role
 # because the Core migrator provisions/hardens its separate NOBYPASSRLS app role.
@@ -112,11 +120,29 @@ ensure_database "$CORE_DB" "$POSTGRES_USER"
 ensure_database "$STOCK_DB" "$STOCK_MIGRATION_ROLE"
 ensure_database "$PRICE_DB" "$PRICE_MIGRATION_ROLE"
 ensure_database "$ADS_DB" "$ADS_MIGRATION_ROLE"
+ensure_database "$HUB_DB" "$HUB_MIGRATION_ROLE"
 
 psql --set=ON_ERROR_STOP=1 --command="GRANT CONNECT ON DATABASE \"${CORE_DB}\" TO \"${CORE_APP_ROLE}\";"
 psql --set=ON_ERROR_STOP=1 --command="GRANT CONNECT ON DATABASE \"${STOCK_DB}\" TO \"${STOCK_APP_ROLE}\";"
 psql --set=ON_ERROR_STOP=1 --command="GRANT CONNECT ON DATABASE \"${PRICE_DB}\" TO \"${PRICE_APP_ROLE}\";"
 psql --set=ON_ERROR_STOP=1 --command="GRANT CONNECT ON DATABASE \"${ADS_DB}\" TO \"${ADS_APP_ROLE}\";"
 psql --set=ON_ERROR_STOP=1 --command="GRANT CONNECT ON DATABASE \"${ADS_DB}\" TO \"${ADS_WORKER_ROLE}\";"
+psql --set=ON_ERROR_STOP=1 --command="REVOKE CONNECT, TEMPORARY ON DATABASE \"${HUB_DB}\" FROM PUBLIC;"
+psql --set=ON_ERROR_STOP=1 --command="GRANT CONNECT ON DATABASE \"${HUB_DB}\" TO \"${HUB_APP_ROLE}\";"
 
-echo "[postgres] DACHBYTE Business + Ads databases and roles provisioned successfully."
+
+# Hub: migrator owns the database/schema objects; runtime receives only DML/sequence/function access.
+psql --dbname="$HUB_DB" --set=ON_ERROR_STOP=1 \
+  --set=hub_migrator="$HUB_MIGRATION_ROLE" \
+  --set=hub_app="$HUB_APP_ROLE" <<'SQL'
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+SELECT format('GRANT USAGE ON SCHEMA public TO %I', :'hub_app') gexec
+SELECT format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO %I', :'hub_app') gexec
+SELECT format('GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO %I', :'hub_app') gexec
+SELECT format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO %I', :'hub_app') gexec
+SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I', :'hub_migrator', :'hub_app') gexec
+SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO %I', :'hub_migrator', :'hub_app') gexec
+SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO %I', :'hub_migrator', :'hub_app') gexec
+SQL
+
+echo "[postgres] DACH databases and roles provisioned successfully, including DACH Hub."

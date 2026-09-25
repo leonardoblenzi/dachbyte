@@ -10,10 +10,13 @@ const compose = parse(read("infra/compose.vps.yml"), {merge: true});
 
 test("only Caddy publishes ports and data stores are isolated", () => {
   for (const [name, service] of Object.entries(compose.services)) {
-    const isOps = Array.isArray(service.profiles) && service.profiles.includes("ops");
-    assert.equal(service.restart, isOps ? "no" : "unless-stopped", name);
-    if (name !== "caddy") assert.equal(service.ports, undefined, name);
-    if (!isOps) assert.ok(service.healthcheck, name);
+    const isOneShot = Array.isArray(service.profiles) && service.profiles.some((profile) => ["ops", "rehearsal", "cutover"].includes(profile));
+    assert.equal(service.restart, isOneShot ? "no" : "unless-stopped", name);
+    if (name !== "caddy" && name !== "hub-rehearsal-web") assert.equal(service.ports, undefined, name);
+    if (name === "hub-rehearsal-web") assert.match(service.ports?.[0] || "", /^127\.0\.0\.1:/);
+    // O scheduler do Hub é um processo privado, sem porta HTTP para healthcheck.
+    const doesNotExposeHttpHealth = isOneShot || name === "hub-scheduler";
+    if (!doesNotExposeHttpHealth) assert.ok(service.healthcheck, name);
   }
   assert.equal(compose.networks.data.internal, true);
   for (const name of ["postgres", "redis"]) {
@@ -30,8 +33,10 @@ test("VPS PostgreSQL matches the newest Neon source major version", () => {
 
 test("service commands, Dockerfiles and environment examples exist", () => {
   for (const [name, service] of Object.entries(compose.services)) {
-    if (service.build) assert.ok(fs.existsSync(path.join(root, service.build.dockerfile)), name);
-    if (service.command?.[0] === "node") assert.ok(fs.existsSync(path.join(root, service.command[1])), name);
+    const usesExternalHubCheckout = typeof service.build?.context === "string" && service.build.context.includes("HUB_CHECKOUT_DIR");
+    if (service.build && !usesExternalHubCheckout) assert.ok(fs.existsSync(path.join(root, service.build.dockerfile)), name);
+    if (usesExternalHubCheckout) assert.equal(service.build.dockerfile, "Dockerfile", name);
+    if (service.command?.[0] === "node" && !usesExternalHubCheckout) assert.ok(fs.existsSync(path.join(root, service.command[1])), name);
     for (const file of service.env_file || []) {
       const example = path.join(root, "infra", file + ".example");
       assert.ok(fs.existsSync(example), example);
