@@ -6,9 +6,12 @@ INFRA_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_FILE="$INFRA_DIR/compose.vps.yml"
 COMPOSE_ENV="$INFRA_DIR/env/compose.env"
 ACTION="${1:-prepare}"
+# A rehearsal must never share container names, networks or volumes with the
+# active dachbyte-staging Compose project.
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dachbyte-hub-rehearsal}"
 
 compose() {
-  docker compose --env-file "$COMPOSE_ENV" -f "$COMPOSE_FILE" --profile rehearsal "$@"
+  docker compose --project-name "$COMPOSE_PROJECT_NAME" --env-file "$COMPOSE_ENV" -f "$COMPOSE_FILE" --profile rehearsal "$@"
 }
 
 require_file() {

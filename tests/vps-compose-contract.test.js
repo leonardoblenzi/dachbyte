@@ -25,6 +25,13 @@ test("only Caddy publishes ports and data stores are isolated", () => {
   }
 });
 
+test("Hub rehearsal uses a Docker project separate from the active staging stack", () => {
+  const rehearsal = read("infra/hub-rehearsal/run-rehearsal.sh");
+  assert.match(compose.name, /COMPOSE_PROJECT_NAME/);
+  assert.match(rehearsal, /COMPOSE_PROJECT_NAME="\$\{COMPOSE_PROJECT_NAME:-dachbyte-hub-rehearsal\}"/);
+  assert.match(rehearsal, /--project-name "\$COMPOSE_PROJECT_NAME"/);
+});
+
 test("VPS PostgreSQL matches the newest Neon source major version", () => {
   assert.equal(compose.services.postgres.image, "postgres:18-bookworm");
   assert.equal(compose.services.postgres.volumes[0], "postgres_data:/var/lib/postgresql");

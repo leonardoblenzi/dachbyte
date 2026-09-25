@@ -1,4 +1,4 @@
-name: dachbyte-staging
+name: ${COMPOSE_PROJECT_NAME:-dachbyte-staging}
 x-runtime: &runtime
   restart: unless-stopped
   init: true
