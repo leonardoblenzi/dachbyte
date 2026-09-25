@@ -22,7 +22,7 @@ test("Stage 4 adds isolated protected write queues and never imports ML/Shopee b
   }
 });
 
-test("Stage 4 exposes only price/stock writes behind preview and explicit apply", () => {
+test("Stage 4 keeps price/stock writes behind preview and explicit apply", () => {
   const routes = read("apps/seller-magalu/src/routes/api.routes.js");
   assert.match(routes, /\/writes\/preview/);
   assert.match(routes, /\/writes\/apply/);
@@ -30,7 +30,11 @@ test("Stage 4 exposes only price/stock writes behind preview and explicit apply"
   const writer = read("apps/seller-magalu/src/services/portfolioWriteService.js");
   assert.match(writer, /method = exists \? "PATCH" : "POST"/);
   assert.match(writer, /attempts: 1/);
-  assert.doesNotMatch(writer, /\/skus\//);
+  const priceStockWriter = writer.slice(
+    writer.indexOf("async function writeResource"),
+    writer.indexOf("async function updateSku"),
+  );
+  assert.doesNotMatch(priceStockWriter, /\/skus\//);
 });
 
 test("write execution re-reads remote state and never resends after remote acceptance", () => {
@@ -73,9 +77,9 @@ test("write workers accept apply and verify and write jobs retry safely", () => 
     assert.match(source, /executeOperation\(job\.data\.operationId\)/, file);
   }
   const queue = read("apps/seller-magalu/src/queues/magaluQueue.js");
-  assert.match(queue, /jobName = reason === "reverify" \? "verify" : "apply"/);
-  assert.match(queue, /attempts: 3/);
-  assert.match(queue, /backoff: \{ type: "exponential", delay: 5000 \}/);
+  assert.match(queue, /reason\s*===\s*"reverify"\s*\?\s*"verify"\s*:\s*"apply"/);
+  assert.match(queue, /attempts\s*:\s*3/);
+  assert.match(queue, /backoff\s*:\s*\{\s*type\s*:\s*"exponential"\s*,\s*delay\s*:\s*5000\s*\}/);
 });
 
 test("Stage 4 migration persists one-time previews, operations and audit", () => {
@@ -92,6 +96,7 @@ test("Stage 4 migration persists one-time previews, operations and audit", () =>
 test("write scopes are opt-in and write mode defaults disabled in VPS example", () => {
   const env = read("infra/env/seller-magalu.env.example");
   assert.match(env, /^MAGALU_WRITE_ENABLED=false$/m);
+  assert.match(env, /^MAGALU_SKU_WRITE_ENABLED=false$/m);
   assert.match(env, /open:portfolio-prices-seller:write/);
   assert.match(env, /open:portfolio-stocks-seller:write/);
   assert.match(env, /MAGALU_RATE_LIMIT_PRICE_WRITE_PER_MINUTE=800/);
