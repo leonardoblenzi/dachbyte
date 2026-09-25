@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-magalu-master">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Painel Master Magalu | DACHBYTE Seller</title>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-master.css?v=20260925" />
+  <script src="/magalu/assets/js/magalu-master.js?v=20260925" defer></script>
+  <script src="/magalu/assets/js/magalu-master-audit.js?v=20260925" defer></script>
+</head>
+<body>
+  <div class="master-shell">
+    <aside class="master-sidebar" aria-label="Navegação do Painel Master Magalu">
+      <a class="master-brand" href="/magalu/master" aria-label="DACHBYTE Seller Magalu Master">
+        <span class="master-brand__mark">D</span>
+        <span><strong>DACHBYTE</strong><small>Seller · Magalu Master</small></span>
+      </a>
+
+      <nav class="master-nav" id="master-nav">
+        <button class="master-nav__item is-active" data-view="overview" type="button"><span>01</span>Visão geral</button>
+        <button class="master-nav__item" data-view="accounts" type="button"><span>02</span>Contas</button>
+        <button class="master-nav__item" data-view="operations" type="button"><span>03</span>Operações</button>
+        <button class="master-nav__item" data-view="audit" type="button"><span>04</span>Auditoria <em>Etapa 4</em></button>
+        <button class="master-nav__item" data-view="retention" type="button"><span>05</span>Retenção <em>Etapa 4</em></button>
+        <button class="master-nav__item" data-view="workers" type="button"><span>06</span>Workers e filas</button>
+        <button class="master-nav__item" data-view="integrations" type="button"><span>07</span>Integrações</button>
+      </nav>
+
+      <div class="master-sidebar__footer">
+        <div class="master-role" id="master-role"><span class="dot"></span><div><strong>Validando Hub</strong><small>fail-closed</small></div></div>
+        <a href="/magalu/">Voltar ao Magalu</a>
+      </div>
+    </aside>
+
+    <main class="master-main">
+      <header class="master-topbar">
+        <div>
+          <p class="eyebrow">PAINEL MASTER · MAGALU</p>
+          <h1 id="page-title">Visão geral</h1>
+          <p id="page-subtitle">Saúde operacional, contas conectadas e execução assíncrona.</p>
+        </div>
+        <div class="topbar-actions">
+          <span class="status-chip" id="worker-chip"><i></i>Worker: verificando</span>
+          <button class="btn btn--ghost" id="btn-refresh" type="button">Atualizar</button>
+        </div>
+      </header>
+
+      <div id="global-alert" class="alert" hidden></div>
+
+      <section class="view is-visible" data-view-panel="overview">
+        <div class="kpi-grid" id="overview-kpis">
+          <article class="kpi skeleton"></article><article class="kpi skeleton"></article>
+          <article class="kpi skeleton"></article><article class="kpi skeleton"></article>
+          <article class="kpi skeleton"></article><article class="kpi skeleton"></article>
+          <article class="kpi skeleton"></article><article class="kpi skeleton"></article>
+        </div>
+        <div class="panel-grid panel-grid--2">
+          <article class="panel">
+            <div class="panel__head"><div><p class="eyebrow">14 DIAS</p><h2>Atividade operacional</h2></div><span class="muted">operações / falhas / syncs</span></div>
+            <div class="series-chart" id="overview-series"><div class="empty">Carregando série…</div></div>
+          </article>
+          <article class="panel">
+            <div class="panel__head"><div><p class="eyebrow">EMPRESAS</p><h2>Uso por tenant</h2></div></div>
+            <div class="tenant-list" id="overview-tenants"><div class="empty">Carregando tenants…</div></div>
+          </article>
+        </div>
+        <article class="panel stage-panel" id="stage-readiness">
+          <div class="panel__head"><div><p class="eyebrow">BASE REAL</p><h2>Compatibilidade das etapas</h2></div></div>
+          <div class="readiness-grid" id="readiness-grid"></div>
+        </article>
+      </section>
+
+      <section class="view" data-view-panel="accounts">
+        <article class="panel">
+          <div class="toolbar">
+            <label class="field field--grow"><span>Buscar</span><input id="accounts-search" placeholder="Tenant DACH, organização, Magalu tenant ou Hub resource" /></label>
+            <label class="field"><span>Status</span><select id="accounts-status"><option value="">Todos</option><option>active</option><option>error</option><option>revoked</option><option>disabled</option><option>pending</option></select></label>
+            <button class="btn btn--primary" id="accounts-filter" type="button">Aplicar</button>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead><tr><th>Empresa / tenant</th><th>Organização Magalu</th><th>Status</th><th>Scopes</th><th>Token</th><th>Última sync</th><th>SKUs</th><th>Hub</th><th></th></tr></thead>
+              <tbody id="accounts-body"><tr><td colspan="9" class="empty">Carregando contas…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination"><span id="accounts-range">—</span><div><button class="btn btn--ghost btn--small" id="accounts-prev">Anterior</button><button class="btn btn--ghost btn--small" id="accounts-next">Próxima</button></div></div>
+        </article>
+      </section>
+
+      <section class="view" data-view-panel="operations">
+        <article class="panel">
+          <div class="toolbar toolbar--wrap">
+            <label class="field"><span>Tenant</span><input id="ops-tenant" placeholder="tenant DACH" /></label>
+            <label class="field"><span>Conta</span><input id="ops-account" inputmode="numeric" placeholder="ID" /></label>
+            <label class="field"><span>Usuário</span><input id="ops-user" placeholder="user id" /></label>
+            <label class="field"><span>Status</span><select id="ops-status"><option value="">Todos</option><option>queued</option><option>running</option><option>dispatching</option><option>accepted</option><option>succeeded</option><option>completed</option><option>partial</option><option>failed</option><option>stale</option><option>uncertain</option><option>divergent</option><option>canceled</option></select></label>
+            <label class="field"><span>SKU</span><input id="ops-sku" placeholder="SKU" /></label>
+            <label class="field"><span>Batch</span><input id="ops-batch" placeholder="preview UUID / write:id / mass:UUID" /></label>
+            <label class="field"><span>De</span><input id="ops-from" type="date" /></label>
+            <label class="field"><span>Até</span><input id="ops-to" type="date" /></label>
+            <button class="btn btn--primary" id="ops-filter" type="button">Filtrar</button>
+            <button class="btn btn--ghost" id="ops-export" type="button">Exportar CSV</button>
+          </div>
+          <div id="ops-notice" class="notice" hidden></div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead><tr><th>Batch</th><th>Tenant</th><th>Conta</th><th>Usuário</th><th>Tipo</th><th>Data</th><th>Status</th><th>Total</th><th>OK</th><th>Falha</th><th>Stale</th><th>Uncertain</th><th>Divergent</th><th>Pend.</th><th></th></tr></thead>
+              <tbody id="ops-body"><tr><td colspan="15" class="empty">Carregando operações…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination"><span id="ops-range">—</span><div><button class="btn btn--ghost btn--small" id="ops-prev">Anterior</button><button class="btn btn--ghost btn--small" id="ops-next">Próxima</button></div></div>
+        </article>
+      </section>
+
+      <section class="view" data-view-panel="audit">
+        <article class="panel">
+          <div class="toolbar toolbar--wrap">
+            <label class="field field--grow"><span>Busca</span><input id="audit-search" placeholder="evento, tenant, usuário, Magalu tenant, SKU, request-id" /></label>
+            <label class="field"><span>Evento</span><input id="audit-event" placeholder="write_verified" /></label>
+            <label class="field"><span>Categoria</span><select id="audit-category"><option value="">Todas</option><option>admin</option><option>write</option><option>account</option><option>oauth</option><option>sync</option><option>webhook</option><option>normal</option><option>system</option></select></label>
+            <label class="field"><span>Severidade</span><select id="audit-severity"><option value="">Todas</option><option>info</option><option>warning</option><option>error</option><option>critical</option></select></label>
+            <label class="field"><span>Resultado</span><select id="audit-outcome"><option value="">Todos</option><option>success</option><option>failure</option><option>uncertain</option><option>divergent</option><option>stale</option><option>info</option></select></label>
+            <label class="field"><span>Tenant</span><input id="audit-tenant" placeholder="tenant DACH" /></label>
+            <label class="field"><span>Usuário</span><input id="audit-user" placeholder="user id" /></label>
+            <label class="field"><span>SKU</span><input id="audit-sku" placeholder="SKU" /></label>
+            <label class="field"><span>Fonte</span><input id="audit-source" placeholder="magalu-master" /></label>
+            <label class="field"><span>De</span><input id="audit-from" type="date" /></label>
+            <label class="field"><span>Até</span><input id="audit-to" type="date" /></label>
+            <button class="btn btn--primary" id="audit-filter" type="button">Filtrar</button>
+            <button class="btn btn--ghost" id="audit-export-csv" type="button">CSV</button>
+            <button class="btn btn--ghost" id="audit-export-xlsx" type="button">XLSX</button>
+          </div>
+          <div class="table-scroll"><table class="data-table audit-table"><thead><tr><th>Quando</th><th>Evento</th><th>Categoria</th><th>Severidade</th><th>Resultado</th><th>Tenant / conta</th><th>Usuário</th><th>SKU / request-id</th><th>Fonte</th><th>Retenção</th><th></th></tr></thead><tbody id="audit-body"><tr><td colspan="11" class="empty">Carregando auditoria…</td></tr></tbody></table></div>
+          <div class="pagination"><span id="audit-range">—</span><div><button class="btn btn--ghost btn--small" id="audit-prev">Anterior</button><button class="btn btn--ghost btn--small" id="audit-next">Próxima</button></div></div>
+        </article>
+      </section>
+
+      <section class="view" data-view-panel="retention">
+        <div class="panel-grid panel-grid--2">
+          <article class="panel">
+            <div class="panel__head"><div><p class="eyebrow">POLÍTICAS</p><h2>Retenção por classe</h2></div><div class="detail-actions"><button class="btn btn--ghost" id="retention-dry-run" type="button">Dry-run</button><button class="btn btn--primary" id="retention-save" type="button">Salvar prazos</button><button class="btn btn--danger" id="retention-cleanup" type="button">Limpar agora</button></div></div>
+            <div class="notice">Limites fixos: comum 15–30d; falhas 30–60d; uncertain/divergent/admin/critical 90d. O backend rejeita qualquer aumento fora desses limites.</div>
+            <div id="retention-rules" class="retention-rules"><div class="empty">Carregando regras…</div></div>
+          </article>
+          <article class="panel">
+            <div class="panel__head"><div><p class="eyebrow">DRY-RUN</p><h2>Impacto da política atual</h2></div></div>
+            <div id="retention-preview" class="retention-preview"><div class="empty">Carregando prévia…</div></div>
+          </article>
+        </div>
+        <article class="panel" style="margin-top:14px">
+          <div class="panel__head"><div><p class="eyebrow">MANUTENÇÃO</p><h2>Execuções recentes</h2></div><span class="muted">worker diário + ações manuais</span></div>
+          <div class="table-scroll"><table class="data-table"><thead><tr><th>Quando</th><th>Modo</th><th>Status</th><th>Actor</th><th>Varridos</th><th>Elegíveis</th><th>Excluídos</th><th>Fim</th></tr></thead><tbody id="retention-runs"><tr><td colspan="8" class="empty">Carregando execuções…</td></tr></tbody></table></div>
+        </article>
+      </section>
+
+      <section class="view" data-view-panel="workers">
+        <div class="worker-hero" id="worker-hero"><div class="empty">Carregando heartbeat…</div></div>
+        <article class="panel">
+          <div class="panel__head"><div><p class="eyebrow">BULLMQ</p><h2>Filas e processors</h2></div><span class="muted">leitura via backend</span></div>
+          <div class="queue-grid" id="queue-grid"></div>
+        </article>
+      </section>
+
+      <section class="view" data-view-panel="integrations">
+        <div class="integration-grid" id="integration-grid"><article class="panel"><div class="empty">Carregando integrações…</div></article></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog class="drawer" id="drawer">
+    <form method="dialog" class="drawer__shell">
+      <header><div><p class="eyebrow" id="drawer-eyebrow">DETALHE</p><h2 id="drawer-title">Detalhe</h2></div><button class="icon-btn" value="cancel" aria-label="Fechar">×</button></header>
+      <div class="drawer__body" id="drawer-body"></div>
+    </form>
+  </dialog>
+
+  <dialog class="confirm" id="confirm-dialog">
+    <div class="confirm__shell">
+      <p class="eyebrow">AÇÃO DESTRUTIVA</p><h2>Desvincular conta Magalu?</h2>
+      <p>Tokens locais serão removidos e webhooks desativados. A ação é bloqueada se houver operações pendentes ou ambíguas.</p>
+      <label class="field"><span>Motivo</span><textarea id="unlink-reason" rows="3" placeholder="Motivo da desvinculação"></textarea></label>
+      <div class="confirm__actions"><button class="btn btn--ghost" id="unlink-cancel" type="button">Cancelar</button><button class="btn btn--danger" id="unlink-confirm" type="button">Desvincular</button></div>
+    </div>
+  </dialog>
+</body>
+</html>

@@ -1,0 +1,13 @@
+"use strict";
+const express=require("express");
+const controller=require("../controllers/skuManagementController");
+const router=express.Router();
+router.get("/status",controller.status);
+router.get("/skus",controller.list);
+router.get("/skus/:sku/validation-info",controller.validationInfo);
+router.post("/preview",controller.preview);
+router.post("/apply",controller.apply);
+router.get("/batches",controller.batches);
+router.get("/batches/:batchId",controller.batch);
+router.post("/items/:itemId/reverify",controller.reverify);
+module.exports=router;

@@ -10,6 +10,10 @@ function endpoint(resource, sku) {
   throw new Error(`Recurso Magalu inválido: ${resource}`);
 }
 
+function skuEndpoint(sku) {
+  return `/seller/v1/portfolios/skus/${encodeURIComponent(String(sku || "").trim())}`;
+}
+
 async function writeResource(accountId, dachTenantId, resource, sku, payload, { exists, requestId } = {}) {
   const method = exists ? "PATCH" : "POST";
   await rateLimiter.waitFor(accountId, resource === "price" ? "price-write" : "stock-write");
@@ -19,11 +23,27 @@ async function writeResource(accountId, dachTenantId, resource, sku, payload, { 
     dachTenantId,
     body: payload,
     requestId,
-    // Escrita nunca recebe retry automático: POST/PATCH aceitos são assíncronos (202)
-    // e um timeout não prova que o provedor não recebeu a operação.
     attempts: 1,
     timeoutMs: 15_000,
   });
 }
 
-module.exports = { writeResource, _test: { endpoint } };
+async function updateSku(accountId, dachTenantId, sku, payload, { requestId } = {}) {
+  await rateLimiter.waitFor(accountId, "sku-write");
+  return magaluApiClient.request(skuEndpoint(sku), {
+    method: "PATCH",
+    accountId,
+    dachTenantId,
+    body: payload,
+    requestId,
+    // Escrita assíncrona: nunca reenviar automaticamente após timeout/5xx.
+    attempts: 1,
+    timeoutMs: 15_000,
+  });
+}
+
+module.exports = {
+  writeResource,
+  updateSku,
+  _test: { endpoint, skuEndpoint },
+};

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-magalu">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gestão de SKUs | DACHBYTE Seller Magalu</title>
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-sku-management.css?v=20260925" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="/magalu/"><span class="brand-mark">D</span><span><strong>DACHBYTE</strong><small>Seller · Magalu</small></span></a>
+      <nav>
+        <a href="/magalu/">Visão geral</a>
+        <a href="/magalu/catalogo">Catálogo</a>
+        <a class="active" href="/magalu/gestao-skus">Gestão de SKUs</a>
+        <a href="/magalu/precos">Preços</a>
+        <a href="/magalu/estoque">Estoque</a>
+        <a href="/magalu/integracoes">Integrações</a>
+        <a href="/magalu/contas">Contas</a>
+      </nav>
+      <div class="sidebar-note"><span>Escrita protegida</span><strong id="write-flag">Verificando…</strong><small>Preview + fila + verificação remota.</small></div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div><p class="eyebrow">OPERAÇÕES</p><h1>Gestão de SKUs</h1><p>Ative ou desative SKUs em massa com preview, conferência remota e rastreabilidade.</p></div>
+        <div class="account-box"><label for="account-select">Conta Magalu</label><select id="account-select"><option value="">Carregando…</option></select></div>
+      </header>
+
+      <div id="alert" class="alert" hidden></div>
+      <section class="stats" id="stats">
+        <article><span>Resultados</span><strong id="stat-results">—</strong><small>no filtro atual</small></article>
+        <article><span>Selecionados</span><strong id="stat-selected">0</strong><small id="selected-mode">página atual</small></article>
+        <article><span>Limite por lote</span><strong id="stat-limit">5.000</strong><small>SKUs por confirmação</small></article>
+        <article><span>Fila</span><strong>500/min</strong><small>concorrência 6</small></article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><div><p class="eyebrow">CATÁLOGO SINCRONIZADO</p><h2>Selecionar SKUs</h2></div><button class="btn ghost" id="refresh" type="button">Atualizar</button></div>
+        <div class="filters">
+          <label class="grow"><span>Buscar SKU ou título</span><input id="q" placeholder="Ex.: CABECEIRA-140" /></label>
+          <label><span>Status</span><select id="status"><option value="">Todos</option><option>PUBLISHED</option><option>UNPUBLISHED</option><option>BLOCKED</option><option>UNDER_REVIEW</option><option>DELETING</option><option>DELETED</option></select></label>
+          <label><span>Ativo</span><select id="active"><option value="">Todos</option><option value="true">Ativos</option><option value="false">Inativos</option></select></label>
+          <button class="btn primary" id="filter" type="button">Filtrar</button>
+        </div>
+        <div class="selection-bar">
+          <label class="check"><input type="checkbox" id="select-page" /> Selecionar página</label>
+          <button class="link" id="select-all-results" type="button">Selecionar todos os resultados do filtro</button>
+          <button class="link muted" id="clear-selection" type="button">Limpar seleção</button>
+          <span id="selection-copy">Nenhum SKU selecionado.</span>
+          <div class="selection-actions"><button class="btn success" id="activate" type="button" disabled>Ativar</button><button class="btn danger" id="deactivate" type="button" disabled>Desativar</button></div>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th></th><th>SKU</th><th>Título</th><th>Status</th><th>Ativo</th><th>Última sync</th><th></th></tr></thead><tbody id="sku-body"><tr><td colspan="7" class="empty">Carregando SKUs…</td></tr></tbody></table></div>
+        <div class="pager"><span id="range">—</span><div><button class="btn ghost small" id="prev">Anterior</button><button class="btn ghost small" id="next">Próxima</button></div></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><div><p class="eyebrow">ACOMPANHAMENTO</p><h2>Lotes recentes</h2></div><div class="batch-filter"><select id="batch-status"><option value="">Todos</option><option>queued</option><option>running</option><option>completed</option><option>partial</option><option>failed</option><option>canceled</option></select><button class="btn ghost" id="refresh-batches">Atualizar</button></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Lote</th><th>Ação</th><th>Status</th><th>Total</th><th>OK</th><th>Falha</th><th>Stale</th><th>Uncertain</th><th>Divergent</th><th>Pend.</th><th>Data</th><th></th></tr></thead><tbody id="batch-body"><tr><td colspan="12" class="empty">Nenhum lote carregado.</td></tr></tbody></table></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="preview-modal" class="modal"><form method="dialog" class="modal-card"><header><div><p class="eyebrow">CONFIRMAÇÃO</p><h2 id="preview-title">Preview</h2></div><button class="x" value="cancel" aria-label="Fechar">×</button></header><div id="preview-content"></div><footer><button class="btn ghost" value="cancel">Cancelar</button><button class="btn primary" id="confirm-preview" type="button">Confirmar e enfileirar</button></footer></form></dialog>
+  <dialog id="detail-modal" class="modal wide"><form method="dialog" class="modal-card"><header><div><p class="eyebrow" id="detail-kicker">DETALHE</p><h2 id="detail-title">—</h2></div><button class="x" value="cancel">×</button></header><div id="detail-content"></div><footer><button class="btn ghost" value="cancel">Fechar</button></footer></form></dialog>
+  <script src="/magalu/assets/js/magalu-sku-management.js?v=20260925" defer></script>
+</body>
+</html>

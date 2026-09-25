@@ -4,6 +4,7 @@ const lanes = new Map();
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 function limitFor(kind) {
   if (kind === "sku-read") return env.MAGALU_RATE_LIMIT_SKU_READ_PER_MINUTE;
+  if (kind === "sku-write") return env.MAGALU_RATE_LIMIT_SKU_WRITE_PER_MINUTE;
   if (kind === "price-read") return env.MAGALU_RATE_LIMIT_PRICE_READ_PER_MINUTE;
   if (kind === "stock-read") return env.MAGALU_RATE_LIMIT_STOCK_READ_PER_MINUTE;
   if (kind === "price-write") return env.MAGALU_RATE_LIMIT_PRICE_WRITE_PER_MINUTE;

@@ -24,6 +24,7 @@
   const routes = {
     "/": { title: "Painel", page: "mg-dashboard", group: "overview" },
     "/catalogo": { title: "SKUs", page: "mg-catalog-page", group: "products" },
+    "/gestao-skus": { title: "Gestão de SKUs", page: "mg-sku-management-page", group: "operations" },
     "/precos": { title: "Preços", page: "mg-price-page", group: "operations" },
     "/estoque": { title: "Estoque", page: "mg-stock-page", group: "operations" },
     "/contas": { title: "Contas Magalu", page: "mg-accounts-page", group: "account" },
@@ -38,6 +39,7 @@
     ["open:portfolio-skus-seller:read", "SKU · leitura"],
     ["open:portfolio-prices-seller:read", "Preço · leitura"],
     ["open:portfolio-stocks-seller:read", "Estoque · leitura"],
+    ["open:portfolio-skus-seller:write", "SKU · escrita"],
     ["open:portfolio-prices-seller:write", "Preço · escrita"],
     ["open:portfolio-stocks-seller:write", "Estoque · escrita"],
   ];
@@ -265,6 +267,7 @@
     state.activePreview = null;
     state.diagnostics = null;
     localStorage.setItem(STORAGE_ACCOUNT, String(accountId));
+    window.dispatchEvent(new CustomEvent("magalu:accountchange", { detail: { accountId: Number(accountId) } }));
     updateAccountSidebar();
     renderAccounts();
     renderSidebarAccounts();

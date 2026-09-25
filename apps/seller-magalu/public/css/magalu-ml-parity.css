@@ -913,3 +913,29 @@ body.mg-shell-collapsed .mg-sidebar__footer {
   .mg-page-head { padding: 18px !important; }
   .mg-page-head h1 { font-size: 1.32rem !important; }
 }
+
+/* MAGALU_NAVBAR_ML_FULL_WIDTH_V1 */
+.mg-sidebar__title {
+  margin: 0 !important;
+  padding: 0 8px !important;
+  color: var(--mg-ml-text-soft) !important;
+  font-size: .61rem !important;
+  line-height: 1.2 !important;
+  font-weight: 900 !important;
+  letter-spacing: .16em !important;
+  text-transform: uppercase !important;
+}
+.mg-nav,
+.mg-nav__group,
+.mg-nav__group-button,
+.mg-nav__children,
+.mg-nav__item {
+  width: 100% !important;
+  max-width: none !important;
+}
+.mg-nav__children {
+  margin: 0 !important;
+  padding: 6px 0 0 !important;
+}
+.mg-nav__item { margin: 0 !important; }
+body.mg-shell-collapsed .mg-sidebar__title { display: none !important; }

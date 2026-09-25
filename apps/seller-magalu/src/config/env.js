@@ -1,27 +1,9 @@
 "use strict";
 
-function clean(value) {
-  return String(value == null ? "" : value).trim();
-}
-
-function int(value, fallback) {
-  const parsed = Number.parseInt(clean(value), 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function bool(value, fallback = false) {
-  const raw = clean(value).toLowerCase();
-  if (!raw) return fallback;
-  if (["1", "true", "yes", "on", "enabled"].includes(raw)) return true;
-  if (["0", "false", "no", "off", "disabled"].includes(raw)) return false;
-  return fallback;
-}
-
-function list(value, fallback = []) {
-  const raw = clean(value);
-  if (!raw) return [...fallback];
-  return raw.split(/[\s,]+/).map((item) => item.trim()).filter(Boolean);
-}
+function clean(value) { return String(value == null ? "" : value).trim(); }
+function int(value, fallback) { const parsed = Number.parseInt(clean(value), 10); return Number.isFinite(parsed) ? parsed : fallback; }
+function bool(value, fallback = false) { const raw = clean(value).toLowerCase(); if (!raw) return fallback; if (["1","true","yes","on","enabled"].includes(raw)) return true; if (["0","false","no","off","disabled"].includes(raw)) return false; return fallback; }
+function list(value, fallback = []) { const raw = clean(value); if (!raw) return [...fallback]; return raw.split(/[\s,]+/).map((item) => item.trim()).filter(Boolean); }
 
 const DEFAULT_READ_SCOPES = [
   "open:portfolio-skus-seller:read",
@@ -29,25 +11,26 @@ const DEFAULT_READ_SCOPES = [
   "open:portfolio-stocks-seller:read",
   "open:portfolio-categories-seller:read",
 ];
-
 const DEFAULT_WRITE_SCOPES = [
   "open:portfolio-prices-seller:write",
   "open:portfolio-stocks-seller:write",
 ];
+const SKU_WRITE_SCOPE = "open:portfolio-skus-seller:write";
 
 const MAGALU_WRITE_ENABLED = bool(process.env.MAGALU_WRITE_ENABLED, false);
+const MAGALU_SKU_WRITE_ENABLED = bool(process.env.MAGALU_SKU_WRITE_ENABLED, false);
 const CONFIGURED_OAUTH_SCOPES = list(process.env.MAGALU_OAUTH_SCOPES, DEFAULT_READ_SCOPES);
-const DEFAULT_OAUTH_SCOPES = MAGALU_WRITE_ENABLED
-  ? Array.from(new Set([...CONFIGURED_OAUTH_SCOPES, ...DEFAULT_WRITE_SCOPES]))
-  : CONFIGURED_OAUTH_SCOPES;
+const DEFAULT_OAUTH_SCOPES = Array.from(new Set([
+  ...CONFIGURED_OAUTH_SCOPES,
+  ...(MAGALU_WRITE_ENABLED ? DEFAULT_WRITE_SCOPES : []),
+  ...(MAGALU_SKU_WRITE_ENABLED ? [SKU_WRITE_SCOPE] : []),
+]));
 
 module.exports = {
   NODE_ENV: clean(process.env.NODE_ENV || "development"),
   MAGALU_DATABASE_URL: clean(process.env.MAGALU_DATABASE_URL || process.env.DATABASE_URL),
   REDIS_URL: clean(process.env.REDIS_URL || "redis://127.0.0.1:6379"),
-  SUITE_JWT_SECRET: clean(
-    process.env.SUITE_JWT_SECRET || process.env.JWT_SECRET || process.env.ML_JWT_SECRET,
-  ),
+  SUITE_JWT_SECRET: clean(process.env.SUITE_JWT_SECRET || process.env.JWT_SECRET || process.env.ML_JWT_SECRET),
   HUB_BASE_URL: clean(process.env.HUB_BASE_URL).replace(/\/+$/, ""),
   HUB_INTERNAL_TOKEN: clean(process.env.HUB_INTERNAL_TOKEN),
   HUB_REQUEST_TIMEOUT_MS: int(process.env.HUB_REQUEST_TIMEOUT_MS, 8000),
@@ -67,6 +50,7 @@ module.exports = {
   MAGALU_SYNC_PAGE_SIZE: Math.min(100, Math.max(1, int(process.env.MAGALU_SYNC_PAGE_SIZE, 100))),
   MAGALU_SYNC_DETAIL_CONCURRENCY: Math.min(12, Math.max(1, int(process.env.MAGALU_SYNC_DETAIL_CONCURRENCY, 6))),
   MAGALU_RATE_LIMIT_SKU_READ_PER_MINUTE: Math.max(1, int(process.env.MAGALU_RATE_LIMIT_SKU_READ_PER_MINUTE, 500)),
+  MAGALU_RATE_LIMIT_SKU_WRITE_PER_MINUTE: Math.min(500, Math.max(1, int(process.env.MAGALU_RATE_LIMIT_SKU_WRITE_PER_MINUTE, 500))),
   MAGALU_RATE_LIMIT_PRICE_READ_PER_MINUTE: Math.max(1, int(process.env.MAGALU_RATE_LIMIT_PRICE_READ_PER_MINUTE, 800)),
   MAGALU_RATE_LIMIT_STOCK_READ_PER_MINUTE: Math.max(1, int(process.env.MAGALU_RATE_LIMIT_STOCK_READ_PER_MINUTE, 800)),
   MAGALU_RATE_LIMIT_PRICE_WRITE_PER_MINUTE: Math.max(1, int(process.env.MAGALU_RATE_LIMIT_PRICE_WRITE_PER_MINUTE, 800)),
@@ -76,7 +60,14 @@ module.exports = {
   MAGALU_WRITE_PREVIEW_TTL_SECONDS: Math.max(60, int(process.env.MAGALU_WRITE_PREVIEW_TTL_SECONDS, 300)),
   MAGALU_WRITE_VERIFY_ATTEMPTS: Math.min(12, Math.max(1, int(process.env.MAGALU_WRITE_VERIFY_ATTEMPTS, 6))),
   MAGALU_WRITE_VERIFY_DELAY_MS: Math.max(250, int(process.env.MAGALU_WRITE_VERIFY_DELAY_MS, 1500)),
+  MAGALU_SKU_WRITE_ENABLED,
+  MAGALU_SKU_UPDATE_CONCURRENCY: 6,
+  MAGALU_SKU_MAX_BATCH_SIZE: Math.min(5000, Math.max(1, int(process.env.MAGALU_SKU_MAX_BATCH_SIZE, 5000))),
+  MAGALU_SKU_PREVIEW_TTL_SECONDS: Math.max(60, int(process.env.MAGALU_SKU_PREVIEW_TTL_SECONDS, 600)),
+  MAGALU_SKU_VERIFY_ATTEMPTS: Math.min(12, Math.max(1, int(process.env.MAGALU_SKU_VERIFY_ATTEMPTS, 6))),
+  MAGALU_SKU_VERIFY_DELAY_MS: Math.max(250, int(process.env.MAGALU_SKU_VERIFY_DELAY_MS, 1500)),
   _DEFAULT_READ_SCOPES: DEFAULT_READ_SCOPES,
   _DEFAULT_WRITE_SCOPES: DEFAULT_WRITE_SCOPES,
+  _SKU_WRITE_SCOPE: SKU_WRITE_SCOPE,
   _DEFAULT_OAUTH_SCOPES: DEFAULT_OAUTH_SCOPES,
 };
