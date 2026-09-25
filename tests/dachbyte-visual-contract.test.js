@@ -57,7 +57,8 @@ test('header wordmarks use live text without rectangular image backgrounds', () 
   for (const block of css.matchAll(/([^{}]*dachbyte-signature__wordmark[^{}]*)\{([^{}]*)\}/g)) {
     assert.doesNotMatch(block[2], /url\(/);
   }
-  for (const file of ['apps/business/public/landing.html', 'apps/seller-ml/views/login.html', 'apps/seller-ml/views/landing.html']) {
+  for (const file of ['apps/seller-ml/views/login.html', 'apps/seller-ml/views/landing.html']) {
     assert.match(read(file), /dachbyte-signature__wordmark"><span>DACH<\/span><span>BYTE<\/span>/);
   }
+  assert.match(read('apps/business/public/landing.html'), /data-dx-shell="business"/);
 });

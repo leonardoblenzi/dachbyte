@@ -26,7 +26,7 @@ test("Stage 4 exposes only price/stock writes behind preview and explicit apply"
   const routes = read("apps/seller-magalu/src/routes/api.routes.js");
   assert.match(routes, /\/writes\/preview/);
   assert.match(routes, /\/writes\/apply/);
-  assert.match(routes, /protected_writes:true/);
+  assert.match(routes, /protected_writes:\s*true/);
   const writer = read("apps/seller-magalu/src/services/portfolioWriteService.js");
   assert.match(writer, /method = exists \? "PATCH" : "POST"/);
   assert.match(writer, /attempts: 1/);
