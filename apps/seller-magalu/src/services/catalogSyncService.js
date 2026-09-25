@@ -11,7 +11,17 @@ function text(value) {
 }
 
 function apiErrorText(error) {
-  return String(error?.message || error?.payload?.message || error || "Erro desconhecido").slice(0, 1800);
+  return String(error?.payload?.message || error?.payload?.error_description || error?.message || error || "Erro desconhecido").slice(0, 1800);
+}
+
+function remoteErrorMeta(error, endpoint, stage) {
+  return {
+    failed_stage: stage || null,
+    failed_endpoint: endpoint || null,
+    http_status: Number(error?.status || 0) || null,
+    request_id: error?.requestId || null,
+    error_code: error?.code || null,
+  };
 }
 
 async function mapWithConcurrency(items, concurrency, task) {
@@ -43,14 +53,8 @@ function nextOffsetFromLink(nextLink, fallbackOffset) {
 
 async function syncPrice(account, sku) {
   try {
-    const response = await portfolioReadService.getPrice(
-      account.id,
-      account.dach_tenant_id,
-      sku,
-    );
-    await catalogRepository.upsertPrice(account.id, sku, response.data, {
-      httpStatus: response.status,
-    });
+    const response = await portfolioReadService.getPrice(account.id, account.dach_tenant_id, sku);
+    await catalogRepository.upsertPrice(account.id, sku, response.data, { httpStatus: response.status });
     return { ok: true };
   } catch (error) {
     if (Number(error?.status) === 404) {
@@ -70,14 +74,8 @@ async function syncPrice(account, sku) {
 
 async function syncStock(account, sku) {
   try {
-    const response = await portfolioReadService.getStock(
-      account.id,
-      account.dach_tenant_id,
-      sku,
-    );
-    await catalogRepository.upsertStock(account.id, sku, response.data, {
-      httpStatus: response.status,
-    });
+    const response = await portfolioReadService.getStock(account.id, account.dach_tenant_id, sku);
+    await catalogRepository.upsertStock(account.id, sku, response.data, { httpStatus: response.status });
     return { ok: true };
   } catch (error) {
     if (Number(error?.status) === 404) {
@@ -116,29 +114,14 @@ async function reconcileSku(accountId, sku, { topic = "manual", dachTenantId = n
   }
 
   const seenAt = new Date();
-  const result = {
-    sku: normalizedSku,
-    topic,
-    sku_ok: null,
-    price_ok: null,
-    stock_ok: null,
-  };
+  const result = { sku: normalizedSku, topic, sku_ok: null, price_ok: null, stock_ok: null };
 
-  // Price/stock webhooks can arrive before the initial full mirror. The FK-bound
-  // mirror therefore materializes the base SKU first when it is still absent.
   if (topic === "portfolios_price" || topic === "portfolios_stock") {
     const local = await catalogRepository.getCatalogItem(account.id, normalizedSku);
     if (!local) {
       try {
-        const response = await portfolioReadService.getSku(
-          account.id,
-          account.dach_tenant_id,
-          normalizedSku,
-        );
-        await catalogRepository.upsertSku(account.id, response.data, {
-          seenAt,
-          httpStatus: response.status,
-        });
+        const response = await portfolioReadService.getSku(account.id, account.dach_tenant_id, normalizedSku);
+        await catalogRepository.upsertSku(account.id, response.data, { seenAt, httpStatus: response.status });
         result.sku_ok = true;
       } catch (error) {
         if (Number(error?.status) === 404) {
@@ -153,15 +136,8 @@ async function reconcileSku(accountId, sku, { topic = "manual", dachTenantId = n
 
   if (topic === "portfolios_sku" || topic === "manual" || topic === "full") {
     try {
-      const response = await portfolioReadService.getSku(
-        account.id,
-        account.dach_tenant_id,
-        normalizedSku,
-      );
-      await catalogRepository.upsertSku(account.id, response.data, {
-        seenAt,
-        httpStatus: response.status,
-      });
+      const response = await portfolioReadService.getSku(account.id, account.dach_tenant_id, normalizedSku);
+      await catalogRepository.upsertSku(account.id, response.data, { seenAt, httpStatus: response.status });
       result.sku_ok = true;
     } catch (error) {
       if (Number(error?.status) === 404) {
@@ -206,7 +182,7 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
     dachTenantId: account.dach_tenant_id,
     accountId: account.id,
     syncType: "catalog_full",
-    result: { reason, job_id: jobId || null, stage: 3 },
+    result: { reason, job_id: jobId || null },
   });
   await accountRepository.setCatalogSyncState(account.id, { status: "running", error: null });
 
@@ -217,16 +193,40 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
   let offset = 0;
   let pages = 0;
   let lastCursor = "0";
+  let currentStage = "sku_list";
+  let currentEndpoint = "/seller/v1/portfolios/skus";
+  let sellerProfile = { status: "not_checked" };
 
   try {
-    // This real API call validates the connected tenant against the portfolio
-    // surface before a catalog mirror is accepted as healthy.
-    const seller = await portfolioReadService.getSeller(account.id, account.dach_tenant_id);
-    if (seller?.data && typeof seller.data === "object") {
-      await accountRepository.updateSellerProfile(account.id, seller.data);
+    // Seller profile is enrichment only. Some tenants can access portfolio SKUs while
+    // /portfolios/me returns 403. Never block the catalog mirror on this auxiliary call.
+    try {
+      const seller = await portfolioReadService.getSeller(account.id, account.dach_tenant_id);
+      if (seller?.data && typeof seller.data === "object") {
+        await accountRepository.updateSellerProfile(account.id, seller.data);
+      }
+      sellerProfile = {
+        status: "ok",
+        http_status: Number(seller?.status || 200),
+        request_id: seller?.requestId || null,
+      };
+    } catch (profileError) {
+      sellerProfile = {
+        status: "warning",
+        http_status: Number(profileError?.status || 0) || null,
+        request_id: profileError?.requestId || null,
+        message: apiErrorText(profileError),
+      };
+      console.warn("[seller-magalu:catalog] seller profile unavailable; continuing with catalog sync", {
+        accountId: account.id,
+        status: sellerProfile.http_status,
+        requestId: sellerProfile.request_id,
+      });
     }
 
     while (true) {
+      currentStage = "sku_list";
+      currentEndpoint = `/seller/v1/portfolios/skus?_offset=${offset}&_limit=${env.MAGALU_SYNC_PAGE_SIZE}`;
       const page = await portfolioReadService.listSkus(account.id, account.dach_tenant_id, {
         offset,
         limit: env.MAGALU_SYNC_PAGE_SIZE,
@@ -235,6 +235,7 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
       const rows = Array.isArray(payload.results) ? payload.results : [];
       pages += 1;
 
+      currentStage = "sku_persist";
       for (const skuPayload of rows) {
         const saved = await catalogRepository.upsertSku(account.id, skuPayload, {
           seenAt: startedAt,
@@ -245,16 +246,15 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
         else updated += 1;
       }
 
+      currentStage = "price_stock_details";
+      currentEndpoint = "/seller/v1/portfolios/prices/:sku + /seller/v1/portfolios/stocks/:sku";
       await mapWithConcurrency(rows, env.MAGALU_SYNC_DETAIL_CONCURRENCY, async (skuPayload) => {
         const sku = text(skuPayload?.sku);
         if (!sku) {
           failed += 1;
           return;
         }
-        const [price, stock] = await Promise.all([
-          syncPrice(account, sku),
-          syncStock(account, sku),
-        ]);
+        const [price, stock] = await Promise.all([syncPrice(account, sku), syncStock(account, sku)]);
         if (!price.ok) failed += 1;
         if (!stock.ok) failed += 1;
       });
@@ -266,6 +266,8 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
       offset = nextOffset;
     }
 
+    currentStage = "finalize";
+    currentEndpoint = null;
     const missing = await catalogRepository.markUnseenSkusMissing(account.id, startedAt);
     const status = failed > 0 ? "partial" : "success";
     const finishedAt = new Date();
@@ -277,7 +279,13 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
       createdCount: created,
       updatedCount: updated,
       failedCount: failed,
-      result: { pages, missing_marked: missing, reason, job_id: jobId || null },
+      result: {
+        pages,
+        missing_marked: missing,
+        reason,
+        job_id: jobId || null,
+        seller_profile: sellerProfile,
+      },
     });
     await accountRepository.setCatalogSyncState(account.id, {
       status,
@@ -285,8 +293,9 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
       syncedAt: finishedAt.toISOString(),
     });
 
-    return { status, scanned, created, updated, failed, pages, missingMarked: missing };
+    return { status, scanned, created, updated, failed, pages, missingMarked: missing, sellerProfile };
   } catch (error) {
+    const remote = remoteErrorMeta(error, currentEndpoint, currentStage);
     await syncRunRepository.finishRun(run.id, {
       status: "failed",
       cursorOut: lastCursor,
@@ -294,7 +303,13 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
       createdCount: created,
       updatedCount: updated,
       failedCount: failed + 1,
-      result: { pages, reason, job_id: jobId || null },
+      result: {
+        pages,
+        reason,
+        job_id: jobId || null,
+        seller_profile: sellerProfile,
+        ...remote,
+      },
       errorMessage: apiErrorText(error),
     }).catch(() => {});
     await accountRepository.setCatalogSyncState(account.id, {
@@ -308,5 +323,5 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
 module.exports = {
   fullCatalogSync,
   reconcileSku,
-  _test: { mapWithConcurrency, apiErrorText, nextOffsetFromLink },
+  _test: { mapWithConcurrency, apiErrorText, nextOffsetFromLink, remoteErrorMeta },
 };

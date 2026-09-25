@@ -122,7 +122,7 @@ test("catalog sync and reconcile require allowed READ access to the tenant-owned
     await controller.sync({ query: { account_id: "7" }, body: {}, params: {}, magaluIdentity: identity }, sync, (error) => { if (error) throw error; });
     const reconcile = response();
     await controller.reconcile({ query: { account_id: "7" }, body: {}, params: { sku: "SKU-7" }, magaluIdentity: identity }, reconcile, (error) => { if (error) throw error; });
-    assert.deepEqual(accesses, [[identity, account, { action: "READ magalu" }], [identity, account, { action: "READ magalu" }]]);
+    assert.deepEqual(accesses, [[identity, account, { action: "READ magalu", force: true }], [identity, account, { action: "READ magalu" }]]);
     assert.equal(queued.length, 2);
   });
 });

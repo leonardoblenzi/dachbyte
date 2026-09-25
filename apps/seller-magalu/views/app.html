@@ -1,16 +1,169 @@
-<!doctype html><html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-magalu"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b3152"><title>DACHBYTE Seller · Magalu</title>
-<link rel="icon" type="image/png" href="/brand/dachbyte/seller/mark-transparent.png"><link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904"><link rel="stylesheet" href="/magalu/assets/css/magalu-app.css?v=2026092304"></head><body>
-<div class="mg-app" data-theme="light"><aside class="mg-sidebar" id="mg-sidebar"><div class="mg-brand"><img src="/brand/dachbyte/seller/mark-transparent.png" alt="" class="mg-brand__mark"><div><strong>DACHBYTE</strong><span>Seller · Magalu</span></div></div>
-<section class="mg-account-card"><div class="mg-account-card__top"><span>Conta Magalu</span><span class="mg-status-dot" data-state="pending"></span></div><strong id="mg-account-name">Nenhuma conta conectada</strong><small id="mg-account-meta">Conecte uma organização pelo ID Magalu</small></section>
-<nav class="mg-nav"><div class="mg-nav__group"><span class="mg-nav__group-label">Visão geral</span><a href="/magalu/" data-nav-path="/" class="mg-nav__item"><span class="mg-nav__icon">⌂</span><span>Painel</span></a></div><div class="mg-nav__group"><span class="mg-nav__group-label">Produtos</span><a href="/magalu/catalogo" data-nav-path="/catalogo" class="mg-nav__item"><span class="mg-nav__icon">▦</span><span>SKUs</span></a></div><div class="mg-nav__group"><span class="mg-nav__group-label">Operações</span><a href="/magalu/estoque" data-nav-path="/estoque" class="mg-nav__item"><span class="mg-nav__icon">▤</span><span>Estoque</span></a><a href="/magalu/precos" data-nav-path="/precos" class="mg-nav__item"><span class="mg-nav__icon">R$</span><span>Preços</span></a></div><div class="mg-nav__group"><span class="mg-nav__group-label">Conta</span><a href="/magalu/contas" data-nav-path="/contas" class="mg-nav__item"><span class="mg-nav__icon">◎</span><span>Contas Magalu</span></a></div></nav>
-<footer class="mg-sidebar__footer"><a href="/selecao-plataforma">← Trocar módulo</a><span>Etapa 4 · Escritas protegidas</span></footer></aside><div class="mg-backdrop" id="mg-backdrop"></div>
-<div class="mg-main"><header class="mg-topbar"><div class="mg-topbar__left"><button class="mg-icon-btn mg-menu-btn" id="mg-menu-toggle">☰</button><div class="mg-breadcrumb"><span>Seller</span><b>›</b><span>Magalu</span><b>›</b><strong id="mg-page-title">Painel</strong></div></div><div class="mg-topbar__right"><span class="mg-hub-chip"><i></i><span>Hub protegido</span></span><button class="mg-icon-btn" id="mg-theme-toggle">◐</button><div class="mg-user"><strong id="mg-user-name">Usuário</strong><small id="mg-user-email">Carregando...</small></div><button class="mg-link-btn" id="mg-logout">Sair</button></div></header>
-<main class="mg-content"><div class="mg-alert" id="mg-oauth-alert" hidden></div>
-<section id="mg-dashboard" data-page="/"><section class="mg-hero-panel"><div><span class="mg-kicker">Portfólio Magalu</span><h1>Leitura sincronizada e alterações protegidas de preço e estoque.</h1><p>A Etapa 4 mantém o espelho local da Etapa 3 e adiciona escrita somente após preview ao vivo, confirmação explícita, fila isolada e verificação por GET. Se o estado remoto mudar entre preview e execução, a alteração é bloqueada.</p></div><div class="mg-stage-badge"><span>ETAPA</span><strong>04</strong><small>protected write</small></div></section><section class="mg-kpi-grid"><article class="mg-kpi"><span>SKUs presentes</span><strong id="kpi-skus">—</strong><small>espelho local</small></article><article class="mg-kpi"><span>Com preço</span><strong id="kpi-prices">—</strong><small>consulta por SKU</small></article><article class="mg-kpi"><span>Estoque zerado</span><strong id="kpi-zero">—</strong><small>atenção operacional</small></article><article class="mg-kpi"><span>Última sync</span><strong id="kpi-sync">—</strong><small id="kpi-sync-status">aguardando conta</small></article></section><section class="mg-status-panel"><header><div><span class="mg-kicker">Segurança de escrita</span><h2>Pipeline protegido</h2></div><button class="mg-primary-btn" id="mg-sync-now">Sincronizar agora</button></header><div class="mg-status-list"><div><span>Preview</span><strong>leitura ao vivo</strong></div><div><span>Confirmação</span><strong>uso único</strong></div><div><span>Fila</span><strong>at-most-once</strong></div><div><span>Pós-escrita</span><strong>GET verifica</strong></div></div></section><section class="mg-section-card mg-operations-card"><div class="mg-section-head"><div><span class="mg-kicker">Auditoria operacional</span><h2>Últimas alterações</h2></div></div><div id="mg-write-operations" class="mg-operation-list"></div><div id="mg-write-operations-empty" class="mg-empty-state"><strong>Nenhuma alteração enfileirada</strong><p>As operações de preço e estoque aparecerão aqui após a confirmação de um preview.</p></div></section></section>
-<section id="mg-catalog-page" data-page="/catalogo" hidden><section class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Produtos</span><h2>SKUs sincronizados</h2></div><button class="mg-primary-btn" data-sync>Sincronizar</button></div><div class="mg-toolbar"><input id="mg-catalog-search" placeholder="Buscar SKU ou título"><select id="mg-catalog-status"><option value="">Todos os status</option><option>PUBLISHED</option><option>UNPUBLISHED</option><option>BLOCKED</option><option>UNDER_REVIEW</option></select><button class="mg-secondary-btn" id="mg-catalog-filter">Filtrar</button></div><div class="mg-table-wrap"><table class="mg-table"><thead><tr><th>SKU</th><th>Produto</th><th>Status</th><th>Preço</th><th>Estoque</th><th></th></tr></thead><tbody id="mg-catalog-body"></tbody></table></div><div class="mg-pagination"><button class="mg-secondary-btn" id="mg-prev">← Anterior</button><span id="mg-page-meta">0 itens</span><button class="mg-secondary-btn" id="mg-next">Próxima →</button></div></section></section>
-<section id="mg-price-page" data-page="/precos" hidden><section class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Operações · preço</span><h2>Alteração protegida de preços</h2><p class="mg-section-copy">Selecione SKUs, informe preço e preço de lista e gere o preview. Nada é escrito no Magalu antes da confirmação.</p></div><div class="mg-write-readiness"><span id="mg-price-write-state" data-state="disabled">desativado</span><small id="mg-price-write-help">Verificando permissões...</small></div></div><div id="mg-price-write-list" class="mg-write-list"></div><div class="mg-write-actions"><button class="mg-secondary-btn" data-sync>Atualizar leitura</button><button class="mg-primary-btn" id="mg-price-preview-btn" disabled>Gerar preview de preços</button></div></section></section>
-<section id="mg-stock-page" data-page="/estoque" hidden><section class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Operações · estoque</span><h2>Alteração protegida de estoque</h2><p class="mg-section-copy">A quantidade é absoluta. O worker relembra o estado remoto antes de escrever e não sobrescreve se algo mudou após o preview.</p></div><div class="mg-write-readiness"><span id="mg-stock-write-state" data-state="disabled">desativado</span><small id="mg-stock-write-help">Verificando permissões...</small></div></div><div id="mg-stock-write-list" class="mg-write-list"></div><div class="mg-write-actions"><button class="mg-secondary-btn" data-sync>Atualizar leitura</button><button class="mg-primary-btn" id="mg-stock-preview-btn" disabled>Gerar preview de estoque</button></div></section></section>
-<section id="mg-accounts-page" data-page="/contas" hidden><section class="mg-hero-panel mg-hero-panel--accounts"><div><span class="mg-kicker">Conexão Magalu</span><h1>Conecte sua primeira organização Magalu.</h1><p>Você autoriza no ID Magalu e volta para o seu portfólio DACHBYTE. Para adicionar outra organização, o Hub valida a permissão comercial antes do uso dela.</p></div><a class="mg-primary-btn" id="mg-connect-account" href="/magalu/auth/start?return=%2Fmagalu%2Fcontas">Vincular organização Magalu</a></section><section class="mg-accounts-list-card"><div class="mg-section-head"><div><span class="mg-kicker">Organizações</span><h2>Contas vinculadas</h2></div><span class="mg-pill" id="mg-accounts-count">0 contas</span></div><div id="mg-account-list" class="mg-account-list"></div><div id="mg-accounts-empty" class="mg-empty-state"><strong>Seu portfólio Magalu começa aqui</strong><p>Conecte uma organização para sincronizar catálogo, preços e estoque pelo OAuth oficial.</p></div></section><section class="mg-info-strip"><div><strong>Ownership</strong><span>Uma organização Magalu pertence a um único tenant DACH; corrida 23505 vira conflito funcional.</span></div><div><strong>Hub</strong><span>O apply revalida acesso com action WRITE magalu e sem cache antes de criar operações.</span></div><div><strong>Scopes de escrita</strong><span>open:portfolio-prices-seller:write e open:portfolio-stocks-seller:write.</span></div></section></section>
-<section class="mg-preview-panel" id="mg-write-preview" hidden><div class="mg-preview-panel__dialog"><div class="mg-section-head"><div><span class="mg-kicker">Conferência final</span><h2 id="mg-write-preview-title">Preview</h2><small id="mg-write-preview-expiry"></small></div><button class="mg-icon-btn" id="mg-write-preview-close" aria-label="Fechar">×</button></div><div class="mg-table-wrap"><table class="mg-table"><thead><tr><th>SKU</th><th>Antes</th><th>Depois</th><th>Ação</th></tr></thead><tbody id="mg-write-preview-body"></tbody></table></div><label class="mg-confirm-line"><input type="checkbox" id="mg-write-confirm"><span>Confirmo que revisei as alterações acima e quero enfileirar a escrita no Magalu.</span></label><div class="mg-preview-actions"><button class="mg-primary-btn" id="mg-write-apply-btn" disabled>Confirmar e aplicar</button></div><p class="mg-safety-note">Após um POST/PATCH aceito, o worker apenas verifica por GET. Respostas incertas não causam reenvio automático da escrita.</p></div></section>
-</main></div></div><script src="/magalu/assets/js/magalu-app.js?v=2026092304"></script></body></html>
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-magalu">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b3152">
+  <title>DACHBYTE Seller · Magalu</title>
+  <link rel="icon" type="image/png" href="/brand/dachbyte/seller/mark-transparent.png">
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-app.css?v=2026092501">
+</head>
+<body>
+<div class="mg-app" data-theme="light">
+  <aside class="mg-sidebar" id="mg-sidebar" aria-label="Navegação principal">
+    <div class="mg-sidebar__toolbar">
+      <button class="mg-sidebar__toggle" id="mg-sidebar-toggle" type="button" aria-label="Recolher ou expandir menu lateral">‹</button>
+    </div>
+
+    <a class="mg-brand" href="/magalu/">
+      <img src="/brand/dachbyte/seller/mark-transparent.png" alt="" class="mg-brand__mark">
+      <span class="mg-brand__copy"><strong>DACHBYTE</strong><small>Seller · Magalu</small></span>
+    </a>
+
+    <div class="mg-account-switcher" id="mg-account-switcher">
+      <button class="mg-account-switcher__button" id="mg-account-menu-toggle" type="button" aria-expanded="false" aria-controls="mg-account-menu">
+        <span class="mg-account-switcher__status"><i class="mg-status-dot" data-state="pending"></i></span>
+        <span class="mg-account-switcher__copy"><small>Conta Magalu</small><strong id="mg-account-name">Carregando...</strong><em id="mg-account-meta">Aguarde</em></span>
+        <span class="mg-account-switcher__chevron">⌄</span>
+      </button>
+      <section class="mg-account-menu" id="mg-account-menu" hidden>
+        <div class="mg-account-menu__head">Contas vinculadas</div>
+        <div id="mg-sidebar-account-list" class="mg-account-menu__list"></div>
+        <a href="/magalu/contas" class="mg-account-menu__manage">Gerenciar contas</a>
+      </section>
+    </div>
+
+    <nav class="mg-nav" id="mg-nav">
+      <section class="mg-nav__group" data-group="overview">
+        <button class="mg-nav__group-button" type="button" data-group-toggle="overview" aria-expanded="true">
+          <span class="mg-nav__group-icon">⌂</span>
+          <span class="mg-nav__group-copy"><strong>Visão geral</strong><small>Painel e operação</small></span>
+          <span class="mg-nav__group-arrow">›</span>
+        </button>
+        <div class="mg-nav__children">
+          <a href="/magalu/" data-nav-path="/" class="mg-nav__item">Painel</a>
+        </div>
+      </section>
+
+      <section class="mg-nav__group" data-group="products">
+        <button class="mg-nav__group-button" type="button" data-group-toggle="products" aria-expanded="false">
+          <span class="mg-nav__group-icon">▦</span>
+          <span class="mg-nav__group-copy"><strong>Produtos</strong><small>Catálogo sincronizado</small></span>
+          <span class="mg-nav__group-arrow">›</span>
+        </button>
+        <div class="mg-nav__children" hidden>
+          <a href="/magalu/catalogo" data-nav-path="/catalogo" class="mg-nav__item">SKUs</a>
+        </div>
+      </section>
+
+      <section class="mg-nav__group" data-group="operations">
+        <button class="mg-nav__group-button" type="button" data-group-toggle="operations" aria-expanded="false">
+          <span class="mg-nav__group-icon">⇄</span>
+          <span class="mg-nav__group-copy"><strong>Operações</strong><small>Estoque e preços</small></span>
+          <span class="mg-nav__group-arrow">›</span>
+        </button>
+        <div class="mg-nav__children" hidden>
+          <a href="/magalu/estoque" data-nav-path="/estoque" class="mg-nav__item">Estoque</a>
+          <a href="/magalu/precos" data-nav-path="/precos" class="mg-nav__item">Preços</a>
+        </div>
+      </section>
+
+      <section class="mg-nav__group" data-group="account">
+        <button class="mg-nav__group-button" type="button" data-group-toggle="account" aria-expanded="false">
+          <span class="mg-nav__group-icon">◎</span>
+          <span class="mg-nav__group-copy"><strong>Conta</strong><small>Acesso e integração</small></span>
+          <span class="mg-nav__group-arrow">›</span>
+        </button>
+        <div class="mg-nav__children" hidden>
+          <a href="/magalu/contas" data-nav-path="/contas" class="mg-nav__item">Contas Magalu</a>
+          <a href="/magalu/sincronizacao" data-nav-path="/sincronizacao" class="mg-nav__item">Sincronização</a>
+        </div>
+      </section>
+    </nav>
+
+    <footer class="mg-sidebar__footer">
+      <a href="/selecao-plataforma">← <span>Trocar módulo</span></a>
+      <small>Seller · Magalu</small>
+    </footer>
+  </aside>
+
+  <div class="mg-backdrop" id="mg-backdrop"></div>
+
+  <div class="mg-main">
+    <header class="mg-topbar">
+      <div class="mg-topbar__left">
+        <button class="mg-icon-btn mg-menu-btn" id="mg-menu-toggle" type="button" aria-label="Abrir menu">☰</button>
+        <div class="mg-breadcrumb"><span>Seller</span><b>›</b><span>Magalu</span><b>›</b><strong id="mg-page-title">Painel</strong></div>
+      </div>
+      <div class="mg-topbar__right">
+        <span class="mg-hub-chip"><i></i><span>Hub protegido</span></span>
+        <button class="mg-icon-btn" id="mg-theme-toggle" type="button" aria-label="Alternar tema">◐</button>
+        <div class="mg-user"><strong id="mg-user-name">Usuário</strong><small id="mg-user-email">Carregando...</small></div>
+        <button class="mg-link-btn" id="mg-logout" type="button">Sair</button>
+      </div>
+    </header>
+
+    <main class="mg-content">
+      <div class="mg-alert" id="mg-oauth-alert" hidden></div>
+
+      <section id="mg-dashboard" data-page="/">
+        <section class="mg-page-head">
+          <div><span class="mg-kicker">Portfólio Magalu</span><h1>Visão geral da operação</h1><p>Acompanhe a conexão, o catálogo sincronizado e o estado das últimas atualizações.</p></div>
+          <div class="mg-page-actions"><a class="mg-secondary-btn" href="/magalu/sincronizacao">Diagnóstico</a><button class="mg-primary-btn" id="mg-sync-now" type="button">Sincronizar agora</button></div>
+        </section>
+
+        <section class="mg-kpi-grid">
+          <article class="mg-kpi"><span>SKUs presentes</span><strong id="kpi-skus">—</strong><small>espelho local</small></article>
+          <article class="mg-kpi"><span>Com preço</span><strong id="kpi-prices">—</strong><small>preço sincronizado</small></article>
+          <article class="mg-kpi"><span>Estoque zerado</span><strong id="kpi-zero">—</strong><small>atenção operacional</small></article>
+          <article class="mg-kpi"><span>Última sincronização</span><strong id="kpi-sync">—</strong><small id="kpi-sync-status">aguardando conta</small></article>
+        </section>
+
+        <section class="mg-dashboard-grid">
+          <article class="mg-section-card">
+            <div class="mg-section-head"><div><span class="mg-kicker">Conexão</span><h2>Conta selecionada</h2></div><span class="mg-pill" id="mg-dashboard-account-status">—</span></div>
+            <dl class="mg-facts"><div><dt>Organização</dt><dd id="mg-dashboard-account">—</dd></div><div><dt>Token de acesso</dt><dd id="mg-dashboard-token">—</dd></div><div><dt>Permissões</dt><dd id="mg-dashboard-scopes">—</dd></div><div><dt>Webhooks ativos</dt><dd id="mg-dashboard-webhooks">—</dd></div></dl>
+          </article>
+          <article class="mg-section-card">
+            <div class="mg-section-head"><div><span class="mg-kicker">Sincronização</span><h2>Última execução</h2></div><span class="mg-pill" id="mg-dashboard-sync-status">—</span></div>
+            <dl class="mg-facts"><div><dt>Início</dt><dd id="mg-dashboard-run-start">—</dd></div><div><dt>Itens lidos</dt><dd id="mg-dashboard-run-scanned">—</dd></div><div><dt>Páginas</dt><dd id="mg-dashboard-run-pages">—</dd></div><div><dt>Falha</dt><dd id="mg-dashboard-run-error">Nenhuma</dd></div></dl>
+          </article>
+        </section>
+
+        <section class="mg-section-card mg-operations-card"><div class="mg-section-head"><div><span class="mg-kicker">Auditoria operacional</span><h2>Últimas alterações</h2></div></div><div id="mg-write-operations" class="mg-operation-list"></div><div id="mg-write-operations-empty" class="mg-empty-state"><strong>Nenhuma alteração enfileirada</strong><p>As operações de preço e estoque aparecerão aqui após a confirmação de um preview.</p></div></section>
+      </section>
+
+      <section id="mg-catalog-page" data-page="/catalogo" hidden>
+        <section class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Produtos</span><h2>SKUs sincronizados</h2><p class="mg-section-copy">Espelho local do portfólio conectado ao Magalu.</p></div><button class="mg-primary-btn" data-sync type="button">Sincronizar</button></div><div class="mg-toolbar"><input id="mg-catalog-search" placeholder="Buscar SKU ou título"><select id="mg-catalog-status"><option value="">Todos os status</option><option>PUBLISHED</option><option>UNPUBLISHED</option><option>BLOCKED</option><option>UNDER_REVIEW</option><option>DELETING</option><option>DELETED</option></select><button class="mg-secondary-btn" id="mg-catalog-filter" type="button">Filtrar</button></div><div class="mg-table-wrap"><table class="mg-table"><thead><tr><th>SKU</th><th>Produto</th><th>Status</th><th>Preço</th><th>Estoque</th><th></th></tr></thead><tbody id="mg-catalog-body"></tbody></table></div><div id="mg-catalog-empty" class="mg-empty-state" hidden><strong>Nenhum SKU sincronizado</strong><p>Use “Sincronizar” ou abra a tela de Sincronização para verificar o acesso da conta.</p></div><div class="mg-pagination"><button class="mg-secondary-btn" id="mg-prev" type="button">← Anterior</button><span id="mg-page-meta">0 itens</span><button class="mg-secondary-btn" id="mg-next" type="button">Próxima →</button></div></section>
+      </section>
+
+      <section id="mg-price-page" data-page="/precos" hidden><section class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Operações · preço</span><h2>Alteração protegida de preços</h2><p class="mg-section-copy">Selecione SKUs, informe preço e preço de lista e gere o preview. Nada é enviado ao Magalu antes da confirmação.</p></div><div class="mg-write-readiness"><span id="mg-price-write-state" data-state="disabled">desativado</span><small id="mg-price-write-help">Verificando permissões...</small></div></div><div id="mg-price-write-list" class="mg-write-list"></div><div class="mg-write-actions"><button class="mg-secondary-btn" data-sync type="button">Atualizar leitura</button><button class="mg-primary-btn" id="mg-price-preview-btn" type="button" disabled>Gerar preview de preços</button></div></section></section>
+
+      <section id="mg-stock-page" data-page="/estoque" hidden><section class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Operações · estoque</span><h2>Alteração protegida de estoque</h2><p class="mg-section-copy">A quantidade é absoluta. O worker relê o estado remoto antes de escrever e bloqueia a alteração se houver divergência.</p></div><div class="mg-write-readiness"><span id="mg-stock-write-state" data-state="disabled">desativado</span><small id="mg-stock-write-help">Verificando permissões...</small></div></div><div id="mg-stock-write-list" class="mg-write-list"></div><div class="mg-write-actions"><button class="mg-secondary-btn" data-sync type="button">Atualizar leitura</button><button class="mg-primary-btn" id="mg-stock-preview-btn" type="button" disabled>Gerar preview de estoque</button></div></section></section>
+
+      <section id="mg-sync-page" data-page="/sincronizacao" hidden>
+        <section class="mg-page-head"><div><span class="mg-kicker">Conta · integração</span><h1>Sincronização</h1><p>Teste a API do Portfólio, acompanhe as execuções e identifique exatamente onde uma leitura falhou.</p></div><div class="mg-page-actions"><button class="mg-secondary-btn" id="mg-test-connection" type="button">Testar conexão</button><button class="mg-primary-btn" data-sync type="button">Sincronizar agora</button></div></section>
+
+        <section class="mg-status-banner" id="mg-sync-banner" data-state="idle"><i></i><div><strong id="mg-sync-banner-title">Aguardando diagnóstico</strong><span id="mg-sync-banner-copy">Selecione uma conta Magalu para consultar o estado da integração.</span></div></section>
+
+        <section class="mg-dashboard-grid">
+          <article class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">OAuth</span><h2>Conexão e permissões</h2></div><a class="mg-secondary-btn" id="mg-reconnect-account" href="/magalu/auth/start?return=%2Fmagalu%2Fsincronizacao">Reconectar</a></div><dl class="mg-facts"><div><dt>Conta</dt><dd id="mg-sync-account">—</dd></div><div><dt>Status</dt><dd id="mg-sync-account-status">—</dd></div><div><dt>Access token expira</dt><dd id="mg-sync-token-expiry">—</dd></div><div><dt>Último refresh</dt><dd id="mg-sync-token-refresh">—</dd></div></dl><div id="mg-scope-list" class="mg-scope-list"></div></article>
+          <article class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">API Portfólio</span><h2>Teste de acesso</h2></div></div><div id="mg-probe-list" class="mg-probe-list"><div class="mg-empty-state"><strong>Nenhum teste executado</strong><p>Clique em “Testar conexão” para consultar SKU, preço, estoque e o perfil auxiliar do seller.</p></div></div></article>
+        </section>
+
+        <section class="mg-section-card mg-sync-history"><div class="mg-section-head"><div><span class="mg-kicker">Histórico</span><h2>Execuções de sincronização</h2></div></div><div id="mg-sync-runs" class="mg-run-list"></div><div id="mg-sync-runs-empty" class="mg-empty-state"><strong>Nenhuma execução registrada</strong><p>As próximas sincronizações aparecerão aqui com status, contadores e diagnóstico seguro.</p></div></section>
+      </section>
+
+      <section id="mg-accounts-page" data-page="/contas" hidden>
+        <section class="mg-page-head"><div><span class="mg-kicker">Conta Magalu</span><h1>Organizações vinculadas</h1><p>Gerencie as organizações autorizadas pelo ID Magalu e escolha qual conta será usada no módulo.</p></div><div class="mg-page-actions"><a class="mg-primary-btn" id="mg-connect-account" href="/magalu/auth/start?return=%2Fmagalu%2Fcontas">Vincular organização</a></div></section>
+        <section class="mg-accounts-list-card"><div class="mg-section-head"><div><span class="mg-kicker">Organizações</span><h2>Contas vinculadas</h2></div><span class="mg-pill" id="mg-accounts-count">0 contas</span></div><div id="mg-account-list" class="mg-account-list"></div><div id="mg-accounts-empty" class="mg-empty-state"><strong>Seu portfólio Magalu começa aqui</strong><p>Conecte uma organização para sincronizar catálogo, preços e estoque pelo OAuth oficial.</p></div></section>
+      </section>
+
+      <section class="mg-preview-panel" id="mg-write-preview" hidden><div class="mg-preview-panel__dialog"><div class="mg-section-head"><div><span class="mg-kicker">Conferência final</span><h2 id="mg-write-preview-title">Preview</h2><small id="mg-write-preview-expiry"></small></div><button class="mg-icon-btn" id="mg-write-preview-close" type="button" aria-label="Fechar">×</button></div><div class="mg-table-wrap"><table class="mg-table"><thead><tr><th>SKU</th><th>Antes</th><th>Depois</th><th>Ação</th></tr></thead><tbody id="mg-write-preview-body"></tbody></table></div><label class="mg-confirm-line"><input type="checkbox" id="mg-write-confirm"><span>Confirmo que revisei as alterações acima e quero enfileirar a escrita no Magalu.</span></label><div class="mg-preview-actions"><button class="mg-primary-btn" id="mg-write-apply-btn" type="button" disabled>Confirmar e aplicar</button></div><p class="mg-safety-note">Após uma escrita aceita, a fila reconcilia por GET e não repete automaticamente uma chamada remota incerta.</p></div></section>
+    </main>
+  </div>
+</div>
+<script src="/magalu/assets/js/magalu-app.js?v=2026092501"></script>
+</body>
+</html>

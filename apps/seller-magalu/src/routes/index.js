@@ -28,7 +28,7 @@ async function renderAppEntry(req, res, next, returnPath) {
   }
 }
 
-for (const route of ["/", "/catalogo", "/estoque", "/precos", "/contas"]) {
+for (const route of ["/", "/catalogo", "/estoque", "/precos", "/sincronizacao", "/contas"]) {
   const returnPath = route === "/" ? "/magalu/" : `/magalu${route}`;
   router.get(route, (req, res, next) => renderAppEntry(req, res, next, returnPath));
 }
