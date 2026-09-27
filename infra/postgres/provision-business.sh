@@ -136,13 +136,13 @@ psql --dbname="$HUB_DB" --set=ON_ERROR_STOP=1 \
   --set=hub_migrator="$HUB_MIGRATION_ROLE" \
   --set=hub_app="$HUB_APP_ROLE" <<'SQL'
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
-SELECT format('GRANT USAGE ON SCHEMA public TO %I', :'hub_app') gexec
-SELECT format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO %I', :'hub_app') gexec
-SELECT format('GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO %I', :'hub_app') gexec
-SELECT format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO %I', :'hub_app') gexec
-SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I', :'hub_migrator', :'hub_app') gexec
-SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO %I', :'hub_migrator', :'hub_app') gexec
-SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO %I', :'hub_migrator', :'hub_app') gexec
+SELECT format('GRANT USAGE ON SCHEMA public TO %I', :'hub_app') \gexec
+SELECT format('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO %I', :'hub_app') \gexec
+SELECT format('GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO %I', :'hub_app') \gexec
+SELECT format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO %I', :'hub_app') \gexec
+SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I', :'hub_migrator', :'hub_app') \gexec
+SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO %I', :'hub_migrator', :'hub_app') \gexec
+SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO %I', :'hub_migrator', :'hub_app') \gexec
 SQL
 
 echo "[postgres] DACH databases and roles provisioned successfully, including DACH Hub."
