@@ -42,6 +42,7 @@ const HUB_AUTH_MODULE_CANDIDATES = [
   "madeira",
   "skuleader",
   "dach_ads",
+  "volt_core",
 ];
 const HUB_ACCESS_RETRY_ATTEMPTS = Number(
   process.env.HUB_ACCESS_RETRY_ATTEMPTS || 3,
