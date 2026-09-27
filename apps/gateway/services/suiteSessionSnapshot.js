@@ -9,6 +9,40 @@ function deniedSnapshot(code) {
   return { ok: false, logged: true, code: String(code || "hub_access_denied") };
 }
 
+const SELLER_MODULES = new Set(["ml", "shopee", "magalu", "tracking"]);
+
+function platformSnapshot(identity = {}) {
+  const allowedModules = normalizedStrings(identity.allowed_modules);
+  const modules = (allowedModules.length
+    ? allowedModules
+    : normalizedStrings(identity.visible_modules)
+  ).filter((moduleSlug) => SELLER_MODULES.has(moduleSlug));
+  const subscription = identity.subscription || {};
+  return {
+    ok: true,
+    logged: true,
+    user: {
+      name: String(identity.name || identity.nome || identity.email || "Usuário").trim(),
+      email: String(identity.email || "").trim(),
+    },
+    entitlements: {
+      modules,
+      seller_modules: modules,
+    },
+    subscription: {
+      status: String(subscription.status || "active").trim(),
+      active: subscription.active !== false,
+      expires_at: subscription.expires_at || null,
+      days_until_expiration: subscription.days_until_expiration ?? null,
+      renewal_url: subscription.renewal_url || null,
+      renewable_resources: Array.isArray(subscription.renewable_resources)
+        ? subscription.renewable_resources
+        : [],
+      is_master: true,
+    },
+  };
+}
+
 function createSuiteSessionSnapshotService({ baseUrl, internalToken, fetchImpl = fetch }) {
   const hubBaseUrl = String(baseUrl || "").trim().replace(/\/+$/, "");
   const token = String(internalToken || "").trim();
@@ -19,6 +53,7 @@ function createSuiteSessionSnapshotService({ baseUrl, internalToken, fetchImpl =
       const userId = String(identity.user_id || "").trim();
       if (!hubBaseUrl || !token) return deniedSnapshot("hub_not_configured");
       if (!tenantId || !userId) return deniedSnapshot("suite_identity_incomplete");
+      if (tenantId.startsWith("platform-")) return platformSnapshot(identity);
 
       let response;
       let access;

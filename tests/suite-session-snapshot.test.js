@@ -102,3 +102,42 @@ test("keeps Seller modules active when Hub authorizes the suite but omits option
   assert.equal(snapshot.subscription.status, "active");
   assert.equal(snapshot.subscription.active, true);
 });
+
+test("uses signed platform master scopes without treating the master as a commercial tenant", async () => {
+  let hubCalls = 0;
+  const service = createSuiteSessionSnapshotService({
+    baseUrl: "https://hub.example",
+    internalToken: "test-internal-token",
+    fetchImpl: async () => {
+      hubCalls += 1;
+      throw new Error("platform master must not use the commercial suite check");
+    },
+  });
+
+  const snapshot = await service.resolve({
+    tenant_id: "platform-user-ml-master",
+    user_id: "user-ml-master",
+    email: "master@example.com",
+    name: "Master ML",
+    allowed_modules: ["ml"],
+    visible_modules: ["ml", "volt_core"],
+    subscription: { status: "active", active: true, is_master: true },
+  });
+
+  assert.equal(hubCalls, 0);
+  assert.deepEqual(snapshot, {
+    ok: true,
+    logged: true,
+    user: { name: "Master ML", email: "master@example.com" },
+    entitlements: { modules: ["ml"], seller_modules: ["ml"] },
+    subscription: {
+      status: "active",
+      active: true,
+      expires_at: null,
+      days_until_expiration: null,
+      renewal_url: null,
+      renewable_resources: [],
+      is_master: true,
+    },
+  });
+});
