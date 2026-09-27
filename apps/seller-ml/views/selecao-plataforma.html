@@ -320,6 +320,7 @@
       position:relative;
       overflow:hidden;
     }
+    .module-card[hidden]{display:none!important}
     .module-card::before{
       content:"";
       position:absolute;
@@ -656,7 +657,7 @@
           </div>
         </div>
         <div class="modules-grid">
-          <a class="module-card" href="/go/ml" data-module="ml" aria-disabled="false">
+          <a class="module-card" href="/go/ml" data-module="ml" aria-disabled="true" hidden>
             <div class="module-card__top">
               <div class="module-mark" aria-hidden="true">ML</div>
               <span class="module-badge">Disponível</span>
@@ -665,7 +666,7 @@
             <div class="module-action">Entrar <span>→</span></div>
           </a>
 
-          <a class="module-card" href="/go/shopee" data-module="shopee" aria-disabled="false">
+          <a class="module-card" href="/go/shopee" data-module="shopee" aria-disabled="true" hidden>
             <div class="module-card__top">
               <div class="module-mark" aria-hidden="true">SH</div>
               <span class="module-badge">Disponível</span>
@@ -674,7 +675,7 @@
             <div class="module-action">Entrar <span>→</span></div>
           </a>
 
-          <a class="module-card" href="/go/magalu" data-module="magalu" aria-disabled="false">
+          <a class="module-card" href="/go/magalu" data-module="magalu" aria-disabled="true" hidden>
             <div class="module-card__top">
               <div class="module-mark" aria-hidden="true">MG</div>
               <span class="module-badge">Disponível</span>
@@ -683,7 +684,7 @@
             <div class="module-action">Entrar <span>→</span></div>
           </a>
 
-          <a class="module-card" href="/go/tracking" data-module="tracking" aria-disabled="false">
+          <a class="module-card" href="/go/tracking" data-module="tracking" aria-disabled="true" hidden>
             <div class="module-card__top">
               <div class="module-mark">TR</div>
               <span class="module-badge">Disponível</span>

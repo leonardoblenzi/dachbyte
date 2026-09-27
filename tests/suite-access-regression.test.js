@@ -43,6 +43,16 @@ test("master recebe somente os modulos retornados pelo Hub", () => {
   );
 });
 
+test("selecao oculta modulos ate o Hub confirmar o acesso", () => {
+  const selection = source(path.join("apps", "seller-ml", "views", "selecao-plataforma.html"));
+  assert.match(selection, /\.module-card\[hidden\]\{display:none!important\}/);
+  assert.equal(
+    (selection.match(/class="module-card"[^>]+aria-disabled="true" hidden/g) || []).length,
+    4,
+  );
+  assert.match(selection, /card\.hidden = !canAccess/);
+});
+
 test("operador interno do Hub recebe identidade de suite sem tenant comercial", () => {
   const routes = source(path.join("routes", "suiteAuthRoutes.js"));
   assert.match(routes, /function isPlatformIdentityPayload/);
