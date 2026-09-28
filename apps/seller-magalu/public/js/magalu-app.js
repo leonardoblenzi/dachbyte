@@ -67,23 +67,26 @@
   }
 
   async function fetchJson(url, options = {}) {
-    const response = await fetch(url, {
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
-        ...(options.body ? { "Content-Type": "application/json" } : {}),
-        ...(options.headers || {}),
-      },
-      ...options,
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const error = new Error(data.message || data.error || `HTTP ${response.status}`);
-      error.status = response.status;
-      error.payload = data;
-      throw error;
-    }
-    return data;
+    window.MagaluLoadingOverlay?.show({ message: "Carregando dados da conta Magalu..." });
+    try {
+      const response = await fetch(url, {
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          ...(options.body ? { "Content-Type": "application/json" } : {}),
+          ...(options.headers || {}),
+        },
+        ...options,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const error = new Error(data.message || data.error || `HTTP ${response.status}`);
+        error.status = response.status;
+        error.payload = data;
+        throw error;
+      }
+      return data;
+    } finally { window.MagaluLoadingOverlay?.hide(); }
   }
 
   function escapeHtml(value) {
