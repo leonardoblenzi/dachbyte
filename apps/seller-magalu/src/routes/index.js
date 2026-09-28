@@ -12,8 +12,6 @@ const { resolveEntryRedirect } = require("../services/entryGate");
 
 const router = express.Router();
 const appView = path.resolve(__dirname, "../../views/app.html");
-const skuManagementView = path.resolve(__dirname, "../../views/gestao-skus.html");
-const ordersView = path.resolve(__dirname, "../../views/pedidos.html");
 
 router.get("/auth/start", oauthController.start);
 
@@ -23,24 +21,6 @@ router.get("/master", requireMagaluMaster, masterController.page);
 router.use("/api/master", requireMagaluMaster, masterRoutes);
 
 router.use("/api", apiRoutes);
-
-router.get("/pedidos", async (req, res, next) => {
-  try {
-    const accounts = await accountRepository.listAccountsForTenant(req.magaluIdentity.dachTenantId);
-    const redirect = resolveEntryRedirect({ accounts, returnPath: "/magalu/pedidos", oauth: { status:req.query?.oauth, reason:req.query?.reason } });
-    if (redirect) return res.redirect(302, redirect);
-    return res.sendFile(ordersView);
-  } catch (error) { return next(error); }
-});
-
-router.get("/gestao-skus", async (req, res, next) => {
-  try {
-    const accounts = await accountRepository.listAccountsForTenant(req.magaluIdentity.dachTenantId);
-    const redirect = resolveEntryRedirect({ accounts, returnPath: "/magalu/gestao-skus", oauth: { status:req.query?.oauth, reason:req.query?.reason } });
-    if (redirect) return res.redirect(302, redirect);
-    return res.sendFile(skuManagementView);
-  } catch (error) { return next(error); }
-});
 
 async function renderAppEntry(req, res, next, returnPath) {
   try {
@@ -58,7 +38,7 @@ async function renderAppEntry(req, res, next, returnPath) {
 }
 
 const accountPagesWithoutProvider = new Set(["/contas", "/usuarios", "/plano", "/ajuda"]);
-for (const route of ["/", "/catalogo", "/estoque", "/precos", "/integracoes", "/contas", "/usuarios", "/plano", "/ajuda"]) {
+for (const route of ["/", "/catalogo", "/pedidos", "/gestao-skus", "/estoque", "/precos", "/integracoes", "/contas", "/usuarios", "/plano", "/ajuda"]) {
   const returnPath = route === "/" ? "/magalu/" : `/magalu${route}`;
   router.get(route, (req, res, next) => {
     if (accountPagesWithoutProvider.has(route)) return res.sendFile(appView);

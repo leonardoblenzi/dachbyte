@@ -120,7 +120,7 @@
       ["Tenants com Magalu", a.tenants, `${fmtInt(a.organizations)} organizações conectadas`],
       ["Contas ativas", a.active, `${fmtInt(a.problem)} com erro/revogadas`],
       ["SKUs sincronizados", data.skus, "SKUs presentes na réplica local"],
-      ["Operações massivas hoje", data.massOperationsToday == null ? "—" : data.massOperationsToday, data.capabilities?.massSkuOperations ? "motor massivo disponível" : "Etapa 2 ainda não aplicada"],
+      ["Operações massivas hoje", data.massOperationsToday == null ? "—" : data.massOperationsToday, data.capabilities?.massSkuOperations ? "motor massivo disponível" : "motor massivo indisponível"],
       ["Falhas hoje", Number(o.failed || 0) + Number(data.syncToday?.failed || 0), `${fmtInt(o.failed)} writes · ${fmtInt(data.syncToday?.failed)} syncs`],
       ["Uncertain / divergent", Number(o.uncertain || 0) + Number(o.divergent || 0), `${fmtInt(o.uncertain)} uncertain · ${fmtInt(o.divergent)} divergent`],
       ["Worker", worker.online ? "Online" : "Offline", worker.lastHeartbeat ? `heartbeat ${relative(worker.lastHeartbeat)}` : "sem heartbeat"],
@@ -160,7 +160,7 @@
       ["Gestão massiva de SKUs", caps.massSkuOperations, caps.massSkuOperations ? "007 detectada" : "007 ausente na main/base atual"],
       ["Protected writes", true, "write_operations + reverify disponíveis"],
     ];
-    $("#readiness-grid").innerHTML = cards.map(([title, ready, note]) => `<div class="readiness-card"><strong>${esc(title)}</strong><p>${esc(note)}</p>${badge(ready ? "Disponível" : "Aguardando etapa", ready ? "ok" : "warn")}</div>`).join("");
+    $("#readiness-grid").innerHTML = cards.map(([title, ready, note]) => `<div class="readiness-card"><strong>${esc(title)}</strong><p>${esc(note)}</p>${badge(ready ? "Disponível" : "Indisponível", ready ? "ok" : "warn")}</div>`).join("");
   }
 
   async function loadOverview() {
@@ -269,7 +269,7 @@
   async function loadWorkers() {
     const data = await api("/workers"); setWorkerChip(data);
     $("#worker-hero").innerHTML = `<div class="worker-summary"><article class="worker-state"><div class="worker-state__status"><i class="pulse ${data.online?"is-online":""}"></i><div><p class="eyebrow">SELLER-MAGALU-WORKER</p><h2>${data.online?"Online":"Offline"}</h2></div></div><p>Último heartbeat: ${esc(fmtDate(data.lastHeartbeat))} (${esc(relative(data.lastHeartbeat))})</p></article><article class="worker-metric"><small>Filas instaladas</small><strong>${fmtInt(data.queues.filter(q=>q.installed).length)}</strong></article><article class="worker-metric"><small>Pendentes</small><strong>${fmtInt(data.pending)}</strong></article><article class="worker-metric"><small>Processors heartbeat</small><strong>${fmtInt(data.processors.length)}</strong></article></div>`;
-    $("#queue-grid").innerHTML = data.queues.map((q) => `<article class="queue-card ${q.installed?"":"is-missing"}"><div class="queue-card__head"><strong>${esc(q.name)}</strong>${q.installed?badge(q.processor===false?"sem processor":"instalada",q.processor===false?"warn":"ok"):badge("não instalada","warn")}</div>${q.installed?`<div class="queue-counts"><div><b>${fmtInt(q.waiting)}</b><small>waiting</small></div><div><b>${fmtInt(q.active)}</b><small>active</small></div><div><b>${fmtInt(q.delayed)}</b><small>delayed</small></div><div><b>${fmtInt(q.failed)}</b><small>failed</small></div><div><b>${fmtInt(q.completed)}</b><small>done</small></div></div>`:`<p class="muted">Depende da etapa ainda não presente na main.</p>`}</article>`).join("");
+    $("#queue-grid").innerHTML = data.queues.map((q) => `<article class="queue-card ${q.installed?"":"is-missing"}"><div class="queue-card__head"><strong>${esc(q.name)}</strong>${q.installed?badge(q.processor===false?"sem processor":"instalada",q.processor===false?"warn":"ok"):badge("não instalada","warn")}</div>${q.installed?`<div class="queue-counts"><div><b>${fmtInt(q.waiting)}</b><small>waiting</small></div><div><b>${fmtInt(q.active)}</b><small>active</small></div><div><b>${fmtInt(q.delayed)}</b><small>delayed</small></div><div><b>${fmtInt(q.failed)}</b><small>failed</small></div><div><b>${fmtInt(q.completed)}</b><small>done</small></div></div>`:`<p class="muted">Processador não disponível nesta instalação.</p>`}</article>`).join("");
   }
 
   function summaryCard(title, rows, note) {
@@ -284,7 +284,7 @@
   }
   async function loadReadinessOnly() {
     const data = await api("/readiness");
-    $("#audit-readiness").textContent = data.audit.implementation_ready ? "Migration 006 detectada; backend da Etapa 4 pode ser conectado." : "Indisponível agora: migration 006 não aplicada.";
+    $("#audit-readiness").textContent = data.audit.implementation_ready ? "Auditoria e retenção disponíveis." : "Indisponível agora: migration 006 não aplicada.";
     $("#retention-readiness").textContent = data.retention.implementation_ready ? "Migration 006 detectada." : "Indisponível agora: migration 006 não aplicada.";
   }
 
@@ -331,6 +331,7 @@
   }
 
   async function init() {
+    document.documentElement.dataset.magaluTheme = localStorage.getItem("dachbyte_magalu_theme") || "light";
     bind();
     try { await loadSession(); }
     catch (error) { alert(error.message || "Acesso Master negado pelo Hub."); return; }

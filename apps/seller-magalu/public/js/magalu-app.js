@@ -24,6 +24,7 @@
   const routes = {
     "/": { title: "Painel", page: "mg-dashboard", group: "overview" },
     "/catalogo": { title: "SKUs", page: "mg-catalog-page", group: "products" },
+    "/pedidos": { title: "Pedidos", page: "mg-orders-page", group: "orders" },
     "/gestao-skus": { title: "Gestão de SKUs", page: "mg-sku-management-page", group: "operations" },
     "/precos": { title: "Preços", page: "mg-price-page", group: "operations" },
     "/estoque": { title: "Estoque", page: "mg-stock-page", group: "operations" },
@@ -827,11 +828,21 @@
     $("mg-logout")?.addEventListener("click", () => void logout());
   }
 
+  window.MagaluSellerShell = Object.freeze({
+    getSelectedAccountId: () => state.selectedAccountId,
+    getSelectedAccount: () => selected(),
+    getAccounts: () => [...state.accounts],
+    fetchJson, showAlert, escapeHtml, formatDate, route,
+    isReady: () => document.body?.dataset?.magaluShellReady === "true",
+  });
+
   document.addEventListener("DOMContentLoaded", async () => {
     initShell();
     bindActions();
     oauthResult();
     await Promise.all([loadSession(), loadAccounts()]);
     renderRoute();
+    document.body.dataset.magaluShellReady = "true";
+    window.dispatchEvent(new CustomEvent("magalu:shellready", { detail: { accountId: state.selectedAccountId } }));
   });
 })();

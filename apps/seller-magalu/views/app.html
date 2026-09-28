@@ -10,7 +10,8 @@
   <link rel="stylesheet" href="/magalu/assets/css/magalu-app.css?v=2026092501">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-ml-parity.css?v=2026092503">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-account.css?v=2026092503">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-sku-management.css?v=2026092504">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-sku-management.css?v=2026092801">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-orders.css?v=2026092801">
 </head>
 <body>
 <div class="mg-app" data-theme="light">
@@ -155,6 +156,74 @@
         <section class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Produtos</span><h2>SKUs sincronizados</h2><p class="mg-section-copy">Espelho local do portfólio conectado ao Magalu.</p></div><button class="mg-primary-btn" data-sync type="button">Sincronizar</button></div><div class="mg-toolbar"><input id="mg-catalog-search" placeholder="Buscar SKU ou título"><select id="mg-catalog-status"><option value="">Todos os status</option><option>PUBLISHED</option><option>UNPUBLISHED</option><option>BLOCKED</option><option>UNDER_REVIEW</option><option>DELETING</option><option>DELETED</option></select><button class="mg-secondary-btn" id="mg-catalog-filter" type="button">Filtrar</button></div><div class="mg-table-wrap"><table class="mg-table"><thead><tr><th>SKU</th><th>Produto</th><th>Status</th><th>Preço</th><th>Estoque</th><th></th></tr></thead><tbody id="mg-catalog-body"></tbody></table></div><div id="mg-catalog-empty" class="mg-empty-state" hidden><strong>Nenhum SKU sincronizado</strong><p>Use “Sincronizar” ou abra a tela de Sincronização para verificar o acesso da conta.</p></div><div class="mg-pagination"><button class="mg-secondary-btn" id="mg-prev" type="button">← Anterior</button><span id="mg-page-meta">0 itens</span><button class="mg-secondary-btn" id="mg-next" type="button">Próxima →</button></div></section>
       </section>
 
+
+      <section id="mg-orders-page" class="mg-orders-page" data-page="/pedidos" hidden>
+        <div id="mg-orders-message" class="mg-orders-message" hidden></div>
+
+        <section class="mg-page-head">
+          <div>
+            <span class="mg-kicker">Pedidos · Magalu</span>
+            <h1>Pedidos e entregas</h1>
+            <p>Acompanhe a réplica operacional, sincronize alterações e execute NF-e/finalização pelo fluxo de escrita protegida.</p>
+          </div>
+          <div class="mg-page-actions">
+            <button class="mg-secondary-btn" id="mg-orders-refresh" type="button">Atualizar</button>
+            <button class="mg-primary-btn" id="mg-orders-sync" type="button">Sincronizar pedidos</button>
+          </div>
+        </section>
+
+        <section class="mg-orders-scope-banner" id="mg-orders-scope-banner" data-state="checking">
+          <div><strong id="mg-orders-scope-title">Verificando permissões…</strong><span id="mg-orders-scope-copy">Consultando os scopes de Pedidos e Entregas.</span></div>
+          <a class="mg-secondary-btn" id="mg-orders-reconnect" href="/magalu/contas" hidden>Reconectar conta</a>
+        </section>
+
+        <section class="mg-orders-kpi-grid" aria-label="Indicadores de pedidos">
+          <article class="mg-kpi"><span>Pedidos · 30 dias</span><strong id="mg-orders-stat-total">—</strong><small>réplica local</small></article>
+          <article class="mg-kpi"><span>Hoje</span><strong id="mg-orders-stat-today">—</strong><small>compras de hoje</small></article>
+          <article class="mg-kpi"><span>Últimos 7 dias</span><strong id="mg-orders-stat-7d">—</strong><small>volume recente</small></article>
+          <article class="mg-kpi"><span>GMV · 30 dias</span><strong id="mg-orders-stat-gmv">—</strong><small>valor bruto conhecido</small></article>
+          <article class="mg-kpi"><span>Sincronização</span><strong id="mg-orders-stat-sync">—</strong><small id="mg-orders-stat-sync-time">aguardando</small></article>
+        </section>
+
+        <section class="mg-section-card">
+          <div class="mg-section-head"><div><span class="mg-kicker">Consulta operacional</span><h2>Pedidos sincronizados</h2><p class="mg-section-copy">Filtros locais sobre a réplica da conta selecionada na barra lateral.</p></div></div>
+          <div class="mg-orders-filters">
+            <label class="mg-orders-field"><span>Pedido, SKU ou produto</span><input id="mg-orders-q" placeholder="Pedido, SKU ou produto"></label>
+            <label class="mg-orders-field"><span>Status</span><select id="mg-orders-status"><option value="">Todos</option><option>new</option><option>approved</option><option>invoiced</option><option>shipped</option><option>delivered</option><option>cancelled</option><option>frozen</option></select></label>
+            <label class="mg-orders-field"><span>De</span><input id="mg-orders-from" type="date"></label>
+            <label class="mg-orders-field"><span>Até</span><input id="mg-orders-to" type="date"></label>
+            <button class="mg-secondary-btn" id="mg-orders-filter" type="button">Filtrar</button>
+          </div>
+          <div class="mg-table-wrap"><table class="mg-table mg-orders-table"><thead><tr><th>Pedido</th><th>Compra</th><th>Status</th><th>Entrega</th><th>Itens</th><th>Total</th><th>Última sync</th><th></th></tr></thead><tbody id="mg-orders-body"><tr><td colspan="8" class="mg-orders-empty-cell">Carregando pedidos…</td></tr></tbody></table></div>
+          <div class="mg-pagination"><button class="mg-secondary-btn" id="mg-orders-prev" type="button">← Anterior</button><span id="mg-orders-range">0 pedidos</span><button class="mg-secondary-btn" id="mg-orders-next" type="button">Próxima →</button></div>
+        </section>
+
+        <section class="mg-section-card">
+          <div class="mg-section-head"><div><span class="mg-kicker">Escrita protegida</span><h2>Operações de expedição</h2><p class="mg-section-copy">NF-e e finalização passam por preview, Hub WRITE e reconciliação remota.</p></div></div>
+          <div class="mg-orders-runs" id="mg-orders-delivery-ops"><div class="mg-empty-state"><strong>Nenhuma operação carregada</strong></div></div>
+        </section>
+
+        <section class="mg-section-card">
+          <div class="mg-section-head"><div><span class="mg-kicker">Worker Magalu</span><h2>Sincronizações recentes</h2><p class="mg-section-copy">Histórico da réplica de pedidos e entregas.</p></div></div>
+          <div class="mg-orders-runs" id="mg-orders-runs"><div class="mg-empty-state"><strong>Nenhuma execução carregada</strong></div></div>
+        </section>
+
+        <section class="mg-orders-dialog" id="mg-orders-detail-modal" hidden>
+          <div class="mg-orders-dialog__card">
+            <header class="mg-orders-dialog__head"><div><span class="mg-kicker">Pedido</span><h2 id="mg-orders-detail-title">—</h2></div><button class="mg-icon-btn" id="mg-orders-detail-close" type="button" aria-label="Fechar">×</button></header>
+            <div class="mg-orders-dialog__body" id="mg-orders-detail-content"></div>
+            <footer class="mg-orders-dialog__foot"><button class="mg-secondary-btn" id="mg-orders-detail-close-footer" type="button">Fechar</button><button class="mg-primary-btn" id="mg-orders-detail-reconcile" type="button">Reconciliar agora</button></footer>
+          </div>
+        </section>
+
+        <section class="mg-orders-dialog" id="mg-orders-write-modal" hidden>
+          <div class="mg-orders-dialog__card">
+            <header class="mg-orders-dialog__head"><div><span class="mg-kicker">Expedição protegida</span><h2 id="mg-orders-write-title">—</h2></div><button class="mg-icon-btn" id="mg-orders-write-close" type="button" aria-label="Fechar">×</button></header>
+            <div class="mg-orders-dialog__body"><div class="mg-orders-write-message" id="mg-orders-write-message"></div><div id="mg-orders-write-fields"></div><div class="mg-orders-write-preview" id="mg-orders-write-preview" hidden></div></div>
+            <footer class="mg-orders-dialog__foot"><button class="mg-secondary-btn" id="mg-orders-write-cancel" type="button">Cancelar</button><button class="mg-primary-btn" id="mg-orders-write-preview-btn" type="button">Gerar preview</button><button class="mg-orders-danger-btn" id="mg-orders-write-confirm" type="button" hidden>Confirmar operação</button></footer>
+          </div>
+        </section>
+      </section>
 
       <section id="mg-sku-management-page" class="mg-sku-management" data-page="/gestao-skus" hidden>
         <div id="mg-sku-message" class="mg-sku-message" hidden></div>
@@ -326,8 +395,9 @@
     </main>
   </div>
 </div>
-<script src="/magalu/assets/js/magalu-app.js?v=2026092501"></script>
+<script src="/magalu/assets/js/magalu-app.js?v=2026092801"></script>
 <script src="/magalu/assets/js/magalu-account.js?v=2026092503"></script>
-<script src="/magalu/assets/js/magalu-sku-management.js?v=2026092504"></script>
+<script src="/magalu/assets/js/magalu-sku-management.js?v=2026092801"></script>
+<script src="/magalu/assets/js/magalu-orders.js?v=2026092801"></script>
 </body>
 </html>

@@ -72,7 +72,7 @@ test("configuração interna mantém margem abaixo do rate limit oficial",()=>{
 });
 
 test("UI mantém o espelho de pedidos read-only e não solicita PII do comprador",()=>{
-  const html=read("views/pedidos.html").toLowerCase(),js=read("public/js/magalu-orders.js").toLowerCase();assert.ok(html.includes("read-only"));
+  const html=read("views/app.html").toLowerCase(),js=read("public/js/magalu-orders.js").toLowerCase();assert.ok(js.includes("read-only"));
   for(const term of ["telefone do comprador","e-mail do comprador","endereço completo do comprador","cpf do comprador","cnpj do comprador"])assert.equal((html+js).includes(term),false,term);
 });
 
