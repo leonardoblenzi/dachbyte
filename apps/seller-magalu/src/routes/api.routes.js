@@ -9,6 +9,7 @@ const accountRoutes = require("./account.routes");
 const skuManagementRoutes = require("./skuManagement.routes");
 const orderRoutes = require("./order.routes");
 const dashboardController = require("../controllers/dashboardController");
+const financialRoutes = require("./financial.routes");
 const env = require("../config/env");
 
 const router = express.Router();
@@ -33,6 +34,7 @@ router.post("/writes/operations/:operationId/reverify", writeController.reverify
 router.get("/writes/operations/:operationId", writeController.operation);
 router.use("/sku-management", skuManagementRoutes);
 router.use("/orders", orderRoutes);
+router.use("/financial", financialRoutes);
 router.get("/foundation", (_req, res) => res.json({
   ok:true,stage:8,revision:"8.0",module:"seller-magalu",oauth_enabled:true,catalog_read_enabled:true,
   remote_writes_enabled:env.MAGALU_WRITE_ENABLED,protected_writes:true,sku_mass_write_enabled:env.MAGALU_SKU_WRITE_ENABLED,

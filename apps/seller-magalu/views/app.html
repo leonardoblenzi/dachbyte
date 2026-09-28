@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/magalu/assets/css/magalu-account.css?v=2026092503">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-sku-management.css?v=2026092802">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-orders.css?v=2026092801">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-financial.css?v=2026092801">
 </head>
 <body>
 <div class="mg-app" data-theme="light">
@@ -84,6 +85,11 @@
           <a href="/magalu/estoque" data-nav-path="/estoque" class="mg-nav__item">Estoque</a>
           <a href="/magalu/precos" data-nav-path="/precos" class="mg-nav__item">Preços</a>
         </div>
+      </section>
+
+      <section class="mg-nav__group" data-group="financial">
+        <button class="mg-nav__group-button" type="button" data-group-toggle="financial" aria-expanded="false"><span class="mg-nav__group-icon">R$</span><span class="mg-nav__group-copy"><strong>Financeiro</strong><small>Custos, margem e preço</small></span><span class="mg-nav__group-arrow">›</span></button>
+        <div class="mg-nav__children" hidden><a href="/magalu/custos" data-nav-path="/custos" class="mg-nav__item">Custos por SKU</a><a href="/magalu/margem" data-nav-path="/margem" class="mg-nav__item">Margem de venda</a><a href="/magalu/calculadora" data-nav-path="/calculadora" class="mg-nav__item">Calculadora</a></div>
       </section>
 
       <section class="mg-nav__group" data-group="account">
@@ -417,6 +423,9 @@
       </section>
 
       <section class="mg-preview-panel" id="mg-write-preview" hidden><div class="mg-preview-panel__dialog"><div class="mg-section-head"><div><span class="mg-kicker">Conferência final</span><h2 id="mg-write-preview-title">Preview</h2><small id="mg-write-preview-expiry"></small></div><button class="mg-icon-btn" id="mg-write-preview-close" type="button" aria-label="Fechar">×</button></div><div class="mg-table-wrap"><table class="mg-table"><thead><tr><th>SKU</th><th>Antes</th><th>Depois</th><th>Ação</th></tr></thead><tbody id="mg-write-preview-body"></tbody></table></div><label class="mg-confirm-line"><input type="checkbox" id="mg-write-confirm"><span>Confirmo que revisei as alterações acima e quero enfileirar a escrita no Magalu.</span></label><div class="mg-preview-actions"><button class="mg-primary-btn" id="mg-write-apply-btn" type="button" disabled>Confirmar e aplicar</button></div><p class="mg-safety-note">Após uma escrita aceita, a fila reconcilia por GET e não repete automaticamente uma chamada remota incerta.</p></div></section>
+      <section id="mg-financial-costs-page" data-page="/custos" hidden><section class="mg-page-head"><div><span class="mg-kicker">Financeiro · Magalu</span><h1>Custos por SKU</h1><p>Defina o custo unitário real de cada SKU. Ele sustenta as estimativas de margem e preço.</p></div><button class="mg-secondary-btn" id="mg-financial-refresh" type="button">Atualizar</button></section><section class="mg-financial-note">Custos são da sua operação. A DACHBYTE não presume comissão ou tributação do Magalu.</section><section class="mg-section-card"><div class="mg-table-wrap"><table class="mg-table"><thead><tr><th>SKU</th><th>Produto</th><th>Preço atual</th><th>Custo unitário</th><th></th></tr></thead><tbody id="mg-financial-costs-body"></tbody></table></div></section></section>
+      <section id="mg-financial-margin-page" data-page="/margem" hidden><section class="mg-page-head"><div><span class="mg-kicker">Financeiro · estimativa</span><h1>Margem de venda</h1><p>Margem unitária baseada em preço sincronizado, custo cadastrado e taxas explicitamente informadas.</p></div></section><section class="mg-financial-note">Estimativa operacional: a conciliação de taxas liquidadas depende da futura conexão Financial Analysis do Magalu.</section><section class="mg-section-card"><div class="mg-table-wrap"><table class="mg-table"><thead><tr><th>SKU</th><th>Preço</th><th>Custo</th><th>Margem</th><th>Resultado</th></tr></thead><tbody id="mg-financial-margin-body"></tbody></table></div></section></section>
+      <section id="mg-financial-calculator-page" data-page="/calculadora" hidden><section class="mg-page-head"><div><span class="mg-kicker">Financeiro · simulador</span><h1>Calculadora de margem</h1><p>Simule o preço necessário sem alterar nenhum SKU no Magalu.</p></div></section><section class="mg-financial-note">Preencha somente as taxas e custos que se aplicam à venda. Comissão, frete e subsídio são estimativas informadas por você.</section><section class="mg-financial-grid"><section class="mg-section-card"><div class="mg-financial-form"><label>Preço de venda<input id="mg-fin-sale" type="number" min="0" step="0.01"></label><label>Custo produto<input id="mg-fin-cost" type="number" min="0" step="0.01"></label><label>Comissão %<input id="mg-fin-commission" type="number" min="0" step="0.01"></label><label>Comissão fixa<input id="mg-fin-commission-fixed" type="number" min="0" step="0.01"></label><label>Taxa plataforma %<input id="mg-fin-fee" type="number" min="0" step="0.01"></label><label>Frete vendedor<input id="mg-fin-shipping" type="number" min="0" step="0.01"></label><label>Participação frete<input id="mg-fin-share" type="number" min="0" step="0.01"></label><label>Desconto/promoção<input id="mg-fin-discount" type="number" min="0" step="0.01"></label><label>Impostos %<input id="mg-fin-tax" type="number" min="0" step="0.01"></label><label>Embalagem<input id="mg-fin-packaging" type="number" min="0" step="0.01"></label><label>Operacional<input id="mg-fin-operational" type="number" min="0" step="0.01"></label><label>Outros<input id="mg-fin-other" type="number" min="0" step="0.01"></label><label>Margem alvo %<input id="mg-fin-target" type="number" min="0" step="0.01" value="20"></label></div><p><button class="mg-primary-btn" id="mg-fin-calculate" type="button">Calcular estimativa</button></p></section><section class="mg-section-card"><div class="mg-financial-result"><article><span>Resultado</span><strong id="mg-fin-profit">—</strong></article><article><span>Margem</span><strong id="mg-fin-margin">—</strong></article><article><span>ROI</span><strong id="mg-fin-roi">—</strong></article><article><span>Ponto de equilíbrio</span><strong id="mg-fin-break-even">—</strong></article><article><span>Preço alvo</span><strong id="mg-fin-target-price">—</strong></article><article><span>Custos totais</span><strong id="mg-fin-total">—</strong></article></div></section></section></section>
     </main>
   </div>
 </div>
@@ -424,5 +433,6 @@
 <script src="/magalu/assets/js/magalu-account.js?v=2026092503"></script>
     <script src="/magalu/assets/js/magalu-sku-management.js?v=2026092802"></script>
 <script src="/magalu/assets/js/magalu-orders.js?v=2026092801"></script>
+<script src="/magalu/assets/js/magalu-financial.js?v=2026092801"></script>
 </body>
 </html>

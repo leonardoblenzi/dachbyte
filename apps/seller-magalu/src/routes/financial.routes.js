@@ -1,0 +1,10 @@
+"use strict";
+const express = require("express");
+const controller = require("../controllers/financialController");
+const router = express.Router();
+router.get("/costs", controller.costs);
+router.put("/costs/:sku", controller.saveCost);
+router.get("/margins", controller.margins);
+router.get("/calculator/lookup", controller.lookup);
+router.post("/calculator/calculate", controller.calculate);
+module.exports = router;
