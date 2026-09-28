@@ -4,6 +4,7 @@ const controller=require("../controllers/skuManagementController");
 const router=express.Router();
 router.get("/status",controller.status);
 router.get("/skus",controller.list);
+router.post("/selection/resolve",controller.resolveSelection);
 router.get("/skus/:sku/validation-info",controller.validationInfo);
 router.post("/preview",controller.preview);
 router.post("/apply",controller.apply);

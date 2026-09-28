@@ -2,7 +2,7 @@
   "use strict";
 
   const API = "/magalu/api/sku-management";
-  const state = { accountId: null, page: 1, limit: 50, total: 0, rows: [], selected: new Set(), allFiltered: false, preview: null, bound: false };
+  const state = { accountId: null, page: 1, limit: 50, total: 0, rows: [], selected: new Set(), allFiltered: false, preview: null, inputMode:"filters", resolution:null, bound: false };
   const $ = (id) => document.getElementById(id);
   const shell = () => window.MagaluSellerShell || null;
   const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
@@ -28,13 +28,43 @@
   function selection() { return state.allFiltered ? { mode:"all_filtered", filters:filters() } : { mode:"explicit", skus:[...state.selected] }; }
   function badge(text, kind = "muted") { return `<span class="mg-sku-badge" data-tone="${esc(kind)}">${esc(text || "—")}</span>`; }
 
-  function resetSelection() { state.selected.clear(); state.allFiltered = false; state.preview = null; updateSelection(); }
+  function resetSelection() { state.selected.clear(); state.allFiltered = false; state.preview = null; state.resolution = null; renderResolution(); updateSelection(); }
   function updateSelection() {
     const count = state.allFiltered ? state.total : state.selected.size;
     if ($("mg-sku-selection-count")) $("mg-sku-selection-count").textContent = count ? `${fmt(count)} selecionado${count === 1 ? "" : "s"}${state.allFiltered ? " no filtro" : ""}` : "0 selecionados";
     if ($("mg-sku-activate")) $("mg-sku-activate").disabled = !count;
     if ($("mg-sku-deactivate")) $("mg-sku-deactivate").disabled = !count;
-    if ($("mg-sku-select-page")) $("mg-sku-select-page").checked = state.rows.length > 0 && !state.allFiltered && state.rows.every((r) => state.selected.has(r.sku));
+    if ($("mg-sku-select-page")) $("mg-sku-select-page").checked = state.inputMode === "filters" && state.rows.length > 0 && !state.allFiltered && state.rows.every((r) => state.selected.has(r.sku));
+    if ($("mg-sku-select-page")) $("mg-sku-select-page").disabled = state.inputMode !== "filters";
+    if ($("mg-sku-select-all")) $("mg-sku-select-all").disabled = state.inputMode !== "filters";
+  }
+
+  function renderResolution() {
+    const host = $("mg-sku-resolution"); if (!host) return;
+    const result = state.resolution;
+    if (!result) { host.hidden = true; host.textContent = ""; return; }
+    host.hidden = false;
+    const found = Number(result.rows?.length || 0), missing = result.missingSkus || [];
+    host.innerHTML = `<strong>${fmt(found)} SKU${found === 1 ? "" : "s"} pronto${found === 1 ? "" : "s"} para o preview</strong><span>${fmt(result.skus?.length || 0)} informado${Number(result.skus?.length || 0) === 1 ? "" : "s"} · ${fmt(missing.length)} não encontrado${missing.length === 1 ? "" : "s"}</span>${missing.length ? `<small>Não encontrados: ${esc(missing.slice(0, 20).join(", "))}${missing.length > 20 ? "…" : ""}</small>` : ""}`;
+  }
+
+  function setInputMode(mode) {
+    state.inputMode = ["filters","single","list"].includes(mode) ? mode : "filters";
+    resetSelection();
+    document.querySelectorAll("[data-sku-input-mode]").forEach((button) => button.classList.toggle("is-active", button.dataset.skuInputMode === state.inputMode));
+    document.querySelectorAll("[data-sku-input-panel]").forEach((panel) => { panel.hidden = panel.dataset.skuInputPanel !== state.inputMode; });
+    updateSelection();
+  }
+
+  async function resolveExplicitInput(mode) {
+    if (!state.accountId) return alert("Selecione uma conta Magalu.");
+    const value = mode === "single" ? $("mg-sku-single-input")?.value : $("mg-sku-list-input")?.value;
+    try {
+      const data = await api("/selection/resolve", { method:"POST", body:JSON.stringify({ account_id:state.accountId, skus:[value || ""] }) });
+      state.allFiltered = false; state.selected = new Set((data.rows || []).map((row) => row.sku)); state.resolution = data;
+      renderResolution(); updateSelection();
+      if (!state.selected.size) alert("Nenhum SKU da entrada foi localizado na conta selecionada.", "warning");
+    } catch (e) { alert(e.message); }
   }
 
   async function loadStatus() {
@@ -131,7 +161,7 @@
   }
   function bind() {
     if (state.bound) return; state.bound = true;
-    $("mg-sku-filter")?.addEventListener("click", () => { state.page = 1; resetSelection(); void loadSkus().catch((e) => alert(e.message)); });
+    $("mg-sku-filter")?.addEventListener("click", () => { state.page = 1; setInputMode("filters"); void loadSkus().catch((e) => alert(e.message)); });
     $("mg-sku-refresh")?.addEventListener("click", () => void Promise.all([loadStatus(), loadSkus(), loadBatches()]).catch((e) => alert(e.message)));
     $("mg-sku-prev")?.addEventListener("click", () => { if (state.page > 1) { state.page -= 1; void loadSkus(); } });
     $("mg-sku-next")?.addEventListener("click", () => { if (state.page * state.limit < state.total) { state.page += 1; void loadSkus(); } });
@@ -145,6 +175,9 @@
     $("mg-sku-batch-detail-close")?.addEventListener("click", () => closeModal("mg-sku-batch-detail"));
     $("mg-sku-preview-confirm")?.addEventListener("change", (e) => { const apply = $("mg-sku-preview-apply"); apply.disabled = !(e.target.checked && apply.dataset.writeEnabled === "true" && Number(state.preview?.change_count || 0) > 0); });
     $("mg-sku-preview-apply")?.addEventListener("click", () => void applyPreview());
+    document.querySelectorAll("[data-sku-input-mode]").forEach((button) => button.addEventListener("click", () => setInputMode(button.dataset.skuInputMode)));
+    $("mg-sku-resolve-single")?.addEventListener("click", () => void resolveExplicitInput("single"));
+    $("mg-sku-resolve-list")?.addEventListener("click", () => void resolveExplicitInput("list"));
     document.addEventListener("change", (e) => { const box = e.target.closest?.("[data-sku]"); if (!box || !isPage()) return; state.allFiltered = false; box.checked ? state.selected.add(box.dataset.sku) : state.selected.delete(box.dataset.sku); updateSelection(); });
     document.addEventListener("click", (e) => { if (!isPage()) return; const v=e.target.closest?.("[data-sku-validation]"); if (v) return void validation(v.dataset.skuValidation); const b=e.target.closest?.("[data-sku-batch]"); if (b) return void openBatch(b.dataset.skuBatch); const r=e.target.closest?.("[data-sku-reverify]"); if (r) return void reverify(r.dataset.skuReverify, r); });
     window.addEventListener("magalu:accountchange", (e) => void refreshForAccount(e.detail?.accountId));

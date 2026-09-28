@@ -11,6 +11,16 @@ const FINAL_ITEM_STATES = ["succeeded","stale","failed","divergent","uncertain",
 function clean(value,max=300){return String(value==null?"":value).trim().slice(0,max);}
 function int(value,min,max,fallback){const n=Number.parseInt(String(value==null?"":value),10);return Number.isFinite(n)?Math.min(max,Math.max(min,n)):fallback;}
 function boolFilter(value){const v=clean(value,20).toLowerCase();if(["true","1","active","ativo","sim"].includes(v))return true;if(["false","0","inactive","inativo","nao","não"].includes(v))return false;return null;}
+function normalizeExplicitSkus(values){
+  const seen=new Set(),normalized=[];
+  for(const value of Array.isArray(values)?values:[values]){
+    for(const part of String(value==null?"":value).split(/[;,\r\n]+/)){
+      const sku=clean(part,64);
+      if(sku&&!seen.has(sku)){seen.add(sku);normalized.push(sku);}
+    }
+  }
+  return normalized;
+}
 
 function catalogWhere(filters={}, alias="s") {
   const where=[`${alias}.account_id=$1`,`${alias}.is_present=true`], params=[Number(filters.accountId)];
@@ -28,6 +38,14 @@ async function listSkus(accountId,filters={}){
     from magalu.skus s where ${f.where.join(" and ")} order by s.updated_at desc,s.sku asc limit $${f.params.length+1} offset $${f.params.length+2}`,[...f.params,limit,offset]);
   return{rows,total:Number(total?.total||0),page,limit};
 }
+async function resolveExplicitSkus(accountId,values){
+  const skus=normalizeExplicitSkus(values);
+  if(skus.length>env.MAGALU_SKU_MAX_BATCH_SIZE){const e=new Error(`A seleção excede o máximo de ${env.MAGALU_SKU_MAX_BATCH_SIZE} SKUs.`);e.code="MAGALU_SKU_MASS_TOO_LARGE";e.status=400;throw e;}
+  if(!skus.length)return{skus:[],rows:[],missingSkus:[]};
+  const {rows}=await db.query(`select sku,title,status,active,last_synced_at,updated_at from magalu.skus where account_id=$1 and is_present=true and sku=any($2::text[])`,[Number(accountId),skus]);
+  const bySku=new Map(rows.map(row=>[row.sku,row]));
+  return{skus,rows:skus.map(sku=>bySku.get(sku)).filter(Boolean),missingSkus:skus.filter(sku=>!bySku.has(sku))};
+}
 async function selectedRows(accountId,selection={}){
   const mode=clean(selection.mode,40)==="all_filtered"?"all_filtered":"explicit";
   if(mode==="all_filtered"){
@@ -35,11 +53,8 @@ async function selectedRows(accountId,selection={}){
     const {rows}=await db.query(`select sku,title,status,active,last_synced_at,updated_at from magalu.skus s where ${f.where.join(" and ")} order by s.sku asc limit $${f.params.length+1}`,[...f.params,env.MAGALU_SKU_MAX_BATCH_SIZE+1]);
     return{mode,filters:selection.filters||{},rows};
   }
-  const skus=Array.from(new Set((Array.isArray(selection.skus)?selection.skus:[]).map(v=>clean(v,64)).filter(Boolean)));
-  if(skus.length>env.MAGALU_SKU_MAX_BATCH_SIZE){const e=new Error(`A seleção excede o máximo de ${env.MAGALU_SKU_MAX_BATCH_SIZE} SKUs.`);e.code="MAGALU_SKU_MASS_TOO_LARGE";e.status=400;throw e;}
-  if(!skus.length)return{mode,filters:{},rows:[]};
-  const {rows}=await db.query(`select sku,title,status,active,last_synced_at,updated_at from magalu.skus where account_id=$1 and is_present=true and sku=any($2::text[]) order by sku asc`,[Number(accountId),skus]);
-  return{mode,filters:{skus},rows};
+  const resolved=await resolveExplicitSkus(accountId,selection.skus);
+  return{mode,filters:{skus:resolved.skus,missing_skus:resolved.missingSkus},rows:resolved.rows,missingSkus:resolved.missingSkus};
 }
 async function createPreview({accountId,dachTenantId,dachUserId,action,selection}){
   const normalized=normalizeAction(action),chosen=await selectedRows(accountId,selection);
@@ -50,7 +65,7 @@ async function createPreview({accountId,dachTenantId,dachUserId,action,selection
   const id=crypto.randomUUID(),expiresAt=new Date(Date.now()+env.MAGALU_SKU_PREVIEW_TTL_SECONDS*1000).toISOString(),changeCount=rows.filter(r=>r.changed).length;
   const {rows:saved}=await db.query(`insert into magalu.sku_mass_previews(id,account_id,dach_tenant_id,dach_user_id,action,selection_mode,filter_payload,rows,selected_count,change_count,expires_at)
     values($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,$11) returning *`,[id,Number(accountId),clean(dachTenantId,160),clean(dachUserId,160),normalized,chosen.mode,JSON.stringify(chosen.filters||{}),JSON.stringify(rows),rows.length,changeCount,expiresAt]);
-  return saved[0];
+  return {...saved[0],missing_skus:chosen.missingSkus||[]};
 }
 async function getPreview(previewId,{dachTenantId,dachUserId}){return db.queryOne(`select * from magalu.sku_mass_previews where id=$1 and dach_tenant_id=$2 and dach_user_id=$3 limit 1`,[String(previewId),clean(dachTenantId,160),clean(dachUserId,160)]);}
 async function createBatchFromPreview(previewId,{dachTenantId,dachUserId}){
@@ -90,4 +105,4 @@ async function setAccepted(itemId,{responseStatus,responsePayload,requestId}){co
 async function finishItem(itemId,{status,afterPayload=null,errorCode=null,errorMessage=null,responseStatus=null,responsePayload=null,requestId=null}={}){const{rows}=await db.query(`update magalu.mass_operation_items set status=$2,after_payload=coalesce($3::jsonb,after_payload),error_code=$4,error_message=$5,response_status=coalesce($6,response_status),response_payload=coalesce($7::jsonb,response_payload),request_id=coalesce($8,request_id),completed_at=case when $2=any($9::text[]) then now() else completed_at end,updated_at=now() where id=$1 returning *`,[Number(itemId),clean(status,40),afterPayload==null?null:JSON.stringify(afterPayload),clean(errorCode,160)||null,errorMessage?String(errorMessage).slice(0,2000):null,Number(responseStatus)||null,responsePayload==null?null:JSON.stringify(responsePayload),clean(requestId,200)||null,FINAL_ITEM_STATES]);if(rows[0])await refreshBatch(rows[0].batch_id);return rows[0]||null;}
 async function refreshBatch(batchId){const row=await db.queryOne(`select count(*)::int total,count(*) filter(where status='succeeded')::int success,count(*) filter(where status='failed')::int failed,count(*) filter(where status='stale')::int stale,count(*) filter(where status='uncertain')::int uncertain,count(*) filter(where status='divergent')::int divergent,count(*) filter(where status='canceled')::int canceled,count(*) filter(where status=any($2::text[]))::int pending from magalu.mass_operation_items where batch_id=$1`,[String(batchId),ACTIVE_ITEM_STATES]);if(!row)return null;let status="running";if(Number(row.pending)===Number(row.total))status="queued";else if(Number(row.pending)>0)status="running";else if(Number(row.failed)+Number(row.stale)+Number(row.uncertain)+Number(row.divergent)+Number(row.canceled)===0)status="completed";else if(Number(row.success)>0)status="partial";else status="failed";return db.queryOne(`update magalu.mass_operation_batches set status=$2,total_count=$3,success_count=$4,failed_count=$5,stale_count=$6,uncertain_count=$7,divergent_count=$8,canceled_count=$9,pending_count=$10,started_at=case when $2<>'queued' then coalesce(started_at,now()) else started_at end,completed_at=case when $2 in('completed','partial','failed','canceled') then now() else null end,updated_at=now() where id=$1 returning *`,[String(batchId),status,row.total,row.success,row.failed,row.stale,row.uncertain,row.divergent,row.canceled,row.pending]);}
 async function cleanupRetention(){const item=await db.query(`delete from magalu.mass_operation_items where (status='succeeded' and completed_at<now()-interval '30 days') or (status in('failed','stale','canceled') and completed_at<now()-interval '60 days') or (status in('uncertain','divergent') and completed_at<now()-interval '90 days')`);const batches=await db.query(`delete from magalu.mass_operation_batches b where not exists(select 1 from magalu.mass_operation_items i where i.batch_id=b.id) and ((b.status='completed' and coalesce(b.completed_at,b.updated_at)<now()-interval '60 days') or (b.status in('partial','failed','canceled') and coalesce(b.completed_at,b.updated_at)<now()-interval '90 days'))`);await db.query(`delete from magalu.sku_mass_previews where expires_at<now()-interval '24 hours'`);return{deleted_items:Number(item.rowCount||0),deleted_batches:Number(batches.rowCount||0)};}
-module.exports={ACTIVE_ITEM_STATES,BLOCKING_ITEM_STATES,listSkus,createPreview,getPreview,createBatchFromPreview,listBatches,batchDetail,getItem,getItemForTenant,claimItem,setDispatching,setAccepted,finishItem,refreshBatch,cleanupRetention,_test:{clean,int,boolFilter,catalogWhere,selectedRows}};
+module.exports={ACTIVE_ITEM_STATES,BLOCKING_ITEM_STATES,listSkus,resolveExplicitSkus,createPreview,getPreview,createBatchFromPreview,listBatches,batchDetail,getItem,getItemForTenant,claimItem,setDispatching,setAccepted,finishItem,refreshBatch,cleanupRetention,_test:{clean,int,boolFilter,normalizeExplicitSkus,catalogWhere,selectedRows}};

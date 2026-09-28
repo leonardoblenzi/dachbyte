@@ -38,7 +38,7 @@ test("Magalu shell mirrors ML interaction model without importing ML runtime", (
   assert.match(html, /mg-sidebar-toggle/);
   assert.match(html, /data-group-toggle="overview"/);
   assert.match(html, /mg-account-menu-toggle/);
-  assert.match(html, /href="\/magalu\/sincronizacao"/);
+  assert.match(html, /href="\/magalu\/integracoes"/);
   assert.match(js, /magalu:shell:collapsed/);
   assert.match(js, /magalu:shell:groups/);
   assert.match(js, /openNavGroup/);
@@ -76,7 +76,7 @@ test("ML parity visual override is loaded after the Magalu base stylesheet", () 
   const html = read("views", "app.html");
   const css = read("public", "css", "magalu-ml-parity.css");
 
-  assert.match(html, /magalu-app\.css\?v=2026092501/);
+  assert.match(html, /magalu-app\.css\?v=2026092802/);
   assert.match(html, /magalu-ml-parity\.css\?v=2026092503/);
   assert.ok(html.indexOf("magalu-app.css") < html.indexOf("magalu-ml-parity.css"));
   assert.match(css, /--mg-ml-sidebar-width:\s*262px/);

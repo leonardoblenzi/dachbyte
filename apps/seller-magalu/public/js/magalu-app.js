@@ -23,13 +23,13 @@
 
   const routes = {
     "/": { title: "Painel", page: "mg-dashboard", group: "overview" },
-    "/catalogo": { title: "SKUs", page: "mg-catalog-page", group: "products" },
+    "/catalogo": { title: "Gestão de catálogo", page: "mg-sku-management-page", group: "products" },
     "/pedidos": { title: "Pedidos", page: "mg-orders-page", group: "orders" },
-    "/gestao-skus": { title: "Gestão de SKUs", page: "mg-sku-management-page", group: "operations" },
+    "/gestao-skus": { title: "Gestão de catálogo", page: "mg-sku-management-page", group: "products" },
     "/precos": { title: "Preços", page: "mg-price-page", group: "operations" },
     "/estoque": { title: "Estoque", page: "mg-stock-page", group: "operations" },
     "/contas": { title: "Contas Magalu", page: "mg-accounts-page", group: "account" },
-    "/sincronizacao": { title: "Sincronização", page: "mg-sync-page", group: "account" },
+    "/sincronizacao": { title: "Integrações", page: "mg-sync-page", group: "account" },
     "/integracoes": { title: "Integrações", page: "mg-sync-page", group: "account" },
     "/usuarios": { title: "Usuários", page: "mg-users-page", group: "account" },
     "/plano": { title: "Plano e créditos", page: "mg-plan-page", group: "account" },
@@ -224,8 +224,9 @@
     const storedOpen = Object.keys(storedGroups).find((key) => storedGroups[key]);
     openNavGroup(meta.group || storedOpen || "overview", { persist: false });
 
-    if (["/", "/catalogo", "/precos", "/estoque"].includes(path)) void loadCatalog();
-    if (path === "/sincronizacao" || path === "/integracoes") void loadSyncCenter();
+    if (path === "/") void loadDashboard();
+    if (["/precos", "/estoque"].includes(path)) void loadCatalog();
+    if (path === "/integracoes") void loadSyncCenter();
   }
 
   async function loadSession() {
@@ -333,6 +334,20 @@
     return status;
   }
 
+  async function loadDashboard() {
+    const account = selected();
+    if (!account) { renderCommercialDashboard(null); return; }
+    try {
+      const data = await fetchJson(`/magalu/api/dashboard?account_id=${account.id}`);
+      renderCommercialDashboard(data);
+      renderOperations(data.operations || []);
+    } catch (error) {
+      console.warn("[magalu] dashboard", error);
+      showAlert(error.message, "danger");
+      renderCommercialDashboard(null);
+    }
+  }
+
   async function loadCatalog() {
     const account = selected();
     if (!account) {
@@ -381,13 +396,14 @@
     const remote = data?.account || {};
     const latest = data?.latest_run || {};
     const scopes = Array.isArray(remote.scopes) ? remote.scopes : (Array.isArray(account?.scopes) ? account.scopes : []);
-    const readCount = REQUIRED_SCOPES.slice(0, 3).filter(([scope]) => scopes.includes(scope)).length;
+    const readCount = scopes.filter((scope) => /:read$/.test(scope)).length;
+    const writeCount = scopes.filter((scope) => /:write$/.test(scope)).length;
 
     $("mg-dashboard-account").textContent = account ? accountLabel(account) : "—";
     $("mg-dashboard-account-status").textContent = remote.status || account?.status || "—";
     $("mg-dashboard-account-status").dataset.state = remote.status || account?.status || "idle";
     $("mg-dashboard-token").textContent = remote.access_expires_at ? `válido até ${formatDate(remote.access_expires_at)}` : "—";
-    $("mg-dashboard-scopes").textContent = `${readCount}/3 escopos de leitura`;
+    $("mg-dashboard-scopes").textContent = `${readCount} leitura · ${writeCount} escrita`;
     $("mg-dashboard-webhooks").textContent = String(data?.webhooks?.active_count ?? 0);
 
     $("mg-dashboard-sync-status").textContent = remote.catalog_sync_status || latest.status || "—";
@@ -396,6 +412,27 @@
     $("mg-dashboard-run-scanned").textContent = latest.scanned_count ?? "—";
     $("mg-dashboard-run-pages").textContent = latest.result?.pages ?? "—";
     $("mg-dashboard-run-error").textContent = latest.error_message || remote.catalog_last_error || "Nenhuma";
+  }
+
+  function renderCommercialDashboard(data) {
+    const catalog = data?.catalog || {}, orders = data?.orders || {}, account = data?.account || {}, latest = data?.latest_run || {};
+    $("kpi-orders-30d").textContent = orders.total ?? "—";
+    $("kpi-orders-today").textContent = data ? `${orders.today ?? 0} hoje · ${orders.last_7d ?? 0} nos últimos 7 dias` : "sem pedidos sincronizados";
+    $("kpi-gmv-30d").textContent = orders.gross_value_30d != null ? money(orders.gross_value_30d) : "—";
+    $("kpi-ticket-30d").textContent = orders.ticket_average_30d != null ? `ticket médio ${money(orders.ticket_average_30d)}` : "ticket médio —";
+    $("kpi-skus").textContent = catalog.published_count ?? "—";
+    $("kpi-catalog-attention").textContent = data ? `${catalog.priced_count ?? 0} com preço · ${catalog.zero_stock_count ?? 0} sem estoque` : "catálogo aguardando sync";
+    $("kpi-zero").textContent = catalog.zero_stock_count ?? "—";
+    $("kpi-sync-status").textContent = account.catalog_sync_status || "aguardando sync";
+    renderDashboard({ account, latest_run:latest, webhooks:data?.webhooks || {} });
+    const deliveries = orders.delivery_statuses || [];
+    const deliveryTotal = deliveries.reduce((total, row) => total + Number(row.total || 0), 0);
+    $("mg-dashboard-deliveries-status").textContent = deliveryTotal ? "sincronizadas" : "aguardando sync";
+    $("mg-dashboard-deliveries-status").dataset.state = deliveryTotal ? "active" : "idle";
+    $("mg-dashboard-orders-today").textContent = orders.today ?? "—";
+    $("mg-dashboard-orders-7d").textContent = orders.last_7d ?? "—";
+    $("mg-dashboard-deliveries-count").textContent = deliveryTotal || "—";
+    $("mg-dashboard-orders-note").textContent = deliveryTotal ? deliveries.slice(0,2).map((row) => `${row.status}: ${row.total}`).join(" · ") : "Aguardando sincronização de pedidos";
   }
 
   function renderCatalog() {

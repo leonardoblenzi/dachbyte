@@ -7,10 +7,10 @@
   <title>DACHBYTE Seller · Magalu</title>
   <link rel="icon" type="image/png" href="/brand/dachbyte/seller/mark-transparent.png">
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-app.css?v=2026092501">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-app.css?v=2026092802">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-ml-parity.css?v=2026092503">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-account.css?v=2026092503">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-sku-management.css?v=2026092801">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-sku-management.css?v=2026092802">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-orders.css?v=2026092801">
 </head>
 <body>
@@ -59,7 +59,7 @@
           <span class="mg-nav__group-arrow">›</span>
         </button>
         <div class="mg-nav__children" hidden>
-          <a href="/magalu/catalogo" data-nav-path="/catalogo" class="mg-nav__item">SKUs</a>
+          <a href="/magalu/gestao-skus" data-nav-path="/gestao-skus" class="mg-nav__item">Gestão de catálogo</a>
         </div>
       </section>
 
@@ -81,7 +81,6 @@
           <span class="mg-nav__group-arrow">›</span>
         </button>
         <div class="mg-nav__children" hidden>
-          <a href="/magalu/gestao-skus" data-nav-path="/gestao-skus" class="mg-nav__item">Gestão de SKUs</a>
           <a href="/magalu/estoque" data-nav-path="/estoque" class="mg-nav__item">Estoque</a>
           <a href="/magalu/precos" data-nav-path="/precos" class="mg-nav__item">Preços</a>
         </div>
@@ -95,7 +94,7 @@
         </button>
         <div class="mg-nav__children" hidden>
           <a href="/magalu/contas" data-nav-path="/contas" class="mg-nav__item">Contas Magalu</a>
-          <a href="/magalu/sincronizacao" data-nav-path="/sincronizacao" class="mg-nav__item">Sincronização</a>
+          <a href="/magalu/integracoes" data-nav-path="/integracoes" class="mg-nav__item">Integrações</a>
         </div>
       </section>
     </nav>
@@ -127,21 +126,29 @@
 
       <section id="mg-dashboard" data-page="/">
         <section class="mg-page-head">
-          <div><span class="mg-kicker">Portfólio Magalu</span><h1>Visão geral da operação</h1><p>Acompanhe a conexão, o catálogo sincronizado e o estado das últimas atualizações.</p></div>
-          <div class="mg-page-actions"><a class="mg-secondary-btn" href="/magalu/sincronizacao">Diagnóstico</a><button class="mg-primary-btn" id="mg-sync-now" type="button">Sincronizar agora</button></div>
+          <div><span class="mg-kicker">Operação Magalu</span><h1>Visão geral da operação</h1><p>Pedidos, faturamento, catálogo e integrações a partir da réplica sincronizada da sua conta.</p></div>
+          <div class="mg-page-actions"><a class="mg-secondary-btn" href="/magalu/integracoes">Integrações</a><button class="mg-primary-btn" id="mg-sync-now" type="button">Sincronizar agora</button></div>
         </section>
 
         <section class="mg-kpi-grid">
-          <article class="mg-kpi"><span>SKUs presentes</span><strong id="kpi-skus">—</strong><small>espelho local</small></article>
-          <article class="mg-kpi"><span>Com preço</span><strong id="kpi-prices">—</strong><small>preço sincronizado</small></article>
-          <article class="mg-kpi"><span>Estoque zerado</span><strong id="kpi-zero">—</strong><small>atenção operacional</small></article>
-          <article class="mg-kpi"><span>Última sincronização</span><strong id="kpi-sync">—</strong><small id="kpi-sync-status">aguardando conta</small></article>
+          <article class="mg-kpi"><span>Pedidos · 30 dias</span><strong id="kpi-orders-30d">—</strong><small id="kpi-orders-today">sem pedidos sincronizados</small></article>
+          <article class="mg-kpi"><span>Faturamento · 30 dias</span><strong id="kpi-gmv-30d">—</strong><small id="kpi-ticket-30d">ticket médio —</small></article>
+          <article class="mg-kpi"><span>SKUs publicados</span><strong id="kpi-skus">—</strong><small id="kpi-catalog-attention">catálogo aguardando sync</small></article>
+          <article class="mg-kpi"><span>Estoque zerado</span><strong id="kpi-zero">—</strong><small id="kpi-sync-status">atenção operacional</small></article>
         </section>
 
         <section class="mg-dashboard-grid">
           <article class="mg-section-card">
             <div class="mg-section-head"><div><span class="mg-kicker">Conexão</span><h2>Conta selecionada</h2></div><span class="mg-pill" id="mg-dashboard-account-status">—</span></div>
             <dl class="mg-facts"><div><dt>Organização</dt><dd id="mg-dashboard-account">—</dd></div><div><dt>Token de acesso</dt><dd id="mg-dashboard-token">—</dd></div><div><dt>Permissões</dt><dd id="mg-dashboard-scopes">—</dd></div><div><dt>Webhooks ativos</dt><dd id="mg-dashboard-webhooks">—</dd></div></dl>
+          </article>
+          <article class="mg-section-card">
+            <div class="mg-section-head"><div><span class="mg-kicker">Entregas</span><h2>Saúde operacional</h2></div><span class="mg-pill" id="mg-dashboard-deliveries-status">—</span></div>
+            <dl class="mg-facts"><div><dt>Pedidos hoje</dt><dd id="mg-dashboard-orders-today">—</dd></div><div><dt>Últimos 7 dias</dt><dd id="mg-dashboard-orders-7d">—</dd></div><div><dt>Entregas rastreadas</dt><dd id="mg-dashboard-deliveries-count">—</dd></div><div><dt>Atualização</dt><dd id="mg-dashboard-orders-note">Aguardando sync</dd></div></dl>
+          </article>
+          <article class="mg-section-card">
+            <div class="mg-section-head"><div><span class="mg-kicker">Ads Magalu</span><h2>Integração comercial</h2></div><span class="mg-pill" data-state="idle">Pendente</span></div>
+            <p class="mg-section-copy"><strong>Integração de Ads pendente</strong><br>Não exibimos investimento, vendas ou ROAS até existir conexão oficial, scopes aprovados e dados sincronizados.</p>
           </article>
           <article class="mg-section-card">
             <div class="mg-section-head"><div><span class="mg-kicker">Sincronização</span><h2>Última execução</h2></div><span class="mg-pill" id="mg-dashboard-sync-status">—</span></div>
@@ -230,9 +237,9 @@
 
         <section class="mg-page-head">
           <div>
-            <span class="mg-kicker">Operações · SKUs</span>
-            <h1>Gestão de SKUs</h1>
-            <p>Selecione produtos, gere um preview e deixe o worker Magalu executar ativações e desativações em segundo plano.</p>
+            <span class="mg-kicker">Produtos · operações protegidas</span>
+            <h1>Gestão de catálogo</h1>
+            <p>Localize por filtros, um SKU ou uma lista. Revise o preview antes de deixar o worker Magalu executar qualquer alteração.</p>
           </div>
           <div class="mg-write-readiness">
             <span id="mg-sku-write-state" data-state="disabled">verificando</span>
@@ -241,7 +248,13 @@
         </section>
 
         <section class="mg-section-card">
-          <div class="mg-toolbar">
+          <div class="mg-sku-input-modes" role="tablist" aria-label="Modo de seleção de SKUs">
+            <button class="mg-secondary-btn is-active" id="mg-sku-mode-filters" data-sku-input-mode="filters" type="button">Filtrar catálogo</button>
+            <button class="mg-secondary-btn" id="mg-sku-mode-single" data-sku-input-mode="single" type="button">Inserir SKU</button>
+            <button class="mg-secondary-btn" id="mg-sku-mode-list" data-sku-input-mode="list" type="button">Colar lista de SKUs</button>
+          </div>
+
+          <div class="mg-toolbar" id="mg-sku-filter-controls" data-sku-input-panel="filters">
             <input id="mg-sku-search" placeholder="Buscar SKU ou título">
             <select id="mg-sku-status">
               <option value="">Todos os status</option>
@@ -260,6 +273,18 @@
             <button class="mg-secondary-btn" id="mg-sku-filter" type="button">Filtrar</button>
             <button class="mg-secondary-btn" id="mg-sku-refresh" type="button">Atualizar</button>
           </div>
+
+          <div class="mg-toolbar" id="mg-sku-single-controls" data-sku-input-panel="single" hidden>
+            <input id="mg-sku-single-input" placeholder="Ex.: SKU-12345" autocomplete="off">
+            <button class="mg-secondary-btn" id="mg-sku-resolve-single" type="button">Validar SKU</button>
+          </div>
+
+          <div class="mg-sku-list-input" id="mg-sku-list-controls" data-sku-input-panel="list" hidden>
+            <label for="mg-sku-list-input">Liste um SKU por linha, ou separe por vírgula e ponto-e-vírgula.</label>
+            <textarea id="mg-sku-list-input" rows="5" placeholder="SKU-12345&#10;SKU-67890, SKU-11111"></textarea>
+            <div><button class="mg-secondary-btn" id="mg-sku-resolve-list" type="button">Validar lista</button></div>
+          </div>
+          <div class="mg-sku-resolution" id="mg-sku-resolution" hidden></div>
 
           <div class="mg-sku-selection-bar">
             <label><input id="mg-sku-select-page" type="checkbox"> Selecionar página</label>
@@ -316,13 +341,13 @@
 
       <section id="mg-stock-page" data-page="/estoque" hidden><section class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Operações · estoque</span><h2>Alteração protegida de estoque</h2><p class="mg-section-copy">A quantidade é absoluta. O worker relê o estado remoto antes de escrever e bloqueia a alteração se houver divergência.</p></div><div class="mg-write-readiness"><span id="mg-stock-write-state" data-state="disabled">desativado</span><small id="mg-stock-write-help">Verificando permissões...</small></div></div><div id="mg-stock-write-list" class="mg-write-list"></div><div class="mg-write-actions"><button class="mg-secondary-btn" data-sync type="button">Atualizar leitura</button><button class="mg-primary-btn" id="mg-stock-preview-btn" type="button" disabled>Gerar preview de estoque</button></div></section></section>
 
-      <section id="mg-sync-page" data-page="/sincronizacao" hidden>
-        <section class="mg-page-head"><div><span class="mg-kicker">Conta · integração</span><h1>Sincronização</h1><p>Teste a API do Portfólio, acompanhe as execuções e identifique exatamente onde uma leitura falhou.</p></div><div class="mg-page-actions"><button class="mg-secondary-btn" id="mg-test-connection" type="button">Testar conexão</button><button class="mg-primary-btn" data-sync type="button">Sincronizar agora</button></div></section>
+      <section id="mg-sync-page" data-page="/integracoes" hidden>
+        <section class="mg-page-head"><div><span class="mg-kicker">Conta · integração</span><h1>Integrações</h1><p>Teste a API do Portfólio, acompanhe as execuções e identifique exatamente onde uma leitura falhou.</p></div><div class="mg-page-actions"><button class="mg-secondary-btn" id="mg-test-connection" type="button">Testar conexão</button><button class="mg-primary-btn" data-sync type="button">Sincronizar agora</button></div></section>
 
         <section class="mg-status-banner" id="mg-sync-banner" data-state="idle"><i></i><div><strong id="mg-sync-banner-title">Aguardando diagnóstico</strong><span id="mg-sync-banner-copy">Selecione uma conta Magalu para consultar o estado da integração.</span></div></section>
 
         <section class="mg-dashboard-grid">
-          <article class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">OAuth</span><h2>Conexão e permissões</h2></div><a class="mg-secondary-btn" id="mg-reconnect-account" href="/magalu/auth/start?return=%2Fmagalu%2Fsincronizacao">Reconectar</a></div><dl class="mg-facts"><div><dt>Conta</dt><dd id="mg-sync-account">—</dd></div><div><dt>Status</dt><dd id="mg-sync-account-status">—</dd></div><div><dt>Access token expira</dt><dd id="mg-sync-token-expiry">—</dd></div><div><dt>Último refresh</dt><dd id="mg-sync-token-refresh">—</dd></div></dl><div id="mg-scope-list" class="mg-scope-list"></div></article>
+          <article class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">OAuth</span><h2>Conexão e permissões</h2></div><a class="mg-secondary-btn" id="mg-reconnect-account" href="/magalu/auth/start?return=%2Fmagalu%2Fintegracoes">Reconectar</a></div><dl class="mg-facts"><div><dt>Conta</dt><dd id="mg-sync-account">—</dd></div><div><dt>Status</dt><dd id="mg-sync-account-status">—</dd></div><div><dt>Access token expira</dt><dd id="mg-sync-token-expiry">—</dd></div><div><dt>Último refresh</dt><dd id="mg-sync-token-refresh">—</dd></div></dl><div id="mg-scope-list" class="mg-scope-list"></div></article>
           <article class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">API Portfólio</span><h2>Teste de acesso</h2></div></div><div id="mg-probe-list" class="mg-probe-list"><div class="mg-empty-state"><strong>Nenhum teste executado</strong><p>Clique em “Testar conexão” para consultar SKU, preço, estoque e o perfil auxiliar do seller.</p></div></div></article>
         </section>
 
@@ -395,9 +420,9 @@
     </main>
   </div>
 </div>
-<script src="/magalu/assets/js/magalu-app.js?v=2026092801"></script>
+    <script src="/magalu/assets/js/magalu-app.js?v=2026092802"></script>
 <script src="/magalu/assets/js/magalu-account.js?v=2026092503"></script>
-<script src="/magalu/assets/js/magalu-sku-management.js?v=2026092801"></script>
+    <script src="/magalu/assets/js/magalu-sku-management.js?v=2026092802"></script>
 <script src="/magalu/assets/js/magalu-orders.js?v=2026092801"></script>
 </body>
 </html>

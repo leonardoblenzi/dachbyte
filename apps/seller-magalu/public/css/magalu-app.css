@@ -140,6 +140,13 @@ code { padding: .12rem .34rem; border-radius: 6px; background: rgba(22,131,232,.
 .mg-toolbar { display: flex; gap: 9px; flex-wrap: wrap; margin: 15px 0; }
 .mg-toolbar input, .mg-toolbar select { min-height: 36px; padding: 0 10px; border: 1px solid var(--mg-line); border-radius: 9px; background: var(--mg-surface); color: var(--mg-text); font-size: 9px; }
 .mg-toolbar input { flex: 1; min-width: 220px; }
+.mg-sku-input-modes { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
+.mg-sku-input-modes .is-active { border-color:var(--mg-primary); color:var(--mg-primary); background:color-mix(in srgb,var(--mg-primary) 10%,var(--mg-surface)); }
+.mg-sku-list-input { margin:15px 0; display:grid; gap:8px; }
+.mg-sku-list-input label { color:var(--mg-muted); font-size:10px; }
+.mg-sku-list-input textarea { width:100%; min-height:96px; resize:vertical; padding:10px; border:1px solid var(--mg-line); border-radius:9px; background:var(--mg-surface); color:var(--mg-text); font:inherit; }
+.mg-sku-resolution { display:grid; gap:4px; margin:0 0 14px; padding:11px 12px; border:1px solid var(--mg-line); border-radius:10px; background:var(--mg-soft); font-size:10px; }
+.mg-sku-resolution span,.mg-sku-resolution small { color:var(--mg-muted); }
 .mg-table-wrap { overflow: auto; border: 1px solid var(--mg-line); border-radius: 12px; }
 .mg-table { width: 100%; border-collapse: collapse; font-size: 9px; }
 .mg-table th, .mg-table td { padding: 10px 11px; border-bottom: 1px solid var(--mg-line); text-align: left; white-space: nowrap; }
