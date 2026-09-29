@@ -27,7 +27,7 @@ async function lookup(accountId, sku) { return db.queryOne(`select s.sku,s.title
 async function coverage(accountId) {
   return db.queryOne(`select count(*) filter(where s.is_present)::int as sku_count,
     count(*) filter(where s.is_present and p.price is not null)::int as priced_skus,
-    count(*) filter(where s.is_present and c.unit_cost is not null)::int as costed_skus
+    count(*) filter(where s.is_present and p.price is not null and c.unit_cost is not null)::int as costed_skus
     from magalu.skus s left join magalu.prices p on p.account_id=s.account_id and p.sku=s.sku
     left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku where s.account_id=$1`, [Number(accountId)]);
 }

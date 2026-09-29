@@ -435,7 +435,8 @@
     $("mg-dashboard-deliveries-status").textContent = deliveryTotal ? "sincronizadas" : "aguardando sync";
     $("mg-dashboard-deliveries-status").dataset.state = deliveryTotal ? "active" : "idle";
     $("mg-dashboard-orders-today").textContent = orders.today ?? "—";
-    $("mg-dashboard-orders-7d").textContent = orders.last_7d ?? "—";
+    $("mg-dashboard-orders-period").textContent = orders.total ?? "—";
+    $("mg-dashboard-orders-period-label").textContent = data?.period?.label || "Período selecionado";
     $("mg-dashboard-deliveries-count").textContent = deliveryTotal || "—";
     $("mg-dashboard-orders-note").textContent = deliveryTotal ? deliveries.slice(0,2).map((row) => `${row.status}: ${row.total}`).join(" · ") : "Aguardando sincronização de pedidos";
     renderDashboardPriorities(data?.priorities || []);
@@ -546,7 +547,8 @@
     if (!skus.length) return showAlert("Informe ao menos um SKU.", "danger");
     try {
       const responses = await Promise.all(skus.map((sku) => fetchJson(`/magalu/api/catalog/skus?account_id=${account.id}&limit=10&q=${encodeURIComponent(sku)}`)));
-      const rows = responses.flatMap((response) => response.rows || []).filter((row, index, all) => all.findIndex((item) => item.sku === row.sku) === index);
+      const candidates = responses.flatMap((response) => response.rows || []);
+      const rows = skus.map((sku) => candidates.find((row) => String(row.sku) === sku)).filter(Boolean);
       state.writeRows[resource] = rows;
       renderWriteRows(resource);
       showAlert(rows.length === skus.length ? `${rows.length} SKU(s) prontos para revisão.` : `${rows.length} SKU(s) encontrados; revise itens ausentes.`, rows.length ? "success" : "warning");

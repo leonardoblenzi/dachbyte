@@ -16,6 +16,7 @@ test("price and stock expose the same explicit SKU selection modes as catalog", 
   }
   assert.match(client, /resolveWriteSelection/);
   assert.match(client, /\/magalu\/api\/catalog\/skus/);
+  assert.match(client, /String\(row\.sku\) === sku/);
   assert.match(client, /\/magalu\/api\/writes\/preview/);
   assert.doesNotMatch(client, /portfolioWriteService/);
 });
