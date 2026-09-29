@@ -219,6 +219,10 @@
   function renderRoute() {
     const path = route();
     const meta = routes[path];
+    const routeKey = path === "/" ? "painel" : path.slice(1);
+    const app = document.querySelector(".mg-app");
+    if (app) app.dataset.routeKey = routeKey;
+    document.documentElement.dataset.magaluRoute = routeKey;
     document.querySelectorAll("[data-page]").forEach((element) => {
       element.hidden = element.dataset.page !== path;
     });

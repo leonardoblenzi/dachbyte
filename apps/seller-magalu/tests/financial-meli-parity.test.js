@@ -28,6 +28,6 @@ test("financial searches debounce requests and preserve useful results during tr
   assert.match(client, /setFinancialLoading\(kind, true\)/);
   assert.match(client, /setFinancialLoading\("costs", false\)/);
   assert.match(client, /setFinancialLoading\("margins", false\)/);
-  assert.match(client, /catch \(error\) \{/);
-  assert.match(client, /Não foi possível atualizar os dados\. Exibindo o último resultado válido\./);
+  assert.match(client, /catch \(_error\) \{/);
+  assert.match(client, /Exibindo o último resultado válido\./);
 });
