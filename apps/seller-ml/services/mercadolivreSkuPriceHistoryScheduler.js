@@ -3,6 +3,7 @@
 const db = require("../db/db");
 const FinanceiroMlSkuCatalogSyncService = require("./financeiroMlSkuCatalogSyncService");
 const { decryptToken } = require("./tokenCrypto");
+const { withPgAdvisoryLock } = require("./pgAdvisoryLock");
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 let started = false;
@@ -142,16 +143,7 @@ async function enqueueWeeklySkuPriceHistory({ accountIds = null, force = false, 
 }
 
 async function withWeeklyPriceHistoryLock(fn) {
-  const lockKey = "ml_weekly_sku_price_history";
-  const lockedResult = await db.query(`select pg_try_advisory_lock(hashtext($1)) as locked`, [lockKey]);
-  if (!lockedResult.rows?.[0]?.locked) {
-    return { skipped: true, reason: "lock_not_acquired" };
-  }
-  try {
-    return await fn();
-  } finally {
-    await db.query(`select pg_advisory_unlock(hashtext($1))`, [lockKey]).catch(() => null);
-  }
+  return withPgAdvisoryLock("ml_weekly_sku_price_history", fn);
 }
 
 async function runDueWeeklySkuPriceHistory(options = {}) {

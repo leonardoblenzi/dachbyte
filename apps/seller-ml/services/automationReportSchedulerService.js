@@ -1,8 +1,8 @@
 "use strict";
 
-const db = require("../db/db");
 const AutomationReportService = require("./automationReportService");
 const AutomationReportRunner = require("./automationReportRunnerService");
+const { withPgAdvisoryLock } = require("./pgAdvisoryLock");
 
 const CHECK_INTERVAL_MS = Math.max(60 * 1000, Number(process.env.REPORT_AUTOMATION_CHECK_INTERVAL_MS || 5 * 60 * 1000));
 const BATCH_LIMIT = Math.max(1, Math.min(50, Number(process.env.REPORT_AUTOMATION_BATCH_LIMIT || 10)));
@@ -12,25 +12,15 @@ let running = false;
 let timer = null;
 
 async function withSchedulerLock(fn) {
-  const lockKey = "ml_report_automations_scheduler";
-  const lockedResult = await db.query(`select pg_try_advisory_lock(hashtext($1)) as locked`, [lockKey]);
-  if (!lockedResult.rows?.[0]?.locked) {
-    return { skipped: true, reason: "lock_not_acquired" };
-  }
-  try {
-    return await fn();
-  } finally {
-    await db.query(`select pg_advisory_unlock(hashtext($1))`, [lockKey]).catch(() => null);
-  }
+  return withPgAdvisoryLock("ml_report_automations_scheduler", fn);
 }
 
 async function runDueAutomations({ now = new Date() } = {}) {
-  return withSchedulerLock(async () => {
+  return withSchedulerLock(async (client) => {
     const output = [];
-    await db.withClient(async (client) => {
-      await client.query("begin");
-      try {
-        const { rows } = await client.query(
+    await client.query("begin");
+    try {
+      const { rows } = await client.query(
           `select *
              from report_automations
             where active = true
@@ -42,8 +32,8 @@ async function runDueAutomations({ now = new Date() } = {}) {
           [now, BATCH_LIMIT],
         );
 
-        for (const row of rows || []) {
-          const automation = AutomationReportService.getAutomation
+      for (const row of rows || []) {
+        const automation = AutomationReportService.getAutomation
             ? {
                 id: Number(row.id),
                 empresa_id: Number(row.empresa_id),
@@ -61,34 +51,33 @@ async function runDueAutomations({ now = new Date() } = {}) {
               }
             : null;
 
-          const run = await AutomationReportService.createRunForAutomation({
+        const run = await AutomationReportService.createRunForAutomation({
             automation,
             scheduledFor: row.next_run_at || now,
             client,
           });
-          const nextRunAt = AutomationReportService.calculateNextRunAt({
+        const nextRunAt = AutomationReportService.calculateNextRunAt({
             frequency: automation.frequency,
             weekday: automation.weekday,
             timeOfDay: automation.time_of_day,
             timezone: automation.timezone,
             from: new Date(Date.now() + 60 * 1000),
           });
-          await client.query(
+        await client.query(
             `update report_automations
                 set next_run_at = $2,
                     updated_at = now()
               where id = $1`,
             [automation.id, nextRunAt],
           );
-          output.push({ automation, run });
+        output.push({ automation, run });
         }
 
-        await client.query("commit");
-      } catch (error) {
-        await client.query("rollback");
-        throw error;
-      }
-    });
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    }
 
     for (const item of output) {
       await AutomationReportRunner.enqueueRun(item.run.id);

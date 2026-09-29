@@ -5,6 +5,9 @@ const { loadRuntimeEnv } = require("../../lib/runtimeEnv");
 const {
   assertTokenEncryptionConfigured,
 } = require("./services/tokenCrypto");
+const {
+  applyRuntimeSecurityDefaults,
+} = require("./services/runtimeSecurityPolicy");
 
 loadRuntimeEnv({
   defaultCandidates: [
@@ -13,7 +16,11 @@ loadRuntimeEnv({
   ],
 });
 
+applyRuntimeSecurityDefaults(process.env);
 assertTokenEncryptionConfigured("bootstrap do worker ML");
+
+const { installMlApiRequestGovernor } = require("./services/mlApiRequestGovernor");
+installMlApiRequestGovernor();
 
 const PromoJobsService = require("./services/promoJobsService");
 const PromoSmartOptimizerService = require("./services/promoSmartOptimizerService");
@@ -26,6 +33,15 @@ const validarDimensoesJobService = require("./services/validarDimensoesJobServic
 const estoqueAlertaQueueService = require("./services/estoqueAlertaQueueService");
 const estoqueAtualizacaoQueueService = require("./services/EstoqueAtualizacaoQueueService");
 const CaracteristicasJobsService = require("./services/caracteristicasJobsService");
+const MeliWebhookQueueService = require("./services/meliWebhookQueueService");
+const {
+  startBullRetentionScheduler,
+  stopBullRetentionScheduler,
+} = require("./services/bullRetentionService");
+const {
+  startDataRetentionScheduler,
+  stopDataRetentionScheduler,
+} = require("./services/mlDataRetentionService");
 
 function boot() {
   PromoJobsService.initWorker();
@@ -39,17 +55,30 @@ function boot() {
   estoqueAtualizacaoQueueService.initWorker();
   validarDimensoesJobService.iniciarWorker();
   CaracteristicasJobsService.initWorker();
+  MeliWebhookQueueService.initWorker();
+  startBullRetentionScheduler();
+  startDataRetentionScheduler();
 
   console.log("[ML Worker] filas principais iniciadas");
 }
 
 boot();
 
-function shutdown(signal) {
+async function shutdown(signal) {
   console.log(`[ML Worker] Recebido ${signal}, encerrando...`);
   try {
     PromoJobsService.stopWorkerHealth?.();
   } catch {}
+  try {
+    await stopBullRetentionScheduler();
+  } catch (error) {
+    console.warn("[ML Worker] Falha ao encerrar scheduler de retencao Bull:", error?.message || error);
+  }
+  try {
+    stopDataRetentionScheduler();
+  } catch (error) {
+    console.warn("[ML Worker] Falha ao encerrar scheduler de retencao de dados:", error?.message || error);
+  }
   process.exit(0);
 }
 

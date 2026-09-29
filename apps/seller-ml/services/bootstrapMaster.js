@@ -3,54 +3,56 @@
 const bcrypt = require("bcryptjs");
 const db = require("../db/db");
 
-function normEmail(s) {
-  return String(s || "")
-    .trim()
-    .toLowerCase();
+function normEmail(value) {
+  return String(value || "").trim().toLowerCase();
 }
 
-function normName(s) {
-  const v = String(s || "").trim();
-  return v || "Master";
+function normName(value) {
+  const clean = String(value || "").trim();
+  return clean || "Master";
 }
 
-function normNivel(s) {
-  return String(s || "")
-    .trim()
-    .toLowerCase();
+function normNivel(value) {
+  return String(value || "").trim().toLowerCase();
 }
 
-// ✅ usa SEMPRE o schema ML se você ativar search_path (explico na parte B)
-// e não depende de quotes estranhos.
-async function ensureMasterUser() {
+function envEnabled(value) {
+  return ["1", "true", "yes", "on"].includes(
+    String(value || "").trim().toLowerCase(),
+  );
+}
+
+async function ensureMasterUser(options = {}) {
   const enabled =
-    String(process.env.ML_BOOTSTRAP_MASTER ?? "true").toLowerCase() === "true";
+    options.enabled === true ||
+    (options.enabled !== false && envEnabled(process.env.ML_BOOTSTRAP_MASTER));
 
   if (!enabled) {
-    console.log(
-      "⚠️ [ML] Bootstrap MASTER desativado (ML_BOOTSTRAP_MASTER=false).",
-    );
-    return { ok: false, skipped: true };
+    console.log("[ML] Bootstrap MASTER desativado por padrao.");
+    return { ok: true, skipped: true, reason: "disabled" };
   }
 
+  const allowPromote =
+    options.allowPromote === true ||
+    envEnabled(process.env.ML_BOOTSTRAP_MASTER_ALLOW_PROMOTE);
   const email = normEmail(process.env.ML_BOOTSTRAP_MASTER_EMAIL);
   const senha = String(process.env.ML_BOOTSTRAP_MASTER_PASSWORD || "");
   const nome = normName(process.env.ML_BOOTSTRAP_MASTER_NAME);
 
   if (!email || !senha) {
-    console.log(
-      "⚠️ [ML] Bootstrap MASTER: faltou ML_BOOTSTRAP_MASTER_EMAIL ou ML_BOOTSTRAP_MASTER_PASSWORD.",
+    const error = new Error(
+      "ML_BOOTSTRAP_MASTER_EMAIL e ML_BOOTSTRAP_MASTER_PASSWORD sao obrigatorios para o bootstrap explicito.",
     );
-    return { ok: false, skipped: true };
+    error.code = "MASTER_BOOTSTRAP_CONFIG_MISSING";
+    throw error;
   }
 
-  // Se quiser forçar senha mínima
-  if (senha.length < 8) {
-    console.log("⚠️ [ML] Bootstrap MASTER: senha muito curta (min 8).");
-    return { ok: false, skipped: true };
+  if (senha.length < 10) {
+    const error = new Error("Senha do MASTER deve ter no minimo 10 caracteres.");
+    error.code = "MASTER_PASSWORD_TOO_SHORT";
+    throw error;
   }
 
-  // ✅ Idempotente: se já existir, não recria
   const { rows } = await db.query(
     `select id, email, nivel
        from usuarios
@@ -61,23 +63,27 @@ async function ensureMasterUser() {
 
   if (rows[0]) {
     const nivel = normNivel(rows[0].nivel);
-    if (nivel !== "admin_master") {
-      await db.query(
-        `update usuarios set nivel = 'admin_master' where id = $1`,
-        [rows[0].id],
-      );
-      console.log(
-        `✅ [ML] Bootstrap MASTER: usuário promovido pra admin_master (${email}).`,
-      );
-    } else {
-      console.log(`✅ [ML] Bootstrap MASTER: já existe (${email}).`);
+    if (nivel === "admin_master") {
+      console.log(`[ML] Bootstrap MASTER: ja existe (${email}).`);
+      return { ok: true, existed: true };
     }
-    return { ok: true, existed: true };
+
+    if (!allowPromote) {
+      const error = new Error(
+        `O email ${email} ja pertence a um usuario ${nivel || "sem nivel"}. Promocao automatica bloqueada.`,
+      );
+      error.code = "MASTER_PROMOTION_REQUIRES_EXPLICIT_OPT_IN";
+      throw error;
+    }
+
+    await db.query(`update usuarios set nivel = 'admin_master' where id = $1`, [
+      rows[0].id,
+    ]);
+    console.warn(`[ML] Bootstrap MASTER: promocao explicita aplicada (${email}).`);
+    return { ok: true, existed: true, promoted: true };
   }
 
-  // ✅ cria do zero
-  const senha_hash = await bcrypt.hash(senha, 10);
-
+  const senha_hash = await bcrypt.hash(senha, 12);
   const created = await db.query(
     `insert into usuarios (nome, email, senha_hash, nivel)
      values ($1, $2, $3, 'admin_master')
@@ -85,10 +91,7 @@ async function ensureMasterUser() {
     [nome, email, senha_hash],
   );
 
-  console.log(
-    `✅ [ML] Bootstrap MASTER: criado (${created.rows[0].email}) nivel=${created.rows[0].nivel}`,
-  );
-
+  console.log(`[ML] Bootstrap MASTER: criado (${created.rows[0].email}).`);
   return { ok: true, created: true };
 }
 

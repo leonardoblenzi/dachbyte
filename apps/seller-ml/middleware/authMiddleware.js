@@ -4,12 +4,8 @@ const TokenService = require("../services/tokenService");
 
 // Rotas/métodos que não precisam de token ML (evita refresh desnecessário)
 const SKIP_PATHS = [
-  // ✅ Admin do sistema NÃO deve depender de token ML / conta selecionada
-  // (MASTER precisa conseguir entrar no painel mesmo sem meli_conta_id)
   /^\/admin(?:\/|$)/i,
   /^\/api\/admin(?:\/|$)/i,
-
-  // ✅ Páginas públicas / escolha de conta (não precisa token ML)
   /^\/login(?:\/|$)/i,
   /^\/cadastro(?:\/|$)/i,
   /^\/selecao-plataforma(?:\/|$)/i,
@@ -20,19 +16,13 @@ const SKIP_PATHS = [
   /^\/select-conta(?:\/|$)/i,
   /^\/vincular-conta(?:\/|$)/i,
   /^\/conta\/contas(?:\/|$)/i,
-
-  // ✅ OAuth / seleção/vinculação (não precisa token ML)
-  // (mais seguro: pula tudo do /api/meli e /api/account)
   /^\/api\/meli(?:\/|$)/i,
   /^\/api\/account(?:\/|$)/i,
   /^\/api\/integrations(?:\/|$)/i,
-
-  // health checks (se você quiser PROTEGER esses também, remova daqui)
   /^\/api\/health(?:\/|$)/i,
   /^\/health(?:\/|$)/i,
   /^\/api\/system\/health(?:\/|$)/i,
   /^\/api\/system\/stats(?:\/|$)/i,
-  // polling/download filtro-anuncios (não precisa token ML)
   /^\/api\/analytics\/filtro-anuncios\/jobs$/i,
   /^\/api\/analytics\/filtro-anuncios\/jobs\/[^\/]+(?:\/|$)/i,
 ];
@@ -45,9 +35,6 @@ function isSkipped(req) {
   return SKIP_PATHS.some((rx) => rx.test(p));
 }
 
-// =====================
-// Helpers: base path (suite /ml vs standalone /)
-// =====================
 function mountBase(req) {
   const b = String(req.baseUrl || "");
   const i = b.indexOf("/api/");
@@ -84,11 +71,8 @@ function attachAuthContext(req, res, accessToken) {
 
   res.locals.accessToken = accessToken || null;
   creds.access_token = accessToken || creds.access_token || null;
-
-  // Compat com código legado
   req.access_token = accessToken || null;
 
-  // Atalho útil em handlers
   req.ml = {
     accessToken: accessToken || null,
     creds,
@@ -96,144 +80,99 @@ function attachAuthContext(req, res, accessToken) {
     accountLabel: res?.locals?.accountLabel || null,
     accountMode: res?.locals?.accountMode || null,
   };
+
+  // Evita /users/me por request. A identidade do seller já veio da conta
+  // carregada pelo ensureAccount e é suficiente para logs/contexto local.
+  const sellerId = Number(creds.meli_user_id);
+  if (Number.isFinite(sellerId) && sellerId > 0) {
+    req.user_data = {
+      user_id: sellerId,
+      nickname: res?.locals?.accountLabel || creds.account_label || null,
+    };
+  }
 }
 
 function wantsHtml(req) {
-  // Evita tratar fetch "*/*" como HTML
   const accept = String(req.headers?.accept || "").toLowerCase();
   return (
     accept.includes("text/html") || accept.includes("application/xhtml+xml")
   );
 }
 
-/**
- * Decide para onde redirecionar quando falhar token.
- * - Se não há conta selecionada -> /select-conta
- * - Se há conta, mas falta refresh_token -> /vincular-conta
- */
 function computeRedirectForTokenFailure(req, res) {
   const creds = res?.locals?.mlCreds || {};
   const hasConta = !!creds.meli_conta_id || !!res?.locals?.accountKey;
-
-  // ✅ IMPORTANTE: quando o ML app está montado na Suite em /ml,
-  // redirects precisam incluir o prefixo /ml, senão cai na Suite e vira 404.
   if (hasConta && !creds.refresh_token) return withBase(req, "/vincular-conta");
   return withBase(req, "/select-conta");
 }
 
 function build401Payload(message, req, res, extra = {}) {
-  const account = getAccountMeta(res);
-  const redirect = computeRedirectForTokenFailure(req, res);
-
   return {
     ok: false,
     error: message,
-    account,
-    redirect,
+    account: getAccountMeta(res),
+    redirect: computeRedirectForTokenFailure(req, res),
     ...extra,
   };
 }
 
-// 🔒 Exige token ML válido
 const authMiddleware = async (req, res, next) => {
   if (isSkipped(req)) return next();
 
   try {
     const creds = ensureCredsBag(res);
-
-    // ✅ Com OAuth, ensureAccount injeta:
-    // creds.meli_conta_id, refresh_token, access_token, access_expires_at, etc.
     const token = await TokenService.renovarTokenSeNecessario(creds);
 
     if (!token) {
       const redirect = computeRedirectForTokenFailure(req, res);
-
       if (wantsHtml(req) && req.method === "GET") return res.redirect(redirect);
-
-      return res
-        .status(401)
-        .json(
-          build401Payload(
-            "Token de acesso indisponível para a conta atual",
-            req,
-            res
-          )
-        );
+      return res.status(401).json(
+        build401Payload(
+          "Token de acesso indisponivel para a conta atual",
+          req,
+          res,
+        ),
+      );
     }
 
     attachAuthContext(req, res, token);
-
-    // (opcional) preenche dados do user para logs/ui
-    try {
-      const teste = await TokenService.testarToken(res.locals.mlCreds);
-      if (teste?.success) {
-        req.user_data = { user_id: teste.user_id, nickname: teste.nickname };
-      }
-    } catch (e) {
-      console.warn(
-        "⚠️ authMiddleware: falha ao testar token:",
-        e?.message || e
-      );
-    }
-
     return next();
   } catch (error) {
-    console.error("❌ authMiddleware:", error?.message || error);
-
+    console.error("authMiddleware:", error?.message || error);
     const redirect = computeRedirectForTokenFailure(req, res);
-
     if (wantsHtml(req) && req.method === "GET") return res.redirect(redirect);
 
-    return res
-      .status(401)
-      .json(
-        build401Payload(
-          "Token inválido e não foi possível renovar: " +
-            (error?.message || "Erro desconhecido"),
-          req,
-          res
-        )
-      );
+    return res.status(401).json(
+      build401Payload(
+        "Nao foi possivel obter um token valido para a conta atual.",
+        req,
+        res,
+        { reason: error?.code || "ml_token_unavailable" },
+      ),
+    );
   }
 };
 
-// 🔓 Não bloqueia se não tiver token (apenas injeta contexto)
 const authMiddlewareOptional = async (req, res, next) => {
   if (isSkipped(req)) return next();
 
   try {
     const creds = ensureCredsBag(res);
-
     let token = null;
     try {
       token = await TokenService.renovarTokenSeNecessario(creds);
-    } catch (e) {
+    } catch (error) {
       console.warn(
-        "⚠️ authMiddlewareOptional: não foi possível obter/renovar token:",
-        e?.message || e
+        "authMiddlewareOptional: nao foi possivel obter/renovar token:",
+        error?.message || error,
       );
     }
 
     attachAuthContext(req, res, token);
-
-    if (token) {
-      try {
-        const teste = await TokenService.testarToken(res.locals.mlCreds);
-        if (teste?.success) {
-          req.user_data = { user_id: teste.user_id, nickname: teste.nickname };
-        }
-      } catch (e) {
-        console.warn(
-          "⚠️ authMiddlewareOptional: falha ao testar token:",
-          e?.message || e
-        );
-      }
-    }
-
     return next();
   } catch (error) {
-    console.warn("⚠️ authMiddlewareOptional:", error?.message || error);
-    return next(); // não bloqueia
+    console.warn("authMiddlewareOptional:", error?.message || error);
+    return next();
   }
 };
 

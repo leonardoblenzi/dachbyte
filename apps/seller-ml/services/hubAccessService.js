@@ -16,14 +16,19 @@ const HUB_DISABLED_VALUES = new Set([
 function normalizeHubConfigValue(raw) {
   const value = String(raw ?? "").trim();
   if (!value) return "";
-  if (HUB_DISABLED_VALUES.has(value.toLowerCase())) {
-    return "";
-  }
+  if (HUB_DISABLED_VALUES.has(value.toLowerCase())) return "";
   return value;
 }
 
+function isProduction() {
+  return String(process.env.NODE_ENV || "").trim().toLowerCase() === "production";
+}
+
 function normalizeEnforcement() {
-  const raw = String(process.env.HUB_AUTH_MODE || process.env.HUB_ENFORCEMENT || "hybrid")
+  const fallback = isProduction() ? "strict" : "hybrid";
+  const raw = String(
+    process.env.HUB_AUTH_MODE || process.env.HUB_ENFORCEMENT || fallback,
+  )
     .trim()
     .toLowerCase();
   if (raw === "off" || raw === "disabled" || raw === "legacy") return "off";
@@ -34,15 +39,11 @@ function normalizeEnforcement() {
 }
 
 function normalizeEmail(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
+  return String(value || "").trim().toLowerCase();
 }
 
 function normalizeDocumentType(value) {
-  const v = String(value || "")
-    .trim()
-    .toUpperCase();
+  const v = String(value || "").trim().toUpperCase();
   if (v === "CPF" || v === "CNPJ") return v;
   return null;
 }
@@ -62,13 +63,15 @@ function parseResponseBody(text) {
 }
 
 async function postJson(url, token, payload) {
-  if (typeof fetch !== "function") {
-    throw new Error("fetch_not_available");
-  }
+  if (typeof fetch !== "function") throw new Error("fetch_not_available");
 
-  const timeoutMs = Number(process.env.HUB_REQUEST_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
+  const configuredTimeout = Number(process.env.HUB_REQUEST_TIMEOUT_MS);
+  const timeoutMs =
+    Number.isFinite(configuredTimeout) && configuredTimeout > 0
+      ? configuredTimeout
+      : DEFAULT_TIMEOUT_MS;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? timeoutMs : DEFAULT_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
@@ -110,7 +113,9 @@ function buildIdentity(input) {
 
   const tenantGlobalId = String(company.tenant_global_id || "").trim();
   const tenantId = tenantGlobalId || `ml_empresa_${company.empresa_id}`;
-  const companyName = String(company.company_name || company.empresa_nome || "").trim();
+  const companyName = String(
+    company.company_name || company.empresa_nome || "",
+  ).trim();
   const userGlobalId = String(user.user_global_id || user.global_id || "").trim();
   const userId = userGlobalId || `ml_user_${user.id}`;
   const fullName = String(user.name || "").trim() || normalizeEmail(user.email);
@@ -139,7 +144,10 @@ function buildIdentity(input) {
 }
 
 async function syncHubIdentity(input) {
-  const hubBaseUrl = normalizeHubConfigValue(process.env.HUB_BASE_URL).replace(/\/+$/, "");
+  const hubBaseUrl = normalizeHubConfigValue(process.env.HUB_BASE_URL).replace(
+    /\/+$/,
+    "",
+  );
   const hubToken = normalizeHubConfigValue(process.env.HUB_INTERNAL_TOKEN);
 
   if (!hubBaseUrl || !hubToken) {
@@ -148,7 +156,11 @@ async function syncHubIdentity(input) {
 
   const identity = buildIdentity(input);
   if (!identity.ok) {
-    return { ok: false, skipped: true, reason: identity.reason || "identity_not_ready" };
+    return {
+      ok: false,
+      skipped: true,
+      reason: identity.reason || "identity_not_ready",
+    };
   }
 
   try {
@@ -162,7 +174,9 @@ async function syncHubIdentity(input) {
       ok: Boolean(response.ok),
       status: response.status,
       ...(response.data || {}),
-      ...(!response.ok ? { reason: response.data?.error || "hub_identity_sync_failed" } : {}),
+      ...(!response.ok
+        ? { reason: response.data?.error || "hub_identity_sync_failed" }
+        : {}),
     };
   } catch (error) {
     return {
@@ -173,19 +187,41 @@ async function syncHubIdentity(input) {
   }
 }
 
+function hubAuthFailure(status, phase) {
+  return {
+    allow: false,
+    reason: "hub_auth_invalid",
+    status,
+    message:
+      phase === "sync"
+        ? "A autenticacao interna com o Hub falhou durante a sincronizacao de identidade."
+        : "A autenticacao interna com o Hub falhou durante a validacao de acesso.",
+  };
+}
+
 async function evaluateHubLoginAccess(input) {
   const enforcement = normalizeEnforcement();
   if (enforcement === "off") {
     return { allow: true, reason: "hub_enforcement_off" };
   }
 
-  const hubBaseUrl = normalizeHubConfigValue(process.env.HUB_BASE_URL).replace(/\/+$/, "");
+  const hubBaseUrl = normalizeHubConfigValue(process.env.HUB_BASE_URL).replace(
+    /\/+$/,
+    "",
+  );
   const hubToken = normalizeHubConfigValue(process.env.HUB_INTERNAL_TOKEN);
   const strict = enforcement === "strict";
   const enforceHubDecision = enforcement === "strict" || enforcement === "hybrid";
   const mirrorOnly = enforcement === "mirror";
 
   if (!hubBaseUrl || !hubToken) {
+    if (strict) {
+      return {
+        allow: false,
+        reason: "hub_not_configured",
+        message: "Hub nao configurado para validacao obrigatoria de acesso.",
+      };
+    }
     return { allow: true, reason: "hub_not_configured" };
   }
 
@@ -195,7 +231,10 @@ async function evaluateHubLoginAccess(input) {
       return { allow: true, reason: identity.reason || "hub_bypass" };
     }
     if (!strict) {
-      return { allow: true, reason: identity.reason || "identity_not_ready_monitor" };
+      return {
+        allow: true,
+        reason: identity.reason || "identity_not_ready_monitor",
+      };
     }
     return {
       allow: false,
@@ -211,20 +250,26 @@ async function evaluateHubLoginAccess(input) {
       identity.payload,
     );
 
-    if (!syncResponse.ok && (syncResponse.status === 401 || syncResponse.status === 403)) {
-      return { allow: true, reason: "hub_auth_invalid_bypass" };
+    if (!syncResponse.ok && [401, 403].includes(Number(syncResponse.status))) {
+      return hubAuthFailure(syncResponse.status, "sync");
     }
 
     if (!syncResponse.ok && strict) {
       return {
         allow: false,
         reason: "hub_identity_sync_failed",
+        status: syncResponse.status || null,
         message: "Nao foi possivel validar identidade da conta no Hub.",
       };
     }
 
     if (mirrorOnly) {
-      return { allow: true, reason: syncResponse.ok ? "hub_identity_synced_mirror" : "hub_identity_sync_failed_mirror" };
+      return {
+        allow: true,
+        reason: syncResponse.ok
+          ? "hub_identity_synced_mirror"
+          : "hub_identity_sync_failed_mirror",
+      };
     }
 
     const syncedIdentity = syncResponse.ok ? syncResponse.data || {} : {};
@@ -235,21 +280,26 @@ async function evaluateHubLoginAccess(input) {
       syncedIdentity.user_id || identity.payload.user_id,
     ).trim();
 
-    const checkResponse = await postJson(`${hubBaseUrl}/v1/access/check`, hubToken, {
-      tenant_id: effectiveTenantId,
-      user_id: effectiveUserId,
-      module: "ml",
-      action: "login",
-    });
+    const checkResponse = await postJson(
+      `${hubBaseUrl}/v1/access/check`,
+      hubToken,
+      {
+        tenant_id: effectiveTenantId,
+        user_id: effectiveUserId,
+        module: "ml",
+        action: "login",
+      },
+    );
 
     if (!checkResponse.ok) {
-      if (checkResponse.status === 401 || checkResponse.status === 403) {
-        return { allow: true, reason: "hub_auth_invalid_bypass" };
+      if ([401, 403].includes(Number(checkResponse.status))) {
+        return hubAuthFailure(checkResponse.status, "access");
       }
       if (strict) {
         return {
           allow: false,
           reason: "hub_access_check_failed",
+          status: checkResponse.status || null,
           message: "Nao foi possivel validar permissao de acesso no Hub.",
         };
       }
@@ -258,8 +308,13 @@ async function evaluateHubLoginAccess(input) {
 
     const data = checkResponse.data || {};
     if (!data.allow && !enforceHubDecision) {
-      return { allow: true, reason: data.reason || "hub_denied_monitor", message: data.message || null };
+      return {
+        allow: true,
+        reason: data.reason || "hub_denied_monitor",
+        message: data.message || null,
+      };
     }
+
     return {
       allow: Boolean(data.allow),
       reason: data.reason || (data.allow ? "ok" : "hub_denied"),
@@ -284,4 +339,3 @@ module.exports = {
   evaluateHubLoginAccess,
   syncHubIdentity,
 };
-

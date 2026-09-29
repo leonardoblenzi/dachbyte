@@ -6,6 +6,9 @@ const { loadRuntimeEnv } = require("../../lib/runtimeEnv");
 const {
   assertTokenEncryptionConfigured,
 } = require("./services/tokenCrypto");
+const {
+  applyRuntimeSecurityDefaults,
+} = require("./services/runtimeSecurityPolicy");
 
 loadRuntimeEnv({
   defaultCandidates: [
@@ -14,7 +17,11 @@ loadRuntimeEnv({
   ],
 });
 
+applyRuntimeSecurityDefaults(process.env);
 assertTokenEncryptionConfigured("bootstrap do app ML");
+
+const { installMlApiRequestGovernor } = require("./services/mlApiRequestGovernor");
+installMlApiRequestGovernor();
 
 const createMlAppBase = require("./app");
 

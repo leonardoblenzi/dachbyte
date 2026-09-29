@@ -1,10 +1,14 @@
 "use strict";
 
-const fetch = require("node-fetch");
 const db = require("../db/db");
 const TokenService = require("./tokenService");
 const { decryptToken } = require("./tokenCrypto");
 const { getSharedRedis } = require("../lib/redisClient");
+const {
+  ML_API_ORIGIN,
+  buildPromotionResourceUrl,
+  validateWebhookNotification,
+} = require("./meliWebhookSecurity");
 
 const ttlFromEnv = Number(process.env.PROMO_OFFER_REF_TTL_SEC);
 const maxFromEnv = Number(process.env.PROMO_OFFER_REF_MAX_PER_BUCKET);
@@ -21,6 +25,13 @@ function toNum(value) {
 function normalizePromotionType(value) {
   const text = String(value || "").trim().toUpperCase();
   return text || null;
+}
+
+function normalizeStatus(value) {
+  if (value && typeof value === "object") {
+    return String(value.id || value.status || "").trim() || null;
+  }
+  return String(value || "").trim() || null;
 }
 
 function nowIso() {
@@ -48,35 +59,40 @@ function bucketPromotionToken(promotion_id) {
   return String(promotion_id || "__none__").trim();
 }
 
-function buildMlUrl(resource = "") {
-  const path = String(resource || "").trim();
-  if (!path) return null;
-  const absolute = /^https?:\/\//i.test(path)
-    ? path
-    : `https://api.mercadolibre.com${path.startsWith("/") ? path : `/${path}`}`;
-
-  if (!/seller-promotions\//i.test(absolute)) return absolute;
-  if (/[?&]app_version=/i.test(absolute)) return absolute;
-  return `${absolute}${absolute.includes("?") ? "&" : "?"}app_version=v2`;
+function assertMlApiUrl(url) {
+  let parsed;
+  try {
+    parsed = new URL(String(url || ""));
+  } catch {
+    throw new Error("URL Mercado Livre invalida.");
+  }
+  if (parsed.protocol !== "https:" || parsed.origin !== ML_API_ORIGIN) {
+    const error = new Error("Destino externo bloqueado para chamada autenticada Mercado Livre.");
+    error.code = "ML_AUTH_FETCH_ORIGIN_BLOCKED";
+    throw error;
+  }
+  return parsed.toString();
 }
 
 async function authFetch(url, mlCreds = {}, init = {}) {
-  const token = await TokenService.renovarTokenSeNecessario(mlCreds);
-  const headers = {
-    Accept: "application/json",
-    ...(init.headers || {}),
-    Authorization: `Bearer ${token}`,
-  };
-  return fetch(url, { ...init, headers });
+  const safeUrl = assertMlApiUrl(url);
+  return TokenService.fetchAutenticado(
+    safeUrl,
+    mlCreds,
+    {
+      ...init,
+      headers: {
+        Accept: "application/json",
+        ...(init.headers || {}),
+      },
+    },
+    { retryOn401: true },
+  );
 }
 
 function decodeStoredToken(raw) {
   if (!raw) return null;
-  try {
-    return decryptToken(raw);
-  } catch {
-    return raw;
-  }
+  return decryptToken(raw);
 }
 
 async function listAccountsForMeliUser(meliUserId) {
@@ -121,29 +137,20 @@ function normalizeOfferPayload(payload = {}, meta = {}) {
   return {
     meli_conta_id: toNum(meta.meli_conta_id),
     meli_user_id: toNum(meta.meli_user_id),
-    item_id: String(
-      payload.item_id ||
-        payload.item?.id ||
-        payload.itemId ||
-        payload.item?.item_id ||
-        "",
-    ).trim() || null,
-    promotion_id: String(
-      payload.promotion_id ||
-        payload.promotion?.id ||
-        payload.id ||
-        payload.promotionId ||
-        "",
-    ).trim() || null,
+    item_id:
+      String(payload.item_id || payload.item?.id || payload.itemId || payload.item?.item_id || "").trim() || null,
+    promotion_id:
+      String(payload.promotion_id || payload.promotion?.id || payload.promotionId || "").trim() || null,
     promotion_type: normalizePromotionType(
       payload.promotion_type || payload.type || payload.promotion?.type,
     ),
     offer_id: String(payload.offer_id || payload.id || "").trim() || null,
     candidate_id:
       String(payload.candidate_id || payload.candidate?.id || "").trim() || null,
-    offer_status: String(payload.status || "").trim() || null,
-    candidate_status:
-      String(payload.candidate_status || payload.candidate?.status || "").trim() || null,
+    offer_status: normalizeStatus(payload.status || payload.offer_status),
+    candidate_status: normalizeStatus(
+      payload.candidate_status || payload.candidate?.status,
+    ),
     source_topic: String(meta.source_topic || "public_offers"),
     source_resource: String(meta.source_resource || "").trim() || null,
     payload_json: payload && typeof payload === "object" ? payload : {},
@@ -154,22 +161,18 @@ function normalizeCandidatePayload(payload = {}, meta = {}) {
   return {
     meli_conta_id: toNum(meta.meli_conta_id),
     meli_user_id: toNum(meta.meli_user_id),
-    item_id: String(
-      payload.item_id || payload.item?.id || payload.itemId || "",
-    ).trim() || null,
-    promotion_id: String(
-      payload.promotion_id || payload.promotion?.id || payload.promotionId || "",
-    ).trim() || null,
+    item_id:
+      String(payload.item_id || payload.item?.id || payload.itemId || "").trim() || null,
+    promotion_id:
+      String(payload.promotion_id || payload.promotion?.id || payload.promotionId || "").trim() || null,
     promotion_type: normalizePromotionType(
       payload.promotion_type || payload.type || payload.promotion?.type,
     ),
     offer_id: String(payload.offer_id || "").trim() || null,
-    candidate_id: String(
-      payload.candidate_id || payload.id || payload.candidate?.id || "",
-    ).trim() || null,
-    offer_status: String(payload.offer_status || "").trim() || null,
-    candidate_status:
-      String(payload.status || payload.candidate?.status || "").trim() || null,
+    candidate_id:
+      String(payload.candidate_id || payload.id || payload.candidate?.id || "").trim() || null,
+    offer_status: normalizeStatus(payload.offer_status),
+    candidate_status: normalizeStatus(payload.status || payload.candidate?.status),
     source_topic: String(meta.source_topic || "public_candidates"),
     source_resource: String(meta.source_resource || "").trim() || null,
     payload_json: payload && typeof payload === "object" ? payload : {},
@@ -245,7 +248,10 @@ async function upsertPromoOfferRef(record = {}) {
   if (!merged) existing.unshift(normalized);
 
   existing = existing
-    .sort((a, b) => Date.parse(b?.last_seen_at || 0) - Date.parse(a?.last_seen_at || 0))
+    .sort(
+      (a, b) =>
+        Date.parse(b?.last_seen_at || 0) - Date.parse(a?.last_seen_at || 0),
+    )
     .slice(0, Math.max(1, OFFER_REF_MAX_PER_BUCKET));
 
   const ttl = Math.max(300, OFFER_REF_TTL_SECONDS);
@@ -256,58 +262,58 @@ async function upsertPromoOfferRef(record = {}) {
   return { ok: true, mode: merged ? "update" : "insert", key: bucketKey };
 }
 
-async function fetchResourcePayload(resource, mlCreds) {
-  const url = buildMlUrl(resource);
-  if (!url) return null;
+async function fetchResourcePayload(resource, topic, mlCreds) {
+  const url = buildPromotionResourceUrl(resource, topic);
   const response = await authFetch(url, mlCreds, {});
   const text = await response.text().catch(() => "");
   let payload = null;
   try {
     payload = text ? JSON.parse(text) : null;
   } catch {
-    payload = { raw: text };
+    payload = { raw: text.slice(0, 1000) };
   }
   if (!response.ok) {
-    const error = new Error(payload?.message || payload?.error || `HTTP ${response.status}`);
+    const error = new Error(
+      payload?.message || payload?.error || `HTTP ${response.status}`,
+    );
     error.status = response.status;
-    error.payload = payload;
     throw error;
   }
   return payload;
 }
 
 async function ingestForAccount(account, notification = {}) {
-  const topic = String(notification.topic || "").trim().toLowerCase();
-  const resource = String(notification.resource || "").trim();
-  if (!resource) {
-    return { ok: false, skipped: true, reason: "resource_missing" };
+  const validation = validateWebhookNotification(notification);
+  if (!validation.ok) {
+    return { ok: false, skipped: true, reason: validation.reason };
   }
 
-  if (!["public_offers", "public_candidates"].includes(topic)) {
-    return { ok: false, skipped: true, reason: "topic_not_supported" };
-  }
-
-  const payload = await fetchResourcePayload(resource, account);
+  const safeNotification = validation.notification;
+  const payload = await fetchResourcePayload(
+    safeNotification.resource,
+    safeNotification.topic,
+    account,
+  );
   const normalized =
-    topic === "public_offers"
+    safeNotification.topic === "public_offers"
       ? normalizeOfferPayload(payload, {
           meli_conta_id: account.meli_conta_id,
           meli_user_id: account.meli_user_id,
-          source_topic: topic,
-          source_resource: resource,
+          source_topic: safeNotification.topic,
+          source_resource: safeNotification.resource,
         })
       : normalizeCandidatePayload(payload, {
           meli_conta_id: account.meli_conta_id,
           meli_user_id: account.meli_user_id,
-          source_topic: topic,
-          source_resource: resource,
+          source_topic: safeNotification.topic,
+          source_resource: safeNotification.resource,
         });
 
   const stored = await upsertPromoOfferRef(normalized);
   return {
     ok: true,
-    topic,
-    resource,
+    topic: safeNotification.topic,
+    resource: safeNotification.resource,
     meli_conta_id: account.meli_conta_id,
     stored,
     normalized,
@@ -315,47 +321,48 @@ async function ingestForAccount(account, notification = {}) {
 }
 
 async function consumeNotification(notification = {}) {
-  const topic = String(notification.topic || "").trim().toLowerCase();
-  const meliUserId = toNum(notification.user_id);
-  if (!topic || !meliUserId) {
+  const validation = validateWebhookNotification(notification);
+  if (!validation.ok) {
     return {
       ok: false,
-      error: "topic e user_id são obrigatórios.",
+      skipped: true,
+      reason: validation.reason,
+      error: "Notificacao Mercado Livre invalida.",
     };
   }
 
-  const accounts = await listAccountsForMeliUser(meliUserId);
+  const safeNotification = validation.notification;
+  const accounts = await listAccountsForMeliUser(safeNotification.user_id);
   if (!accounts.length) {
     return {
       ok: true,
       skipped: true,
       reason: "account_not_found",
-      topic,
-      user_id: meliUserId,
+      topic: safeNotification.topic,
+      user_id: safeNotification.user_id,
     };
   }
 
   const results = [];
   for (const account of accounts) {
     try {
-      const result = await ingestForAccount(account, notification);
+      const result = await ingestForAccount(account, safeNotification);
       results.push(result);
     } catch (error) {
       results.push({
         ok: false,
-        topic,
+        topic: safeNotification.topic,
         meli_conta_id: account.meli_conta_id,
         error: error?.message || String(error),
         status: error?.status || null,
-        payload: error?.payload || null,
       });
     }
   }
 
   return {
     ok: true,
-    topic,
-    user_id: meliUserId,
+    topic: safeNotification.topic,
+    user_id: safeNotification.user_id,
     results,
   };
 }
@@ -382,7 +389,10 @@ async function findOfferRefs({
   if (promotion_id) {
     promotionTokens.push(bucketPromotionToken(promotion_id));
   } else {
-    const indexKey = itemPromotionIndexKey({ meli_conta_id: contaId, item_id: mlb });
+    const indexKey = itemPromotionIndexKey({
+      meli_conta_id: contaId,
+      item_id: mlb,
+    });
     const listed = await redis.smembers(indexKey).catch(() => []);
     promotionTokens.push(...(Array.isArray(listed) ? listed : []));
   }
@@ -411,7 +421,9 @@ async function findOfferRefs({
   return rows
     .filter((row) => {
       if (!row || String(row.item_id || "").toUpperCase() !== mlb) return false;
-      if (promotion_id && String(row.promotion_id || "") !== promotion_id) return false;
+      if (promotion_id && String(row.promotion_id || "") !== promotion_id) {
+        return false;
+      }
       if (
         promotion_type &&
         String(row.promotion_type || "").toUpperCase() !== promotion_type
@@ -431,7 +443,9 @@ async function findOfferRefs({
       const aHasOffer = a?.offer_id ? 0 : 1;
       const bHasOffer = b?.offer_id ? 0 : 1;
       if (aHasOffer !== bHasOffer) return aHasOffer - bHasOffer;
-      return Date.parse(b?.last_seen_at || 0) - Date.parse(a?.last_seen_at || 0);
+      return (
+        Date.parse(b?.last_seen_at || 0) - Date.parse(a?.last_seen_at || 0)
+      );
     })
     .slice(0, max);
 }

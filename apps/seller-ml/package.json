@@ -12,13 +12,18 @@
     "worker": "node worker.js",
     "test:jobs-panel": "node --test tests/jobs-panel-adapters.test.js tests/job-contract.test.js tests/job-review-helper.test.js tests/filtro-job-reconciliation.test.js tests/filtro-promo-snapshot.test.js",
     "test:anuncio-cadastro": "node --test tests/anuncio-cadastro.test.js tests/anuncio-cadastro-migrations.test.js tests/anuncio-cadastro-shared-regressions.test.js",
+    "test:stage1-security": "node --test tests/meli-webhook-security.test.js tests/ml-hub-access-service.test.js",
+    "test:stage2-tokens": "node --test tests/ml-token-refresh-policy.test.js tests/ml-token-refresh-lock.test.js tests/ml-token-stage2-contract.test.js",
     "tokens:encrypt": "node scripts/encrypt-existing-tokens.js",
+    "master:bootstrap": "node scripts/bootstrap-master.js",
     "hub:ml-accounts:backfill": "node scripts/backfill-hub-ml-accounts.js",
     "hub:ml-accounts:backfill:direct": "node scripts/backfill-hub-ml-accounts-direct.js",
     "ranking:backfill": "node scripts/backfill-ranking-snapshots.js",
     "ranking:monthly": "node scripts/run-ranking-monthly-snapshots.js",
     "reputation:daily": "node scripts/run-reputation-daily-snapshots.js",
-    "sku-price-history:weekly": "node scripts/run-sku-price-history-weekly.js"
+    "sku-price-history:weekly": "node scripts/run-sku-price-history-weekly.js",
+    "test:stage3-queues": "node --test tests/ml-api-governor-stage3.test.js tests/ml-bull-retention-stage3.test.js tests/ml-stage3-contract.test.js",
+    "test:stage4-data": "node --test tests/ml-pg-advisory-lock-stage4.test.js tests/ml-data-retention-stage4.test.js tests/ml-stage4-contract.test.js"
   },
   "engines": {
     "node": ">=20"

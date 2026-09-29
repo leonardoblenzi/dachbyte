@@ -1,25 +1,14 @@
 // services/ml-auth.js
-// Adaptador para obter access_token por conta usando seu services/tokenService.js
-// Suporta múltiplas contas via variáveis de ambiente prefixadas por conta:
-//   ML_<ACCOUNT>_APP_ID
-//   ML_<ACCOUNT>_CLIENT_SECRET
-//   ML_<ACCOUNT>_REFRESH_TOKEN
-//   ML_<ACCOUNT>_ACCESS_TOKEN  (opcional; será atualizado após renovação)
-//   ML_<ACCOUNT>_REDIRECT_URI  (opcional)
-//
-// Fallbacks globais (sem prefixo) também são aceitos: APP_ID, CLIENT_SECRET, REFRESH_TOKEN,
-// ACCESS_TOKEN, REDIRECT_URI, ML_APP_ID, ML_CLIENT_SECRET, ML_REFRESH_TOKEN, ML_REDIRECT_URI.
-// Mantém compatibilidade com seu TokenService (renovarTokenSeNecessario).
+// Adaptador legado/per-account para obter access_token usando TokenService.
+"use strict";
 
-'use strict';
-
-const TokenService = require('./tokenService');
-const { isProductionEnvironment } = require('../../../lib/runtimeEnv');
+const TokenService = require("./tokenService");
+const { isProductionEnvironment } = require("../../../lib/runtimeEnv");
 
 function normKey(accountId) {
-  return String(accountId || '')
+  return String(accountId || "")
     .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '_');
+    .replace(/[^A-Z0-9]/g, "_");
 }
 
 function pickEnv(name) {
@@ -29,66 +18,65 @@ function pickEnv(name) {
 function resolveCredsForAccount(accountId) {
   const K = normKey(accountId);
 
-  // Credenciais por conta (preferência)
   const perAccount = {
-    app_id:        pickEnv(`ML_${K}_APP_ID`),
+    app_id: pickEnv(`ML_${K}_APP_ID`),
     client_secret: pickEnv(`ML_${K}_CLIENT_SECRET`),
     refresh_token: pickEnv(`ML_${K}_REFRESH_TOKEN`),
-    access_token:  pickEnv(`ML_${K}_ACCESS_TOKEN`),
-    redirect_uri:  pickEnv(`ML_${K}_REDIRECT_URI`),
+    access_token: pickEnv(`ML_${K}_ACCESS_TOKEN`),
+    access_expires_at: pickEnv(`ML_${K}_ACCESS_EXPIRES_AT`),
+    redirect_uri: pickEnv(`ML_${K}_REDIRECT_URI`),
   };
 
-  // Fallbacks globais
   const globalCreds = {
     app_id:
-      pickEnv('APP_ID') ||
-      pickEnv('ML_APP_ID') ||
-      pickEnv('MERCADOLIBRE_APP_ID'),
+      pickEnv("APP_ID") ||
+      pickEnv("ML_APP_ID") ||
+      pickEnv("MERCADOLIBRE_APP_ID"),
     client_secret:
-      pickEnv('CLIENT_SECRET') ||
-      pickEnv('ML_CLIENT_SECRET') ||
-      pickEnv('MERCADOLIBRE_CLIENT_SECRET'),
+      pickEnv("CLIENT_SECRET") ||
+      pickEnv("ML_CLIENT_SECRET") ||
+      pickEnv("MERCADOLIBRE_CLIENT_SECRET"),
     refresh_token:
-      pickEnv('REFRESH_TOKEN') ||
-      pickEnv('ML_REFRESH_TOKEN') ||
-      pickEnv('MERCADOLIBRE_REFRESH_TOKEN'),
+      pickEnv("REFRESH_TOKEN") ||
+      pickEnv("ML_REFRESH_TOKEN") ||
+      pickEnv("MERCADOLIBRE_REFRESH_TOKEN"),
     access_token:
-      pickEnv('ACCESS_TOKEN') ||
-      pickEnv('MERCADOLIBRE_ACCESS_TOKEN'),
-    redirect_uri:
-      pickEnv('REDIRECT_URI') ||
-      pickEnv('ML_REDIRECT_URI'),
+      pickEnv("ACCESS_TOKEN") || pickEnv("MERCADOLIBRE_ACCESS_TOKEN"),
+    access_expires_at:
+      pickEnv("ACCESS_EXPIRES_AT") || pickEnv("ML_ACCESS_EXPIRES_AT"),
+    redirect_uri: pickEnv("REDIRECT_URI") || pickEnv("ML_REDIRECT_URI"),
   };
 
   return {
-    // ordem: per-account -> global
-    app_id:        perAccount.app_id        || globalCreds.app_id,
+    app_id: perAccount.app_id || globalCreds.app_id,
     client_secret: perAccount.client_secret || globalCreds.client_secret,
     refresh_token: perAccount.refresh_token || globalCreds.refresh_token,
-    access_token:  perAccount.access_token  || globalCreds.access_token,
-    redirect_uri:  perAccount.redirect_uri  || globalCreds.redirect_uri,
-    account_key:   accountId, // para logs do seu TokenService
+    access_token: perAccount.access_token || globalCreds.access_token,
+    access_expires_at:
+      perAccount.access_expires_at || globalCreds.access_expires_at || null,
+    redirect_uri: perAccount.redirect_uri || globalCreds.redirect_uri,
+    account_key: accountId,
   };
 }
 
-/**
- * Obtém (ou renova) o access_token válido para a conta informada.
- * Retorna uma STRING com o token pronto para uso (Authorization: Bearer <token>).
- */
-async function getAccessTokenForAccount(accountId /* , req opcional se quiser futuramente */) {
+async function getAccessTokenForAccount(accountId) {
   if (!accountId) {
-    throw new Error('getAccessTokenForAccount: accountId é obrigatório');
+    throw new Error("getAccessTokenForAccount: accountId e obrigatorio");
   }
 
   const creds = resolveCredsForAccount(accountId);
-  // Usa seu TokenService para validar/renovar automaticamente
   const token = await TokenService.renovarTokenSeNecessario(creds);
 
-  // Atualiza variáveis para manter compatibilidade com código legado
   const K = normKey(accountId);
   if (!isProductionEnvironment()) {
-    process.env[`ML_${K}_ACCESS_TOKEN`] = token; // por conta
-    process.env.ACCESS_TOKEN = token; // global (se algum trecho do projeto ainda usa)
+    process.env[`ML_${K}_ACCESS_TOKEN`] = token;
+    if (creds.access_expires_at) {
+      process.env[`ML_${K}_ACCESS_EXPIRES_AT`] = String(creds.access_expires_at);
+    }
+    process.env.ACCESS_TOKEN = token;
+    if (creds.access_expires_at) {
+      process.env.ACCESS_EXPIRES_AT = String(creds.access_expires_at);
+    }
   }
 
   return token;
