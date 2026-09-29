@@ -4,6 +4,7 @@ const express = require("express");
 const db = require("../db/db");
 const TokenService = require("../services/tokenService");
 const { decryptToken } = require("../services/tokenCrypto");
+const { withPgAdvisoryLock } = require("../services/pgAdvisoryLock");
 const {
   getUserId,
   isAdminUserFresh,
@@ -1145,16 +1146,7 @@ async function backfillMonthlySnapshots({ year = new Date().getUTCFullYear(), mo
 }
 
 async function withSnapshotAdvisoryLock(fn) {
-  const lockKey = "ml_ranking_monthly_snapshots";
-  const lockedResult = await db.query(`select pg_try_advisory_lock(hashtext($1)) as locked`, [lockKey]);
-  if (!lockedResult.rows?.[0]?.locked) {
-    return { skipped: true, reason: "lock_not_acquired" };
-  }
-  try {
-    return await fn();
-  } finally {
-    await db.query(`select pg_advisory_unlock(hashtext($1))`, [lockKey]).catch(() => null);
-  }
+  return withPgAdvisoryLock("ml_ranking_monthly_snapshots", fn);
 }
 
 async function runDueMonthlySnapshots({ now = new Date(), accountIds = null } = {}) {

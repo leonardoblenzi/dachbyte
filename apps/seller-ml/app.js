@@ -336,17 +336,46 @@ module.exports = function createMlApp() {
     );
   }
 
+  function isProductionRuntime() {
+    return String(process.env.NODE_ENV || "").trim().toLowerCase() === "production";
+  }
+
   function shouldFailClosedHubGate() {
+    const fallback = isProductionRuntime() ? "strict" : "hybrid";
     const raw = String(
       process.env.ML_HUB_GATE_MODE ||
         process.env.HUB_AUTH_MODE ||
         process.env.HUB_ENFORCEMENT ||
-        "hybrid",
+        fallback,
     )
       .trim()
       .toLowerCase();
 
     return ["strict", "enforce", "enabled"].includes(raw);
+  }
+
+  function hubRequestTimeoutMs() {
+    const configured = Number(
+      process.env.ML_HUB_GATE_TIMEOUT_MS ||
+        process.env.HUB_REQUEST_TIMEOUT_MS ||
+        5000,
+    );
+    if (!Number.isFinite(configured) || configured < 500) return 5000;
+    return Math.min(30000, Math.trunc(configured));
+  }
+
+  async function fetchHubWithTimeout(url, init = {}) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), hubRequestTimeoutMs());
+    timer.unref?.();
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   function allowHubGateBypass(req, res, next, reason, extra = {}) {
@@ -642,7 +671,7 @@ module.exports = function createMlApp() {
         syncResult?.payload?.user_id || identity.userGlobalId,
       ).trim();
 
-      const response = await fetch(`${hubBaseUrl}/v1/access/check`, {
+      const response = await fetchHubWithTimeout(`${hubBaseUrl}/v1/access/check`, {
         method: "POST",
         headers: {
           "content-type": "application/json",

@@ -4,6 +4,7 @@ const { randomUUID } = require("crypto");
 const db = require("../db/db");
 const TokenService = require("./tokenService");
 const { decryptToken } = require("./tokenCrypto");
+const { withPgAdvisoryLock } = require("./pgAdvisoryLock");
 const { prepareAuthState, listActiveSellerItemIds, consultPrazoItemRow } = require("./prazoProducaoService");
 const AdsService = require("./adsService");
 const CompanyAccessService = require("./companyAccessService");
@@ -4877,9 +4878,7 @@ async function returnRoundToTask({ accountKey, empresaId = null, roundId, user =
 }
 async function reviewDueRounds({ limit = 50 } = {}) {
   const today = currentDateSaoPaulo();
-  const lock = await db.query(`select pg_try_advisory_lock(hashtext($1)) as locked`, ["ml_strategic_due_reviews"]);
-  if (!lock.rows?.[0]?.locked) return { success: true, skipped: true, reason: "lock_not_acquired" };
-  try {
+  return withPgAdvisoryLock("ml_strategic_due_reviews", async () => {
     const { rows } = await db.query(`select id from ml_strategic_rounds where status in ('active','ready') and review_due_date <= $1::date order by review_due_date asc, id asc limit $2`, [today, Math.max(1, Math.min(200, Number(limit) || 50))]);
     const output = [];
     for (const row of rows) {
@@ -4892,9 +4891,7 @@ async function reviewDueRounds({ limit = 50 } = {}) {
       }
     }
     return { success: true, checked_date: today, total: rows.length, rows: output };
-  } finally {
-    await db.query(`select pg_advisory_unlock(hashtext($1))`, ["ml_strategic_due_reviews"]).catch(() => null);
-  }
+  });
 }
 function csvEscape(value) {
   const text = value == null ? "" : String(value);
