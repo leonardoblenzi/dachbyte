@@ -15,12 +15,14 @@
     total: 0,
     rows: [],
     writeRows: { price: null, stock: null },
+    operationModes: { price: "filters", stock: "filters" },
     writeStatus: null,
     catalogStatus: null,
     diagnostics: null,
     activePreview: null,
     syncPolling: false,
     dashboardPeriod: "7d",
+    dashboardRequestId: 0,
   };
 
   const routes = {
@@ -269,6 +271,7 @@
   }
 
   function chooseAccount(accountId) {
+    clearWriteSelections();
     state.selectedAccountId = Number(accountId);
     state.offset = 0;
     state.activePreview = null;
@@ -342,8 +345,11 @@
   async function loadDashboard() {
     const account = selected();
     if (!account) { renderCommercialDashboard(null); return; }
+    const requestedPeriod = state.dashboardPeriod;
+    const requestId=++state.dashboardRequestId;
     try {
-      const data = await fetchJson(`/magalu/api/dashboard?account_id=${account.id}&period=${encodeURIComponent(state.dashboardPeriod)}`);
+      const data = await fetchJson(`/magalu/api/dashboard?account_id=${account.id}&period=${encodeURIComponent(requestedPeriod)}`);
+      if (requestId !== state.dashboardRequestId || state.dashboardPeriod !== requestedPeriod || Number(selected()?.id) !== Number(account.id)) return;
       renderCommercialDashboard(data);
       renderOperations(data.operations || []);
     } catch (error) {
@@ -421,22 +427,25 @@
 
   function renderCommercialDashboard(data) {
     const catalog = data?.catalog || {}, orders = data?.orders || {}, account = data?.account || {}, latest = data?.latest_run || {};
+    const periodLabel = data?.period?.label || "Período selecionado";
+    if ($("kpi-orders-period-label")) $("kpi-orders-period-label").textContent = `Pedidos · ${periodLabel}`;
+    if ($("kpi-gmv-period-label")) $("kpi-gmv-period-label").textContent = `Faturamento · ${periodLabel}`;
     $("kpi-orders-30d").textContent = orders.total ?? "—";
-    $("kpi-orders-today").textContent = data ? `${orders.today ?? 0} hoje · ${orders.last_7d ?? 0} nos últimos 7 dias` : "sem pedidos sincronizados";
+    $("kpi-orders-today").textContent = data ? `${orders.today ?? 0} hoje · janela: ${periodLabel.toLowerCase()}` : "sem pedidos sincronizados";
     $("kpi-gmv-30d").textContent = orders.gross_value_30d != null ? money(orders.gross_value_30d) : "—";
     $("kpi-ticket-30d").textContent = orders.ticket_average_30d != null ? `ticket médio ${money(orders.ticket_average_30d)}` : "ticket médio —";
     $("kpi-skus").textContent = catalog.published_count ?? "—";
     $("kpi-catalog-attention").textContent = data ? `${catalog.priced_count ?? 0} com preço · ${catalog.zero_stock_count ?? 0} sem estoque` : "catálogo aguardando sync";
     $("kpi-zero").textContent = catalog.zero_stock_count ?? "—";
     $("kpi-sync-status").textContent = account.catalog_sync_status || "aguardando sync";
-    renderDashboard({ account, latest_run:latest, webhooks:data?.webhooks || {} });
+    renderDashboard(data);
     const deliveries = orders.delivery_statuses || [];
     const deliveryTotal = deliveries.reduce((total, row) => total + Number(row.total || 0), 0);
     $("mg-dashboard-deliveries-status").textContent = deliveryTotal ? "sincronizadas" : "aguardando sync";
     $("mg-dashboard-deliveries-status").dataset.state = deliveryTotal ? "active" : "idle";
     $("mg-dashboard-orders-today").textContent = orders.today ?? "—";
     $("mg-dashboard-orders-period").textContent = orders.total ?? "—";
-    $("mg-dashboard-orders-period-label").textContent = data?.period?.label || "Período selecionado";
+    $("mg-dashboard-orders-period-label").textContent = periodLabel;
     $("mg-dashboard-deliveries-count").textContent = deliveryTotal || "—";
     $("mg-dashboard-orders-note").textContent = deliveryTotal ? deliveries.slice(0,2).map((row) => `${row.status}: ${row.total}`).join(" · ") : "Aguardando sincronização de pedidos";
     renderDashboardPriorities(data?.priorities || []);
@@ -513,11 +522,12 @@
     if (!host) return;
     host.replaceChildren();
     const canWrite = writeCapability(resource);
-    if (!state.rows.length) {
+    const rows = state.writeRows[resource] || state.rows;
+    if (!rows.length) {
       host.innerHTML = '<div class="mg-empty-state"><strong>Nenhum SKU disponível</strong><p>Sincronize o catálogo antes de preparar alterações.</p></div>';
       return;
     }
-    for (const row of (state.writeRows[resource] || state.rows)) {
+    for (const row of rows) {
       const item = document.createElement("div");
       item.className = "mg-write-row";
       item.dataset.sku = row.sku;
@@ -538,12 +548,46 @@
     return [...new Set(String(value || "").split(/[\n,;]/).map((item) => item.trim()).filter(Boolean))].slice(0, 100);
   }
 
+  function activeOperationMode(resource) {
+    return state.operationModes[resource] || "filters";
+  }
+
+  function clearWriteSelections() {
+    state.writeRows.price = null;
+    state.writeRows.stock = null;
+    for (const resource of ["price", "stock"]) {
+      const single = $(`mg-${resource}-sku-input`);
+      const list = $(`mg-${resource}-sku-list`);
+      if (single) single.value = "";
+      if (list) list.value = "";
+    }
+  }
+
+  function setOperationMode(resource, mode) {
+    state.operationModes[resource] = mode;
+    document.querySelectorAll(`[data-operation-target="${resource}"]`).forEach((button) => {
+      const active = button.dataset.operationMode === mode;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    });
+    for (const candidate of ["filters", "single", "list"]) {
+      const panel = $(`mg-${resource}-${candidate}-panel`);
+      if (panel) panel.hidden = candidate !== mode;
+    }
+    if (mode === "filters") {
+      state.writeRows[resource] = null;
+      renderWriteRows(resource);
+    }
+  }
+
   async function resolveWriteSelection(resource) {
     const account = selected();
     if (!account) return showAlert("Selecione uma conta Magalu.", "danger");
-    const single = $(`mg-${resource}-sku-input`)?.value || "";
-    const list = $(`mg-${resource}-sku-list`)?.value || "";
-    const skus = parseExplicitSkus(`${single}\n${list}`);
+    const value = activeOperationMode(resource) === "single"
+      ? ($(`mg-${resource}-sku-input`)?.value || "")
+      : ($(`mg-${resource}-sku-list`)?.value || "");
+    const skus = parseExplicitSkus(value);
     if (!skus.length) return showAlert("Informe ao menos um SKU.", "danger");
     try {
       const responses = await Promise.all(skus.map((sku) => fetchJson(`/magalu/api/catalog/skus?account_id=${account.id}&limit=10&q=${encodeURIComponent(sku)}`)));
@@ -559,13 +603,12 @@
     document.querySelectorAll("[data-operation-mode]").forEach((button) => button.addEventListener("click", () => {
       const resource = button.dataset.operationTarget;
       const mode = button.dataset.operationMode;
-      document.querySelectorAll(`[data-operation-target="${resource}"]`).forEach((item) => item.classList.toggle("is-active", item === button));
-      const explicit = $(`mg-${resource}-explicit`);
-      if (explicit) explicit.hidden = mode === "filters";
-      if (mode === "filters") { state.writeRows[resource] = null; renderWriteRows(resource); }
+      setOperationMode(resource, mode);
     }));
     $("mg-price-resolve")?.addEventListener("click", () => void resolveWriteSelection("price"));
+    $("mg-price-resolve-list")?.addEventListener("click", () => void resolveWriteSelection("price"));
     $("mg-stock-resolve")?.addEventListener("click", () => void resolveWriteSelection("stock"));
+    $("mg-stock-resolve-list")?.addEventListener("click", () => void resolveWriteSelection("stock"));
   }
 
   function collectChanges(resource) {

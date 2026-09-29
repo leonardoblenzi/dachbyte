@@ -28,5 +28,6 @@ test("dashboard communicates actual commerce metrics and keeps Ads as an honest 
 test("order aggregates include ticket average for the selected commercial window", () => {
   const repository = read("src/repositories/orderRepository.js");
   assert.match(repository, /ticket_average_30d/);
-  assert.match(repository, /purchased_at>=now\(\)-\(\$2::int \* interval '1 day'\)/);
+  assert.match(repository, /purchased_at>=now\(\)-\(\(\$2::int \+ \$3::int\) \* interval '1 day'\)/);
+  assert.match(repository, /purchased_at<now\(\)-\(\$3::int \* interval '1 day'\)/);
 });

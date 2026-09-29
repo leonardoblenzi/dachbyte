@@ -19,3 +19,15 @@ test("Magalu pricing has filterable costs and margin plus a guided calculator", 
   assert.match(client, /mg-financial-margin-search/);
   assert.doesNotMatch(client, /seller\/v1/);
 });
+
+test("financial searches debounce requests and preserve useful results during transient failures", () => {
+  const client = read("public/js/magalu-financial.js");
+  assert.match(client, /const FINANCIAL_SEARCH_DEBOUNCE_MS = 300;/);
+  assert.match(client, /function scheduleFinancialLoad\(kind\)/);
+  assert.match(client, /clearTimeout\(financialSearchTimers\[kind\]\)/);
+  assert.match(client, /setFinancialLoading\(kind, true\)/);
+  assert.match(client, /setFinancialLoading\("costs", false\)/);
+  assert.match(client, /setFinancialLoading\("margins", false\)/);
+  assert.match(client, /catch \(error\) \{/);
+  assert.match(client, /Não foi possível atualizar os dados\. Exibindo o último resultado válido\./);
+});

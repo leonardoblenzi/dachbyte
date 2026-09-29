@@ -1,12 +1,57 @@
 (() => { "use strict";
   const $ = (id) => document.getElementById(id);
   const money = new Intl.NumberFormat("pt-BR", { style:"currency", currency:"BRL" });
+  const FINANCIAL_SEARCH_DEBOUNCE_MS = 300;
+  const financialSearchTimers = { costs: null, margins: null };
   const number = (id) => Number($(id)?.value || 0);
   const account = () => window.MagaluSellerShell?.getSelectedAccountId?.();
   async function api(path, options = {}) { return window.MagaluSellerShell.fetchJson(`/magalu/api/financial${path}`, { ...options, headers:{"Content-Type":"application/json", ...(options.headers||{})} }); }
   function selectedGuard(){ if(!account()){ window.MagaluSellerShell.showAlert("Escolha uma conta Magalu para usar o Financeiro.","warning"); return false;} return true; }
-  async function loadCosts(){if(!selectedGuard())return;const q=$("mg-financial-cost-search")?.value?.trim()||"";const data=await api(`/costs?account_id=${account()}&q=${encodeURIComponent(q)}`);const body=$("mg-financial-costs-body");if(!body)return;const coverage=$("mg-financial-cost-coverage");if(coverage)coverage.textContent=`${data.total||0} SKU(s) no recorte`;body.innerHTML=(data.rows||[]).map(r=>`<tr><td>${window.MagaluSellerShell.escapeHtml(r.sku)}</td><td>${window.MagaluSellerShell.escapeHtml(r.title||"—")}</td><td>${money.format(Number(r.price||0))}</td><td><input data-cost-sku="${window.MagaluSellerShell.escapeHtml(r.sku)}" type="number" min="0" step="0.01" value="${r.unit_cost??""}" placeholder="Custo"></td><td><button class="mg-secondary-btn" data-save-cost="${window.MagaluSellerShell.escapeHtml(r.sku)}">Salvar</button></td></tr>`).join("")||"<tr><td colspan=5>Nenhum SKU sincronizado.</td></tr>";body.querySelectorAll("[data-save-cost]").forEach(b=>b.addEventListener("click",async()=>{const sku=b.dataset.saveCost,input=body.querySelector(`[data-cost-sku="${CSS.escape(sku)}"]`);await api(`/costs/${encodeURIComponent(sku)}`,{method:"PUT",body:JSON.stringify({account_id:account(),unit_cost:input.value})});window.MagaluSellerShell.showAlert("Custo salvo.","success");void loadCosts();}));}
-  async function loadMargins(){if(!selectedGuard())return;const q=$("mg-financial-margin-search")?.value?.trim()||"";const data=await api(`/margins?account_id=${account()}&q=${encodeURIComponent(q)}`);const body=$("mg-financial-margin-body");if(!body)return;body.innerHTML=(data.rows||[]).map(r=>`<tr><td>${window.MagaluSellerShell.escapeHtml(r.sku)}</td><td>${money.format(Number(r.price||0))}</td><td>${r.unit_cost==null?"Sem custo":money.format(Number(r.unit_cost))}</td><td>${r.estimate.margin_pct==null?"—":`${r.estimate.margin_pct.toFixed(1)}%`}</td><td>${r.estimate.profit==null?"—":money.format(r.estimate.profit)}</td></tr>`).join("")||"<tr><td colspan=5>Sem dados para margem.</td></tr>";}
+  function setFinancialLoading(kind, isLoading) {
+    const input = $(kind === "costs" ? "mg-financial-cost-search" : "mg-financial-margin-search");
+    const body = $(kind === "costs" ? "mg-financial-costs-body" : "mg-financial-margin-body");
+    if (input) {
+      input.setAttribute("aria-busy", String(isLoading));
+      input.dataset.loading = String(isLoading);
+    }
+    if (body) body.setAttribute("aria-busy", String(isLoading));
+    const coverage = kind === "costs" ? $("mg-financial-cost-coverage") : null;
+    if (coverage && isLoading) coverage.textContent = "Atualizando resultados…";
+  }
+  function scheduleFinancialLoad(kind) {
+    clearTimeout(financialSearchTimers[kind]);
+    setFinancialLoading(kind, true);
+    financialSearchTimers[kind] = setTimeout(() => {
+      financialSearchTimers[kind] = null;
+      void (kind === "costs" ? loadCosts() : loadMargins());
+    }, FINANCIAL_SEARCH_DEBOUNCE_MS);
+  }
+  async function loadCosts(){
+    if(!selectedGuard())return;
+    setFinancialLoading("costs", true);
+    try {
+      const q=$("mg-financial-cost-search")?.value?.trim()||"";
+      const data=await api(`/costs?account_id=${account()}&q=${encodeURIComponent(q)}`);
+      const body=$("mg-financial-costs-body");if(!body)return;
+      const coverage=$("mg-financial-cost-coverage");if(coverage)coverage.textContent=`${data.total||0} SKU(s) no recorte`;
+      body.innerHTML=(data.rows||[]).map(r=>`<tr><td>${window.MagaluSellerShell.escapeHtml(r.sku)}</td><td>${window.MagaluSellerShell.escapeHtml(r.title||"—")}</td><td>${money.format(Number(r.price||0))}</td><td><input data-cost-sku="${window.MagaluSellerShell.escapeHtml(r.sku)}" type="number" min="0" step="0.01" value="${r.unit_cost??""}" placeholder="Custo"></td><td><button class="mg-secondary-btn" data-save-cost="${window.MagaluSellerShell.escapeHtml(r.sku)}">Salvar</button></td></tr>`).join("")||"<tr><td colspan=5>Nenhum SKU sincronizado.</td></tr>";
+      body.querySelectorAll("[data-save-cost]").forEach(b=>b.addEventListener("click",async()=>{const sku=b.dataset.saveCost,input=body.querySelector(`[data-cost-sku="${CSS.escape(sku)}"]`);await api(`/costs/${encodeURIComponent(sku)}`,{method:"PUT",body:JSON.stringify({account_id:account(),unit_cost:input.value})});window.MagaluSellerShell.showAlert("Custo salvo.","success");void loadCosts();}));
+    } catch (error) {
+      window.MagaluSellerShell.showAlert("Não foi possível atualizar os dados. Exibindo o último resultado válido.","warning");
+    } finally { setFinancialLoading("costs", false); }
+  }
+  async function loadMargins(){
+    if(!selectedGuard())return;
+    setFinancialLoading("margins", true);
+    try {
+      const q=$("mg-financial-margin-search")?.value?.trim()||"";
+      const data=await api(`/margins?account_id=${account()}&q=${encodeURIComponent(q)}`);
+      const body=$("mg-financial-margin-body");if(!body)return;
+      body.innerHTML=(data.rows||[]).map(r=>`<tr><td>${window.MagaluSellerShell.escapeHtml(r.sku)}</td><td>${money.format(Number(r.price||0))}</td><td>${r.unit_cost==null?"Sem custo":money.format(Number(r.unit_cost))}</td><td>${r.estimate.margin_pct==null?"—":`${r.estimate.margin_pct.toFixed(1)}%`}</td><td>${r.estimate.profit==null?"—":money.format(r.estimate.profit)}</td></tr>`).join("")||"<tr><td colspan=5>Sem dados para margem.</td></tr>";
+    } catch (error) {
+      window.MagaluSellerShell.showAlert("Não foi possível atualizar os dados. Exibindo o último resultado válido.","warning");
+    } finally { setFinancialLoading("margins", false); }
+  }
   async function calculate(){if(!selectedGuard())return;const payload={account_id:account(),sale_price:number("mg-fin-sale"),unit_cost:number("mg-fin-cost"),commission_rate:number("mg-fin-commission"),commission_fixed:number("mg-fin-commission-fixed"),platform_fee_rate:number("mg-fin-fee"),seller_shipping:number("mg-fin-shipping"),shipping_share:number("mg-fin-share"),seller_discount:number("mg-fin-discount"),tax_rate:number("mg-fin-tax"),packaging_cost:number("mg-fin-packaging"),operational_cost:number("mg-fin-operational"),other_cost:number("mg-fin-other"),target_margin:number("mg-fin-target")};const data=await api("/calculator/calculate",{method:"POST",body:JSON.stringify(payload)});const r=data.result;$("mg-fin-profit").textContent=r.profit==null?"—":money.format(r.profit);$("mg-fin-margin").textContent=r.margin_pct==null?"—":`${r.margin_pct.toFixed(1)}%`;$("mg-fin-roi").textContent=r.roi_pct==null?"—":`${r.roi_pct.toFixed(1)}%`;$("mg-fin-break-even").textContent=r.break_even_price==null?"—":money.format(r.break_even_price);$("mg-fin-target-price").textContent=r.target_price==null?"Não atingível":money.format(r.target_price);$("mg-fin-total").textContent=r.total_costs==null?"Custo do produto obrigatório":money.format(r.total_costs);}
-  window.addEventListener("magalu:accountchange",()=>{void loadCosts();void loadMargins();});document.addEventListener("DOMContentLoaded",()=>{$("mg-financial-refresh")?.addEventListener("click",()=>{void loadCosts();void loadMargins();});$("mg-financial-cost-search")?.addEventListener("input",()=>void loadCosts());$("mg-financial-margin-search")?.addEventListener("input",()=>void loadMargins());$("mg-fin-calculate")?.addEventListener("click",()=>void calculate());setTimeout(()=>{void loadCosts();void loadMargins();},0);});
+  window.addEventListener("magalu:accountchange",()=>{void loadCosts();void loadMargins();});document.addEventListener("DOMContentLoaded",()=>{$("mg-financial-refresh")?.addEventListener("click",()=>{void loadCosts();void loadMargins();});$("mg-financial-cost-search")?.addEventListener("input",()=>scheduleFinancialLoad("costs"));$("mg-financial-margin-search")?.addEventListener("input",()=>scheduleFinancialLoad("margins"));$("mg-fin-calculate")?.addEventListener("click",()=>void calculate());setTimeout(()=>{void loadCosts();void loadMargins();},0);});
 })();
