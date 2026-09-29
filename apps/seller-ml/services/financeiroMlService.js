@@ -5,6 +5,7 @@ const XLSX = require("xlsx");
 const db = require("../db/db");
 const TokenService = require("./tokenService");
 const MarketingMlService = require("./marketingMlService");
+const { parseXlsxRows } = require("./safeWorkbookParser");
 
 const ML_API_BASE = "https://api.mercadolibre.com";
 const INVENTORY_CACHE = new Map();
@@ -1804,7 +1805,7 @@ function paginate(rows, page, pageSize) {
   };
 }
 
-function parseImportRows({ filename, content_base64 }) {
+async function parseImportRows({ filename, content_base64 }) {
   const buffer = Buffer.from(String(content_base64 || ""), "base64");
   const name = String(filename || "").toLowerCase();
   if (!name.endsWith(".xlsx")) {
@@ -1812,10 +1813,7 @@ function parseImportRows({ filename, content_base64 }) {
     err.status = 400;
     throw err;
   }
-  const workbook = XLSX.read(buffer, { type: "buffer" });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  if (!sheet) return [];
-  return XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true });
+  return parseXlsxRows(buffer, { preferredSheet: "Custos" });
 }
 
 function getRowValue(row, names = []) {
@@ -3820,7 +3818,7 @@ class FinanceiroMlService {
   }
 
   static async importCosts(params = {}, context = {}) {
-    const rows = parseImportRows(params);
+    const rows = await parseImportRows(params);
     if (!rows.length) throw new Error("Nenhuma linha valida encontrada.");
     let updated = 0;
     const errors = [];
@@ -4246,6 +4244,7 @@ class FinanceiroMlService {
 }
 
 FinanceiroMlService._test = {
+  parseImportRows,
   resolveRealizedGmv,
   orderLifecycleStatus,
   buildOrderSearchQuery,

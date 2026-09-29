@@ -82,8 +82,40 @@ module.exports = function createMlApp() {
   // ========================
   // Middlewares básicos
   // ========================
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ extended: true }));
+  // Etapa 5: limite global menor. Rotas que declaram payloads grandes
+  // deixam o parser global passar e aplicam o limite especifico no proprio router.
+  const DEFAULT_JSON_BODY_LIMIT =
+    String(process.env.ML_JSON_BODY_LIMIT || "1mb").trim() || "1mb";
+  const DEFAULT_URLENCODED_BODY_LIMIT =
+    String(process.env.ML_URLENCODED_BODY_LIMIT || "128kb").trim() || "128kb";
+
+  const defaultJsonParser = express.json({ limit: DEFAULT_JSON_BODY_LIMIT });
+  const defaultUrlencodedParser = express.urlencoded({
+    extended: true,
+    limit: DEFAULT_URLENCODED_BODY_LIMIT,
+    parameterLimit: 1000,
+  });
+
+  function routeHasOwnLargeBodyParser(req) {
+    const p = String(req.path || req.url || "").split("?")[0];
+    return (
+      p === "/api/admin/backup/import.json" ||
+      p === "/api/caracteristicas/preview" ||
+      p === "/api/caracteristicas/aplicar" ||
+      p === "/api/caracteristicas/aplicar-excel" ||
+      p === "/api/extension" ||
+      p.startsWith("/api/extension/")
+    );
+  }
+
+  app.use((req, res, next) =>
+    routeHasOwnLargeBodyParser(req) ? next() : defaultJsonParser(req, res, next),
+  );
+  app.use((req, res, next) =>
+    routeHasOwnLargeBodyParser(req)
+      ? next()
+      : defaultUrlencodedParser(req, res, next),
+  );
 
   // Mantém o fluxo de login/ativação/vinculação no host canônico quando
   // o usuário cai em link antigo de subdomínio onrender.
@@ -1025,7 +1057,9 @@ module.exports = function createMlApp() {
     res.status(500).json({
       success: false,
       error: "Erro interno do servidor",
-      message: error.message,
+      ...(String(process.env.NODE_ENV || "").toLowerCase() !== "production"
+        ? { message: error?.message || String(error) }
+        : {}),
       timestamp: new Date().toISOString(),
       path: req.originalUrl,
     });

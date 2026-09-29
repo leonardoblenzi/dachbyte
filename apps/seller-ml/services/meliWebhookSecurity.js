@@ -16,6 +16,10 @@ function normalizeTopic(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function isSupportedTopic(value) {
+  return SUPPORTED_TOPICS.has(normalizeTopic(value));
+}
+
 function normalizeResourceForTopic(resource, topic) {
   const cleanTopic = normalizeTopic(topic);
   const prefix = TOPIC_PATH_PREFIX[cleanTopic];
@@ -73,9 +77,39 @@ function normalizeResourceForTopic(resource, topic) {
   };
 }
 
+function ignoredNotification(notification = {}, topic) {
+  return {
+    _id: String(notification._id || "").trim().slice(0, 160) || null,
+    topic: String(topic || "").slice(0, 100),
+    user_id: toPositiveInteger(notification.user_id),
+    application_id: toPositiveInteger(notification.application_id),
+    attempts: Math.max(0, Math.min(1000, Number(notification.attempts) || 0)),
+    sent: String(notification.sent || "").trim().slice(0, 100) || null,
+    received:
+      String(notification.received || notification.recieved || "")
+        .trim()
+        .slice(0, 100) || null,
+  };
+}
+
 function validateWebhookNotification(notification = {}, options = {}) {
   const topic = normalizeTopic(notification.topic);
+
+  if (!topic) {
+    return { ok: false, reason: "topic_missing" };
+  }
+
   if (!SUPPORTED_TOPICS.has(topic)) {
+    if (options.allowUnsupportedTopic === true) {
+      // Topicos ignorados nunca propagam `resource`: preserva SSRF/token safety.
+      return {
+        ok: true,
+        ignored: true,
+        reason: "topic_not_supported",
+        notification: ignoredNotification(notification, topic),
+      };
+    }
+
     return { ok: false, reason: "topic_not_supported" };
   }
 
@@ -100,6 +134,7 @@ function validateWebhookNotification(notification = {}, options = {}) {
 
   return {
     ok: true,
+    ignored: false,
     notification: {
       _id: String(notification._id || "").trim().slice(0, 160) || null,
       topic,
@@ -108,7 +143,10 @@ function validateWebhookNotification(notification = {}, options = {}) {
       application_id: applicationId,
       attempts: Math.max(0, Math.min(1000, Number(notification.attempts) || 0)),
       sent: String(notification.sent || "").trim().slice(0, 100) || null,
-      received: String(notification.received || notification.recieved || "").trim().slice(0, 100) || null,
+      received:
+        String(notification.received || notification.recieved || "")
+          .trim()
+          .slice(0, 100) || null,
     },
   };
 }
@@ -131,6 +169,7 @@ module.exports = {
   ML_API_ORIGIN,
   SUPPORTED_TOPICS,
   buildPromotionResourceUrl,
+  isSupportedTopic,
   normalizeResourceForTopic,
   validateWebhookNotification,
 };

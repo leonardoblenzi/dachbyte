@@ -1,13 +1,38 @@
 "use strict";
 
 const express = require("express");
+const path = require("path");
 const multer = require("multer");
 const CaracteristicasController = require("../controllers/CaracteristicasController");
 const companyAccess = require("../services/companyAccessService");
 const { createAuditAction } = require("../middleware/auditAction");
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 8 * 1024 * 1024,
+    files: 1,
+    fields: 4,
+    parts: 5,
+    fieldNameSize: 100,
+    fieldSize: 4 * 1024,
+    fieldNestingDepth: 1,
+    fieldArrayIndexLimit: 32,
+  },
+  fileFilter: (_req, file, callback) => {
+    const extension = path.extname(String(file?.originalname || "")).toLowerCase();
+    const mime = String(file?.mimetype || "").toLowerCase();
+    const acceptedMime = mime === XLSX_MIME || mime === "application/octet-stream";
+    if (extension !== ".xlsx" || !acceptedMime) {
+      const error = new Error("Envie apenas arquivo .xlsx.");
+      error.code = "INVALID_XLSX_UPLOAD";
+      return callback(error);
+    }
+    return callback(null, true);
+  },
+});
 const requireCaracteristicasAccess = companyAccess.requireModuleAccess("ml.operacao.caracteristicas");
 const requireCaracteristicasEdit = companyAccess.requireModuleAccess("ml.operacao.caracteristicas", { edit: true });
 

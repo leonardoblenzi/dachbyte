@@ -405,7 +405,19 @@ function buildUserPromotionDedupeKey(entry) {
 }
 
 const core = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 1,
+    fields: 8,
+    parts: 10,
+    fieldNameSize: 100,
+    fieldSize: 512 * 1024,
+    fieldNestingDepth: 1,
+    fieldArrayIndexLimit: 100,
+  },
+});
 
 /** Fetch com Authorization + 1 tentativa de renovação em 401 */
 async function authFetch(req, url, init = {}, creds = {}) {

@@ -7,17 +7,34 @@ require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
 const { Client } = require("pg");
 
-/**
- * Decide SSL de forma segura:
- * - Render/produção normalmente exige SSL
- * - Se a DATABASE_URL tiver sslmode=require, usa SSL mesmo em dev
- * - Caso contrário (ex.: Postgres local), não força SSL
- */
+function envBoolean(name, fallback) {
+  const raw = String(process.env[name] ?? "").trim().toLowerCase();
+  if (!raw) return fallback;
+  if (["1", "true", "yes", "on"].includes(raw)) return true;
+  if (["0", "false", "no", "off"].includes(raw)) return false;
+  return fallback;
+}
+
 function sslConfig(databaseUrl) {
-  const isProd =
-    String(process.env.NODE_ENV || "").toLowerCase() === "production";
-  const wantsSsl = isProd || /sslmode=require/i.test(databaseUrl || "");
-  return wantsSsl ? { rejectUnauthorized: false } : false;
+  try {
+    const parsed = new URL(String(databaseUrl || ""));
+    const sslMode = String(parsed.searchParams.get("sslmode") || "").toLowerCase();
+    const sslFlag = String(parsed.searchParams.get("ssl") || "").toLowerCase();
+    const neon = /\.neon\.(tech|build)$/i.test(parsed.hostname);
+
+    if (sslMode === "disable" || sslFlag === "false") return false;
+
+    if (
+      ["require", "verify-ca", "verify-full"].includes(sslMode) ||
+      sslFlag === "true" ||
+      neon
+    ) {
+      return {
+        rejectUnauthorized: envBoolean("ML_DB_SSL_REJECT_UNAUTHORIZED", true),
+      };
+    }
+  } catch (_error) {}
+  return false;
 }
 
 async function ensureMigracoesTable(client) {
@@ -30,11 +47,6 @@ async function ensureMigracoesTable(client) {
   `);
 }
 
-/**
- * Se existir a tabela antiga schema_migrations, migra os registros para migracoes
- * e remove a tabela antiga para evitar ambiguidade.
- * (Idempotente: pode rodar mais de uma vez.)
- */
 async function consolidateSchemaMigrations(client) {
   await client.query(`
     do $$
@@ -45,13 +57,11 @@ async function consolidateSchemaMigrations(client) {
          where table_schema = 'public'
            and table_name = 'schema_migrations'
       ) then
-        -- Copia histórico pra tabela oficial
         insert into ml.migracoes (arquivo, aplicado_em)
         select filename, coalesce(applied_at, now())
           from ml.schema_migrations
         on conflict (arquivo) do nothing;
 
-        -- Remove tabela antiga pra não confundir
         drop table ml.schema_migrations;
       end if;
     end $$;
@@ -74,12 +84,11 @@ async function markApplied(client, arquivo) {
 }
 
 async function main() {
-  // ✅ ALINHADO com db/db.js
   const databaseUrl = process.env.ML_DATABASE_URL || process.env.DATABASE_URL;
 
   if (!databaseUrl) {
     console.error(
-      "❌ ML_DATABASE_URL/DATABASE_URL não encontrado. Configure no .env (local) ou no Render (Environment).",
+      "❌ ML_DATABASE_URL/DATABASE_URL não encontrado. Configure no .env ou no ambiente do serviço.",
     );
     process.exit(1);
   }
@@ -96,9 +105,7 @@ async function main() {
     .sort((a, b) => a.localeCompare(b, "en"));
 
   if (files.length === 0) {
-    console.log(
-      "⚠️ Nenhuma migração encontrada em /db (padrão: 001_nome.sql).",
-    );
+    console.log("⚠️ Nenhuma migração encontrada em /db (padrão: 001_nome.sql).");
     return;
   }
 
@@ -106,8 +113,6 @@ async function main() {
 
   try {
     await ensureMigracoesTable(client);
-
-    // ✅ Consolida schema_migrations -> migracoes (se existir) e remove a antiga
     await consolidateSchemaMigrations(client);
 
     console.log(`📦 Encontradas ${files.length} migrações.`);
@@ -141,7 +146,11 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error("❌ Erro nas migrações:", err.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error("❌ Erro nas migrações:", err.message);
+    process.exit(1);
+  });
+}
+
+module.exports = { main, sslConfig };

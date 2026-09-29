@@ -6,7 +6,19 @@ const companyAccess = require("../services/companyAccessService");
 const multer = require("multer");
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 1,
+    fields: 4,
+    parts: 5,
+    fieldNameSize: 100,
+    fieldSize: 4 * 1024,
+    fieldNestingDepth: 1,
+    fieldArrayIndexLimit: 32,
+  },
+});
 const access = companyAccess.requireModuleAccess("ml.anuncios.cadastro", { defaultAllowIfUnconfigured: true });
 const editAccess = companyAccess.requireModuleAccess("ml.anuncios.cadastro", { edit: true, defaultAllowIfUnconfigured: true });
 

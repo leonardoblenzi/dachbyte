@@ -23,7 +23,10 @@
     "reputation:daily": "node scripts/run-reputation-daily-snapshots.js",
     "sku-price-history:weekly": "node scripts/run-sku-price-history-weekly.js",
     "test:stage3-queues": "node --test tests/ml-api-governor-stage3.test.js tests/ml-bull-retention-stage3.test.js tests/ml-stage3-contract.test.js",
-    "test:stage4-data": "node --test tests/ml-pg-advisory-lock-stage4.test.js tests/ml-data-retention-stage4.test.js tests/ml-stage4-contract.test.js"
+    "test:stage4-data": "node --test tests/ml-pg-advisory-lock-stage4.test.js tests/ml-data-retention-stage4.test.js tests/ml-stage4-contract.test.js",
+    "stage5:apply": "node scripts/apply-stage5-patches.js",
+    "test:stage5-infra": "node --test tests/ml-safe-workbook-parser-stage5.test.js tests/ml-stage5-patcher.test.js tests/ml-stage5-contract.test.js",
+    "stage5:verify-deps": "node scripts/verify-stage5-dependencies.js"
   },
   "engines": {
     "node": ">=20"
@@ -41,7 +44,7 @@
     "express-rate-limit": "^8.0.1",
     "ioredis": "^5.7.0",
     "jsonwebtoken": "^9.0.3",
-    "multer": "^2.0.1",
+    "multer": "2.4.0",
     "node-fetch": "^2.7.0",
     "pg": "^8.17.1",
     "xlsx": "^0.18.5",

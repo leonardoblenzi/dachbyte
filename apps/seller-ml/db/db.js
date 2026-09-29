@@ -1,15 +1,11 @@
 "use strict";
 
-// ml/db/db.js
-// Conexão Postgres (Render) respeitando schema do ML (ml) + fallback public.
+// PostgreSQL do seller-ml. Em producao, a URL precisa ser explicitamente a do
+// modulo ML ou a DATABASE_URL compartilhada; nunca cai silenciosamente no banco Shopee.
 
 const { Pool } = require("pg");
 
-// Prioriza ML_DATABASE_URL; caso contrario usa a mesma URL SQL da Shopee/suite.
-const RAW_DATABASE_URL =
-  process.env.ML_DATABASE_URL ||
-  process.env.SHOPEE_DATABASE_URL ||
-  process.env.DATABASE_URL;
+const RAW_DATABASE_URL = process.env.ML_DATABASE_URL || process.env.DATABASE_URL;
 
 function normalizeDatabaseUrl(rawValue) {
   const value = String(rawValue || "").trim();
@@ -41,35 +37,49 @@ function normalizeDatabaseUrl(rawValue) {
 const DATABASE_URL = normalizeDatabaseUrl(RAW_DATABASE_URL);
 if (!DATABASE_URL) {
   throw new Error(
-    "DATABASE_URL nao definida. Configure ML_DATABASE_URL/DATABASE_URL/SHOPEE_DATABASE_URL no Render (Environment).",
+    "Banco do ML nao configurado. Defina ML_DATABASE_URL ou DATABASE_URL.",
   );
 }
 
-const isProd =
-  String(process.env.NODE_ENV || "").toLowerCase() === "production";
+function envBoolean(name, fallback) {
+  const raw = String(process.env[name] ?? "").trim().toLowerCase();
+  if (!raw) return fallback;
+  if (["1", "true", "yes", "on"].includes(raw)) return true;
+  if (["0", "false", "no", "off"].includes(raw)) return false;
+  return fallback;
+}
 
 function resolveSslOptions(connectionString) {
   try {
     const parsed = new URL(connectionString);
     const sslMode = String(parsed.searchParams.get("sslmode") || "").toLowerCase();
     const sslFlag = String(parsed.searchParams.get("ssl") || "").toLowerCase();
+    const neon = /\.neon\.(tech|build)$/i.test(parsed.hostname);
 
-    if (
-      isProd ||
-      sslMode === "require" ||
-      sslMode === "prefer" ||
-      sslMode === "verify-ca" ||
-      sslMode === "verify-full" ||
+    if (sslMode === "disable" || sslFlag === "false") return false;
+
+    const requiresTls =
+      ["require", "verify-ca", "verify-full"].includes(sslMode) ||
       sslFlag === "true" ||
-      /\.neon\.(tech|build)$/i.test(parsed.hostname)
-    ) {
-      return { rejectUnauthorized: false };
-    }
-  } catch (_error) {
-    return isProd ? { rejectUnauthorized: false } : false;
-  }
+      neon;
 
-  return false;
+    if (!requiresTls) return false;
+
+    return {
+      rejectUnauthorized: envBoolean(
+        "ML_DB_SSL_REJECT_UNAUTHORIZED",
+        true,
+      ),
+    };
+  } catch (_error) {
+    return false;
+  }
+}
+
+function positiveInt(value, fallback, { min = 1, max = 1000000 } = {}) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, parsed));
 }
 
 // =====================
@@ -81,7 +91,6 @@ function safeSchemaName(input, fallback) {
   return s;
 }
 
-// Ex.: ...?sslmode=require&options=-c%20search_path=ml,public
 function extractSearchPathFromUrl(connString) {
   try {
     const u = new URL(connString);
@@ -113,22 +122,15 @@ function sanitizeSearchPath(raw) {
   const dedup = [];
   for (const s of list) if (!dedup.includes(s)) dedup.push(s);
 
-  // garante public no fim
   if (!dedup.includes("public")) dedup.push("public");
   const withoutPublic = dedup.filter((s) => s !== "public");
   return [...withoutPublic, "public"].join(", ");
 }
 
-// =====================
-// Resolve search_path
-// =====================
 const ML_DB_SCHEMA = safeSchemaName(process.env.ML_DB_SCHEMA, "ml");
-
 const URL_SP_RAW = extractSearchPathFromUrl(DATABASE_URL);
 const ENV_SP_RAW = process.env.ML_DB_SEARCH_PATH;
-
 const EXPLICIT_SP = sanitizeSearchPath(ENV_SP_RAW || URL_SP_RAW);
-
 const SEARCH_PATH_MODE = String(
   process.env.ML_DB_SEARCH_PATH_MODE || "ml_first",
 )
@@ -139,33 +141,32 @@ function buildSearchPath() {
   if (EXPLICIT_SP) return EXPLICIT_SP;
 
   const schema = safeSchemaName(ML_DB_SCHEMA, "ml");
-
-  if (SEARCH_PATH_MODE === "public_first") {
-    return `public, ${schema}`;
-  }
-
+  if (SEARCH_PATH_MODE === "public_first") return `public, ${schema}`;
   if (schema === "public") return "public";
   return `${schema}, public`;
 }
 
 const SEARCH_PATH = buildSearchPath();
 
-// =====================
-// Pool
-// =====================
 const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: resolveSslOptions(DATABASE_URL),
-  max: 10,
-  idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 10_000,
+  max: positiveInt(process.env.ML_DB_POOL_MAX, 10, { min: 1, max: 50 }),
+  idleTimeoutMillis: positiveInt(process.env.ML_DB_IDLE_TIMEOUT_MS, 30_000, {
+    min: 1000,
+    max: 10 * 60 * 1000,
+  }),
+  connectionTimeoutMillis: positiveInt(
+    process.env.ML_DB_CONNECTION_TIMEOUT_MS,
+    10_000,
+    { min: 1000, max: 60_000 },
+  ),
 });
 
 pool.on("error", (err) => {
   console.error("❌ [ML][DB] Postgres pool error:", err);
 });
 
-// ✅ garante search_path em toda conexão
 pool.on("connect", async (client) => {
   try {
     await client.query(`set search_path to ${SEARCH_PATH};`);
@@ -178,9 +179,6 @@ pool.on("connect", async (client) => {
   }
 });
 
-// =====================
-// Exports
-// =====================
 async function query(text, params) {
   return pool.query(text, params);
 }
@@ -200,4 +198,9 @@ module.exports = {
   withClient,
   SEARCH_PATH,
   ML_DB_SCHEMA,
+  _test: {
+    normalizeDatabaseUrl,
+    resolveSslOptions,
+    sanitizeSearchPath,
+  },
 };

@@ -30,15 +30,25 @@ function requireApplicationId() {
     .toLowerCase() === "true";
 }
 
+function logIgnoredTopics() {
+  return String(process.env.ML_WEBHOOK_LOG_IGNORED_TOPICS || "false")
+    .trim()
+    .toLowerCase() === "true";
+}
+
 router.post("/webhooks/notifications", webhookRateLimiter, async (req, res) => {
   try {
     const validation = validateWebhookNotification(req.body || {}, {
       expectedApplicationId: expectedApplicationId(),
       requireApplicationId: requireApplicationId(),
+      allowUnsupportedTopic: true,
     });
 
     if (!validation.ok) {
-      console.warn("[/api/meli/webhooks/notifications] payload rejeitado:", validation.reason);
+      console.warn(
+        "[/api/meli/webhooks/notifications] payload rejeitado:",
+        validation.reason,
+      );
       return res.status(400).json({
         ok: false,
         error: "Notificacao Mercado Livre invalida.",
@@ -46,13 +56,32 @@ router.post("/webhooks/notifications", webhookRateLimiter, async (req, res) => {
       });
     }
 
+    if (validation.ignored) {
+      if (logIgnoredTopics()) {
+        console.info(
+          "[/api/meli/webhooks/notifications] topico ignorado:",
+          validation.notification?.topic || "unknown",
+        );
+      }
+
+      return res.status(200).json({
+        ok: true,
+        acknowledged: true,
+        ignored: true,
+        reason: validation.reason || "topic_not_supported",
+        topic: validation.notification?.topic || null,
+      });
+    }
+
     const queued = await MeliWebhookQueueService.enqueueNotification(
       validation.notification,
     );
 
-    return res.status(202).json({
+    return res.status(200).json({
       ok: true,
+      acknowledged: true,
       accepted: true,
+      ignored: false,
       job_id: queued.job_id,
       deduplicated: queued.deduplicated === true,
     });
@@ -66,7 +95,11 @@ router.post("/webhooks/notifications", webhookRateLimiter, async (req, res) => {
       });
     }
 
-    console.error("[/api/meli/webhooks/notifications] erro ao enfileirar:", error?.message || error);
+    // Falha transiente: nao damos ACK para permitir redelivery do ML.
+    console.error(
+      "[/api/meli/webhooks/notifications] erro ao enfileirar:",
+      error?.message || error,
+    );
     return res.status(503).json({
       ok: false,
       error: "Nao foi possivel aceitar a notificacao no momento.",

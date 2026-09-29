@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 **/node_modules/
 infra/env/*.env
 infra/backups/
@@ -11,6 +11,8 @@ backup/
 **/backup/
 tmp_excel_inspect/
 ml/results/
+apps/seller-ml/results/
+apps/seller-ml/generated/
 shopee/public/tmp_doc_shp/
 shopee/public/tmp_edge_profile/
 shopee/public/tmp_edge_profile2/
@@ -29,5 +31,3 @@ tmp/volt-core-vite-cache/
 business/volt_chat/*.zip
 business/volt_chat/*.z01
 business/tmp/
-business/volt_chat/*.zip
-business/volt_chat/*.z01

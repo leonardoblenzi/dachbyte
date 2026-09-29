@@ -1,9 +1,9 @@
 "use strict";
 
 const fetch = require("node-fetch");
-const XLSX = require("xlsx");
 const ExcelJS = require("exceljs");
 const TokenService = require("./tokenService");
+const { parseXlsxRows } = require("./safeWorkbookParser");
 
 const API_BASE = "https://api.mercadolibre.com";
 const CATEGORY_CACHE = new Map();
@@ -985,15 +985,10 @@ class CaracteristicasService {
     return { filename, buffer };
   }
 
-  static parseWorkbookRows(buffer) {
-    const workbook = XLSX.read(buffer, { type: "buffer", cellDates: false });
-    const sheetName =
-      workbook.SheetNames.find((name) => normalizePlain(name) === "caracteristicas") ||
-      workbook.SheetNames[0];
-    if (!sheetName) throw new Error("Arquivo Excel sem planilhas.");
-    const sheet = workbook.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
-    return rows;
+  static async parseWorkbookRows(buffer) {
+    return parseXlsxRows(buffer, {
+      preferredSheet: "Caracteristicas",
+    });
   }
 
   static async validateWorkbookImport(mlCreds, options = {}) {
@@ -1006,7 +1001,7 @@ class CaracteristicasService {
     const categoryAttributes = await this.fetchCategoryAttributes(state, categoryId);
     const editable = this.workbookAttributeColumns(categoryAttributes);
     const metaById = new Map(editable.map((attribute) => [normalizeAttributeId(attribute.id), attribute]));
-    const rawRows = this.parseWorkbookRows(options.buffer);
+    const rawRows = await this.parseWorkbookRows(options.buffer);
     const itemIds = uniqueList(rawRows.map((row) => row.MLB || row.mlb));
     const details = await this.fetchItemsDetails(state, itemIds);
     const detailsById = new Map(details.map((entry) => [entry.id, entry]));

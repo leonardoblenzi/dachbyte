@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   buildPromotionResourceUrl,
+  isSupportedTopic,
   normalizeResourceForTopic,
   validateWebhookNotification,
 } = require("../services/meliWebhookSecurity");
@@ -14,10 +15,7 @@ test("aceita resource oficial de public_offers", () => {
     "public_offers",
   );
   assert.equal(result.ok, true);
-  assert.equal(
-    result.resource,
-    "/seller-promotions/offers/OFFER-MLB1234567890-12345",
-  );
+  assert.equal(result.resource, "/seller-promotions/offers/OFFER-MLB1234567890-12345");
 });
 
 test("aceita resource oficial de public_candidates", () => {
@@ -28,11 +26,15 @@ test("aceita resource oficial de public_candidates", () => {
   assert.equal(result.ok, true);
 });
 
+test("identifica apenas os topicos de promocao suportados", () => {
+  assert.equal(isSupportedTopic("public_offers"), true);
+  assert.equal(isSupportedTopic("PUBLIC_CANDIDATES"), true);
+  assert.equal(isSupportedTopic("orders_v2"), false);
+  assert.equal(isSupportedTopic("items"), false);
+});
+
 test("bloqueia URL absoluta externa antes de anexar token", () => {
-  const result = normalizeResourceForTopic(
-    "https://attacker.example/collect",
-    "public_offers",
-  );
+  const result = normalizeResourceForTopic("https://attacker.example/collect", "public_offers");
   assert.equal(result.ok, false);
   assert.equal(result.reason, "resource_origin_not_allowed");
 });
@@ -111,6 +113,63 @@ test("valida application_id quando configurado", () => {
   );
 
   assert.equal(ok.ok, true);
+  assert.equal(ok.ignored, false);
   assert.equal(bad.ok, false);
   assert.equal(bad.reason, "application_id_mismatch");
+});
+
+test("mantem rejeicao estrita de topico nao suportado no processamento interno", () => {
+  const result = validateWebhookNotification({
+    topic: "orders_v2",
+    resource: "/orders/123",
+    user_id: 999,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "topic_not_supported");
+});
+
+test("permite ACK seguro de topico nao suportado no receptor publico", () => {
+  const result = validateWebhookNotification(
+    {
+      topic: "orders_v2",
+      resource: "http://127.0.0.1:3000/admin",
+      user_id: 999,
+      application_id: 456,
+    },
+    { allowUnsupportedTopic: true },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.ignored, true);
+  assert.equal(result.reason, "topic_not_supported");
+  assert.equal(result.notification.topic, "orders_v2");
+  assert.equal(Object.prototype.hasOwnProperty.call(result.notification, "resource"), false);
+});
+
+test("allowUnsupportedTopic nao enfraquece a allowlist dos topicos suportados", () => {
+  const result = validateWebhookNotification(
+    {
+      topic: "public_offers",
+      resource: "https://attacker.example/seller-promotions/offers/123",
+      user_id: 999,
+    },
+    { allowUnsupportedTopic: true },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "resource_origin_not_allowed");
+});
+
+test("payload sem topic continua invalido", () => {
+  const result = validateWebhookNotification(
+    {
+      resource: "/orders/123",
+      user_id: 999,
+    },
+    { allowUnsupportedTopic: true },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "topic_missing");
 });
