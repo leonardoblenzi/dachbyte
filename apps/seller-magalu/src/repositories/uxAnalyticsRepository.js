@@ -6,6 +6,12 @@ function int(value, min, max, fallback) {
   const n = Number.parseInt(String(value == null ? "" : value), 10);
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
 }
+function decimal(value, min = -10000, max = 10000) {
+  const raw = String(value == null ? "" : value).trim().replace(",", ".");
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : null;
+}
 function text(value, max = 250) { return String(value == null ? "" : value).trim().slice(0, max); }
 function isoDate(value, fallback) { const s = text(value, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : fallback; }
 function todayIso() { return new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
@@ -157,12 +163,24 @@ function marginOrderCte(){return `with item_costs as (
 
 function marginFilters(options, start, end) {
   const q=text(options.q,200).toLowerCase(),status=text(options.status,80).toLowerCase();
+  const costCoverage=["complete","incomplete"].includes(options.cost_coverage) ? options.cost_coverage : "";
+  const marginState=["negative","attention","healthy","unknown"].includes(options.margin_state) ? options.margin_state : "";
+  let marginMin=decimal(options.margin_min), marginMax=decimal(options.margin_max);
+  if (marginMin != null && marginMax != null && marginMin > marginMax) [marginMin,marginMax]=[marginMax,marginMin];
   const params=[Number(options.accountId),start,end], where=[];
   if(status){params.push(status);where.push(`lower(coalesce(status,''))=$${params.length}`);}
   if(q){params.push(`%${q}%`);where.push(`(lower(code) like $${params.length} or exists(
     select 1 from magalu.order_items oi where oi.order_id=base.id
       and (lower(coalesce(oi.sku,'')) like $${params.length} or lower(coalesce(oi.name,'')) like $${params.length})
   ))`);}
+  if(costCoverage === "complete") where.push("cost_complete=true");
+  if(costCoverage === "incomplete") where.push("cost_complete=false");
+  if(marginState === "negative") where.push("cost_complete=true and known_margin_pct<0");
+  if(marginState === "attention") where.push("cost_complete=true and known_margin_pct>=0 and known_margin_pct<=10");
+  if(marginState === "healthy") where.push("cost_complete=true and known_margin_pct>10");
+  if(marginState === "unknown") where.push("cost_complete=false");
+  if(marginMin != null){params.push(marginMin);where.push(`known_margin_pct>=$${params.length}`);}
+  if(marginMax != null){params.push(marginMax);where.push(`known_margin_pct<=$${params.length}`);}
   return {params,where};
 }
 
@@ -209,22 +227,29 @@ async function marginOverview(accountId, options={}){
 }
 
 async function equilibrium(accountId,options={}){
-  const q=text(options.q,200).toLowerCase(); const params=[Number(accountId)]; const where=["s.account_id=$1","s.is_present=true"];
-  if(q){params.push(`%${q}%`);where.push(`(lower(s.sku) like $${params.length} or lower(coalesce(s.title,'')) like $${params.length})`);}
+  const q=text(options.q,200).toLowerCase();
+  const state=["below","attention","healthy","missing"].includes(options.state) ? options.state : "";
+  const params=[Number(accountId)]; const where=["account_id=$1","is_present=true"];
+  if(q){params.push(`%${q}%`);where.push(`(lower(sku) like $${params.length} or lower(coalesce(title,'')) like $${params.length})`);}
+  if(state === "below") where.push("unit_cost is not null and known_break_even is not null and price<known_break_even");
+  if(state === "attention") where.push("unit_cost is not null and known_break_even is not null and price>=known_break_even and known_margin_pct<=10");
+  if(state === "healthy") where.push("unit_cost is not null and known_margin_pct>10");
+  if(state === "missing") where.push("unit_cost is null");
   const limit=int(options.limit,1,100,50),offset=int(options.offset,0,1000000,0);params.push(limit,offset);const li=params.length-1,oi=params.length;
-  const {rows}=await db.query(`select s.sku,s.title,p.price,c.unit_cost,c.tax_rate,c.packaging_cost,c.operational_cost,c.other_cost,
+  const {rows}=await db.query(`with base as (select s.account_id,s.is_present,s.sku,s.title,p.price,c.unit_cost,c.tax_rate,c.packaging_cost,c.operational_cost,c.other_cost,
     case when c.unit_cost is not null and (1-coalesce(c.tax_rate,0)/100)>0 then
       (c.unit_cost+coalesce(c.packaging_cost,0)+coalesce(c.operational_cost,0)+coalesce(c.other_cost,0))/(1-coalesce(c.tax_rate,0)/100)
     else null end as known_break_even,
     case when p.price is not null and p.price>0 and c.unit_cost is not null then
       ((p.price-c.unit_cost-(p.price*coalesce(c.tax_rate,0)/100)-coalesce(c.packaging_cost,0)-coalesce(c.operational_cost,0)-coalesce(c.other_cost,0))/p.price)*100
     else null end as known_margin_pct,
-    count(*) over()::int total_count
+    count(*) over()::int as unfiltered_total_count
     from magalu.skus s left join magalu.prices p on p.account_id=s.account_id and p.sku=s.sku and p.is_present=true
     left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku
-    where ${where.join(" and ")} order by known_margin_pct asc nulls first,s.sku asc limit $${li} offset $${oi}`,params);
+  ) select *,count(*) over()::int as total_count from base
+    where ${where.join(" and ")} order by known_margin_pct asc nulls first,sku asc limit $${li} offset $${oi}`,params);
   return {rows,total:rows.length?Number(rows[0].total_count||0):0,limit,offset,
     limitations:{message:"Equilíbrio conhecido considera custo cadastrado, imposto informado e custos operacionais. Comissão, tarifa e frete Magalu não estão incluídos."}};
 }
 
-module.exports={stockAnalysis,costOverview,marginOverview,equilibrium,_test:{int,text,isoDate,marginFilters}};
+module.exports={stockAnalysis,costOverview,marginOverview,equilibrium,_test:{int,decimal,text,isoDate,marginFilters}};

@@ -8,14 +8,14 @@
   <link rel="icon" type="image/png" href="/brand/dachbyte/seller/mark-transparent.png">
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-app.css?v=2026092905">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-ml-parity.css?v=2026092906">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-ml-parity.css?v=2026092907">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-dashboard.css?v=2026092903">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-operations.css?v=2026092905">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-account.css?v=2026092503">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-sku-management.css?v=2026092902">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-orders.css?v=2026092902">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-financial.css?v=2026092902">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-rich-workspaces.css?v=2026092901">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-rich-workspaces.css?v=2026092902">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-post-review-fixes.css?v=2026092904">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-loading.css?v=2026092801">
 </head>
@@ -398,7 +398,7 @@
       <section id="mg-financial-margin-page" class="mg-product-page mg-financial-page" data-page="/margem" hidden>
         <nav class="mg-financial-tabs" aria-label="Navegação da precificação"><a href="/magalu/custos">Custos por SKU</a><a href="/magalu/margem" class="is-active">Margem de venda</a><a href="/magalu/calculadora">Calculadora</a></nav>
         <section class="mg-rich-hero"><div><span class="mg-kicker">Precificação · Resultado conhecido</span><h1>Margem de venda</h1><p>Analise pedidos, custos cadastrados e o equilíbrio atual sem mascarar taxas que ainda não estão disponíveis na integração Magalu.</p></div><div class="mg-rich-hero__meta"><span class="mg-risk-badge" data-tone="attention">Parcial e transparente</span><button class="mg-secondary-btn" id="mg-margin-refresh" type="button">Atualizar</button></div></section>
-        <section class="mg-margin-filter-card"><div class="mg-margin-filters"><label class="mg-margin-field"><span>Data inicial</span><input id="mg-margin-from" type="date"></label><label class="mg-margin-field"><span>Data final</span><input id="mg-margin-to" type="date"></label><label class="mg-margin-field"><span>Buscar</span><input id="mg-financial-margin-search" placeholder="Pedido, SKU ou produto"></label><label class="mg-margin-field"><span>Status pedido</span><select id="mg-margin-status"><option value="">Todos</option><option value="new">new</option><option value="approved">approved</option><option value="invoiced">invoiced</option><option value="shipped">shipped</option><option value="delivered">delivered</option></select></label><button class="mg-primary-btn" id="mg-margin-filter" type="button">Filtrar</button></div></section>
+            <section class="mg-margin-filter-card"><div class="mg-margin-filters"><label class="mg-margin-field mg-margin-field--date"><span>Data inicial</span><input id="mg-margin-from" type="date"></label><label class="mg-margin-field mg-margin-field--date"><span>Data final</span><input id="mg-margin-to" type="date"></label><label class="mg-margin-field mg-margin-field--search"><span>Buscar</span><input id="mg-financial-margin-search" placeholder="Pedido, SKU ou produto"></label><label class="mg-margin-field"><span>Status pedido</span><select id="mg-margin-status"><option value="">Todos</option><option value="new">Novo</option><option value="approved">Aprovado</option><option value="invoiced">Faturado</option><option value="shipped">Enviado</option><option value="delivered">Entregue</option></select></label><label class="mg-margin-field"><span>Cobertura de custo</span><select id="mg-margin-cost-coverage"><option value="">Todos</option><option value="complete">Completo</option><option value="incomplete">Com pendência</option></select></label><label class="mg-margin-field"><span>Situação da margem</span><select id="mg-margin-margin-state"><option value="">Todas</option><option value="negative">Negativa</option><option value="attention">Atenção (até 10%)</option><option value="healthy">Saudável (acima de 10%)</option><option value="unknown">Não calculada</option></select></label><label class="mg-margin-field mg-margin-field--range"><span>Margem mín. (%)</span><input id="mg-margin-margin-min" type="number" inputmode="decimal" step="0.01" placeholder="Ex.: 10"></label><label class="mg-margin-field mg-margin-field--range"><span>Margem máx. (%)</span><input id="mg-margin-margin-max" type="number" inputmode="decimal" step="0.01" placeholder="Ex.: 25"></label><label class="mg-margin-field mg-margin-field--equilibrium"><span>Situação de equilíbrio</span><select id="mg-margin-equilibrium-state"><option value="">Todas</option><option value="below">Abaixo do equilíbrio</option><option value="attention">Próximo do equilíbrio</option><option value="healthy">Acima do equilíbrio</option><option value="missing">Sem custo</option></select></label><div class="mg-margin-filter-actions"><button class="mg-secondary-btn" id="mg-margin-clear" type="button">Limpar</button><button class="mg-primary-btn" id="mg-margin-filter" type="button">Filtrar</button></div></div><p class="mg-margin-filter-note">A situação de equilíbrio é aplicada na aba <strong>Equilíbrio estimado</strong>; os demais filtros valem para o resumo e a margem por período.</p></section>
         <nav class="mg-margin-tabs" aria-label="Visões de margem"><button class="is-active" data-margin-tab="summary" type="button">Resumo</button><button data-margin-tab="period" type="button">Margem por período</button><button data-margin-tab="equilibrium" type="button">Equilíbrio estimado</button></nav>
 
         <div class="mg-margin-panel" data-margin-panel="summary">
@@ -427,6 +427,6 @@
     <script src="/magalu/assets/js/magalu-sku-management.js?v=2026092903"></script>
 <script src="/magalu/assets/js/magalu-orders.js?v=2026092801"></script>
 <script src="/magalu/assets/js/magalu-stock-price.js?v=2026092904"></script>
-<script src="/magalu/assets/js/magalu-financial.js?v=2026092904"></script>
+<script src="/magalu/assets/js/magalu-financial.js?v=2026092905"></script>
 </body>
 </html>
