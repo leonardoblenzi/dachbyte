@@ -157,9 +157,13 @@
     const app = document.querySelector(".mg-app");
     app.dataset.theme = localStorage.getItem(STORAGE_THEME) || "light";
 
-    if (readJsonStorage(STORAGE_COLLAPSED, false) && window.innerWidth > 900) {
-      document.body.classList.add("mg-shell-collapsed");
+    function syncSidebarViewport() {
+      const desktop = window.innerWidth > 900;
+      document.body.classList.toggle("mg-shell-collapsed", desktop && readJsonStorage(STORAGE_COLLAPSED, false));
+      if (desktop) document.body.classList.remove("mg-shell-mobile-open");
     }
+    syncSidebarViewport();
+    window.addEventListener("resize", syncSidebarViewport);
 
     $("mg-sidebar-toggle")?.addEventListener("click", () => {
       document.body.classList.toggle("mg-shell-collapsed");
