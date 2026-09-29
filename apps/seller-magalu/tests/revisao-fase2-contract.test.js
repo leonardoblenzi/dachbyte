@@ -1,0 +1,10 @@
+"use strict";
+const test=require("node:test");const assert=require("node:assert/strict");const fs=require("fs");const path=require("path");
+const root=path.resolve(__dirname,"..");const read=(p)=>fs.readFileSync(path.join(root,p),"utf8");
+test("fase2 adiciona analytics somente leitura",()=>{const routes=read("src/routes/uxAnalytics.routes.js");assert.match(routes,/router\.get\("\/stock"/);assert.match(routes,/router\.get\("\/costs"/);assert.match(routes,/router\.get\("\/margins"/);assert.match(routes,/router\.get\("\/equilibrium"/);assert.doesNotMatch(routes,/router\.(post|put|patch|delete)/i);});
+test("analytics usa somente dados Magalu locais",()=>{for(const p of ["src/repositories/uxAnalyticsRepository.js","src/controllers/uxAnalyticsController.js","src/routes/uxAnalytics.routes.js"]){const c=read(p);assert.doesNotMatch(c,/seller-ml|mercadolivre|meli/i);}});
+test("estoque possui análise e atualização separadas",()=>{const c=read("views/app.html");assert.match(c,/data-stock-workspace="analysis"/);assert.match(c,/data-stock-workspace="update"/);assert.match(c,/id="mg-stock-analysis-body"/);assert.match(c,/id="mg-stock-write-list"/);});
+test("preços mantém preview protegido",()=>{const c=read("views/app.html");assert.match(c,/id="mg-price-preview-btn"/);assert.match(c,/id="mg-price-write-list"/);assert.match(c,/data-operation-resource="price"/);});
+test("custos possui cobertura insights e ranking",()=>{const c=read("views/app.html");assert.match(c,/id="mg-cost-total"/);assert.match(c,/id="mg-cost-ranking"/);assert.match(c,/id="mg-financial-costs-body"/);});
+test("margem separa resumo período e equilíbrio",()=>{const c=read("views/app.html");assert.match(c,/data-margin-tab="summary"/);assert.match(c,/data-margin-tab="period"/);assert.match(c,/data-margin-tab="equilibrium"/);assert.match(c,/Resultado conhecido/);assert.match(c,/comissão\/tarifa\/frete/i);});
+test("frontend da fase2 não depende do runtime ML",()=>{for(const p of ["public/js/magalu-stock-price.js","public/js/magalu-financial.js","public/css/magalu-rich-workspaces.css"]){const c=read(p);assert.doesNotMatch(c,/\/ml\/|seller-ml|ml-shell/i);}});

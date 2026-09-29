@@ -1,0 +1,9 @@
+"use strict";
+const express=require("express");
+const controller=require("../controllers/uxAnalyticsController");
+const router=express.Router();
+router.get("/stock",controller.stock);
+router.get("/costs",controller.costs);
+router.get("/margins",controller.margins);
+router.get("/equilibrium",controller.equilibrium);
+module.exports=router;

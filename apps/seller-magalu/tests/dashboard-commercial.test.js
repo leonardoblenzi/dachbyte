@@ -16,12 +16,14 @@ test("commercial dashboard has a dedicated Hub-first API endpoint", () => {
   assert.match(controller, /orderRepository\.stats/);
 });
 
-test("dashboard communicates actual commerce metrics and keeps Ads as an honest pending integration", () => {
+test("dashboard communicates only actual commercial and operational metrics", () => {
   const html = read("views/app.html");
   const client = read("public/js/magalu-app.js");
   assert.match(html, /id="kpi-orders-30d"/);
   assert.match(html, /id="kpi-gmv-30d"/);
-  assert.match(html, /Integração de Ads pendente/);
+  assert.match(html, /Cobertura de custos/);
+  assert.match(html, /Risco operacional/);
+  assert.doesNotMatch(html, /Integração de Ads pendente/);
   assert.match(client, /\/magalu\/api\/dashboard/);
 });
 

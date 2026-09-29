@@ -14,20 +14,18 @@ test("Magalu pricing has filterable costs and margin plus a guided calculator", 
   assert.match(html, /data-calculator-step="sale"/);
   assert.match(html, /data-calculator-step="fees"/);
   assert.match(html, /data-calculator-step="result"/);
-  assert.match(html, /Financial Analysis/);
+  assert.match(html, /Comissão, tarifa e frete Magalu não são presumidos/i);
   assert.match(client, /mg-financial-cost-search/);
   assert.match(client, /mg-financial-margin-search/);
   assert.doesNotMatch(client, /seller\/v1/);
 });
 
-test("financial searches debounce requests and preserve useful results during transient failures", () => {
+test("financial workspaces debounce requests and preserve useful results during transient failures", () => {
   const client = read("public/js/magalu-financial.js");
-  assert.match(client, /const FINANCIAL_SEARCH_DEBOUNCE_MS = 300;/);
-  assert.match(client, /function scheduleFinancialLoad\(kind\)/);
-  assert.match(client, /clearTimeout\(financialSearchTimers\[kind\]\)/);
-  assert.match(client, /setFinancialLoading\(kind, true\)/);
-  assert.match(client, /setFinancialLoading\("costs", false\)/);
-  assert.match(client, /setFinancialLoading\("margins", false\)/);
-  assert.match(client, /catch \(_error\) \{/);
-  assert.match(client, /Exibindo o último resultado válido\./);
+  assert.match(client, /function debounce\(key,fn,ms=300\)/);
+  assert.match(client, /clearTimeout\(state\.timers\[key\]\)/);
+  assert.match(client, /mg-financial-cost-search/);
+  assert.match(client, /mg-financial-margin-search/);
+  assert.match(client, /catch\(e\)\{shell\(\)\?\.showAlert/);
+  assert.doesNotMatch(client, /catch\(e\)\{[^}]*innerHTML/s);
 });

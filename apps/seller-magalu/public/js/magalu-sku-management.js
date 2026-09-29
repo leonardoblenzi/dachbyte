@@ -2,7 +2,7 @@
   "use strict";
 
   const API = "/magalu/api/sku-management";
-  const state = { accountId: null, page: 1, limit: 50, total: 0, rows: [], selected: new Set(), allFiltered: false, preview: null, inputMode:"filters", resolution:null, bound: false };
+  const state = { accountId: null, page: 1, limit: 50, total: 0, rows: [], selected: new Set(), allFiltered: false, preview: null, inputMode:"filters", action:null, resolution:null, bound: false };
   const $ = (id) => document.getElementById(id);
   const shell = () => window.MagaluSellerShell || null;
   const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
@@ -28,7 +28,8 @@
   function selection() { return state.allFiltered ? { mode:"all_filtered", filters:filters() } : { mode:"explicit", skus:[...state.selected] }; }
   function badge(text, kind = "muted") { return `<span class="mg-sku-badge" data-tone="${esc(kind)}">${esc(text || "—")}</span>`; }
 
-  function resetSelection() { state.selected.clear(); state.allFiltered = false; state.preview = null; state.resolution = null; renderResolution(); updateSelection(); }
+  function resetSelection() { state.selected.clear(); state.allFiltered = false; state.preview = null; state.action = null; state.resolution = null; renderResolution(); document.querySelectorAll(".mg-sku-action-option").forEach((button)=>button.classList.remove("is-active")); updateSelection(); }
+  function selectAction(action) { state.action = ["activate","deactivate"].includes(action) ? action : null; document.querySelectorAll(".mg-sku-action-option").forEach((button)=>button.classList.toggle("is-active", button.dataset.action === state.action)); updateSelection(); }
   function updateSelection() {
     const count = state.allFiltered ? state.total : state.selected.size;
     if ($("mg-sku-selection-count")) $("mg-sku-selection-count").textContent = count ? `${fmt(count)} selecionado${count === 1 ? "" : "s"}${state.allFiltered ? " no filtro" : ""}` : "0 selecionados";
@@ -37,6 +38,7 @@
     if ($("mg-sku-select-page")) $("mg-sku-select-page").checked = state.inputMode === "filters" && state.rows.length > 0 && !state.allFiltered && state.rows.every((r) => state.selected.has(r.sku));
     if ($("mg-sku-select-page")) $("mg-sku-select-page").disabled = state.inputMode !== "filters";
     if ($("mg-sku-select-all")) $("mg-sku-select-all").disabled = state.inputMode !== "filters";
+    if ($("mg-sku-review")) $("mg-sku-review").disabled = !(count && state.action);
   }
 
   function renderResolution() {
@@ -168,8 +170,9 @@
     $("mg-sku-select-page")?.addEventListener("change", (e) => { state.allFiltered = false; state.rows.forEach((r) => e.target.checked ? state.selected.add(r.sku) : state.selected.delete(r.sku)); updateSelection(); void loadSkus(); });
     $("mg-sku-select-all")?.addEventListener("click", () => { state.selected.clear(); state.allFiltered = true; updateSelection(); void loadSkus(); });
     $("mg-sku-clear-selection")?.addEventListener("click", () => { resetSelection(); void loadSkus(); });
-    $("mg-sku-activate")?.addEventListener("click", () => void makePreview("activate"));
-    $("mg-sku-deactivate")?.addEventListener("click", () => void makePreview("deactivate"));
+    $("mg-sku-activate")?.addEventListener("click", () => selectAction("activate"));
+    $("mg-sku-deactivate")?.addEventListener("click", () => selectAction("deactivate"));
+    $("mg-sku-review")?.addEventListener("click", () => { if (state.action) void makePreview(state.action); });
     $("mg-sku-preview-close")?.addEventListener("click", () => closeModal("mg-sku-preview"));
     $("mg-sku-validation-close")?.addEventListener("click", () => closeModal("mg-sku-validation"));
     $("mg-sku-batch-detail-close")?.addEventListener("click", () => closeModal("mg-sku-batch-detail"));

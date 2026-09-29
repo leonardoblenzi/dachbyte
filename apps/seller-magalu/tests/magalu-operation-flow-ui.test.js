@@ -31,7 +31,7 @@ test("price and stock keep explicit selection modes separate and accessible", ()
     assert.match(html, new RegExp(`id="mg-${resource}-list-panel"[^>]*role="tabpanel"`));
     assert.match(html, new RegExp(`<label for="mg-${resource}-sku-input">SKU</label>`));
     assert.match(html, new RegExp(`<label for="mg-${resource}-sku-list">Lista de SKUs</label>`));
-    assert.match(html, /recorte carregado nesta página/);
+    assert.match(html, /recorte (já )?carregado|itens carregados pelo catálogo/);
   }
 });
 

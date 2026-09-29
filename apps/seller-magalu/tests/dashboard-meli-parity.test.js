@@ -28,7 +28,7 @@ test("dashboard UI follows the Meli decision hierarchy without invented Ads metr
   const client = read("public/js/magalu-app.js");
   assert.match(html, /id="mg-dashboard-period"/);
   assert.match(html, /id="mg-dashboard-priorities"/);
-  assert.match(html, /Comercial e resultado/);
+  assert.match(html, /Comercial e prontidão financeira/);
   assert.match(html, /Sinais operacionais/);
   assert.match(html, /id="mg-dashboard-orders-period"/);
   assert.match(html, /id="kpi-orders-period-label"/);
@@ -40,6 +40,6 @@ test("dashboard UI follows the Meli decision hierarchy without invented Ads metr
   assert.match(client, /requestId !== state\.dashboardRequestId/);
   assert.match(client, /state\.dashboardPeriod !== requestedPeriod/);
   assert.doesNotMatch(client, /nos últimos 7 dias/);
-  assert.match(html, /Integração de Ads pendente/);
+  assert.doesNotMatch(html, /Integração de Ads pendente/);
   assert.doesNotMatch(html, /ROAS médio|Investimento Ads|Receita Ads/);
 });

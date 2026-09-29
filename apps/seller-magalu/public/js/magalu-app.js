@@ -27,9 +27,9 @@
 
   const routes = {
     "/": { title: "Painel", page: "mg-dashboard", group: "overview" },
-    "/catalogo": { title: "Gestão de catálogo", page: "mg-sku-management-page", group: "products" },
+    "/catalogo": { title: "Consulta de catálogo", page: "mg-catalog-page", group: "products" },
     "/pedidos": { title: "Pedidos", page: "mg-orders-page", group: "orders" },
-    "/gestao-skus": { title: "Gestão de catálogo", page: "mg-sku-management-page", group: "products" },
+    "/gestao-skus": { title: "Gestão de catálogo", page: "mg-sku-management-page", group: "operations" },
     "/precos": { title: "Preços", page: "mg-price-page", group: "operations" },
     "/estoque": { title: "Estoque", page: "mg-stock-page", group: "operations" },
     "/custos": { title: "Custos por SKU", page: "mg-financial-costs-page", group: "financial" },
@@ -236,7 +236,7 @@
     openNavGroup(meta.group || storedOpen || "overview", { persist: false });
 
     if (path === "/") void loadDashboard();
-    if (["/precos", "/estoque"].includes(path)) void loadCatalog();
+    if (["/catalogo", "/precos", "/estoque"].includes(path)) void loadCatalog();
     if (path === "/integracoes") void loadSyncCenter();
   }
 
@@ -356,10 +356,12 @@
       if (requestId !== state.dashboardRequestId || state.dashboardPeriod !== requestedPeriod || Number(selected()?.id) !== Number(account.id)) return;
       renderCommercialDashboard(data);
       renderOperations(data.operations || []);
+      window.dispatchEvent(new CustomEvent("magalu:dashboarddata", { detail: { data } }));
     } catch (error) {
       console.warn("[magalu] dashboard", error);
       showAlert(error.message, "danger");
       renderCommercialDashboard(null);
+      window.dispatchEvent(new CustomEvent("magalu:dashboarddata", { detail: { data: null } }));
     }
   }
 

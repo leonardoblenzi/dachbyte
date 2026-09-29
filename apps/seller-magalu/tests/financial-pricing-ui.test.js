@@ -12,7 +12,8 @@ test("financial pages stay in the canonical Magalu shell and label estimates", (
   assert.match(html, /data-page="\/custos"/);
   assert.match(html, /data-page="\/margem"/);
   assert.match(html, /data-page="\/calculadora"/);
-  assert.match(html, /Estimativa operacional/);
+  assert.match(html, /Resultado conhecido/);
+  assert.match(html, /Comissão, tarifa e frete Magalu não entram/i);
   assert.match(html, /magalu-financial\.js/);
   assert.match(shell, /"\/calculadora": \{ title: "Calculadora"/);
 });
