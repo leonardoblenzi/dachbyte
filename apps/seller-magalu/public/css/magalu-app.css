@@ -77,7 +77,7 @@ code { padding: .12rem .34rem; border-radius: 6px; background: rgba(22,131,232,.
 .mg-nav__group-copy small { margin-top: 2px; color: #729bb3; font-size: 7px; }
 .mg-nav__group-arrow { color: #759db4; font-size: 16px; transition: transform .18s ease; }
 .mg-nav__group.is-open .mg-nav__group-arrow { transform: rotate(90deg); }
-.mg-nav__children { display: grid; gap: 2px; padding: 2px 5px 6px 44px; }
+.mg-nav__children { display: grid; gap: 2px; padding: 2px 0 6px; }
 .mg-nav__item { min-height: 32px; display: flex; align-items: center; padding: 7px 10px; border-radius: 9px; color: #bcd7e6; font-size: 9px; font-weight: 720; transition: .15s ease; }
 .mg-nav__item:hover { background: rgba(255,255,255,.055); color: #fff; }
 .mg-nav__item.is-active { background: linear-gradient(90deg, rgba(22,131,232,.32), rgba(57,199,243,.10)); color: #fff; box-shadow: inset 2px 0 0 var(--mg-cyan); }

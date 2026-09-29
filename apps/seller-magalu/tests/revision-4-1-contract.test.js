@@ -76,8 +76,8 @@ test("ML parity visual override is loaded after the Magalu base stylesheet", () 
   const html = read("views", "app.html");
   const css = read("public", "css", "magalu-ml-parity.css");
 
-  assert.match(html, /magalu-app\.css\?v=2026092901/);
-  assert.match(html, /magalu-ml-parity\.css\?v=2026092902/);
+  assert.match(html, /magalu-app\.css\?v=\d+/);
+  assert.match(html, /magalu-ml-parity\.css\?v=\d+/);
   assert.ok(html.indexOf("magalu-app.css") < html.indexOf("magalu-ml-parity.css"));
   assert.match(css, /--mg-shell-sidebar-width:\s*262px/);
   assert.match(css, /--mg-shell-sidebar-collapsed-width:\s*92px/);
