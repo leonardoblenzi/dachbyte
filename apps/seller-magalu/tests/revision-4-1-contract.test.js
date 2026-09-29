@@ -50,7 +50,7 @@ test("production UI no longer exposes implementation stage placeholders", () => 
   for (const forbidden of ["ETAPA 04", "protected write", "A Etapa 4", "Etapa 4 · Escritas protegidas"]) {
     assert.equal(html.includes(forbidden), false, forbidden);
   }
-  assert.match(html, /Visão geral da operação/);
+  assert.match(html, /<h1>Painel<\/h1>/);
   assert.match(html, /Sincronização/);
   assert.match(html, /Testar conexão/);
 });
@@ -76,7 +76,7 @@ test("ML parity visual override is loaded after the Magalu base stylesheet", () 
   const html = read("views", "app.html");
   const css = read("public", "css", "magalu-ml-parity.css");
 
-  assert.match(html, /magalu-app\.css\?v=2026092802/);
+  assert.match(html, /magalu-app\.css\?v=2026092901/);
   assert.match(html, /magalu-ml-parity\.css\?v=2026092503/);
   assert.ok(html.indexOf("magalu-app.css") < html.indexOf("magalu-ml-parity.css"));
   assert.match(css, /--mg-ml-sidebar-width:\s*262px/);
