@@ -133,8 +133,8 @@
 
       <section id="mg-dashboard" data-page="/">
         <section class="mg-page-head">
-          <div><span class="mg-kicker">Operação Magalu</span><h1>Visão geral da operação</h1><p>Pedidos, faturamento, catálogo e integrações a partir da réplica sincronizada da sua conta.</p></div>
-          <div class="mg-page-actions"><a class="mg-secondary-btn" href="/magalu/integracoes">Integrações</a><button class="mg-primary-btn" id="mg-sync-now" type="button">Sincronizar agora</button></div>
+          <div><span class="mg-kicker">Visão geral · Magalu</span><h1>Painel</h1><p>Acompanhe a saúde comercial da conta e o que merece atenção agora.</p></div>
+          <div class="mg-page-actions"><div class="mg-period-selector" id="mg-dashboard-period" role="group" aria-label="Período do painel"><button data-period="today" type="button">Hoje</button><button class="is-active" data-period="7d" type="button">7 dias</button><button data-period="14d" type="button">14 dias</button><button data-period="30d" type="button">30 dias</button></div><button class="mg-icon-btn" id="mg-dashboard-refresh" type="button" aria-label="Atualizar painel">↻</button></div>
         </section>
 
         <section class="mg-kpi-grid">
@@ -144,13 +144,15 @@
           <article class="mg-kpi"><span>Estoque zerado</span><strong id="kpi-zero">—</strong><small id="kpi-sync-status">atenção operacional</small></article>
         </section>
 
+        <section class="mg-section-card mg-dashboard-priorities-card"><div class="mg-section-head"><div><span class="mg-kicker">Prioridades</span><h2>O que merece atenção agora</h2></div></div><div id="mg-dashboard-priorities" class="mg-dashboard-priorities"><div class="mg-empty-state"><strong>Carregando prioridades…</strong></div></div></section>
+
         <section class="mg-dashboard-grid">
           <article class="mg-section-card">
-            <div class="mg-section-head"><div><span class="mg-kicker">Conexão</span><h2>Conta selecionada</h2></div><span class="mg-pill" id="mg-dashboard-account-status">—</span></div>
-            <dl class="mg-facts"><div><dt>Organização</dt><dd id="mg-dashboard-account">—</dd></div><div><dt>Token de acesso</dt><dd id="mg-dashboard-token">—</dd></div><div><dt>Permissões</dt><dd id="mg-dashboard-scopes">—</dd></div><div><dt>Webhooks ativos</dt><dd id="mg-dashboard-webhooks">—</dd></div></dl>
+            <div class="mg-section-head"><div><span class="mg-kicker">Comercial</span><h2>Comercial e resultado</h2></div><span class="mg-pill" id="mg-dashboard-account-status">—</span></div>
+            <dl class="mg-facts"><div><dt>Conta</dt><dd id="mg-dashboard-account">—</dd></div><div><dt>Comparação</dt><dd id="mg-dashboard-comparison">—</dd></div><div><dt>Cobertura de custos</dt><dd id="mg-dashboard-scopes">—</dd></div><div><dt>Margem</dt><dd id="mg-dashboard-token">Estimativa indisponível</dd></div></dl>
           </article>
           <article class="mg-section-card">
-            <div class="mg-section-head"><div><span class="mg-kicker">Entregas</span><h2>Saúde operacional</h2></div><span class="mg-pill" id="mg-dashboard-deliveries-status">—</span></div>
+            <div class="mg-section-head"><div><span class="mg-kicker">Operação</span><h2>Sinais operacionais</h2></div><span class="mg-pill" id="mg-dashboard-deliveries-status">—</span></div>
             <dl class="mg-facts"><div><dt>Pedidos hoje</dt><dd id="mg-dashboard-orders-today">—</dd></div><div><dt>Últimos 7 dias</dt><dd id="mg-dashboard-orders-7d">—</dd></div><div><dt>Entregas rastreadas</dt><dd id="mg-dashboard-deliveries-count">—</dd></div><div><dt>Atualização</dt><dd id="mg-dashboard-orders-note">Aguardando sync</dd></div></dl>
           </article>
           <article class="mg-section-card">

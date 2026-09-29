@@ -125,10 +125,11 @@ async function orderDetail(accountId,code){
   const deliveryRows=[];for(const delivery of deliveries.rows){const di=await db.query(`select id,item_key,sku,remote_item_id,name,brand,quantity,measure_unit,unit_price,amount_total,amount_currency,amount_normalizer,operational_payload from magalu.delivery_items where delivery_id=$1 order by id`,[delivery.id]);deliveryRows.push({...delivery,items:di.rows});}
   return{order,items:items.rows,deliveries:deliveryRows};
 }
-async function stats(accountId){
-  const totals=await db.queryOne(`select count(*)::int total,count(*) filter(where purchased_at>=date_trunc('day',now()))::int today,count(*) filter(where purchased_at>=now()-interval '7 days')::int last_7d,sum(case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else 0 end)::numeric as gross_value_30d,avg(case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else null end)::numeric as ticket_average_30d from magalu.orders where account_id=$1 and is_present and purchased_at>=now()-interval '30 days'`,[Number(accountId)]);
+async function stats(accountId, days=30){
+  const safeDays=Math.max(1,Math.min(30,Number(days)||30));
+  const totals=await db.queryOne(`select count(*)::int total,count(*) filter(where purchased_at>=date_trunc('day',now()))::int today,count(*) filter(where purchased_at>=now()-interval '7 days')::int last_7d,sum(case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else 0 end)::numeric as gross_value_30d,avg(case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else null end)::numeric as ticket_average_30d from magalu.orders where account_id=$1 and is_present and purchased_at>=now()-($2::int * interval '1 day')`,[Number(accountId),safeDays]);
   const {rows}=await db.query(`select coalesce(nullif(status,''),'unknown') status,count(*)::int total from magalu.deliveries where account_id=$1 and is_present group by 1 order by total desc`,[Number(accountId)]);
-  return{...(totals||{}),delivery_statuses:rows};
+  return{...(totals||{}),delivery_statuses:rows,days:safeDays};
 }
 async function knownChannels(accountId){const{rows}=await db.query(`select channel_id,count(*)::int uses from magalu.orders where account_id=$1 and channel_id is not null group by channel_id order by uses desc`,[Number(accountId)]);return rows;}
 async function getDelivery(accountId,remoteId){return db.queryOne(`select * from magalu.deliveries where account_id=$1 and remote_id=$2 limit 1`,[Number(accountId),text(remoteId,300)]);}

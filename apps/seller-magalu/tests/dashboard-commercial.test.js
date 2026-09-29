@@ -25,8 +25,8 @@ test("dashboard communicates actual commerce metrics and keeps Ads as an honest 
   assert.match(client, /\/magalu\/api\/dashboard/);
 });
 
-test("order aggregates include ticket average for the same 30-day commercial window", () => {
+test("order aggregates include ticket average for the selected commercial window", () => {
   const repository = read("src/repositories/orderRepository.js");
   assert.match(repository, /ticket_average_30d/);
-  assert.match(repository, /purchased_at>=now\(\)-interval '30 days'/);
+  assert.match(repository, /purchased_at>=now\(\)-\(\$2::int \* interval '1 day'\)/);
 });

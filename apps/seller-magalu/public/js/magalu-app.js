@@ -19,6 +19,7 @@
     diagnostics: null,
     activePreview: null,
     syncPolling: false,
+    dashboardPeriod: "7d",
   };
 
   const routes = {
@@ -341,7 +342,7 @@
     const account = selected();
     if (!account) { renderCommercialDashboard(null); return; }
     try {
-      const data = await fetchJson(`/magalu/api/dashboard?account_id=${account.id}`);
+      const data = await fetchJson(`/magalu/api/dashboard?account_id=${account.id}&period=${encodeURIComponent(state.dashboardPeriod)}`);
       renderCommercialDashboard(data);
       renderOperations(data.operations || []);
     } catch (error) {
@@ -405,9 +406,9 @@
     $("mg-dashboard-account").textContent = account ? accountLabel(account) : "—";
     $("mg-dashboard-account-status").textContent = remote.status || account?.status || "—";
     $("mg-dashboard-account-status").dataset.state = remote.status || account?.status || "idle";
-    $("mg-dashboard-token").textContent = remote.access_expires_at ? `válido até ${formatDate(remote.access_expires_at)}` : "—";
-    $("mg-dashboard-scopes").textContent = `${readCount} leitura · ${writeCount} escrita`;
-    $("mg-dashboard-webhooks").textContent = String(data?.webhooks?.active_count ?? 0);
+    $("mg-dashboard-token").textContent = data?.margin_coverage?.percent != null ? `${data.margin_coverage.percent}% dos SKUs com preço têm custo` : "Estimativa indisponível";
+    $("mg-dashboard-scopes").textContent = data?.margin_coverage ? `${data.margin_coverage.costed_skus || 0} custos cadastrados` : "—";
+    if ($("mg-dashboard-comparison")) $("mg-dashboard-comparison").textContent = data?.comparison?.orders_delta == null ? "Sem histórico suficiente" : `${data.comparison.orders_delta >= 0 ? "+" : ""}${data.comparison.orders_delta} pedidos vs. anterior`;
 
     $("mg-dashboard-sync-status").textContent = remote.catalog_sync_status || latest.status || "—";
     $("mg-dashboard-sync-status").dataset.state = remote.catalog_sync_status || latest.status || "idle";
@@ -436,6 +437,18 @@
     $("mg-dashboard-orders-7d").textContent = orders.last_7d ?? "—";
     $("mg-dashboard-deliveries-count").textContent = deliveryTotal || "—";
     $("mg-dashboard-orders-note").textContent = deliveryTotal ? deliveries.slice(0,2).map((row) => `${row.status}: ${row.total}`).join(" · ") : "Aguardando sincronização de pedidos";
+    renderDashboardPriorities(data?.priorities || []);
+  }
+
+  function renderDashboardPriorities(priorities) {
+    const host = $("mg-dashboard-priorities");
+    if (!host) return;
+    host.replaceChildren();
+    if (!priorities.length) { host.innerHTML = '<div class="mg-empty-state"><strong>Nenhuma prioridade crítica</strong><p>A conta não possui alertas locais que exijam ação agora.</p></div>'; return; }
+    for (const priority of priorities) {
+      const link = document.createElement("a"); link.className = "mg-dashboard-priority"; link.dataset.tone = priority.tone || "info"; link.href = priority.href;
+      link.innerHTML = `<strong>${escapeHtml(priority.title)}</strong><span>${Number(priority.count || 0)} item(ns) para revisar</span><b>Ver →</b>`; host.append(link);
+    }
   }
 
   function renderCatalog() {
@@ -851,6 +864,12 @@
   function bindActions() {
     document.querySelectorAll("[data-sync]").forEach((button) => button.addEventListener("click", () => void sync()));
     $("mg-sync-now")?.addEventListener("click", () => void sync());
+    $("mg-dashboard-refresh")?.addEventListener("click", () => void loadDashboard());
+    document.querySelectorAll("#mg-dashboard-period [data-period]").forEach((button) => button.addEventListener("click", () => {
+      state.dashboardPeriod = button.dataset.period || "7d";
+      document.querySelectorAll("#mg-dashboard-period [data-period]").forEach((item) => item.classList.toggle("is-active", item === button));
+      void loadDashboard();
+    }));
     $("mg-test-connection")?.addEventListener("click", () => void testConnection());
     $("mg-price-preview-btn")?.addEventListener("click", () => void previewWrite("price"));
     $("mg-stock-preview-btn")?.addEventListener("click", () => void previewWrite("stock"));

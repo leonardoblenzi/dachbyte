@@ -109,6 +109,15 @@ code { padding: .12rem .34rem; border-radius: 6px; background: rgba(22,131,232,.
 .mg-page-head h1 { margin: 7px 0 7px; font: 800 clamp(25px,3vw,38px)/1.05 var(--dachbyte-font-display, 'Space Grotesk', sans-serif); letter-spacing: -.035em; }
 .mg-page-head p { max-width: 760px; margin: 0; color: var(--mg-muted); font-size: 11px; line-height: 1.65; }
 .mg-page-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+.mg-period-selector { display: inline-flex; padding: 3px; gap: 2px; border: 1px solid var(--mg-line); border-radius: 10px; background: var(--mg-surface); }
+.mg-period-selector button { min-height: 29px; padding: 0 9px; border: 0; border-radius: 7px; background: transparent; color: var(--mg-muted); font-size: 8px; font-weight: 800; cursor: pointer; }
+.mg-period-selector button.is-active { background: rgba(22,131,232,.12); color: var(--mg-primary-strong); }
+.mg-dashboard-priorities-card { margin-top: 15px; }
+.mg-dashboard-priorities { display: grid; gap: 8px; margin-top: 14px; }
+.mg-dashboard-priority { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--mg-line); border-radius: 11px; background: var(--mg-surface-soft); color: var(--mg-text); }
+.mg-dashboard-priority span { color: var(--mg-muted); font-size: 8px; }
+.mg-dashboard-priority b { color: var(--mg-primary-strong); font-size: 8px; }
+.mg-dashboard-priority[data-tone="warning"] { border-left: 3px solid var(--mg-warning); }
 .mg-kicker { color: var(--mg-primary-strong); font-size: 9px; font-weight: 850; letter-spacing: .13em; text-transform: uppercase; }
 .mg-primary-btn { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; border: 0; border-radius: 10px; background: linear-gradient(180deg, var(--mg-primary), var(--mg-primary-strong)); color: #fff; box-shadow: 0 9px 22px rgba(22,131,232,.20); font-size: 9px; font-weight: 850; cursor: pointer; white-space: nowrap; }
 .mg-primary-btn:disabled, .mg-primary-btn[aria-disabled="true"] { opacity: .48; pointer-events: none; box-shadow: none; }
