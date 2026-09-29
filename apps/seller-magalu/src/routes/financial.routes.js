@@ -3,6 +3,7 @@ const express = require("express");
 const controller = require("../controllers/financialController");
 const router = express.Router();
 router.get("/costs", controller.costs);
+router.get("/costs/export", controller.exportCosts);
 router.put("/costs/:sku", controller.saveCost);
 router.get("/margins", controller.margins);
 router.get("/calculator/lookup", controller.lookup);

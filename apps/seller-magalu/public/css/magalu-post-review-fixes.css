@@ -1,0 +1,18 @@
+/* Correções pós-revisão: escala, custos completos e análise paginada */
+.mg-analysis-search{min-width:min(340px,100%);min-height:36px;border:1px solid var(--mg-border);border-radius:11px;background:var(--mg-surface);color:var(--mg-text);padding:0 11px;font:inherit;font-size:.76rem;font-weight:700;outline:0}
+.mg-analysis-search:focus{border-color:var(--mg-primary);box-shadow:0 0 0 3px var(--mg-primary-soft)}
+.mg-analysis-pagination{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+.mg-filter-load{display:grid;grid-template-columns:minmax(220px,1fr) minmax(150px,.45fr) auto;gap:9px;align-items:end;margin-top:10px}
+.mg-filter-load input,.mg-filter-load select{min-height:40px;border:1px solid var(--mg-border);border-radius:12px;background:var(--mg-surface);color:var(--mg-text);padding:0 12px;font:inherit;font-size:.8rem;font-weight:700}
+.mg-filter-load-note{display:block;margin-top:8px;color:var(--mg-muted);font-size:.69rem;line-height:1.4}
+.mg-cost-components{color:var(--mg-muted);font-size:.7rem;font-weight:750}
+.mg-cost-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:18px 22px}
+.mg-cost-editor-grid label{display:grid;gap:6px;color:var(--mg-muted);font-size:.69rem;font-weight:850}
+.mg-cost-editor-grid label:last-child{grid-column:1/-1}
+.mg-cost-editor-grid input,.mg-cost-editor-grid textarea{width:100%;min-height:40px;border:1px solid var(--mg-border);border-radius:11px;background:var(--mg-surface);color:var(--mg-text);padding:0 11px;font:inherit}
+.mg-cost-editor-grid textarea{min-height:92px;padding:10px;resize:vertical}
+.mg-margin-coverage-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 12px}
+.mg-margin-coverage-card{padding:13px 14px;border:1px solid var(--mg-border);border-radius:14px;background:var(--mg-surface-soft)}
+.mg-margin-coverage-card span{display:block;color:var(--mg-muted);font-size:.67rem;font-weight:850;text-transform:uppercase;letter-spacing:.04em}
+.mg-margin-coverage-card strong{display:block;margin-top:5px;color:var(--mg-title);font-size:1rem}
+@media(max-width:760px){.mg-filter-load,.mg-cost-editor-grid,.mg-margin-coverage-grid{grid-template-columns:1fr}.mg-cost-editor-grid label:last-child{grid-column:auto}}

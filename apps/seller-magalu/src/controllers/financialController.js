@@ -2,13 +2,19 @@
 const accountRepository = require("../repositories/accountRepository");
 const financialRepository = require("../repositories/financialRepository");
 const { calculatePricing } = require("../services/magaluPricingEngine");
+const { createXlsx } = require("../services/simpleXlsx");
 const { checkAccountAccess } = require("../services/hubResourceAccessService");
 function int(value) { const n = Number.parseInt(String(value == null ? "" : value), 10); return Number.isFinite(n) && n > 0 ? n : null; }
 async function accountFor(req) { const id = int(req.query.account_id || req.body.account_id); if (!id) { const e = new Error("account_id obrigatório."); e.status = 400; throw e; } const account = await accountRepository.findAccountByIdForTenant(id, req.magaluIdentity.dachTenantId); if (!account) { const e = new Error("Conta Magalu não encontrada."); e.status = 404; throw e; } const access = await checkAccountAccess(req.magaluIdentity, account, { action: "READ magalu" }); if (!access.allow) { const e = new Error("O Hub não confirmou acesso a esta conta."); e.status = 403; throw e; } return account; }
 function fail(res, error) { return res.status(Number(error.status) || 500).json({ ok: false, error: error.code || "MAGALU_FINANCIAL_ERROR", message: Number(error.status) >= 500 ? "Não foi possível concluir a operação financeira." : error.message }); }
 async function costs(req,res){try{const account=await accountFor(req);return res.json({ok:true,...await financialRepository.listCosts(account.id,req.query)});}catch(e){return fail(res,e);}}
+async function exportCosts(req,res){try{const account=await accountFor(req);const rows=await financialRepository.exportCosts(account.id);const columns=[
+{key:"sku",header:"SKU"},{key:"title",header:"Produto"},{key:"price",header:"Preço atual"},{key:"unit_cost",header:"Custo unitário"},
+{key:"tax_rate",header:"Imposto %"},{key:"packaging_cost",header:"Embalagem"},{key:"operational_cost",header:"Operacional"},
+{key:"other_cost",header:"Outros"},{key:"notes",header:"Observações"},{key:"updated_at",header:"Atualizado em"}];
+const buffer=createXlsx(rows,columns,"Custos Magalu");res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");res.setHeader("Content-Disposition",'attachment; filename="custos-magalu.xlsx"');return res.send(buffer);}catch(e){return fail(res,e);}}
 async function saveCost(req,res){try{const account=await accountFor(req);return res.json({ok:true,cost:await financialRepository.upsertCost(account.id,req.params.sku,req.body)});}catch(e){return fail(res,e);}}
 async function margins(req,res){try{const account=await accountFor(req);return res.json({ok:true,source:"estimate",message:"Estimativas usam custos e taxas informados; não são conciliação financeira Magalu.",...await financialRepository.margin(account.id,req.query)});}catch(e){return fail(res,e);}}
 async function lookup(req,res){try{const account=await accountFor(req);const item=await financialRepository.lookup(account.id,req.query.sku);return res.json({ok:true,item});}catch(e){return fail(res,e);}}
 async function calculate(req,res){try{await accountFor(req);return res.json({ok:true,result:calculatePricing(req.body)});}catch(e){return fail(res,e);}}
-module.exports={costs,saveCost,margins,lookup,calculate};
+module.exports={costs,exportCosts,saveCost,margins,lookup,calculate};

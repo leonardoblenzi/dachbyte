@@ -342,25 +342,23 @@
     const status = await fetchJson(`/magalu/api/catalog/status?account_id=${account.id}`);
     state.catalogStatus = status;
     renderStats(status);
-    renderDashboard(status);
     return status;
   }
 
   async function loadDashboard() {
     const account = selected();
-    if (!account) { renderCommercialDashboard(null); return; }
+    if (!account) { window.dispatchEvent(new CustomEvent("magalu:dashboarddata", { detail: { data: null } })); return; }
     const requestedPeriod = state.dashboardPeriod;
     const requestId=++state.dashboardRequestId;
     try {
       const data = await fetchJson(`/magalu/api/dashboard?account_id=${account.id}&period=${encodeURIComponent(requestedPeriod)}`);
       if (requestId !== state.dashboardRequestId || state.dashboardPeriod !== requestedPeriod || Number(selected()?.id) !== Number(account.id)) return;
-      renderCommercialDashboard(data);
       renderOperations(data.operations || []);
       window.dispatchEvent(new CustomEvent("magalu:dashboarddata", { detail: { data } }));
     } catch (error) {
+      if (requestId !== state.dashboardRequestId || state.dashboardPeriod !== requestedPeriod || Number(selected()?.id) !== Number(account.id)) return;
       console.warn("[magalu] dashboard", error);
       showAlert(error.message, "danger");
-      renderCommercialDashboard(null);
       window.dispatchEvent(new CustomEvent("magalu:dashboarddata", { detail: { data: null } }));
     }
   }
@@ -388,7 +386,6 @@
       state.total = Number(list.total || 0);
       state.writeStatus = writeStatus;
       renderStats(status);
-      renderDashboard(status);
       renderCatalog();
       renderWriteReadiness();
       renderOperations(writeStatus.operations || []);
@@ -405,67 +402,6 @@
     $("kpi-zero").textContent = stats.zero_stock_count ?? "—";
     $("kpi-sync").textContent = data ? formatDate(data.account?.catalog_last_synced_at) : "—";
     $("kpi-sync-status").textContent = data?.account?.catalog_sync_status || "aguardando conta";
-  }
-
-  function renderDashboard(data) {
-    if (!$("mg-dashboard-account")) return;
-    const account = selected();
-    const remote = data?.account || {};
-    const latest = data?.latest_run || {};
-    const scopes = Array.isArray(remote.scopes) ? remote.scopes : (Array.isArray(account?.scopes) ? account.scopes : []);
-    const readCount = scopes.filter((scope) => /:read$/.test(scope)).length;
-    const writeCount = scopes.filter((scope) => /:write$/.test(scope)).length;
-
-    $("mg-dashboard-account").textContent = account ? accountLabel(account) : "—";
-    $("mg-dashboard-account-status").textContent = remote.status || account?.status || "—";
-    $("mg-dashboard-account-status").dataset.state = remote.status || account?.status || "idle";
-    $("mg-dashboard-token").textContent = data?.margin_coverage?.percent != null ? `${data.margin_coverage.percent}% dos SKUs com preço têm custo` : "Estimativa indisponível";
-    $("mg-dashboard-scopes").textContent = data?.margin_coverage ? `${data.margin_coverage.costed_skus || 0} custos cadastrados` : "—";
-    if ($("mg-dashboard-comparison")) $("mg-dashboard-comparison").textContent = data?.comparison?.orders_delta == null ? "Sem histórico suficiente" : `${data.comparison.orders_delta >= 0 ? "+" : ""}${data.comparison.orders_delta} pedidos vs. anterior`;
-
-    $("mg-dashboard-sync-status").textContent = remote.catalog_sync_status || latest.status || "—";
-    $("mg-dashboard-sync-status").dataset.state = remote.catalog_sync_status || latest.status || "idle";
-    $("mg-dashboard-run-start").textContent = formatDate(latest.started_at);
-    $("mg-dashboard-run-scanned").textContent = latest.scanned_count ?? "—";
-    $("mg-dashboard-run-pages").textContent = latest.result?.pages ?? "—";
-    $("mg-dashboard-run-error").textContent = latest.error_message || remote.catalog_last_error || "Nenhuma";
-  }
-
-  function renderCommercialDashboard(data) {
-    const catalog = data?.catalog || {}, orders = data?.orders || {}, account = data?.account || {}, latest = data?.latest_run || {};
-    const periodLabel = data?.period?.label || "Período selecionado";
-    if ($("kpi-orders-period-label")) $("kpi-orders-period-label").textContent = `Pedidos · ${periodLabel}`;
-    if ($("kpi-gmv-period-label")) $("kpi-gmv-period-label").textContent = `Faturamento · ${periodLabel}`;
-    $("kpi-orders-30d").textContent = orders.total ?? "—";
-    $("kpi-orders-today").textContent = data ? `${orders.today ?? 0} hoje · janela: ${periodLabel.toLowerCase()}` : "sem pedidos sincronizados";
-    $("kpi-gmv-30d").textContent = orders.gross_value_30d != null ? money(orders.gross_value_30d) : "—";
-    $("kpi-ticket-30d").textContent = orders.ticket_average_30d != null ? `ticket médio ${money(orders.ticket_average_30d)}` : "ticket médio —";
-    $("kpi-skus").textContent = catalog.published_count ?? "—";
-    $("kpi-catalog-attention").textContent = data ? `${catalog.priced_count ?? 0} com preço · ${catalog.zero_stock_count ?? 0} sem estoque` : "catálogo aguardando sync";
-    $("kpi-zero").textContent = catalog.zero_stock_count ?? "—";
-    $("kpi-sync-status").textContent = account.catalog_sync_status || "aguardando sync";
-    renderDashboard(data);
-    const deliveries = orders.delivery_statuses || [];
-    const deliveryTotal = deliveries.reduce((total, row) => total + Number(row.total || 0), 0);
-    $("mg-dashboard-deliveries-status").textContent = deliveryTotal ? "sincronizadas" : "aguardando sync";
-    $("mg-dashboard-deliveries-status").dataset.state = deliveryTotal ? "active" : "idle";
-    $("mg-dashboard-orders-today").textContent = orders.today ?? "—";
-    $("mg-dashboard-orders-period").textContent = orders.total ?? "—";
-    $("mg-dashboard-orders-period-label").textContent = periodLabel;
-    $("mg-dashboard-deliveries-count").textContent = deliveryTotal || "—";
-    $("mg-dashboard-orders-note").textContent = deliveryTotal ? deliveries.slice(0,2).map((row) => `${row.status}: ${row.total}`).join(" · ") : "Aguardando sincronização de pedidos";
-    renderDashboardPriorities(data?.priorities || []);
-  }
-
-  function renderDashboardPriorities(priorities) {
-    const host = $("mg-dashboard-priorities");
-    if (!host) return;
-    host.replaceChildren();
-    if (!priorities.length) { host.innerHTML = '<div class="mg-empty-state"><strong>Nenhuma prioridade crítica</strong><p>A conta não possui alertas locais que exijam ação agora.</p></div>'; return; }
-    for (const priority of priorities) {
-      const link = document.createElement("a"); link.className = "mg-dashboard-priority"; link.dataset.tone = priority.tone || "info"; link.href = priority.href;
-      link.innerHTML = `<strong>${escapeHtml(priority.title)}</strong><span>${Number(priority.count || 0)} item(ns) para revisar</span><b>Ver →</b>`; host.append(link);
-    }
   }
 
   function renderCatalog() {
@@ -528,7 +464,7 @@
     if (!host) return;
     host.replaceChildren();
     const canWrite = writeCapability(resource);
-    const rows = state.writeRows[resource] || state.rows;
+    const rows = state.writeRows[resource] || [];
     if (!rows.length) {
       host.innerHTML = '<div class="mg-empty-state"><strong>Nenhum SKU disponível</strong><p>Sincronize o catálogo antes de preparar alterações.</p></div>';
       return;
@@ -587,6 +523,24 @@
     }
   }
 
+  async function loadWriteFilterSelection(resource) {
+    const account = selected();
+    if (!account) return showAlert("Selecione uma conta Magalu.", "danger");
+    const q = $(`mg-${resource}-filter-q`)?.value?.trim() || "";
+    const status = $(`mg-${resource}-filter-status`)?.value || "";
+    const safeLimit = Math.min(100, Math.max(1, Number(state.writeStatus?.limits?.max_batch_size || 50)));
+    try {
+      const data = await fetchJson(`/magalu/api/catalog/skus?account_id=${account.id}&offset=0&limit=${safeLimit}&q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}`);
+      state.writeRows[resource] = data.rows || [];
+      renderWriteRows(resource);
+      const meta = $(`mg-${resource}-filter-meta`);
+      if (meta) meta.textContent = Number(data.total||0) > state.writeRows[resource].length
+        ? `${state.writeRows[resource].length} de ${data.total} SKU(s) carregados. Refine o filtro para respeitar o limite seguro do lote.`
+        : `${state.writeRows[resource].length} SKU(s) carregados neste recorte.`;
+      showAlert(state.writeRows[resource].length ? "Recorte carregado para revisão." : "Nenhum SKU encontrado neste filtro.", state.writeRows[resource].length ? "success" : "warning");
+    } catch (error) { showAlert(error.message, "danger"); }
+  }
+
   async function resolveWriteSelection(resource) {
     const account = selected();
     if (!account) return showAlert("Selecione uma conta Magalu.", "danger");
@@ -611,6 +565,8 @@
       const mode = button.dataset.operationMode;
       setOperationMode(resource, mode);
     }));
+    $("mg-price-load-filter")?.addEventListener("click", () => void loadWriteFilterSelection("price"));
+    $("mg-stock-load-filter")?.addEventListener("click", () => void loadWriteFilterSelection("stock"));
     $("mg-price-resolve")?.addEventListener("click", () => void resolveWriteSelection("price"));
     $("mg-price-resolve-list")?.addEventListener("click", () => void resolveWriteSelection("price"));
     $("mg-stock-resolve")?.addEventListener("click", () => void resolveWriteSelection("stock"));
@@ -769,7 +725,6 @@
         const data = await fetchJson(`/magalu/api/catalog/status?account_id=${accountId}`);
         state.catalogStatus = data;
         renderStats(data);
-        renderDashboard(data);
         const status = String(data.account?.catalog_sync_status || "idle");
         const [tone, title, copy] = syncStatusDescription(status, data.account?.catalog_last_error);
         setSyncBanner(tone, title, copy);

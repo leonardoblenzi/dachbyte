@@ -26,6 +26,7 @@ test("dashboard supports safe periods, comparison and local actionable prioritie
 test("dashboard UI follows the Meli decision hierarchy without invented Ads metrics", () => {
   const html = read("views/app.html");
   const client = read("public/js/magalu-app.js");
+  const dashboard = read("public/js/magalu-dashboard.js");
   assert.match(html, /id="mg-dashboard-period"/);
   assert.match(html, /id="mg-dashboard-priorities"/);
   assert.match(html, /Comercial e prontidão financeira/);
@@ -33,9 +34,11 @@ test("dashboard UI follows the Meli decision hierarchy without invented Ads metr
   assert.match(html, /id="mg-dashboard-orders-period"/);
   assert.match(html, /id="kpi-orders-period-label"/);
   assert.match(html, /id="kpi-gmv-period-label"/);
-  assert.match(client, /mg-dashboard-orders-period/);
+  assert.match(dashboard, /mg-dashboard-orders-period/);
   assert.doesNotMatch(client, /mg-dashboard-orders-7d/);
-  assert.match(client, /renderDashboard\(data\)/);
+  assert.match(dashboard, /window\.addEventListener\("magalu:dashboarddata"/);
+  assert.doesNotMatch(client, /function renderDashboard/);
+  assert.doesNotMatch(client, /function renderCommercialDashboard/);
   assert.match(client, /const requestId=\+\+state\.dashboardRequestId/);
   assert.match(client, /requestId !== state\.dashboardRequestId/);
   assert.match(client, /state\.dashboardPeriod !== requestedPeriod/);
