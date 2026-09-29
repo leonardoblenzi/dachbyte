@@ -152,6 +152,12 @@ code { padding: .12rem .34rem; border-radius: 6px; background: rgba(22,131,232,.
 .mg-sku-input-modes { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
 .mg-sku-input-modes .is-active { border-color:var(--mg-primary); color:var(--mg-primary); background:color-mix(in srgb,var(--mg-primary) 10%,var(--mg-surface)); }
 .mg-sku-list-input { margin:15px 0; display:grid; gap:8px; }
+.mg-operation-workbench { display: grid; gap: 15px; }
+.mg-operation-step { padding: 13px; border: 1px solid var(--mg-line); border-radius: 12px; background: var(--mg-surface-soft); }
+.mg-operation-step > strong { display: block; margin-bottom: 9px; color: var(--mg-primary-strong); font-size: 8px; letter-spacing: .09em; text-transform: uppercase; }
+.mg-operation-explicit { display: grid; grid-template-columns: minmax(150px,.4fr) minmax(220px,1fr) auto; gap: 8px; align-items: start; }
+.mg-operation-explicit input,.mg-operation-explicit textarea { min-height: 34px; padding: 8px 10px; border: 1px solid var(--mg-line); border-radius: 8px; background: var(--mg-surface); color: var(--mg-text); font: inherit; font-size: 9px; }
+.mg-operation-explicit textarea { min-height: 72px; resize: vertical; }
 .mg-sku-list-input label { color:var(--mg-muted); font-size:10px; }
 .mg-sku-list-input textarea { width:100%; min-height:96px; resize:vertical; padding:10px; border:1px solid var(--mg-line); border-radius:9px; background:var(--mg-surface); color:var(--mg-text); font:inherit; }
 .mg-sku-resolution { display:grid; gap:4px; margin:0 0 14px; padding:11px 12px; border:1px solid var(--mg-line); border-radius:10px; background:var(--mg-soft); font-size:10px; }

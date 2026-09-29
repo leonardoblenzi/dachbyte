@@ -14,6 +14,7 @@
     limit: 50,
     total: 0,
     rows: [],
+    writeRows: { price: null, stock: null },
     writeStatus: null,
     catalogStatus: null,
     diagnostics: null,
@@ -515,7 +516,7 @@
       host.innerHTML = '<div class="mg-empty-state"><strong>Nenhum SKU disponível</strong><p>Sincronize o catálogo antes de preparar alterações.</p></div>';
       return;
     }
-    for (const row of state.rows) {
+    for (const row of (state.writeRows[resource] || state.rows)) {
       const item = document.createElement("div");
       item.className = "mg-write-row";
       item.dataset.sku = row.sku;
@@ -530,6 +531,39 @@
       }
       host.append(item);
     }
+  }
+
+  function parseExplicitSkus(value) {
+    return [...new Set(String(value || "").split(/[\n,;]/).map((item) => item.trim()).filter(Boolean))].slice(0, 100);
+  }
+
+  async function resolveWriteSelection(resource) {
+    const account = selected();
+    if (!account) return showAlert("Selecione uma conta Magalu.", "danger");
+    const single = $(`mg-${resource}-sku-input`)?.value || "";
+    const list = $(`mg-${resource}-sku-list`)?.value || "";
+    const skus = parseExplicitSkus(`${single}\n${list}`);
+    if (!skus.length) return showAlert("Informe ao menos um SKU.", "danger");
+    try {
+      const responses = await Promise.all(skus.map((sku) => fetchJson(`/magalu/api/catalog/skus?account_id=${account.id}&limit=10&q=${encodeURIComponent(sku)}`)));
+      const rows = responses.flatMap((response) => response.rows || []).filter((row, index, all) => all.findIndex((item) => item.sku === row.sku) === index);
+      state.writeRows[resource] = rows;
+      renderWriteRows(resource);
+      showAlert(rows.length === skus.length ? `${rows.length} SKU(s) prontos para revisão.` : `${rows.length} SKU(s) encontrados; revise itens ausentes.`, rows.length ? "success" : "warning");
+    } catch (error) { showAlert(error.message, "danger"); }
+  }
+
+  function bindWriteSelectionModes() {
+    document.querySelectorAll("[data-operation-mode]").forEach((button) => button.addEventListener("click", () => {
+      const resource = button.dataset.operationTarget;
+      const mode = button.dataset.operationMode;
+      document.querySelectorAll(`[data-operation-target="${resource}"]`).forEach((item) => item.classList.toggle("is-active", item === button));
+      const explicit = $(`mg-${resource}-explicit`);
+      if (explicit) explicit.hidden = mode === "filters";
+      if (mode === "filters") { state.writeRows[resource] = null; renderWriteRows(resource); }
+    }));
+    $("mg-price-resolve")?.addEventListener("click", () => void resolveWriteSelection("price"));
+    $("mg-stock-resolve")?.addEventListener("click", () => void resolveWriteSelection("stock"));
   }
 
   function collectChanges(resource) {
@@ -873,6 +907,7 @@
     $("mg-test-connection")?.addEventListener("click", () => void testConnection());
     $("mg-price-preview-btn")?.addEventListener("click", () => void previewWrite("price"));
     $("mg-stock-preview-btn")?.addEventListener("click", () => void previewWrite("stock"));
+    bindWriteSelectionModes();
     $("mg-write-preview-close")?.addEventListener("click", () => { $("mg-write-preview").hidden = true; });
     $("mg-write-confirm")?.addEventListener("change", (event) => {
       $("mg-write-apply-btn").disabled = !(event.target.checked && state.activePreview?.summary?.changed > 0);
