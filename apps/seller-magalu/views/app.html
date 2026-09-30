@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="/magalu/assets/css/magalu-sku-management.css?v=2026092902">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-orders.css?v=2026092902">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-financial.css?v=2026092902">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-rich-workspaces.css?v=2026092903">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-rich-workspaces.css?v=2026093001">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-post-review-fixes.css?v=2026092904">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-loading.css?v=2026092801">
 </head>
@@ -172,14 +172,16 @@
       </section>
 
       <section id="mg-catalog-page" class="mg-product-page" data-page="/catalogo" hidden>
-        <section class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Produtos</span><h2>SKUs sincronizados</h2><p class="mg-section-copy">Espelho local do portfólio conectado ao Magalu.</p></div><button class="mg-primary-btn" data-sync type="button">Sincronizar</button></div><div class="mg-toolbar"><input id="mg-catalog-search" placeholder="Buscar SKU ou título"><select id="mg-catalog-status"><option value="">Todos os status</option><option>PUBLISHED</option><option>UNPUBLISHED</option><option>BLOCKED</option><option>UNDER_REVIEW</option><option>DELETING</option><option>DELETED</option></select><button class="mg-secondary-btn" id="mg-catalog-filter" type="button">Filtrar</button></div><div class="mg-table-wrap"><table class="mg-table"><thead><tr><th>SKU</th><th>Produto</th><th>Status</th><th>Preço</th><th>Estoque</th><th></th></tr></thead><tbody id="mg-catalog-body"></tbody></table></div><div id="mg-catalog-empty" class="mg-empty-state" hidden><strong>Nenhum SKU sincronizado</strong><p>Use “Sincronizar” ou abra a tela de Sincronização para verificar o acesso da conta.</p></div><div class="mg-pagination"><button class="mg-secondary-btn" id="mg-prev" type="button">← Anterior</button><span id="mg-page-meta">0 itens</span><button class="mg-secondary-btn" id="mg-next" type="button">Próxima →</button></div></section>
+        <section class="mg-page-hero"><div><span class="mg-kicker">Produtos · consulta</span><h1>Catálogo sincronizado</h1><p>Consulte o espelho local da conta ativa, revise preço e estoque e avance para a gestão protegida quando precisar atuar.</p></div><div class="mg-page-actions"><button class="mg-primary-btn" data-sync type="button">Sincronizar catálogo</button></div></section>
+        <section class="mg-filter-card"><div class="mg-filter-grid"><label class="mg-filter-field mg-filter-field--search"><span>Buscar</span><input id="mg-catalog-search" placeholder="SKU ou título"></label><label class="mg-filter-field"><span>Status</span><select id="mg-catalog-status"><option value="">Todos os status</option><option>PUBLISHED</option><option>UNPUBLISHED</option><option>BLOCKED</option><option>UNDER_REVIEW</option><option>DELETING</option><option>DELETED</option></select></label><div class="mg-filter-actions"><button class="mg-primary-btn" id="mg-catalog-filter" type="button">Filtrar</button></div></div></section>
+        <section class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Base local</span><h2>SKUs sincronizados</h2><p class="mg-section-copy">Preço e estoque refletem a última sincronização disponível para a conta selecionada.</p></div></div><div class="mg-table-wrap"><table class="mg-table"><thead><tr><th>SKU</th><th>Produto</th><th>Status</th><th>Preço</th><th>Estoque</th><th></th></tr></thead><tbody id="mg-catalog-body"></tbody></table></div><div id="mg-catalog-empty" class="mg-empty-state" hidden><strong>Nenhum SKU sincronizado</strong><p>Use “Sincronizar catálogo” ou abra Integrações para diagnosticar o acesso.</p></div><div class="mg-pagination"><button class="mg-secondary-btn" id="mg-prev" type="button">← Anterior</button><span id="mg-page-meta">0 itens</span><button class="mg-secondary-btn" id="mg-next" type="button">Próxima →</button></div></section>
       </section>
 
 
       <section id="mg-orders-page" class="mg-orders-page mg-product-page" data-page="/pedidos" hidden>
         <div id="mg-orders-message" class="mg-orders-message" hidden></div>
 
-        <section class="mg-page-head">
+        <section class="mg-page-hero">
           <div>
             <span class="mg-kicker">Pedidos · Magalu</span>
             <h1>Pedidos e entregas</h1>
@@ -246,7 +248,7 @@
 
       <section id="mg-sku-management-page" class="mg-sku-management mg-product-page" data-page="/gestao-skus" hidden>
         <div id="mg-sku-message" class="mg-sku-message" hidden></div>
-        <header class="mg-page-head"><div><span class="mg-kicker">Operações · catálogo</span><h1>Gestão de catálogo</h1><p>Escolha os SKUs, defina a ação e revise o lote antes de qualquer escrita remota.</p></div><div class="mg-write-readiness"><span id="mg-sku-write-state" data-state="disabled">verificando</span><small id="mg-sku-write-help">Consultando permissões...</small></div></header>
+        <header class="mg-page-hero"><div><span class="mg-kicker">Operações · catálogo</span><h1>Gestão de catálogo</h1><p>Escolha os SKUs, defina a ação e revise o lote antes de qualquer escrita remota.</p></div><div class="mg-write-readiness"><span id="mg-sku-write-state" data-state="disabled">verificando</span><small id="mg-sku-write-help">Consultando permissões...</small></div></header>
         <div class="mg-sku-workspace">
           <section class="mg-sku-stage"><div class="mg-sku-stage__head"><span class="mg-sku-stage__number">1</span><div class="mg-sku-stage__copy"><strong>Selecione os SKUs</strong><small>Use o catálogo atual, informe um SKU ou cole uma lista.</small></div></div><div class="mg-sku-stage__body">
             <div class="mg-sku-source-cards" role="tablist"><button class="mg-sku-source-card is-active" id="mg-sku-mode-filters" data-sku-input-mode="filters" type="button"><strong>Catálogo atual</strong><span>Filtre e selecione itens da réplica sincronizada.</span></button><button class="mg-sku-source-card" id="mg-sku-mode-single" data-sku-input-mode="single" type="button"><strong>Inserir SKU</strong><span>Valide um SKU específico antes da operação.</span></button><button class="mg-sku-source-card" id="mg-sku-mode-list" data-sku-input-mode="list" type="button"><strong>Colar lista</strong><span>Valide vários SKUs em uma única entrada.</span></button></div>
@@ -261,6 +263,7 @@
       </section>
 
       <section id="mg-price-page" class="mg-product-page mg-operation-page" data-page="/precos" hidden>
+        <section class="mg-page-hero"><div><span class="mg-kicker">Operações · preços</span><h1>Preços</h1><p>Compare valores, monte um recorte de SKUs e avance para o preview somente quando a alteração estiver revisada.</p></div><div class="mg-page-actions"><button class="mg-secondary-btn" data-sync type="button">Atualizar leitura</button></div></section>
         <div class="mg-operation-shell">
           <section class="mg-operation-flow" data-operation-resource="price">
             <header class="mg-operation-flow__head">
@@ -290,7 +293,7 @@
         <nav class="mg-workspace-nav" aria-label="Navegação de estoque"><button class="is-active" data-stock-workspace="analysis" type="button">Análise de estoque</button><button data-stock-workspace="update" data-tone="write" type="button">Atualizar estoque</button></nav>
 
         <div class="mg-workspace-panel" data-stock-panel="analysis">
-          <section class="mg-rich-hero"><div><span class="mg-kicker">Operações · Estoque</span><h1>Estoque</h1><p>Use vendas sincronizadas e o saldo atual para identificar ruptura, cobertura baixa, itens sem giro e uma reposição de referência.</p></div><div class="mg-rich-hero__meta"><span class="mg-pill">Leitura local</span><button class="mg-secondary-btn" id="mg-stock-analysis-refresh" type="button">Atualizar análise</button></div></section>
+          <section class="mg-page-hero mg-rich-hero"><div><span class="mg-kicker">Operações · Estoque</span><h1>Estoque</h1><p>Use vendas sincronizadas e o saldo atual para identificar ruptura, cobertura baixa, itens sem giro e uma reposição de referência.</p></div><div class="mg-rich-hero__meta"><span class="mg-pill">Leitura local</span><button class="mg-secondary-btn" id="mg-stock-analysis-refresh" type="button">Atualizar análise</button></div></section>
           <div class="mg-analysis-toolbar"><div class="mg-analysis-toolbar__left"><div class="mg-analysis-period" aria-label="Período de giro"><button class="is-active" data-stock-days="30" type="button">30 dias</button><button data-stock-days="60" type="button">60 dias</button><button data-stock-days="90" type="button">90 dias</button></div><div class="mg-analysis-tabs" aria-label="Recorte da análise"><button class="is-active" data-stock-view="all" type="button">Visão geral</button><button data-stock-view="replacement" type="button">Reposição</button><button data-stock-view="no_sales" type="button">Sem giro</button></div></div><div class="mg-analysis-toolbar__right"><input class="mg-analysis-search" id="mg-stock-analysis-search" placeholder="Buscar SKU ou produto"><span id="mg-stock-analysis-meta" class="mg-pill">Carregando...</span></div></div>
           <section class="mg-rich-kpis" aria-label="Indicadores de estoque"><article class="mg-rich-kpi" data-tone="critical"><span>Críticos</span><strong id="mg-stock-critical">—</strong><small id="mg-stock-critical-meta">estoque zerado ou até 7 dias</small></article><article class="mg-rich-kpi" data-tone="warning"><span>Atenção</span><strong id="mg-stock-attention">—</strong><small id="mg-stock-attention-meta">cobertura entre 8 e 15 dias</small></article><article class="mg-rich-kpi"><span>Cobertura média</span><strong id="mg-stock-coverage">—</strong><small id="mg-stock-coverage-meta">SKUs com giro conhecido</small></article><article class="mg-rich-kpi" data-tone="success"><span>Reposição sugerida</span><strong id="mg-stock-suggested">—</strong><small id="mg-stock-suggested-meta">referência para 30 dias</small></article></section>
           <section class="mg-priority-banner" id="mg-stock-priority"><span class="mg-priority-banner__index">…</span><div><strong>Calculando prioridades</strong><span>Aguardando leitura do catálogo e pedidos.</span></div></section>
@@ -310,7 +313,7 @@
 
 
       <section id="mg-sync-page" data-page="/integracoes" hidden>
-        <section class="mg-page-head"><div><span class="mg-kicker">Conta · integração</span><h1>Integrações</h1><p>Teste a API do Portfólio, acompanhe as execuções e identifique exatamente onde uma leitura falhou.</p></div><div class="mg-page-actions"><button class="mg-secondary-btn" id="mg-test-connection" type="button">Testar conexão</button><button class="mg-primary-btn" data-sync type="button">Sincronizar agora</button></div></section>
+        <section class="mg-page-hero"><div><span class="mg-kicker">Conta · integração</span><h1>Integrações</h1><p>Teste a API do Portfólio, acompanhe as execuções e identifique exatamente onde uma leitura falhou.</p></div><div class="mg-page-actions"><button class="mg-secondary-btn" id="mg-test-connection" type="button">Testar conexão</button><button class="mg-primary-btn" data-sync type="button">Sincronizar agora</button></div></section>
 
         <section class="mg-status-banner" id="mg-sync-banner" data-state="idle"><i></i><div><strong id="mg-sync-banner-title">Aguardando diagnóstico</strong><span id="mg-sync-banner-copy">Selecione uma conta Magalu para consultar o estado da integração.</span></div></section>
 
@@ -323,7 +326,7 @@
       </section>
 
       <section id="mg-accounts-page" data-page="/contas" hidden>
-        <section class="mg-page-head"><div><span class="mg-kicker">Conta Magalu</span><h1>Organizações vinculadas</h1><p>Gerencie as organizações autorizadas pelo ID Magalu e escolha qual conta será usada no módulo.</p></div><div class="mg-page-actions"><a class="mg-primary-btn" id="mg-connect-account" href="/magalu/auth/start?return=%2Fmagalu%2Fcontas">Vincular organização</a></div></section>
+        <section class="mg-page-hero"><div><span class="mg-kicker">Conta Magalu</span><h1>Organizações vinculadas</h1><p>Gerencie as organizações autorizadas pelo ID Magalu e escolha qual conta será usada no módulo.</p></div><div class="mg-page-actions"><a class="mg-primary-btn" id="mg-connect-account" href="/magalu/auth/start?return=%2Fmagalu%2Fcontas">Vincular organização</a></div></section>
         <section class="mg-accounts-list-card"><div class="mg-section-head"><div><span class="mg-kicker">Organizações</span><h2>Contas vinculadas</h2></div><span class="mg-pill" id="mg-accounts-count">0 contas</span></div><div id="mg-account-list" class="mg-account-list"></div><div id="mg-accounts-empty" class="mg-empty-state"><strong>Seu portfólio Magalu começa aqui</strong><p>Conecte uma organização para sincronizar catálogo, preços e estoque pelo OAuth oficial.</p></div></section>
       </section>
 
@@ -416,7 +419,46 @@
 
       <section class="mg-orders-dialog" id="mg-cost-edit-modal" hidden><div class="mg-orders-dialog__card"><header class="mg-orders-dialog__head"><div><span class="mg-kicker">Precificação · custos</span><h2 id="mg-cost-edit-title">Editar custos</h2></div><button class="mg-icon-btn" id="mg-cost-edit-close" type="button" aria-label="Fechar">×</button></header><input id="mg-cost-edit-sku" type="hidden"><div class="mg-cost-editor-grid"><label>Custo unitário<input id="mg-cost-edit-unit" type="number" min="0" step="0.01"></label><label>Imposto %<input id="mg-cost-edit-tax" type="number" min="0" max="100" step="0.01"></label><label>Embalagem<input id="mg-cost-edit-packaging" type="number" min="0" step="0.01"></label><label>Operacional<input id="mg-cost-edit-operational" type="number" min="0" step="0.01"></label><label>Outros custos<input id="mg-cost-edit-other" type="number" min="0" step="0.01"></label><label>Observações<textarea id="mg-cost-edit-notes" maxlength="2000"></textarea></label></div><footer class="mg-orders-dialog__foot"><button class="mg-secondary-btn" id="mg-cost-edit-cancel" type="button">Cancelar</button><button class="mg-primary-btn" id="mg-cost-edit-save" type="button">Salvar custos</button></footer></div></section>
 
-      <section id="mg-financial-calculator-page" class="mg-product-page mg-financial-page" data-page="/calculadora" hidden><nav class="mg-financial-tabs" aria-label="Navegação da precificação"><a href="/magalu/custos">Custos por SKU</a><a href="/magalu/margem">Margem de venda</a><a href="/magalu/calculadora" class="is-active">Calculadora</a></nav><section class="mg-page-head"><div><span class="mg-kicker">Precificação · simulador</span><h1>Calculadora de margem</h1><p>Simule o preço necessário sem alterar nenhum SKU no Magalu.</p></div></section><section class="mg-financial-note">Preencha somente as taxas e custos que se aplicam à venda. Comissão, frete e subsídio são estimativas informadas por você.</section><section class="mg-financial-grid"><section class="mg-section-card"><div class="mg-financial-form"><label data-calculator-step="sale">1. Preço de venda<input id="mg-fin-sale" type="number" min="0" step="0.01"></label><label data-calculator-step="sale">Custo produto<input id="mg-fin-cost" type="number" min="0" step="0.01"></label><label data-calculator-step="fees">2. Comissão %<input id="mg-fin-commission" type="number" min="0" step="0.01"></label><label data-calculator-step="fees">Comissão fixa<input id="mg-fin-commission-fixed" type="number" min="0" step="0.01"></label><label data-calculator-step="fees">Taxa plataforma %<input id="mg-fin-fee" type="number" min="0" step="0.01"></label><label data-calculator-step="fees">Frete vendedor<input id="mg-fin-shipping" type="number" min="0" step="0.01"></label><label>Participação frete<input id="mg-fin-share" type="number" min="0" step="0.01"></label><label>Desconto/promoção<input id="mg-fin-discount" type="number" min="0" step="0.01"></label><label>3. Impostos %<input id="mg-fin-tax" type="number" min="0" step="0.01"></label><label>Embalagem<input id="mg-fin-packaging" type="number" min="0" step="0.01"></label><label>Operacional<input id="mg-fin-operational" type="number" min="0" step="0.01"></label><label>Outros<input id="mg-fin-other" type="number" min="0" step="0.01"></label><label>Margem alvo %<input id="mg-fin-target" type="number" min="0" step="0.01" value="20"></label></div><p><button class="mg-primary-btn" id="mg-fin-calculate" type="button">Calcular estimativa</button></p></section><section class="mg-section-card" data-calculator-step="result"><div class="mg-financial-result"><h2>4. Resultado da simulação</h2><article><span>Resultado</span><strong id="mg-fin-profit">—</strong></article><article><span>Margem</span><strong id="mg-fin-margin">—</strong></article><article><span>ROI</span><strong id="mg-fin-roi">—</strong></article><article><span>Ponto de equilíbrio</span><strong id="mg-fin-break-even">—</strong></article><article><span>Preço alvo</span><strong id="mg-fin-target-price">—</strong></article><article><span>Custos totais</span><strong id="mg-fin-total">—</strong></article></div></section></section></section>
+      <section id="mg-financial-calculator-page" class="mg-product-page mg-financial-page" data-page="/calculadora" hidden>
+        <nav class="mg-financial-tabs" aria-label="Navegação da precificação"><a href="/magalu/custos">Custos por SKU</a><a href="/magalu/margem">Margem de venda</a><a href="/magalu/calculadora" class="is-active">Calculadora</a></nav>
+        <section class="mg-page-hero mg-calculator-hero">
+          <div><span class="mg-kicker">Precificação · simulador</span><h1>Calculadora de margem</h1><p>Teste preço, custos e margem antes de tomar uma decisão. Esta simulação nunca altera um SKU no Magalu.</p></div>
+          <div class="mg-rich-hero__meta"><span class="mg-pill">Simulação segura</span><span class="mg-risk-badge" data-tone="attention">Sem escrita remota</span></div>
+        </section>
+        <nav class="mg-calculator-mode-tabs" aria-label="Origem da simulação" role="tablist">
+          <button id="mg-fin-mode-sku" type="button" class="is-active" data-calculator-mode="sku" role="tab" aria-selected="true">Usar SKU sincronizado</button>
+          <button id="mg-fin-mode-manual" type="button" data-calculator-mode="manual" role="tab" aria-selected="false">Simulação manual</button>
+        </nav>
+        <section class="mg-calculator-layout">
+          <div class="mg-calculator-form-column">
+            <section class="mg-calculator-card mg-calculator-lookup" id="mg-fin-sku-panel">
+              <header class="mg-calculator-card__head"><span class="mg-operation-stage__number">1</span><div><h2>Escolha um SKU</h2><p>Use o catálogo já sincronizado para preencher preço e custos cadastrados.</p></div></header>
+              <div class="mg-calculator-search"><label for="mg-fin-sku-query">Buscar SKU ou produto</label><div><input id="mg-fin-sku-query" type="search" autocomplete="off" placeholder="Digite ao menos 2 caracteres"><button class="mg-secondary-btn" id="mg-fin-sku-search" type="button">Buscar</button></div></div>
+              <div id="mg-fin-sku-results" class="mg-calculator-sku-results" aria-live="polite">Busque um SKU para começar.</div>
+              <div id="mg-fin-selected-sku" class="mg-calculator-selected-sku" hidden></div>
+            </section>
+            <section class="mg-calculator-card">
+              <header class="mg-calculator-card__head"><span class="mg-operation-stage__number">2</span><div><h2>Monte a simulação</h2><p>Os campos seguem editáveis para representar a condição comercial que você quer analisar.</p></div></header>
+              <div class="mg-calculator-field-grid">
+                <label class="mg-calculator-field" data-calculator-step="sale"><span>Preço de venda</span><input id="mg-fin-sale" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label>
+                <label class="mg-calculator-field" data-calculator-step="sale"><span>Custo do produto</span><input id="mg-fin-cost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label>
+              </div>
+              <section class="mg-calculator-subcard" data-calculator-step="fees"><h3>Taxas da plataforma</h3><div class="mg-calculator-field-grid mg-calculator-field-grid--three"><label class="mg-calculator-field"><span>Comissão (%)</span><input id="mg-fin-commission" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label><label class="mg-calculator-field"><span>Comissão fixa</span><input id="mg-fin-commission-fixed" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label><label class="mg-calculator-field"><span>Taxa adicional (%)</span><input id="mg-fin-fee" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label></div></section>
+              <section class="mg-calculator-subcard"><h3>Frete e descontos</h3><div class="mg-calculator-field-grid mg-calculator-field-grid--three"><label class="mg-calculator-field"><span>Frete do vendedor</span><input id="mg-fin-shipping" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label><label class="mg-calculator-field"><span>Participação no frete</span><input id="mg-fin-share" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label><label class="mg-calculator-field"><span>Desconto ou promoção</span><input id="mg-fin-discount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label></div></section>
+              <section class="mg-calculator-subcard"><h3>Impostos e operação</h3><div class="mg-calculator-field-grid mg-calculator-field-grid--four"><label class="mg-calculator-field"><span>Impostos (%)</span><input id="mg-fin-tax" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label><label class="mg-calculator-field"><span>Embalagem</span><input id="mg-fin-packaging" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label><label class="mg-calculator-field"><span>Operacional</span><input id="mg-fin-operational" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label><label class="mg-calculator-field"><span>Outros custos</span><input id="mg-fin-other" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label></div></section>
+              <section class="mg-calculator-target"><label class="mg-calculator-field"><span>Margem alvo (%)</span><input id="mg-fin-target" type="number" min="0" step="0.01" inputmode="decimal" value="20"></label><p>Usamos essa meta para estimar o preço necessário, sem inventar taxas que ainda não estejam informadas.</p></section>
+              <footer class="mg-calculator-actions"><span>Revise os campos antes de calcular.</span><button class="mg-primary-btn" id="mg-fin-calculate" type="button">Calcular simulação</button></footer>
+            </section>
+          </div>
+          <aside class="mg-calculator-result mg-calculator-card" data-calculator-step="result" aria-live="polite">
+            <header class="mg-calculator-card__head"><span class="mg-operation-stage__number">3</span><div><h2>Resultado da simulação</h2><p id="mg-fin-result-caption">Preencha os valores para visualizar sua margem conhecida.</p></div></header>
+            <section class="mg-calculator-result-primary"><span>Resultado estimado</span><strong id="mg-fin-profit">—</strong><small>Preço de venda menos custos e taxas informados.</small></section>
+            <div class="mg-calculator-result-grid"><article><span>Margem</span><strong id="mg-fin-margin">—</strong></article><article><span>ROI</span><strong id="mg-fin-roi">—</strong></article><article><span>Ponto de equilíbrio</span><strong id="mg-fin-break-even">—</strong></article><article><span>Preço para meta</span><strong id="mg-fin-target-price">—</strong></article></div>
+            <section class="mg-calculator-total"><span>Custos totais estimados</span><strong id="mg-fin-total">—</strong></section>
+            <p class="mg-calculator-disclaimer">A calculadora usa exclusivamente os valores informados ou sincronizados. Confirme condições comerciais e tarifas vigentes antes de atualizar preços.</p>
+          </aside>
+        </section>
+      </section>
     </main>
   </div>
 </div>
@@ -427,6 +469,6 @@
     <script src="/magalu/assets/js/magalu-sku-management.js?v=2026092903"></script>
 <script src="/magalu/assets/js/magalu-orders.js?v=2026092801"></script>
 <script src="/magalu/assets/js/magalu-stock-price.js?v=2026092904"></script>
-<script src="/magalu/assets/js/magalu-financial.js?v=2026092905"></script>
+<script src="/magalu/assets/js/magalu-financial.js?v=2026093001"></script>
 </body>
 </html>
