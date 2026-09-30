@@ -32,6 +32,7 @@
     "/gestao-skus": { title: "Gestão de catálogo", page: "mg-sku-management-page", group: "operations" },
     "/precos": { title: "Preços", page: "mg-price-page", group: "operations" },
     "/estoque": { title: "Estoque", page: "mg-stock-page", group: "operations" },
+    "/promocoes": { title: "Promoções", page: "mg-promotions-page", group: "promotions" },
     "/custos": { title: "Custos por SKU", page: "mg-financial-costs-page", group: "financial" },
     "/margem": { title: "Margem de venda", page: "mg-financial-margin-page", group: "financial" },
     "/calculadora": { title: "Calculadora", page: "mg-financial-calculator-page", group: "financial" },

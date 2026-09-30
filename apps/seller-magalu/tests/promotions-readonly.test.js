@@ -167,3 +167,20 @@ test("promotion API exposes only account-scoped GET routes and the app page", ()
   assert.match(promotionRoutes, /router\.get\("\/:promotionId",\s*promotionController\.detail\)/);
   assert.doesNotMatch(promotionRoutes, /router\.(post|put|patch|delete)\(/i);
 });
+
+test("promotion workspace is part of the canonical Magalu shell and contains no write action", () => {
+  const app = read("views/app.html");
+  const shell = read("public/js/magalu-app.js");
+  const script = read("public/js/magalu-promotions.js");
+  assert.match(app, /data-group="promotions"/);
+  assert.match(app, /href="\/magalu\/promocoes"/);
+  assert.match(app, /data-page="\/promocoes"/);
+  assert.match(app, /mg-promotions-available/);
+  assert.match(app, /mg-promotions-participating/);
+  assert.match(shell, /"\/promocoes":\s*\{ title: "Promoções"/);
+  assert.match(app, /magalu-promotions\.js/);
+  assert.match(script, /MagaluSellerShell\?\.getSelectedAccountId/);
+  assert.match(script, /\/magalu\/api\/promotions/);
+  assert.doesNotMatch(app, /Criar promoção|Adicionar todo catálogo|Remover SKU da promoção/);
+  assert.doesNotMatch(script, /fetch\([^)]*\{\s*method:\s*["'](?:POST|PUT|PATCH|DELETE)/i);
+});
