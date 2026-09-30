@@ -105,19 +105,18 @@ test('price, stock, and promotions workspaces use the canonical operational prim
 
 test('pricing and account workspaces use the canonical visual primitives', () => {
   const template = fs.readFileSync(appTemplate, 'utf8');
-  const pageMarkup = (pageId, nextPageId) => {
-    const start = template.indexOf(`<section id="${pageId}"`);
-    const end = nextPageId ? template.indexOf(`<section id="${nextPageId}"`, start) : -1;
+  const pageMarkup = (pageId) => {
+    const match = template.match(new RegExp(`<section id="${pageId}"[^>]*>[\\s\\S]*?(?=<section id="|$)`));
 
-    assert.notEqual(start, -1, `${pageId} should remain available in the Magalu app`);
-    return template.slice(start, end === -1 ? undefined : end);
+    assert.ok(match, `${pageId} should remain available in the Magalu app`);
+    return match[0];
   };
 
-  const financialCosts = pageMarkup('mg-financial-costs-page', 'mg-financial-margin-page');
-  const financialMargin = pageMarkup('mg-financial-margin-page', 'mg-orders-dialog');
+  const financialCosts = pageMarkup('mg-financial-costs-page');
+  const financialMargin = pageMarkup('mg-financial-margin-page');
   const financialCalculator = pageMarkup('mg-financial-calculator-page');
-  const accounts = pageMarkup('mg-accounts-page', 'mg-sku-modal');
-  const sync = pageMarkup('mg-sync-page', 'mg-accounts-page');
+  const accounts = pageMarkup('mg-accounts-page');
+  const sync = pageMarkup('mg-sync-page');
 
   for (const [pageName, markup] of [
     ['financial costs', financialCosts],
@@ -129,5 +128,18 @@ test('pricing and account workspaces use the canonical visual primitives', () =>
     assert.match(markup, /mg-ui-hero/, `${pageName} should use the canonical hero`);
   }
 
+  assert.doesNotMatch(financialMargin, /id="mg-financial-calculator-page"/, 'financial margin markup must stop at the next page boundary');
   assert.match(financialMargin, /class="mg-margin-filter-card mg-ui-filter-card"/, 'financial margin should use the canonical filter card');
+  assert.match(financialCosts, /class="mg-section-card mg-ui-surface"/, 'financial costs should use the canonical surface');
+  assert.equal((financialMargin.match(/class="mg-section-card mg-ui-surface"/g) || []).length, 3, 'financial margin should use canonical surfaces for its insight and result sections');
+  assert.equal((sync.match(/class="mg-section-card(?: mg-sync-history)? mg-ui-surface"/g) || []).length, 3, 'integrations should use canonical surfaces for connection, diagnostics, and history');
+  assert.match(accounts, /class="mg-accounts-list-card mg-ui-surface"/, 'accounts should use the canonical surface');
+
+  const calculatorResult = financialCalculator.match(/<aside class="mg-calculator-result mg-calculator-card"[^>]*>/);
+  assert.ok(calculatorResult, 'calculator result card should remain available');
+  assert.doesNotMatch(
+    calculatorResult[0],
+    /mg-ui-surface/,
+    'calculator result intentionally stays a specialized sticky card; adding the surface primitive would duplicate its existing padding',
+  );
 });
