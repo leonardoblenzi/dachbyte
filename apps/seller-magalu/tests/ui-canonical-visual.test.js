@@ -63,3 +63,34 @@ test('catalogue, orders, and SKU management use the canonical commercial workspa
   assert.match(catalogue, /class="mg-filter-card mg-ui-filter-card"/, 'catalogue should use the canonical filter card');
   assert.match(orders, /class="mg-orders-filters mg-ui-filter-card"/, 'orders should use the canonical filter card');
 });
+
+test('price, stock, and promotions workspaces use the canonical operational primitives', () => {
+  const template = fs.readFileSync(appTemplate, 'utf8');
+  const pageMarkup = (pageId, nextPageId) => {
+    const start = template.indexOf(`<section id="${pageId}"`);
+    const end = nextPageId ? template.indexOf(`<section id="${nextPageId}"`, start) : -1;
+
+    assert.notEqual(start, -1, `${pageId} should remain available in the Magalu app`);
+    return template.slice(start, end === -1 ? undefined : end);
+  };
+
+  const prices = pageMarkup('mg-price-page', 'mg-stock-page');
+  const stock = pageMarkup('mg-stock-page', 'mg-promotions-page');
+  const promotions = pageMarkup('mg-promotions-page', 'mg-financial-costs-page');
+  const promotionsDetailId = template.indexOf('id="mg-promotions-detail"');
+  const promotionsDetailStart = template.lastIndexOf('<section ', promotionsDetailId);
+  const promotionsDetailEnd = template.indexOf('<section id="mg-financial-costs-page"', promotionsDetailId);
+  assert.notEqual(promotionsDetailId, -1, 'mg-promotions-detail should remain available in the Magalu app');
+  const promotionsDetail = template.slice(promotionsDetailStart, promotionsDetailEnd);
+
+  for (const [pageName, markup] of [
+    ['prices', prices],
+    ['stock', stock],
+    ['promotions', promotions],
+  ]) {
+    assert.match(markup, /mg-ui-hero/, `${pageName} should use the canonical hero`);
+  }
+
+  assert.match(promotions, /class="mg-promotions-filter-card mg-ui-filter-card"/, 'promotions should use the canonical filter card');
+  assert.match(promotionsDetail, /class="mg-promotions-dialog mg-ui-modal"/, 'promotion detail should use the canonical modal');
+});
