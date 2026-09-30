@@ -93,4 +93,12 @@ test('price, stock, and promotions workspaces use the canonical operational prim
 
   assert.match(promotions, /class="mg-promotions-filter-card mg-ui-filter-card"/, 'promotions should use the canonical filter card');
   assert.match(promotionsDetail, /class="mg-promotions-dialog mg-ui-modal"/, 'promotion detail should use the canonical modal');
+  assert.match(promotionsDetail, /class="mg-promotions-dialog__card mg-ui-modal__dialog"/, 'promotion detail card should use the canonical modal dialog');
+
+  const canonicalCss = fs.readFileSync(canonicalStylesheet, 'utf8');
+  assert.match(
+    canonicalCss,
+    /\.mg-ui-modal__dialog\s*\{[^}]*max-height:\s*[^;]+;[^}]*overflow:\s*auto;/s,
+    'the canonical modal dialog should constrain height and scroll its content safely',
+  );
 });
