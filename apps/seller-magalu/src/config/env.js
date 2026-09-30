@@ -18,7 +18,8 @@ const ORDER_READ_SCOPES = [
 const INVOICE_READ_SCOPES = ["open:order-invoice-seller:read"];
 const INVOICE_WRITE_SCOPES = ["open:order-order-seller:write","open:order-delivery-seller:write","open:order-logistics-seller:write"];
 const DELIVERY_FINISH_WRITE_SCOPES = ["open:order-delivery-seller:write"];
-const DEFAULT_READ_SCOPES = Array.from(new Set([...CATALOG_READ_SCOPES, ...ORDER_READ_SCOPES, ...INVOICE_READ_SCOPES]));
+const PROMOTION_READ_SCOPES = ["open:promotion-promotions-seller:read"];
+const DEFAULT_READ_SCOPES = Array.from(new Set([...CATALOG_READ_SCOPES, ...ORDER_READ_SCOPES, ...INVOICE_READ_SCOPES, ...PROMOTION_READ_SCOPES]));
 const DEFAULT_WRITE_SCOPES = [
   "open:portfolio-prices-seller:write",
   "open:portfolio-stocks-seller:write",
@@ -97,6 +98,7 @@ module.exports = {
   _CATALOG_READ_SCOPES: CATALOG_READ_SCOPES,
   _ORDER_READ_SCOPES: ORDER_READ_SCOPES,
   _INVOICE_READ_SCOPES: INVOICE_READ_SCOPES,
+  _PROMOTION_READ_SCOPES: PROMOTION_READ_SCOPES,
   _INVOICE_WRITE_SCOPES: INVOICE_WRITE_SCOPES,
   _DELIVERY_FINISH_WRITE_SCOPES: DELIVERY_FINISH_WRITE_SCOPES,
   _DEFAULT_WRITE_SCOPES: DEFAULT_WRITE_SCOPES,
