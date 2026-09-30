@@ -76,7 +76,7 @@
 .mg-ui-modal__body { color: var(--mg-ui-muted); font-size: .8rem; line-height: 1.55; }
 .mg-ui-modal__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--mg-ui-border); background: var(--mg-ui-surface-muted); }
 
-[data-theme="dark"] {
+.mg-app[data-theme="dark"] {
   --mg-ui-border: rgba(184, 218, 244, .2);
   --mg-ui-surface: #102d47;
   --mg-ui-surface-muted: #0b253d;
@@ -103,7 +103,7 @@
   .mg-ui-filter-card__actions { grid-column: span 4; }
 }
 
-@media (max-width: 680px) {
+@media (max-width: 760px) {
   .mg-ui-hero { align-items: stretch; flex-direction: column; padding: 18px; }
   .mg-ui-hero__actions { justify-content: stretch; }
   .mg-ui-hero__actions > * { flex: 1; }

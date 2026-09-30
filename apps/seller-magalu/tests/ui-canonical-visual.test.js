@@ -22,6 +22,8 @@ test('canonical visual stylesheet exposes the reusable Magalu primitives and loa
   ]) {
     assert.match(css, new RegExp(primitive.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
+  assert.match(css, /@media\s*\(max-width:\s*760px\)/, 'canonical primitives should adapt at the mobile breakpoint');
+  assert.match(css, /\.mg-app\[data-theme="dark"\]/, 'canonical primitives should explicitly support the Magalu dark theme');
 
   const template = fs.readFileSync(appTemplate, 'utf8');
   const stylesheetHrefs = [...template.matchAll(/<link\s+rel="stylesheet"\s+href="([^"]+)"[^>]*>/g)]
