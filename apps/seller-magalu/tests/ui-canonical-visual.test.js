@@ -143,3 +143,21 @@ test('pricing and account workspaces use the canonical visual primitives', () =>
     'calculator result intentionally stays a specialized sticky card; adding the surface primitive would duplicate its existing padding',
   );
 });
+
+test('promotions use the shell fetch helper for canonical route loading', () => {
+  const promotionsScript = fs.readFileSync(
+    path.join(appRoot, 'public', 'js', 'magalu-promotions.js'),
+    'utf8',
+  );
+
+  assert.match(
+    promotionsScript,
+    /window\.MagaluSellerShell\.fetchJson\(\s*`\/magalu\/api\/promotions\?account_id=/,
+    'promotions should use the shell fetch helper for its account-scoped read',
+  );
+  assert.doesNotMatch(
+    promotionsScript,
+    /fetch\(\s*`\/magalu\/api\/promotions\?account_id=/,
+    'promotions should not bypass the shell fetch helper',
+  );
+});

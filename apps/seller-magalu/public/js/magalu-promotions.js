@@ -107,9 +107,7 @@
     if (grid) { grid.hidden = false; grid.innerHTML = '<div class="mg-empty-state"><strong>Carregando promoções…</strong></div>'; }
     try {
       const suffix = force ? "&refresh=1" : "";
-      const response = await fetch(`/magalu/api/promotions?account_id=${encodeURIComponent(accountId)}${suffix}`, { credentials: "include", headers: { Accept: "application/json" } });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.message || payload.error || "Não foi possível consultar promoções.");
+      const payload = await window.MagaluSellerShell.fetchJson(`/magalu/api/promotions?account_id=${encodeURIComponent(accountId)}${suffix}`);
       state.promotions = Array.isArray(payload.promotions) ? payload.promotions : [];
       state.loadedForAccount = accountId;
       renderOptions("mg-promotions-type", [...new Set(state.promotions.map((row) => row.type).filter(Boolean))].sort());
