@@ -102,3 +102,32 @@ test('price, stock, and promotions workspaces use the canonical operational prim
     'the canonical modal dialog should constrain height and scroll its content safely',
   );
 });
+
+test('pricing and account workspaces use the canonical visual primitives', () => {
+  const template = fs.readFileSync(appTemplate, 'utf8');
+  const pageMarkup = (pageId, nextPageId) => {
+    const start = template.indexOf(`<section id="${pageId}"`);
+    const end = nextPageId ? template.indexOf(`<section id="${nextPageId}"`, start) : -1;
+
+    assert.notEqual(start, -1, `${pageId} should remain available in the Magalu app`);
+    return template.slice(start, end === -1 ? undefined : end);
+  };
+
+  const financialCosts = pageMarkup('mg-financial-costs-page', 'mg-financial-margin-page');
+  const financialMargin = pageMarkup('mg-financial-margin-page', 'mg-orders-dialog');
+  const financialCalculator = pageMarkup('mg-financial-calculator-page');
+  const accounts = pageMarkup('mg-accounts-page', 'mg-sku-modal');
+  const sync = pageMarkup('mg-sync-page', 'mg-accounts-page');
+
+  for (const [pageName, markup] of [
+    ['financial costs', financialCosts],
+    ['financial margin', financialMargin],
+    ['financial calculator', financialCalculator],
+    ['accounts', accounts],
+    ['integrations', sync],
+  ]) {
+    assert.match(markup, /mg-ui-hero/, `${pageName} should use the canonical hero`);
+  }
+
+  assert.match(financialMargin, /class="mg-margin-filter-card mg-ui-filter-card"/, 'financial margin should use the canonical filter card');
+});
