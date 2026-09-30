@@ -30,7 +30,7 @@
 .mg-ui-hero p, .mg-ui-hero__description { max-width: 760px; margin: 8px 0 0; color: var(--mg-ui-muted); font-size: .8rem; line-height: 1.55; }
 .mg-ui-hero__actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 
-.mg-ui-filter-card, .mg-ui-surface {
+.mg-ui-filter-card {
   border: 1px solid var(--mg-ui-border);
   border-radius: var(--mg-ui-radius);
   background: var(--mg-ui-surface);
@@ -49,9 +49,15 @@
 .mg-ui-filter-card input:focus, .mg-ui-filter-card select:focus, .mg-ui-filter-card textarea:focus { outline: 0; border-color: var(--mg-ui-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mg-ui-primary) 18%, transparent); }
 .mg-ui-filter-card__actions { display: flex; grid-column: span 3; align-items: end; gap: 8px; }
 
-.mg-ui-surface { padding: 18px; }
-.mg-ui-surface--muted { background: var(--mg-ui-surface-muted); box-shadow: none; }
-.mg-ui-surface--flush { padding: 0; overflow: hidden; }
+.mg-ui-surface {
+  padding: 18px!important;
+  border: 1px solid var(--mg-ui-border)!important;
+  border-radius: var(--mg-ui-radius)!important;
+  background: var(--mg-ui-surface)!important;
+  box-shadow: var(--mg-ui-shadow)!important;
+}
+.mg-ui-surface--muted { background: var(--mg-ui-surface-muted)!important; box-shadow: none!important; }
+.mg-ui-surface--flush { padding: 0!important; overflow: hidden; }
 .mg-ui-surface__body { margin-top: 15px; }
 
 .mg-ui-tabs { display: inline-flex; max-width: 100%; gap: 3px; overflow-x: auto; padding: 4px; border: 1px solid var(--mg-ui-border); border-radius: 13px; background: var(--mg-ui-surface); scrollbar-width: thin; }
@@ -95,7 +101,8 @@
   .mg-ui-hero { align-items: stretch; flex-direction: column; padding: 18px; }
   .mg-ui-hero__actions { justify-content: stretch; }
   .mg-ui-hero__actions > * { flex: 1; }
-  .mg-ui-filter-card, .mg-ui-surface { padding: 15px; }
+  .mg-ui-filter-card { padding: 15px; }
+  .mg-ui-surface { padding: 15px!important; }
   .mg-ui-filter-card__fields { grid-template-columns: 1fr; }
   .mg-ui-filter-card__field, .mg-ui-filter-card__actions { grid-column: auto; }
   .mg-ui-filter-card__actions > * { flex: 1; }

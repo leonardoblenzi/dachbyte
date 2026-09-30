@@ -144,6 +144,25 @@ test('pricing and account workspaces use the canonical visual primitives', () =>
   );
 });
 
+test('canonical surfaces override legacy card geometry when the canonical class is attached', () => {
+  const canonicalCss = fs.readFileSync(canonicalStylesheet, 'utf8');
+  const surfaceRule = canonicalCss.match(/\.mg-ui-surface\s*\{([^}]*)\}/);
+
+  assert.ok(surfaceRule, 'the canonical surface rule should remain available');
+  for (const property of ['padding', 'border', 'border-radius', 'background', 'box-shadow']) {
+    assert.match(
+      surfaceRule[1],
+      new RegExp(`${property}:\\s*[^;]+!important;`),
+      `canonical surfaces should win legacy !important ${property} declarations`,
+    );
+  }
+  assert.match(
+    canonicalCss,
+    /@media\s*\(max-width:\s*760px\)\s*\{[\s\S]*?\.mg-ui-surface\s*\{\s*padding:\s*15px!important;\s*\}/,
+    'canonical surface padding should retain its responsive override',
+  );
+});
+
 test('promotions use the shell fetch helper for canonical route loading', () => {
   const promotionsScript = fs.readFileSync(
     path.join(appRoot, 'public', 'js', 'magalu-promotions.js'),
