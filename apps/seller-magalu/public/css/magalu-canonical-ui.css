@@ -86,18 +86,6 @@
   --mg-ui-shadow: 0 14px 34px rgba(0, 0, 0, .25);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --mg-ui-border: rgba(184, 218, 244, .2);
-    --mg-ui-surface: #102d47;
-    --mg-ui-surface-muted: #0b253d;
-    --mg-ui-title: #f2f8fc;
-    --mg-ui-muted: #aac1d2;
-    --mg-ui-primary-soft: rgba(48, 161, 235, .2);
-    --mg-ui-shadow: 0 14px 34px rgba(0, 0, 0, .25);
-  }
-}
-
 @media (max-width: 960px) {
   .mg-ui-filter-card__field { grid-column: span 4; }
   .mg-ui-filter-card__actions { grid-column: span 4; }
