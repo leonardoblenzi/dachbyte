@@ -37,3 +37,29 @@ test('canonical visual stylesheet exposes the reusable Magalu primitives and loa
     'canonical stylesheet should load after the existing Magalu stylesheets',
   );
 });
+
+test('catalogue, orders, and SKU management use the canonical commercial workspace primitives', () => {
+  const template = fs.readFileSync(appTemplate, 'utf8');
+  const pageMarkup = (pageId, nextPageId) => {
+    const start = template.indexOf(`<section id="${pageId}"`);
+    const end = nextPageId ? template.indexOf(`<section id="${nextPageId}"`, start) : -1;
+
+    assert.notEqual(start, -1, `${pageId} should remain available in the Magalu app`);
+    return template.slice(start, end === -1 ? undefined : end);
+  };
+
+  const catalogue = pageMarkup('mg-catalog-page', 'mg-orders-page');
+  const orders = pageMarkup('mg-orders-page', 'mg-sku-management-page');
+  const skuManagement = pageMarkup('mg-sku-management-page', 'mg-price-page');
+
+  for (const [pageName, markup] of [
+    ['catalogue', catalogue],
+    ['orders', orders],
+    ['SKU management', skuManagement],
+  ]) {
+    assert.match(markup, /class="mg-page-hero mg-ui-hero"/, `${pageName} should use the canonical hero`);
+  }
+
+  assert.match(catalogue, /class="mg-filter-card mg-ui-filter-card"/, 'catalogue should use the canonical filter card');
+  assert.match(orders, /class="mg-orders-filters mg-ui-filter-card"/, 'orders should use the canonical filter card');
+});

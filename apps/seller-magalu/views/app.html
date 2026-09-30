@@ -185,16 +185,16 @@
       </section>
 
       <section id="mg-catalog-page" class="mg-product-page" data-page="/catalogo" hidden>
-        <section class="mg-page-hero"><div><span class="mg-kicker">Produtos · consulta</span><h1>Catálogo sincronizado</h1><p>Consulte o espelho local da conta ativa, revise preço e estoque e avance para a gestão protegida quando precisar atuar.</p></div><div class="mg-page-actions"><button class="mg-primary-btn" data-sync type="button">Sincronizar catálogo</button></div></section>
-        <section class="mg-filter-card"><div class="mg-filter-grid"><label class="mg-filter-field mg-filter-field--search"><span>Buscar</span><input id="mg-catalog-search" placeholder="SKU ou título"></label><label class="mg-filter-field"><span>Status</span><select id="mg-catalog-status"><option value="">Todos os status</option><option>PUBLISHED</option><option>UNPUBLISHED</option><option>BLOCKED</option><option>UNDER_REVIEW</option><option>DELETING</option><option>DELETED</option></select></label><div class="mg-filter-actions"><button class="mg-primary-btn" id="mg-catalog-filter" type="button">Filtrar</button></div></div></section>
-        <section class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Base local</span><h2>SKUs sincronizados</h2><p class="mg-section-copy">Preço e estoque refletem a última sincronização disponível para a conta selecionada.</p></div></div><div class="mg-table-wrap"><table class="mg-table"><thead><tr><th>SKU</th><th>Produto</th><th>Status</th><th>Preço</th><th>Estoque</th><th></th></tr></thead><tbody id="mg-catalog-body"></tbody></table></div><div id="mg-catalog-empty" class="mg-empty-state" hidden><strong>Nenhum SKU sincronizado</strong><p>Use “Sincronizar catálogo” ou abra Integrações para diagnosticar o acesso.</p></div><div class="mg-pagination"><button class="mg-secondary-btn" id="mg-prev" type="button">← Anterior</button><span id="mg-page-meta">0 itens</span><button class="mg-secondary-btn" id="mg-next" type="button">Próxima →</button></div></section>
+        <section class="mg-page-hero mg-ui-hero"><div><span class="mg-kicker">Produtos · consulta</span><h1>Catálogo sincronizado</h1><p>Consulte o espelho local da conta ativa, revise preço e estoque e avance para a gestão protegida quando precisar atuar.</p></div><div class="mg-page-actions"><button class="mg-primary-btn" data-sync type="button">Sincronizar catálogo</button></div></section>
+        <section class="mg-filter-card mg-ui-filter-card"><div class="mg-filter-grid"><label class="mg-filter-field mg-filter-field--search"><span>Buscar</span><input id="mg-catalog-search" placeholder="SKU ou título"></label><label class="mg-filter-field"><span>Status</span><select id="mg-catalog-status"><option value="">Todos os status</option><option>PUBLISHED</option><option>UNPUBLISHED</option><option>BLOCKED</option><option>UNDER_REVIEW</option><option>DELETING</option><option>DELETED</option></select></label><div class="mg-filter-actions"><button class="mg-primary-btn" id="mg-catalog-filter" type="button">Filtrar</button></div></div></section>
+        <section class="mg-section-card mg-ui-surface"><div class="mg-section-head"><div><span class="mg-kicker">Base local</span><h2>SKUs sincronizados</h2><p class="mg-section-copy">Preço e estoque refletem a última sincronização disponível para a conta selecionada.</p></div></div><div class="mg-table-wrap"><table class="mg-table"><thead><tr><th>SKU</th><th>Produto</th><th>Status</th><th>Preço</th><th>Estoque</th><th></th></tr></thead><tbody id="mg-catalog-body"></tbody></table></div><div id="mg-catalog-empty" class="mg-empty-state" hidden><strong>Nenhum SKU sincronizado</strong><p>Use “Sincronizar catálogo” ou abra Integrações para diagnosticar o acesso.</p></div><div class="mg-pagination"><button class="mg-secondary-btn" id="mg-prev" type="button">← Anterior</button><span id="mg-page-meta">0 itens</span><button class="mg-secondary-btn" id="mg-next" type="button">Próxima →</button></div></section>
       </section>
 
 
       <section id="mg-orders-page" class="mg-orders-page mg-product-page" data-page="/pedidos" hidden>
         <div id="mg-orders-message" class="mg-orders-message" hidden></div>
 
-        <section class="mg-page-hero">
+        <section class="mg-page-hero mg-ui-hero">
           <div>
             <span class="mg-kicker">Pedidos · Magalu</span>
             <h1>Pedidos e entregas</h1>
@@ -219,9 +219,9 @@
           <article class="mg-kpi"><span>Sincronização</span><strong id="mg-orders-stat-sync">—</strong><small id="mg-orders-stat-sync-time">aguardando</small></article>
         </section>
 
-        <section class="mg-section-card">
+        <section class="mg-section-card mg-ui-surface">
           <div class="mg-section-head"><div><span class="mg-kicker">Consulta operacional</span><h2>Pedidos sincronizados</h2><p class="mg-section-copy">Filtros locais sobre a réplica da conta selecionada na barra lateral.</p></div></div>
-          <div class="mg-orders-filters">
+          <div class="mg-orders-filters mg-ui-filter-card">
             <label class="mg-orders-field"><span>Pedido, SKU ou produto</span><input id="mg-orders-q" placeholder="Pedido, SKU ou produto"></label>
             <label class="mg-orders-field"><span>Status</span><select id="mg-orders-status"><option value="">Todos</option><option>new</option><option>approved</option><option>invoiced</option><option>shipped</option><option>delivered</option><option>cancelled</option><option>frozen</option></select></label>
             <label class="mg-orders-field"><span>De</span><input id="mg-orders-from" type="date"></label>
@@ -232,12 +232,12 @@
           <div class="mg-pagination"><button class="mg-secondary-btn" id="mg-orders-prev" type="button">← Anterior</button><span id="mg-orders-range">0 pedidos</span><button class="mg-secondary-btn" id="mg-orders-next" type="button">Próxima →</button></div>
         </section>
 
-        <section class="mg-section-card">
+        <section class="mg-section-card mg-ui-surface">
           <div class="mg-section-head"><div><span class="mg-kicker">Escrita protegida</span><h2>Operações de expedição</h2><p class="mg-section-copy">NF-e e finalização passam por preview, Hub WRITE e reconciliação remota.</p></div></div>
           <div class="mg-orders-runs" id="mg-orders-delivery-ops"><div class="mg-empty-state"><strong>Nenhuma operação carregada</strong></div></div>
         </section>
 
-        <section class="mg-section-card">
+        <section class="mg-section-card mg-ui-surface">
           <div class="mg-section-head"><div><span class="mg-kicker">Worker Magalu</span><h2>Sincronizações recentes</h2><p class="mg-section-copy">Histórico da réplica de pedidos e entregas.</p></div></div>
           <div class="mg-orders-runs" id="mg-orders-runs"><div class="mg-empty-state"><strong>Nenhuma execução carregada</strong></div></div>
         </section>
@@ -261,7 +261,7 @@
 
       <section id="mg-sku-management-page" class="mg-sku-management mg-product-page" data-page="/gestao-skus" hidden>
         <div id="mg-sku-message" class="mg-sku-message" hidden></div>
-        <header class="mg-page-hero"><div><span class="mg-kicker">Operações · catálogo</span><h1>Gestão de catálogo</h1><p>Escolha os SKUs, defina a ação e revise o lote antes de qualquer escrita remota.</p></div><div class="mg-write-readiness"><span id="mg-sku-write-state" data-state="disabled">verificando</span><small id="mg-sku-write-help">Consultando permissões...</small></div></header>
+        <header class="mg-page-hero mg-ui-hero"><div><span class="mg-kicker">Operações · catálogo</span><h1>Gestão de catálogo</h1><p>Escolha os SKUs, defina a ação e revise o lote antes de qualquer escrita remota.</p></div><div class="mg-write-readiness"><span id="mg-sku-write-state" data-state="disabled">verificando</span><small id="mg-sku-write-help">Consultando permissões...</small></div></header>
         <div class="mg-sku-workspace">
           <section class="mg-sku-stage"><div class="mg-sku-stage__head"><span class="mg-sku-stage__number">1</span><div class="mg-sku-stage__copy"><strong>Selecione os SKUs</strong><small>Use o catálogo atual, informe um SKU ou cole uma lista.</small></div></div><div class="mg-sku-stage__body">
             <div class="mg-sku-source-cards" role="tablist"><button class="mg-sku-source-card is-active" id="mg-sku-mode-filters" data-sku-input-mode="filters" type="button"><strong>Catálogo atual</strong><span>Filtre e selecione itens da réplica sincronizada.</span></button><button class="mg-sku-source-card" id="mg-sku-mode-single" data-sku-input-mode="single" type="button"><strong>Inserir SKU</strong><span>Valide um SKU específico antes da operação.</span></button><button class="mg-sku-source-card" id="mg-sku-mode-list" data-sku-input-mode="list" type="button"><strong>Colar lista</strong><span>Valide vários SKUs em uma única entrada.</span></button></div>
