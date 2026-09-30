@@ -13,6 +13,15 @@ function clearModule(request) {
   try { delete require.cache[require.resolve(request)]; } catch (_error) {}
 }
 
+function response() {
+  const result = {};
+  return {
+    result,
+    status(code) { result.status = code; return this; },
+    json(body) { result.body = body; return body; },
+  };
+}
+
 async function withLoadStubs(stubs, load, run) {
   const original = Module._load;
   Module._load = function patchedLoad(request, parent, isMain) {
@@ -109,4 +118,52 @@ test("promotion reader sends only GET and normalizes campaign fields", async () 
     { path: "/seller/v1/promotions", method: "GET", accountId: 7 },
     { path: "/seller/v1/promotions/promo-1", method: "GET", accountId: 7 },
   ]);
+});
+
+test("promotion controller resolves the tenant account and requires Hub READ before list", async () => {
+  const account = { id: 7, dach_tenant_id: "tenant-a", status: "active", scopes: ["open:promotion-promotions-seller:read"] };
+  const accesses = [];
+  clearModule("../src/controllers/promotionController");
+  await withLoadStubs({
+    "../repositories/accountRepository": { findAccountByIdForTenant: async () => account },
+    "../services/hubResourceAccessService": { checkAccountAccess: async (...args) => { accesses.push(args); return { allow: true }; } },
+    "../services/promotionCapabilityService": { forAccount: () => ({ list: true, detail: true }) },
+    "../services/promotionReadService": { list: async () => ({ promotions: [{ id: "promo-1" }], request_id: "req-1" }) },
+  }, () => require("../src/controllers/promotionController"), async (controller) => {
+    const res = response();
+    const identity = { dachTenantId: "tenant-a", dachUserId: "user-a" };
+    await controller.list({ query: { account_id: "7" }, params: {}, magaluIdentity: identity }, res, (error) => { if (error) throw error; });
+    assert.deepEqual(accesses, [[identity, account, { action: "READ magalu" }]]);
+    assert.deepEqual(res.result.body, { ok: true, promotions: [{ id: "promo-1" }], request_id: "req-1" });
+  });
+});
+
+test("promotion detail is read-only, account-scoped, and rejects an empty promotion id", async () => {
+  const account = { id: 7, dach_tenant_id: "tenant-a", status: "active", scopes: ["open:promotion-promotions-seller:read"] };
+  clearModule("../src/controllers/promotionController");
+  await withLoadStubs({
+    "../repositories/accountRepository": { findAccountByIdForTenant: async () => account },
+    "../services/hubResourceAccessService": { checkAccountAccess: async () => ({ allow: true }) },
+    "../services/promotionCapabilityService": { forAccount: () => ({ list: true, detail: true }) },
+    "../services/promotionReadService": { detail: async () => ({ promotion: { id: "promo-1" }, request_id: "req-detail" }) },
+  }, () => require("../src/controllers/promotionController"), async (controller) => {
+    const res = response();
+    await controller.detail({ query: { account_id: "7" }, params: { promotionId: "promo-1" }, magaluIdentity: { dachTenantId: "tenant-a" } }, res, (error) => { if (error) throw error; });
+    assert.deepEqual(res.result.body, { ok: true, promotion: { id: "promo-1" }, request_id: "req-detail" });
+
+    let received = null;
+    await controller.detail({ query: { account_id: "7" }, params: {}, magaluIdentity: { dachTenantId: "tenant-a" } }, response(), (error) => { received = error; });
+    assert.equal(received.code, "MAGALU_PROMOTION_ID_REQUIRED");
+  });
+});
+
+test("promotion API exposes only account-scoped GET routes and the app page", () => {
+  const apiRoutes = read("src/routes/api.routes.js");
+  const appRoutes = read("src/routes/index.js");
+  assert.match(apiRoutes, /router\.use\("\/promotions",\s*promotionRoutes\)/);
+  assert.match(appRoutes, /"\/promocoes"/);
+  const promotionRoutes = read("src/routes/promotion.routes.js");
+  assert.match(promotionRoutes, /router\.get\("\/",\s*promotionController\.list\)/);
+  assert.match(promotionRoutes, /router\.get\("\/:promotionId",\s*promotionController\.detail\)/);
+  assert.doesNotMatch(promotionRoutes, /router\.(post|put|patch|delete)\(/i);
 });

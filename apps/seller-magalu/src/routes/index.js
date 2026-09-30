@@ -39,7 +39,7 @@ async function renderAppEntry(req, res, next, returnPath) {
 
 const accountPagesWithoutProvider = new Set(["/contas", "/usuarios", "/plano", "/ajuda"]);
 router.get("/catalogo", (_req, res) => res.redirect(302, "/magalu/gestao-skus"));
-for (const route of ["/", "/pedidos", "/gestao-skus", "/estoque", "/precos", "/custos", "/margem", "/calculadora", "/integracoes", "/contas", "/usuarios", "/plano", "/ajuda"]) {
+for (const route of ["/", "/pedidos", "/gestao-skus", "/estoque", "/precos", "/promocoes", "/custos", "/margem", "/calculadora", "/integracoes", "/contas", "/usuarios", "/plano", "/ajuda"]) {
   const returnPath = route === "/" ? "/magalu/" : `/magalu${route}`;
   router.get(route, (req, res, next) => {
     if (accountPagesWithoutProvider.has(route)) return res.sendFile(appView);
