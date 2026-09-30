@@ -13,9 +13,10 @@
   const isPage = () => location.pathname.replace(/\/$/,"") === "/magalu/pedidos";
 
   async function api(path, options={}) {
-    const res = await fetch(`${API}${path}`, { credentials:"same-origin", headers:{ Accept:"application/json", ...(options.body ? {"Content-Type":"application/json"} : {}), ...(options.headers || {}) }, ...options });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data?.ok === false) { const e=new Error(data?.message || data?.error || `HTTP ${res.status}`); e.payload=data; e.status=res.status; throw e; }
+    const client = shell();
+    if (!client?.fetchJson) throw new Error("Shell Magalu indisponível.");
+    const data = await client.fetchJson(`${API}${path}`, options);
+    if (data?.ok === false) { const e=new Error(data?.message || data?.error || "A solicitação foi recusada."); e.payload=data; throw e; }
     return data;
   }
   function alert(message, tone="danger") {

@@ -74,8 +74,8 @@
 .mg-ui-state--warning { border-color: color-mix(in srgb, var(--mg-warning, #d78a18) 45%, var(--mg-ui-border)); background: color-mix(in srgb, var(--mg-warning, #d78a18) 8%, var(--mg-ui-surface)); }
 
 .mg-ui-modal[hidden]{display:none!important}
-.mg-ui-modal { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(5, 30, 52, .52); }
-.mg-ui-modal__dialog { width: min(100%, 640px); max-height: min(760px, calc(100vh - 36px)); overflow: auto; border: 1px solid var(--mg-ui-border); border-radius: calc(var(--mg-ui-radius) + 2px); background: var(--mg-ui-surface); color: var(--mg-ui-title); box-shadow: 0 26px 72px rgba(4, 24, 42, .3); }
+.mg-ui-modal { position: fixed!important; z-index: 120!important; inset: 0!important; display: grid!important; place-items: center!important; padding: 18px!important; background: rgba(5, 30, 52, .52)!important; }
+.mg-ui-modal__dialog { width: min(100%, 640px)!important; max-height: min(760px, calc(100vh - 36px))!important; overflow: auto!important; border: 1px solid var(--mg-ui-border)!important; border-radius: calc(var(--mg-ui-radius) + 2px)!important; background: var(--mg-ui-surface)!important; color: var(--mg-ui-title)!important; box-shadow: 0 26px 72px rgba(4, 24, 42, .3)!important; }
 .mg-ui-modal__head, .mg-ui-modal__body, .mg-ui-modal__actions { padding: 18px 20px; }
 .mg-ui-modal__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--mg-ui-border); }
 .mg-ui-modal__head h2 { margin: 0; font-size: 1rem; }
@@ -107,8 +107,8 @@
   .mg-ui-filter-card__fields { grid-template-columns: 1fr; }
   .mg-ui-filter-card__field, .mg-ui-filter-card__actions { grid-column: auto; }
   .mg-ui-filter-card__actions > * { flex: 1; }
-  .mg-ui-modal { align-items: end; padding: 0; }
-  .mg-ui-modal__dialog { width: 100%; max-height: min(88vh, 760px); border-bottom-right-radius: 0; border-bottom-left-radius: 0; }
+  .mg-ui-modal { align-items: end!important; padding: 0!important; }
+  .mg-ui-modal__dialog { width: 100%!important; max-height: min(88vh, 760px)!important; border-bottom-right-radius: 0!important; border-bottom-left-radius: 0!important; }
   .mg-ui-modal__head, .mg-ui-modal__body, .mg-ui-modal__actions { padding: 16px; }
   .mg-ui-modal__actions > * { flex: 1; }
 }

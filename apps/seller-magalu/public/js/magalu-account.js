@@ -6,15 +6,11 @@
   let unlinkTarget = null;
 
   async function fetchJson(url, options = {}) {
-    const response = await fetch(url, {
-      credentials: "include",
-      headers: { Accept: "application/json", ...(options.body ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}) },
-      ...options,
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const error = new Error(data.message || data.error || `HTTP ${response.status}`);
-      error.status = response.status;
+    const client = window.MagaluSellerShell;
+    if (!client?.fetchJson) throw new Error("Shell Magalu indisponível.");
+    const data = await client.fetchJson(url, options);
+    if (data?.ok === false) {
+      const error = new Error(data.message || data.error || "A solicitação foi recusada.");
       error.payload = data;
       throw error;
     }

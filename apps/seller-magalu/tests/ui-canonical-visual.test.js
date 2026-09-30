@@ -98,7 +98,7 @@ test('price, stock, and promotions workspaces use the canonical operational prim
   const canonicalCss = fs.readFileSync(canonicalStylesheet, 'utf8');
   assert.match(
     canonicalCss,
-    /\.mg-ui-modal__dialog\s*\{[^}]*max-height:\s*[^;]+;[^}]*overflow:\s*auto;/s,
+    /\.mg-ui-modal__dialog\s*\{[^}]*max-height:\s*[^;]+!important;[^}]*overflow:\s*auto!important;/s,
     'the canonical modal dialog should constrain height and scroll its content safely',
   );
 });
@@ -185,4 +185,74 @@ test('promotions use the shell fetch helper for canonical route loading', () => 
     /fetch\(\s*`\/magalu\/api\/promotions\?account_id=/,
     'promotions should not bypass the shell fetch helper',
   );
+});
+
+test('all Magalu feature pages use the shell fetch helper for consistent loading feedback', () => {
+  const scripts = [
+    'magalu-orders.js',
+    'magalu-sku-management.js',
+    'magalu-account.js',
+  ];
+
+  for (const file of scripts) {
+    const source = fs.readFileSync(path.join(appRoot, 'public', 'js', file), 'utf8');
+    assert.match(source, /fetchJson\(/, `${file} should use the shell fetch helper`);
+    assert.doesNotMatch(source, /await\s+fetch\(/, `${file} should not bypass the shared loading helper with direct fetch`);
+  }
+});
+
+test('feature page fetch helpers fail explicitly when the shared shell is unavailable', () => {
+  const scripts = [
+    'magalu-orders.js',
+    'magalu-sku-management.js',
+    'magalu-account.js',
+  ];
+
+  for (const script of scripts) {
+    const source = fs.readFileSync(path.join(appRoot, 'public', 'js', script), 'utf8');
+    assert.match(source, /const client\s*=/, `${script} should resolve the shared shell before using it`);
+    assert.match(source, /Shell Magalu indisponível/, `${script} should not silently return undefined without the shell`);
+  }
+});
+
+test('all Magalu dialogs use the canonical mobile-safe modal contract', () => {
+  const template = fs.readFileSync(appTemplate, 'utf8');
+  const dialogs = [
+    ['mg-orders-detail-modal', 'mg-orders-dialog', 'mg-orders-dialog__card'],
+    ['mg-orders-write-modal', 'mg-orders-dialog', 'mg-orders-dialog__card'],
+    ['mg-sku-preview', 'mg-sku-modal', 'mg-sku-modal__card'],
+    ['mg-sku-validation', 'mg-sku-modal', 'mg-sku-modal__card'],
+    ['mg-sku-batch-detail', 'mg-sku-modal', 'mg-sku-modal__card'],
+    ['mg-write-preview', 'mg-preview-panel', 'mg-preview-panel__dialog'],
+    ['mg-cost-edit-modal', 'mg-orders-dialog', 'mg-orders-dialog__card'],
+  ];
+
+  for (const [id, rootClass, dialogClass] of dialogs) {
+    const root = new RegExp(`<section class="${rootClass} mg-ui-modal" id="${id}"`);
+    const dialog = new RegExp(`<div class="${dialogClass} mg-ui-modal__dialog"`);
+    assert.match(template, root, `${id} should use the canonical modal root`);
+
+    const start = template.indexOf(`id="${id}"`);
+    assert.notEqual(start, -1, `${id} should remain available`);
+    assert.match(template.slice(start, start + 400), dialog, `${id} should use the canonical modal dialog`);
+  }
+});
+
+test('canonical modal geometry wins legacy modal declarations at desktop and mobile widths', () => {
+  const canonicalCss = fs.readFileSync(canonicalStylesheet, 'utf8');
+  const modalRule = canonicalCss.match(/\.mg-ui-modal\s*\{([^}]*)\}/);
+  const dialogRule = canonicalCss.match(/\.mg-ui-modal__dialog\s*\{([^}]*)\}/);
+
+  assert.ok(modalRule, 'the canonical modal root rule should remain available');
+  assert.ok(dialogRule, 'the canonical modal dialog rule should remain available');
+  for (const property of ['position', 'z-index', 'inset', 'display', 'padding', 'background']) {
+    assert.match(modalRule[1], new RegExp(`${property}:\\s*[^;]+!important;`), `modal ${property} should override legacy declarations`);
+  }
+  for (const property of ['width', 'max-height', 'overflow', 'border-radius', 'background']) {
+    assert.match(dialogRule[1], new RegExp(`${property}:\\s*[^;]+!important;`), `dialog ${property} should override legacy declarations`);
+  }
+
+  const mobileStyles = canonicalCss.slice(canonicalCss.indexOf('@media (max-width: 760px)'));
+  assert.match(mobileStyles, /\.mg-ui-modal\s*\{\s*align-items:\s*end!important;\s*padding:\s*0!important;/, 'mobile dialogs should become bottom sheets even when legacy styles use !important');
+  assert.match(mobileStyles, /\.mg-ui-modal__dialog\s*\{\s*width:\s*100%!important;\s*max-height:\s*[^;]+!important;/, 'mobile dialogs should retain the canonical bottom-sheet geometry');
 });
