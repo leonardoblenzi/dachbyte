@@ -161,6 +161,12 @@ test('canonical surfaces override legacy card geometry when the canonical class 
     /@media\s*\(max-width:\s*760px\)\s*\{[\s\S]*?\.mg-ui-surface\s*\{\s*padding:\s*15px!important;\s*\}/,
     'canonical surface padding should retain its responsive override',
   );
+  const mobileStyles = canonicalCss.slice(canonicalCss.indexOf('@media (max-width: 760px)'));
+  assert.match(
+    mobileStyles,
+    /\.mg-ui-surface\s*\{\s*padding:\s*15px!important;\s*\}[\s\S]*?\.mg-ui-surface--flush\s*\{\s*padding:\s*0!important;/,
+    'the flush modifier should override canonical mobile surface padding',
+  );
 });
 
 test('promotions use the shell fetch helper for canonical route loading', () => {

@@ -103,6 +103,7 @@
   .mg-ui-hero__actions > * { flex: 1; }
   .mg-ui-filter-card { padding: 15px; }
   .mg-ui-surface { padding: 15px!important; }
+  .mg-ui-surface--flush { padding: 0!important; }
   .mg-ui-filter-card__fields { grid-template-columns: 1fr; }
   .mg-ui-filter-card__field, .mg-ui-filter-card__actions { grid-column: auto; }
   .mg-ui-filter-card__actions > * { flex: 1; }
