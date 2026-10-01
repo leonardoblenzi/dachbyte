@@ -17,6 +17,7 @@
 - Modificar: `apps/seller-ml/public/css/financeiro-ml.css` — apresentação dos estados vazios e link.
 - Modificar: `apps/seller-ml/tests/financeiro-ml-integrated-costs-ui.test.js` — link/deep link.
 - Modificar: `apps/seller-ml/tests/financeiro-ml-margem-ui.test.js` — primeira consulta.
+- Criar: `apps/seller-ml/tests/financeiro-ml-margin-navigation-runtime.test.js` — exercitar o boot, submissão e cliques com um DOM mínimo em `vm`.
 
 ### Task 1: Link nativo de SKU e seletor
 
@@ -36,7 +37,7 @@
 
 ### Task 3: Navegador, regressão e entrega
 
-- [ ] Rodar `node --test apps/seller-ml/tests/financeiro-ml-integrated-costs-ui.test.js apps/seller-ml/tests/financeiro-ml-margem-ui.test.js apps/seller-ml/tests/financeiro-ml-margin-inline-cost-ui.test.js apps/seller-ml/tests/financeiro-ml-gmv.test.js` e `git diff --check`.
+- [ ] Rodar `node --test apps/seller-ml/tests/financeiro-ml-integrated-costs-ui.test.js apps/seller-ml/tests/financeiro-ml-margem-ui.test.js apps/seller-ml/tests/financeiro-ml-margin-navigation-runtime.test.js apps/seller-ml/tests/financeiro-ml-margin-inline-cost-ui.test.js apps/seller-ml/tests/financeiro-ml-gmv.test.js` e `git diff --check`.
 - [ ] Com uma página local servida com respostas de API simuladas, verificar no navegador: zero requests de `/margin` no boot; primeiro **Filtrar** faz um request; clique primário do CMV abre custos na página; Ctrl+clique e botão do meio criam nova guia focada no SKU; modal de vários SKUs não escolhe um SKU sozinho.
 - [ ] Revisar `git diff` contra a especificação `docs/superpowers/specs/2026-10-01-ml-cmv-new-tab-and-filter-timing-design.md`; commitar apenas os cinco arquivos da implementação.
 - [ ] Integrar por fast-forward à `main`, enviar ao GitHub e recriar apenas `seller-ml-web` na VPS se o checkout remoto estiver limpo em arquivos rastreados. Verificar status healthy, logs e presença do asset atualizado no container.
