@@ -37,8 +37,11 @@
     "/margem": { title: "Margem de venda", page: "mg-financial-margin-page", group: "financial" },
     "/calculadora": { title: "Calculadora", page: "mg-financial-calculator-page", group: "financial" },
     "/contas": { title: "Contas Magalu", page: "mg-accounts-page", group: "account" },
+    "/usuarios": { title: "Usuários", page: "mg-users-page", group: "account" },
+    "/plano": { title: "Plano e créditos", page: "mg-plan-page", group: "account" },
     "/sincronizacao": { title: "Integrações", page: "mg-sync-page", group: "account" },
     "/integracoes": { title: "Integrações", page: "mg-sync-page", group: "account" },
+    "/ajuda": { title: "Ajuda e contato", page: "mg-help-page", group: "account" },
   };
 
   const REQUIRED_SCOPES = [

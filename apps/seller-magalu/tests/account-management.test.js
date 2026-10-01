@@ -80,3 +80,21 @@ test("account API is isolated under the Magalu module", () => {
   assert.match(routes, /\/help/);
   assert.doesNotMatch(routes, /seller-ml|\/ml\//);
 });
+
+test("every Conta submenu page is registered by the shell router instead of falling back to the dashboard", () => {
+  const shell = read("public", "js", "magalu-app.js");
+
+  for (const [path, page] of [
+    ["/contas", "mg-accounts-page"],
+    ["/usuarios", "mg-users-page"],
+    ["/plano", "mg-plan-page"],
+    ["/integracoes", "mg-sync-page"],
+    ["/ajuda", "mg-help-page"],
+  ]) {
+    assert.match(
+      shell,
+      new RegExp(`"${path}":\\s*\\{[^}]*page:\\s*"${page}"`),
+      `${path} must map to its own account page`,
+    );
+  }
+});

@@ -18,5 +18,7 @@ test("Magalu navigation uses the Meli-equivalent vocabulary and every declared r
     const escaped = pathName === "/" ? "\\/" : pathName.replaceAll("/", "\\/");
     assert.match(html, new RegExp(`data-page="${escaped}"`));
   }
-  for (const orphan of ["/usuarios", "/plano", "/ajuda"]) assert.doesNotMatch(client, new RegExp(`"${orphan}"`));
+  for (const [pathName, page] of [["/usuarios", "mg-users-page"], ["/plano", "mg-plan-page"], ["/ajuda", "mg-help-page"]]) {
+    assert.match(client, new RegExp(`"${pathName}":\\s*\\{[^}]*page:\\s*"${page}"`));
+  }
 });
