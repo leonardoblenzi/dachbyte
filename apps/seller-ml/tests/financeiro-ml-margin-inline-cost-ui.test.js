@@ -46,17 +46,19 @@ const nextFunction = /\n\s*(?:async\s+)?function\s+\w+\s*\(/;
 const documentReady = /\n\s*document\s*\.\s*addEventListener\s*\(/;
 const nextTopLevelSection = /\n\s*(?:(?:async\s+)?function\s+\w+\s*\(|document\s*\.\s*addEventListener\s*\()/;
 
-function functionSource(source, name, nextName) {
-  const start = source.indexOf(`function ${name}(`);
-  const end = source.indexOf(`\n\n  function ${nextName}(`, start);
-  assert.notEqual(start, -1, `${name} source should exist`);
-  assert.notEqual(end, -1, `${name} source should end before ${nextName}`);
-  return source.slice(start, end);
+function functionSource(source, name) {
+  const startPattern = new RegExp(`(?:^|\\n)\\s*function\\s+${name}\\s*\\(`);
+  const startMatch = source.match(startPattern);
+  assert.ok(startMatch, `${name} source should exist`);
+  const afterStart = source.slice(startMatch.index + startMatch[0].length);
+  const endIndex = afterStart.search(nextFunction);
+  assert.notEqual(endIndex, -1, `${name} source should have a following function`);
+  return source.slice(startMatch.index, startMatch.index + startMatch[0].length + endIndex);
 }
 
 function renderInlineCostCellForTest(row, savingSkus) {
   const renderer = vm.runInNewContext(
-    `(${functionSource(marginJs, "renderInlineCostCell", "setInlineCostEditorsDisabled")})`,
+    `(${functionSource(marginJs, "renderInlineCostCell")})`,
     { escapeHtml: (value) => String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\"/g, "&quot;") },
   );
   return renderer(row, savingSkus);
