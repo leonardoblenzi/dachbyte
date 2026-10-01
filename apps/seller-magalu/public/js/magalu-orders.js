@@ -1,7 +1,7 @@
 "use strict";
 (() => {
   const API = "/magalu/api";
-  const state = { accountId:null, page:1, limit:40, total:0, detailCode:null, detailDeliveries:new Map(), polling:false, deliveryWriteStatus:null, activeWrite:null, bound:false };
+  const state = { accountId:null, page:1, limit:40, total:0, detailCode:null, detailDeliveries:new Map(), polling:false, deliveryWriteStatus:null, activeWrite:null, statusData:null, bound:false };
   const $ = (id) => document.getElementById(id);
   const shell = () => window.MagaluSellerShell || null;
   const esc = (v) => String(v == null ? "" : v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
@@ -35,6 +35,24 @@
     if (order?.ok && delivery?.ok) { banner.dataset.state="ok"; $("mg-orders-scope-title").textContent="Pedidos e entregas autorizados"; $("mg-orders-scope-copy").textContent="Réplica read-only pronta. Webhooks reconciliam mudanças em segundo plano."; if (reconnect) reconnect.hidden=true; if ($("mg-orders-sync")) $("mg-orders-sync").disabled=false; }
     else { banner.dataset.state="missing"; $("mg-orders-scope-title").textContent="Reconexão OAuth necessária"; const missing=[!order?.ok?order?.scope:null,!delivery?.ok?delivery?.scope:null].filter(Boolean); $("mg-orders-scope-copy").textContent=`Scope(s) ausente(s): ${missing.join(", ")}. A réplica local continua disponível.`; if (reconnect) { reconnect.href=`/magalu/auth/start?return=${encodeURIComponent("/magalu/pedidos")}`; reconnect.hidden=false; } if ($("mg-orders-sync")) $("mg-orders-sync").disabled=!order?.ok; }
   }
+  function updateOperationalState(kind, data={}) {
+    const host=$("mg-orders-operational-state"), title=$("mg-orders-operational-state-title"), copy=$("mg-orders-operational-state-copy"), action=$("mg-orders-operational-state-action");
+    if (!host || !title || !copy) return;
+    const views={
+      account:{title:"Selecione uma conta Magalu",copy:"Vincule ou selecione uma organização para consultar pedidos, entregas e o histórico de sincronização.",action:null},
+      scope:{title:"Reconexão OAuth necessária",copy:"A conta atual ainda não possui o escopo de leitura de Pedidos. Reconecte a organização para autorizar a réplica.",action:null},
+      syncing:{title:"Sincronização de pedidos em andamento",copy:"A réplica está sendo atualizada em segundo plano. Você pode permanecer nesta tela; os indicadores e a tabela serão atualizados ao final.",action:null},
+      empty:{title:"Ainda não há pedidos na réplica",copy:"A conexão está pronta, mas nenhum pedido foi sincronizado neste recorte. Inicie a primeira leitura para preencher pedidos e entregas.",action:"Sincronizar pedidos"},
+      filtered:{title:"Nenhum pedido para estes filtros",copy:"A réplica já possui pedidos. Ajuste a busca, o status ou o período para visualizar outro recorte.",action:null},
+      ready:{title:"",copy:"",action:null}
+    };
+    const view=views[kind] || views.ready;
+    host.hidden=kind === "ready";
+    host.dataset.state=kind;
+    title.textContent=view.title;
+    copy.textContent=view.copy;
+    if (action) { action.hidden=!view.action; action.textContent=view.action || ""; action.disabled=!state.statusData?.scopes?.order?.ok; }
+  }
   function renderStats(data) {
     const s=data?.stats || {}, a=data?.account || {};
     $("mg-orders-stat-total").textContent=fmtInt(s.total); $("mg-orders-stat-today").textContent=fmtInt(s.today); $("mg-orders-stat-7d").textContent=fmtInt(s.last_7d); $("mg-orders-stat-gmv").textContent=fmtMoney(s.gross_value_30d,1,"BRL"); $("mg-orders-stat-sync").textContent=a.orders_sync_status || "idle"; $("mg-orders-stat-sync-time").textContent=a.orders_last_synced_at ? fmtDate(a.orders_last_synced_at) : (a.orders_last_error || "sem execução");
@@ -42,14 +60,25 @@
   async function loadStatus() {
     if (!state.accountId) return null;
     const [data, write] = await Promise.all([api(`/orders/status?account_id=${state.accountId}`), api(`/orders/delivery-writes/status?account_id=${state.accountId}`).catch(()=>null)]);
-    state.deliveryWriteStatus=write; setScopeBanner(data); renderStats(data); return data;
+    state.deliveryWriteStatus=write; state.statusData=data; setScopeBanner(data); renderStats(data);
+    const status=data?.account?.orders_sync_status;
+    if (!state.accountId) updateOperationalState("account");
+    else if (!data?.scopes?.order?.ok) updateOperationalState("scope");
+    else if (["queued","running"].includes(status)) updateOperationalState("syncing");
+    else updateOperationalState(Number(data?.stats?.total || 0) ? "ready" : "empty");
+    return data;
   }
   async function loadOrders() {
     const body=$("mg-orders-body");
-    if (!state.accountId) { state.total=0; if (body) body.innerHTML='<tr><td colspan="8" class="mg-orders-empty-cell">Selecione uma conta Magalu.</td></tr>'; return; }
+    if (!state.accountId) { state.total=0; updateOperationalState("account"); if (body) body.innerHTML='<tr><td colspan="8" class="mg-orders-empty-cell">Selecione uma conta Magalu.</td></tr>'; return; }
     const data=await api(`/orders/list?${query(filters())}`); state.total=Number(data.total || 0); state.page=Number(data.page || 1);
     if (body) body.innerHTML=(data.rows || []).length ? data.rows.map((row)=>`<tr><td><strong>${esc(row.code)}</strong><small>${esc(row.remote_id || row.channel_id || "—")}</small></td><td>${fmtDate(row.purchased_at)}</td><td>${pill(row.status)}</td><td>${row.latest_delivery_status ? pill(row.latest_delivery_status) : '<span class="mg-orders-muted">sem entrega</span>'}<small>${esc(row.shipping_name || row.provider_name || "")}</small></td><td>${fmtInt(row.item_count)}</td><td>${fmtMoney(row.amount_total,row.amount_normalizer,row.amount_currency)}</td><td>${fmtDate(row.last_synced_at)}</td><td><button class="mg-secondary-btn" data-order-code="${esc(row.code)}" type="button">Abrir</button></td></tr>`).join("") : '<tr><td colspan="8" class="mg-orders-empty-cell">Nenhum pedido encontrado.</td></tr>';
     const start=state.total ? (state.page-1)*state.limit+1 : 0, end=Math.min(state.total,state.page*state.limit); $("mg-orders-range").textContent=`${fmtInt(start)}–${fmtInt(end)} de ${fmtInt(state.total)} pedidos`; $("mg-orders-prev").disabled=state.page<=1; $("mg-orders-next").disabled=end>=state.total;
+    const status=state.statusData?.account?.orders_sync_status;
+    if (state.statusData?.scopes?.order?.ok) {
+      const replicaHasOrders = Number(state.statusData?.stats?.total || 0) > 0;
+      updateOperationalState(["queued","running"].includes(status) ? "syncing" : state.total ? "ready" : replicaHasOrders ? "filtered" : "empty");
+    }
   }
   async function loadRuns() {
     const host=$("mg-orders-runs"); if (!host || !state.accountId) return;
@@ -80,7 +109,7 @@
   async function confirmDeliveryWrite(){const w=state.activeWrite;if(!w?.preview?.id)return;const btn=$("mg-orders-write-confirm");btn.disabled=true;try{const data=await api("/orders/delivery-writes/apply",{method:"POST",body:JSON.stringify({preview_id:w.preview.id})});alert(`Operação #${data.operation.id} enfileirada.`,"success");$("mg-orders-write-modal").hidden=true;state.activeWrite=null;await loadDeliveryOperations();setTimeout(()=>void refreshAll(),1500);}catch(e){alert(e.message);}finally{btn.disabled=false;}}
   async function reverifyDeliveryWrite(id,button){button.disabled=true;try{await api(`/orders/delivery-writes/operations/${id}/reverify?account_id=${state.accountId}`,{method:"POST",body:JSON.stringify({account_id:state.accountId})});alert(`Reverificação #${id} enfileirada sem repetir POST.`,"success");await loadDeliveryOperations();}catch(e){alert(e.message);}finally{button.disabled=false;}}
   async function reconcile(){if(!state.detailCode)return;const btn=$("mg-orders-detail-reconcile");btn.disabled=true;try{await api(`/orders/${encodeURIComponent(state.detailCode)}/reconcile`,{method:"POST",body:JSON.stringify({account_id:state.accountId})});alert(`Reconciliação de ${state.detailCode} enfileirada.`,"success");$("mg-orders-detail-modal").hidden=true;setTimeout(()=>void refreshAll(),1300);}catch(e){alert(e.message);}finally{btn.disabled=false;}}
-  async function refreshForAccount(accountId){ state.accountId=Number(accountId)||null; state.page=1; state.detailCode=null; state.activeWrite=null; if(isPage()) await refreshAll(); }
-  function bind(){if(state.bound)return;state.bound=true;$("mg-orders-filter")?.addEventListener("click",()=>{state.page=1;void loadOrders().catch((e)=>alert(e.message));});$("mg-orders-q")?.addEventListener("keydown",(e)=>{if(e.key==="Enter"){state.page=1;void loadOrders().catch((x)=>alert(x.message));}});$("mg-orders-refresh")?.addEventListener("click",()=>void refreshAll());$("mg-orders-sync")?.addEventListener("click",()=>void sync());$("mg-orders-prev")?.addEventListener("click",()=>{if(state.page>1){state.page-=1;void loadOrders();}});$("mg-orders-next")?.addEventListener("click",()=>{if(state.page*state.limit<state.total){state.page+=1;void loadOrders();}});$("mg-orders-detail-close")?.addEventListener("click",()=>{$("mg-orders-detail-modal").hidden=true;});$("mg-orders-detail-close-footer")?.addEventListener("click",()=>{$("mg-orders-detail-modal").hidden=true;});$("mg-orders-detail-reconcile")?.addEventListener("click",()=>void reconcile());$("mg-orders-write-close")?.addEventListener("click",()=>{$("mg-orders-write-modal").hidden=true;});$("mg-orders-write-cancel")?.addEventListener("click",()=>{$("mg-orders-write-modal").hidden=true;});$("mg-orders-write-preview-btn")?.addEventListener("click",()=>void previewDeliveryWrite());$("mg-orders-write-confirm")?.addEventListener("click",()=>void confirmDeliveryWrite());document.addEventListener("click",(e)=>{if(!isPage())return;const b=e.target.closest?.("[data-order-code]");if(b)return void openOrder(b.dataset.orderCode).catch((x)=>alert(x.message));const read=e.target.closest?.("[data-delivery-read]");if(read)return void deliveryRead(read.dataset.deliveryId,read.dataset.deliveryRead,read);const write=e.target.closest?.("[data-delivery-write]");if(write)return openDeliveryWrite(write.dataset.deliveryId,write.dataset.deliveryWrite);const verify=e.target.closest?.("[data-delivery-reverify]");if(verify)return void reverifyDeliveryWrite(verify.dataset.deliveryReverify,verify);});window.addEventListener("magalu:accountchange",(e)=>void refreshForAccount(e.detail?.accountId));window.addEventListener("magalu:shellready",(e)=>void refreshForAccount(e.detail?.accountId));}
+  async function refreshForAccount(accountId){ state.accountId=Number(accountId)||null; state.page=1; state.detailCode=null; state.activeWrite=null; state.statusData=null; if(isPage()) await refreshAll(); }
+  function bind(){if(state.bound)return;state.bound=true;$("mg-orders-filter")?.addEventListener("click",()=>{state.page=1;void loadOrders().catch((e)=>alert(e.message));});$("mg-orders-q")?.addEventListener("keydown",(e)=>{if(e.key==="Enter"){state.page=1;void loadOrders().catch((x)=>alert(x.message));}});$("mg-orders-refresh")?.addEventListener("click",()=>void refreshAll());$("mg-orders-sync")?.addEventListener("click",()=>void sync());$("mg-orders-operational-state-action")?.addEventListener("click",()=>void sync());$("mg-orders-prev")?.addEventListener("click",()=>{if(state.page>1){state.page-=1;void loadOrders();}});$("mg-orders-next")?.addEventListener("click",()=>{if(state.page*state.limit<state.total){state.page+=1;void loadOrders();}});$("mg-orders-detail-close")?.addEventListener("click",()=>{$("mg-orders-detail-modal").hidden=true;});$("mg-orders-detail-close-footer")?.addEventListener("click",()=>{$("mg-orders-detail-modal").hidden=true;});$("mg-orders-detail-reconcile")?.addEventListener("click",()=>void reconcile());$("mg-orders-write-close")?.addEventListener("click",()=>{$("mg-orders-write-modal").hidden=true;});$("mg-orders-write-cancel")?.addEventListener("click",()=>{$("mg-orders-write-modal").hidden=true;});$("mg-orders-write-preview-btn")?.addEventListener("click",()=>void previewDeliveryWrite());$("mg-orders-write-confirm")?.addEventListener("click",()=>void confirmDeliveryWrite());document.addEventListener("click",(e)=>{if(!isPage())return;const b=e.target.closest?.("[data-order-code]");if(b)return void openOrder(b.dataset.orderCode).catch((x)=>alert(x.message));const read=e.target.closest?.("[data-delivery-read]");if(read)return void deliveryRead(read.dataset.deliveryId,read.dataset.deliveryRead,read);const write=e.target.closest?.("[data-delivery-write]");if(write)return openDeliveryWrite(write.dataset.deliveryId,write.dataset.deliveryWrite);const verify=e.target.closest?.("[data-delivery-reverify]");if(verify)return void reverifyDeliveryWrite(verify.dataset.deliveryReverify,verify);});window.addEventListener("magalu:accountchange",(e)=>void refreshForAccount(e.detail?.accountId));window.addEventListener("magalu:shellready",(e)=>void refreshForAccount(e.detail?.accountId));}
   document.addEventListener("DOMContentLoaded",()=>{bind();if(shell()?.isReady?.())void refreshForAccount(shell().getSelectedAccountId());});
 })();

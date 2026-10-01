@@ -50,3 +50,15 @@ test("switching accounts clears operation-specific manual selections", () => {
   assert.match(client, /state\.writeRows\.stock = null;/);
   assert.match(client, /function chooseAccount\(accountId\) \{[\s\S]*clearWriteSelections\(\);/);
 });
+
+test("price and stock use the catalog-style selection summary before configuration", () => {
+  const html = read("views/app.html");
+  const client = read("public/js/magalu-app.js");
+  for (const resource of ["price", "stock"]) {
+    assert.match(html, new RegExp(`data-operation-select="${resource}"`));
+    assert.match(html, new RegExp(`id="mg-${resource}-selection-count"`));
+    assert.match(html, new RegExp(`id="mg-${resource}-select-loaded"`));
+    assert.match(html, new RegExp(`id="mg-${resource}-clear-selection"`));
+  }
+  assert.match(client, /function updateWriteSelectionSummary\(resource\)/);
+});

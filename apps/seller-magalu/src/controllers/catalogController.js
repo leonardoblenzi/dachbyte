@@ -125,8 +125,9 @@ async function sync(req, res, next) {
       dachTenantId: req.magaluIdentity.dachTenantId,
       reason: "manual_ui",
     });
-    await accountRepository.setCatalogSyncState(account.id, { status: "queued", error: null });
-    return res.status(202).json({ ok: true, job_id: job.id, account_id: account.id });
+    const alreadyRunning = job?.scheduled === false;
+    if (!alreadyRunning) await accountRepository.setCatalogSyncState(account.id, { status: "queued", error: null });
+    return res.status(202).json({ ok: true, job_id: job.id, account_id: account.id, already_running: alreadyRunning });
   } catch (error) {
     return next(error);
   }

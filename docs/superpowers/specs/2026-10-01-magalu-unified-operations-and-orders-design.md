@@ -43,6 +43,12 @@ O conteúdo será reorganizado em três estados claros:
 
 Histórico de sincronização e operações de entrega passam a ser secundários e recolhíveis. Escritas de entrega existentes permanecem protegidas e aparecem somente no detalhe elegível, com feature flag e scopes autorizados.
 
+## Sincronização de catálogo
+
+O modal global de carregamento é usado somente para uma ação curta iniciada pelo usuário. As consultas de acompanhamento da sincronização usam carregamento silencioso e atualizam apenas o banner inline de status, sem fechar e reabrir modal a cada ciclo.
+
+Uma conta pode ter somente uma sincronização completa ativa. Ao clicar em “Sincronizar agora” durante os estados `queued` ou `running`, o backend retorna a execução já ativa em vez de criar outro job. A tela desabilita o botão e passa a acompanhar a execução existente. Quando a execução termina, o botão é habilitado novamente e a tela atualiza catálogo e histórico uma vez.
+
 ## Fora de escopo
 
 - Nenhuma migration, nova fila ou novo endpoint remoto Magalu.

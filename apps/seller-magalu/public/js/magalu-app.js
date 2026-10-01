@@ -15,12 +15,14 @@
     total: 0,
     rows: [],
     writeRows: { price: null, stock: null },
+    writeSelection: { price: new Set(), stock: new Set() },
     operationModes: { price: "filters", stock: "filters" },
     writeStatus: null,
     catalogStatus: null,
     diagnostics: null,
     activePreview: null,
     syncPolling: false,
+    syncStarting: false,
     dashboardPeriod: "7d",
     dashboardRequestId: 0,
   };
@@ -72,16 +74,17 @@
   }
 
   async function fetchJson(url, options = {}) {
-    window.MagaluLoadingOverlay?.show({ message: "Carregando dados da conta Magalu..." });
+    const { loading = "modal", ...requestOptions } = options;
+    if (loading === "modal") window.MagaluLoadingOverlay?.show({ message: "Carregando dados da conta Magalu..." });
     try {
       const response = await fetch(url, {
         credentials: "include",
         headers: {
           Accept: "application/json",
-          ...(options.body ? { "Content-Type": "application/json" } : {}),
-          ...(options.headers || {}),
+          ...(requestOptions.body ? { "Content-Type": "application/json" } : {}),
+          ...(requestOptions.headers || {}),
         },
-        ...options,
+        ...requestOptions,
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -91,7 +94,7 @@
         throw error;
       }
       return data;
-    } finally { window.MagaluLoadingOverlay?.hide(); }
+    } finally { if (loading === "modal") window.MagaluLoadingOverlay?.hide(); }
   }
 
   function escapeHtml(value) {
@@ -462,8 +465,7 @@
             ? "Preview ao vivo, confirmação, fila e verificação pós-escrita."
             : `Reconecte a conta com ${state.writeStatus?.scopes?.[resource]?.required || "scope de escrita"}.`;
       }
-      const button = $(`mg-${resource}-preview-btn`);
-      if (button) button.disabled = !writeCapability(resource);
+      updateWriteSelectionSummary(resource);
     }
   }
 
@@ -475,8 +477,10 @@
     const rows = state.writeRows[resource] || [];
     if (!rows.length) {
       host.innerHTML = '<div class="mg-empty-state"><strong>Nenhum SKU disponível</strong><p>Sincronize o catálogo antes de preparar alterações.</p></div>';
+      updateWriteSelectionSummary(resource);
       return;
     }
+    const selectedSkus = state.writeSelection[resource] || new Set();
     for (const row of rows) {
       const item = document.createElement("div");
       item.className = "mg-write-row";
@@ -485,13 +489,22 @@
       if (resource === "price") {
         const currentPrice = Number.isFinite(Number(row.price)) ? Number(row.price) : "";
         const currentList = Number.isFinite(Number(row.list_price)) ? Number(row.list_price) : currentPrice;
-        item.innerHTML = `<input class="mg-write-select" type="checkbox" ${canWrite ? "" : "disabled"}><div class="mg-write-product"><strong>${escapeHtml(row.sku)}</strong><span>${escapeHtml(row.title || "—")}</span></div><div class="mg-write-current"><span>Atual</span><strong>${escapeHtml(money(row.price))}</strong></div><label class="mg-write-field"><span>Preço</span><input data-field="price" type="number" min="0.01" step="0.01" value="${escapeHtml(currentPrice)}" ${canWrite ? "" : "disabled"}></label><label class="mg-write-field"><span>Preço de lista</span><input data-field="list_price" type="number" min="0.01" step="0.01" value="${escapeHtml(currentList)}" ${canWrite ? "" : "disabled"}></label>`;
+        item.innerHTML = `<input class="mg-write-select" type="checkbox" ${selectedSkus.has(String(row.sku)) ? "checked" : ""} ${canWrite ? "" : "disabled"}><div class="mg-write-product"><strong>${escapeHtml(row.sku)}</strong><span>${escapeHtml(row.title || "—")}</span></div><div class="mg-write-current"><span>Atual</span><strong>${escapeHtml(money(row.price))}</strong></div><label class="mg-write-field"><span>Preço</span><input data-field="price" type="number" min="0.01" step="0.01" value="${escapeHtml(currentPrice)}" ${canWrite ? "" : "disabled"}></label><label class="mg-write-field"><span>Preço de lista</span><input data-field="list_price" type="number" min="0.01" step="0.01" value="${escapeHtml(currentList)}" ${canWrite ? "" : "disabled"}></label>`;
       } else {
         const quantity = Number.isInteger(Number(row.quantity)) ? Number(row.quantity) : 0;
-        item.innerHTML = `<input class="mg-write-select" type="checkbox" ${canWrite ? "" : "disabled"}><div class="mg-write-product"><strong>${escapeHtml(row.sku)}</strong><span>${escapeHtml(row.title || "—")}</span></div><div class="mg-write-current"><span>Atual</span><strong>${escapeHtml(row.quantity ?? "—")}</strong></div><label class="mg-write-field"><span>Quantidade absoluta</span><input data-field="quantity" type="number" min="0" step="1" value="${escapeHtml(quantity)}" ${canWrite ? "" : "disabled"}></label>`;
+        item.innerHTML = `<input class="mg-write-select" type="checkbox" ${selectedSkus.has(String(row.sku)) ? "checked" : ""} ${canWrite ? "" : "disabled"}><div class="mg-write-product"><strong>${escapeHtml(row.sku)}</strong><span>${escapeHtml(row.title || "—")}</span></div><div class="mg-write-current"><span>Atual</span><strong>${escapeHtml(row.quantity ?? "—")}</strong></div><label class="mg-write-field"><span>Quantidade absoluta</span><input data-field="quantity" type="number" min="0" step="1" value="${escapeHtml(quantity)}" ${canWrite ? "" : "disabled"}></label>`;
       }
       host.append(item);
     }
+    updateWriteSelectionSummary(resource);
+  }
+
+  function updateWriteSelectionSummary(resource) {
+    const selected = state.writeSelection[resource]?.size || 0;
+    const count = $(`mg-${resource}-selection-count`);
+    if (count) count.textContent = `${selected} selecionado${selected === 1 ? "" : "s"}`;
+    const preview = $(`mg-${resource}-preview-btn`);
+    if (preview) preview.disabled = !writeCapability(resource) || selected === 0;
   }
 
   function parseExplicitSkus(value) {
@@ -506,6 +519,8 @@
     state.writeRows.price = null;
     state.writeRows.stock = null;
     for (const resource of ["price", "stock"]) {
+      state.writeSelection[resource] = new Set();
+      updateWriteSelectionSummary(resource);
       const single = $(`mg-${resource}-sku-input`);
       const list = $(`mg-${resource}-sku-list`);
       if (single) single.value = "";
@@ -525,10 +540,9 @@
       const panel = $(`mg-${resource}-${candidate}-panel`);
       if (panel) panel.hidden = candidate !== mode;
     }
-    if (mode === "filters") {
-      state.writeRows[resource] = null;
-      renderWriteRows(resource);
-    }
+    state.writeRows[resource] = null;
+    state.writeSelection[resource] = new Set();
+    renderWriteRows(resource);
   }
 
   async function loadWriteFilterSelection(resource) {
@@ -540,6 +554,7 @@
     try {
       const data = await fetchJson(`/magalu/api/catalog/skus?account_id=${account.id}&offset=0&limit=${safeLimit}&q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}`);
       state.writeRows[resource] = data.rows || [];
+      state.writeSelection[resource] = new Set();
       renderWriteRows(resource);
       const meta = $(`mg-${resource}-filter-meta`);
       if (meta) meta.textContent = Number(data.total||0) > state.writeRows[resource].length
@@ -562,6 +577,7 @@
       const candidates = responses.flatMap((response) => response.rows || []);
       const rows = skus.map((sku) => candidates.find((row) => String(row.sku) === sku)).filter(Boolean);
       state.writeRows[resource] = rows;
+      state.writeSelection[resource] = new Set(rows.map((row) => String(row.sku)));
       renderWriteRows(resource);
       showAlert(rows.length === skus.length ? `${rows.length} SKU(s) prontos para revisão.` : `${rows.length} SKU(s) encontrados; revise itens ausentes.`, rows.length ? "success" : "warning");
     } catch (error) { showAlert(error.message, "danger"); }
@@ -579,12 +595,33 @@
     $("mg-price-resolve-list")?.addEventListener("click", () => void resolveWriteSelection("price"));
     $("mg-stock-resolve")?.addEventListener("click", () => void resolveWriteSelection("stock"));
     $("mg-stock-resolve-list")?.addEventListener("click", () => void resolveWriteSelection("stock"));
+    for (const resource of ["price", "stock"]) {
+      $(`mg-${resource}-select-loaded`)?.addEventListener("click", () => {
+        state.writeSelection[resource] = new Set((state.writeRows[resource] || []).map((row) => String(row.sku)));
+        renderWriteRows(resource);
+      });
+      $(`mg-${resource}-clear-selection`)?.addEventListener("click", () => {
+        state.writeSelection[resource] = new Set();
+        renderWriteRows(resource);
+      });
+    }
+    document.addEventListener("change", (event) => {
+      const checkbox = event.target.closest?.(".mg-write-select");
+      if (!checkbox) return;
+      const row = checkbox.closest(".mg-write-row[data-resource]");
+      if (!row) return;
+      const resource = row.dataset.resource;
+      if (!state.writeSelection[resource]) state.writeSelection[resource] = new Set();
+      if (checkbox.checked) state.writeSelection[resource].add(String(row.dataset.sku));
+      else state.writeSelection[resource].delete(String(row.dataset.sku));
+      updateWriteSelectionSummary(resource);
+    });
   }
 
   function collectChanges(resource) {
     const changes = [];
     document.querySelectorAll(`.mg-write-row[data-resource="${resource}"]`).forEach((row) => {
-      if (!row.querySelector(".mg-write-select")?.checked) return;
+      if (!state.writeSelection[resource]?.has(String(row.dataset.sku))) return;
       const change = { sku: row.dataset.sku };
       row.querySelectorAll("[data-field]").forEach((input) => { change[input.dataset.field] = input.value; });
       changes.push(change);
@@ -711,16 +748,25 @@
   async function sync() {
     const account = selected();
     if (!account) return showAlert("Selecione ou conecte uma conta Magalu.", "danger");
+    if (state.syncStarting || state.syncPolling) return;
+    state.syncStarting = true;
+    document.querySelectorAll("[data-sync]").forEach((button) => { button.disabled = true; });
     try {
-      await fetchJson("/magalu/api/catalog/sync", {
+      const queued = await fetchJson("/magalu/api/catalog/sync", {
         method: "POST",
         body: JSON.stringify({ account_id: account.id }),
       });
-      showAlert("Sincronização enfileirada. Acompanhando a execução...", "success", { sticky: true });
-      setSyncBanner("queued", "Sincronização na fila", "Aguardando o worker iniciar.");
+      const message = queued.already_running
+        ? "Sincronização já está em andamento. Acompanhando a execução atual..."
+        : "Sincronização enfileirada. Acompanhando a execução...";
+      showAlert(message, "success", { sticky: true });
+      setSyncBanner("queued", queued.already_running ? "Sincronização em andamento" : "Sincronização na fila", queued.already_running ? "Acompanhando o worker atual." : "Aguardando o worker iniciar.");
       await pollSync(account.id);
     } catch (error) {
       showAlert(error.message, "danger", { sticky: true });
+    } finally {
+      state.syncStarting = false;
+      if (!state.syncPolling) document.querySelectorAll("[data-sync]").forEach((button) => { button.disabled = false; });
     }
   }
 
@@ -730,7 +776,7 @@
     try {
       for (let attempt = 0; attempt < 60; attempt += 1) {
         if (Number(selected()?.id) !== Number(accountId)) return;
-        const data = await fetchJson(`/magalu/api/catalog/status?account_id=${accountId}`);
+        const data = await fetchJson(`/magalu/api/catalog/status?account_id=${accountId}`, { loading: "none" });
         state.catalogStatus = data;
         renderStats(data);
         const status = String(data.account?.catalog_sync_status || "idle");
@@ -750,6 +796,7 @@
       showAlert(`Não foi possível acompanhar a sincronização: ${error.message}`, "danger", { sticky: true });
     } finally {
       state.syncPolling = false;
+      document.querySelectorAll("[data-sync]").forEach((button) => { button.disabled = false; });
     }
   }
 

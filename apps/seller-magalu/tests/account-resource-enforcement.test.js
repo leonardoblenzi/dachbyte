@@ -127,6 +127,28 @@ test("catalog sync and reconcile require allowed READ access to the tenant-owned
   });
 });
 
+test("catalog sync reuses an active job without resetting its running state", async () => {
+  let stateWrites = 0;
+  const runningAccount = { ...account, catalog_sync_status: "running" };
+  clearModule("../src/controllers/catalogController");
+  await withLoadStubs({
+    "../repositories/accountRepository": {
+      findAccountByIdForTenant: async () => runningAccount,
+      setCatalogSyncState: async () => { stateWrites += 1; },
+    },
+    "../repositories/catalogRepository": {}, "../repositories/syncRunRepository": {}, "../repositories/webhookRepository": {},
+    "../queues/magaluQueue": { enqueueCatalogSync: async () => ({ id: "magalu-catalog-full-7", scheduled: false }), enqueueCatalogReconcile: async () => ({ id: "reconcile-job" }) },
+    "../services/hubResourceAccessService": { checkAccountAccess: async () => ({ allow: true }) },
+  }, () => require("../src/controllers/catalogController"), async (controller) => {
+    const res = response();
+    await controller.sync({ query: { account_id: "7" }, body: {}, params: {}, magaluIdentity: identity }, res, (error) => { if (error) throw error; });
+    assert.equal(res.result.status, 202);
+    assert.equal(res.result.body.already_running, true);
+    assert.equal(res.result.body.job_id, "magalu-catalog-full-7");
+    assert.equal(stateWrites, 0);
+  });
+});
+
 test("catalog enqueue denial is indistinguishable from a missing or foreign account and skips Hub when unresolved", async () => {
   let checks = 0;
   let enqueues = 0;

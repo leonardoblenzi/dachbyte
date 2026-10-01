@@ -76,6 +76,21 @@ test("UI mantém o espelho de pedidos read-only e não solicita PII do comprador
   for(const term of ["telefone do comprador","e-mail do comprador","endereço completo do comprador","cpf do comprador","cnpj do comprador"])assert.equal((html+js).includes(term),false,term);
 });
 
+test("Pedidos torna ausência de conta, scope, dados e sincronização estados operacionais explícitos",()=>{
+  const html=read("views/app.html"),js=read("public/js/magalu-orders.js");
+  assert.match(html,/id="mg-orders-operational-state"/);
+  assert.match(html,/id="mg-orders-operational-state-title"/);
+  assert.match(js,/function updateOperationalState\(/);
+  for(const state of ["account","scope","syncing","empty","ready"])assert.match(js,new RegExp(`updateOperationalState\\([\\s\\S]*?${state}`));
+});
+
+test("Pedidos diferencia filtro sem resultado de uma réplica sem pedidos",()=>{
+  const js=read("public/js/magalu-orders.js");
+  assert.match(js,/filtered:\{title:"Nenhum pedido para estes filtros"/);
+  assert.match(js,/stats\?\.total\s*\|\|\s*0/);
+  assert.match(js,/replicaHasOrders\s*\?\s*"filtered"\s*:\s*"empty"/);
+});
+
 test("Etapa 7 não depende de código seller-ml",()=>{
   const files=["src/services/orderPayload.js","src/services/orderRemoteService.js","src/services/orderSyncService.js","src/repositories/orderRepository.js","src/controllers/orderController.js","src/jobs/ordersSync.worker.js"];
   for(const f of files){const src=read(f);assert.equal(src.includes("seller-ml"),false,f);assert.equal(src.includes("meli_"),false,f);}
