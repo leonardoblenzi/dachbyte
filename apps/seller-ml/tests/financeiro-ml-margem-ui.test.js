@@ -89,17 +89,23 @@ test("keeps the listing status filter separate from the period order status filt
   );
 });
 
-test("keeps the equilibrium table at 17 columns", () => {
+test("keeps the equilibrium table at 17 columns with its editable cost column", () => {
   const equilibriumTable = html.match(
     /<table class="fml-table fml-table--equilibrium">([\s\S]*?)<\/table>/,
   )?.[1];
 
   assert.ok(equilibriumTable, "equilibrium table should exist");
   assert.equal((equilibriumTable.match(/<th(?:\s|>)/g) || []).length, 17);
+  assert.match(equilibriumTable, /<th>Custo<\/th>/);
   assert.match(
     equilibriumTable,
     /<tbody id="fml-equilibrium-body">\s*<tr><td colspan="17" class="fml-empty">Carregando precificacao estimada\.\.\.<\/td><\/tr>\s*<\/tbody>/,
   );
+  const renderEquilibriumRows = js.match(
+    /function renderEquilibriumRows\(rows = \[\]\) \{([\s\S]*?)\n  function renderEquilibriumPage/,
+  )?.[1];
+  assert.ok(renderEquilibriumRows, "equilibrium row renderer should exist");
+  assert.match(renderEquilibriumRows, /renderInlineCostCell\(row\)/);
 });
 
 test("keeps nowrap styles aligned with period result columns", () => {
