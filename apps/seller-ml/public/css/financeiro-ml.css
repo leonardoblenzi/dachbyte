@@ -118,6 +118,63 @@
   margin-top:16px;
 }
 
+.fml-cost-tab-status {
+  max-width: none;
+  justify-self: start;
+}
+
+.fml-period-cost-action {
+  display: block;
+  margin-top: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fml-blue-dark);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fml-period-cost-action:hover,
+.fml-period-cost-action:focus-visible {
+  text-decoration: underline;
+}
+
+.fml-missing-cost-picker {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(80vh, 680px);
+  padding: 22px;
+  border: 1px solid var(--fml-line);
+  border-radius: 18px;
+  background: var(--fml-card);
+  color: var(--fml-ink);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, .24);
+}
+
+.fml-missing-cost-picker::backdrop {
+  background: rgba(15, 23, 42, .55);
+}
+
+.fml-missing-cost-picker-head,
+.fml-missing-cost-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.fml-missing-cost-picker-head h2 { margin: 0 0 5px; font-size: 18px; }
+.fml-missing-cost-picker-head p { margin: 0; color: var(--fml-muted); font-size: 13px; }
+.fml-missing-cost-picker-list { list-style: none; margin: 18px 0 0; padding: 0; }
+.fml-missing-cost-item { padding: 13px 0; border-top: 1px solid var(--fml-line); }
+.fml-missing-cost-item strong,
+.fml-missing-cost-item small { display: block; }
+.fml-missing-cost-item small { margin-top: 4px; color: var(--fml-muted); }
+
+body.theme-dark.fml-app .fml-period-cost-action { color: #93c5fd; }
+
 .fml-summary-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(130px, 1fr));

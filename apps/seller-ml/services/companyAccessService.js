@@ -29,7 +29,6 @@ const MODULES = [
   { key: "ml.publicidade.product_ads", label: "Product Ads", group: "Publicidade", path: "/publicidade" },
   { key: "ml.promocoes.criar", label: "Criar promocoes", group: "Promocoes", path: "/criar-promocao" },
   { key: "ml.promocoes.remover", label: "Remover promocoes", group: "Promocoes", path: "/remover-promocao" },
-  { key: "ml.precificacao.custos", label: "Custos por SKU", group: "Precificacao", path: "/financeiro/custos-mercado-livre" },
   { key: "ml.precificacao.margem", label: "Margem de venda", group: "Precificacao", path: "/financeiro/margem-venda-mercado-livre" },
   { key: "ml.inteligencia.curva_abc", label: "Curva ABC", group: "Inteligencia", path: "/ia-analytics/curva-abc" },
   { key: "ml.inteligencia.analise_mercado", label: "Analise Mercado", group: "Inteligencia", path: "/analise-mercado" },

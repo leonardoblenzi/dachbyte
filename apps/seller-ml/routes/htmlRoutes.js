@@ -160,10 +160,6 @@ router.get("/ia-analytics/curva-abc", noCache, allowLegacyUntilConfigured("ml.in
   );
 });
 
-router.get("/financeiro/custos-mercado-livre", noCache, allowLegacyUntilConfigured("ml.precificacao.custos"), (_req, res) => {
-  res.sendFile(path.join(__dirname, "..", "views", "financeiro-ml-custos.html"));
-});
-
 router.get("/financeiro/margem-venda-mercado-livre", noCache, allowLegacyUntilConfigured("ml.precificacao.margem"), (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "views", "financeiro-ml-margem.html"));
 });

@@ -121,40 +121,37 @@ npm run tokens:encrypt
 4. `/publicidade`
 - Product Ads: campanhas, itens e exportacoes.
 
-5. `/financeiro/custos-mercado-livre`
-- Custos por SKU de referencia para os anuncios Mercado Livre.
+5. `/financeiro/margem-venda-mercado-livre`
+- Resumo, Margem por periodo, Equilibrio estimado e Custos por SKU na mesma pagina. Os custos de referencia podem ser editados na quarta aba.
 
-6. `/financeiro/margem-venda-mercado-livre`
-- Margem de venda estimada por anuncio, com custo por SKU, comissao, imposto e frete quando disponivel.
-
-7. `/reputacao`
+6. `/reputacao`
 - Visao de reputacao operacional/comercial.
 
-8. `/filtro-anuncios`
+7. `/filtro-anuncios`
 - Filtro avancado com jobs/export.
 
-9. `/gestao-anuncios`
+8. `/gestao-anuncios`
 - Gestao em lote para ativar, pausar, encerrar e excluir anuncios com acompanhamento de job.
 
-10. `/modelo-massa`
+9. `/modelo-massa`
 - Aplicacoes em massa com preview e cancelamento.
 
-11. `/validar-dimensoes`
+10. `/validar-dimensoes`
 - Validacao de dimensoes por job com export.
 
-12. `/prazo`
+11. `/prazo`
 - Ajustes de prazo de producao (lote/job).
 
-13. `/atacado`
+12. `/atacado`
 - Operacoes de atacado por job.
 
-14. `/analise-ia`
+13. `/analise-ia`
 - Analises assistidas por IA.
 
-15. `/ia-analytics/curva-abc`
+14. `/ia-analytics/curva-abc`
 - Curva ABC de itens.
 
-16. `/ajuda`
+15. `/ajuda`
 - Canal de suporte/ajuda.
 
 ---

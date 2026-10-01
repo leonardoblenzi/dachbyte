@@ -18,11 +18,16 @@
     marketingRequestId: 0,
     marginRequestId: 0,
     inlineCostSavingSkus: new Set(),
+    missingCostPickerItems: [],
+    missingCostPickerTrigger: null,
+    marginDirty: false,
   };
 
   const els = {
     status: document.getElementById("fml-margin-status"),
     form: document.getElementById("fml-margin-filters"),
+    marginFilterCard: document.getElementById("fml-margin-filter-card"),
+    marginWarningNote: document.getElementById("fml-margin-warning-note"),
     body: document.getElementById("fml-margin-body"),
     subtitle: document.getElementById("fml-margin-subtitle"),
     note: document.getElementById("fml-margin-note"),
@@ -38,9 +43,13 @@
     tabSummary: document.getElementById("fml-tab-summary"),
     tabPeriod: document.getElementById("fml-tab-period"),
     tabEquilibrium: document.getElementById("fml-tab-equilibrium"),
+    tabCosts: document.getElementById("fml-tab-costs"),
     panelSummary: document.getElementById("fml-summary-panel"),
     panelPeriod: document.getElementById("fml-period-panel"),
     panelEquilibrium: document.getElementById("fml-equilibrium-panel"),
+    panelCosts: document.getElementById("fml-costs-panel"),
+    missingCostPicker: document.getElementById("fml-missing-cost-picker"),
+    missingCostPickerList: document.getElementById("fml-missing-cost-picker-list"),
     equilibriumBody: document.getElementById("fml-equilibrium-body"),
     equilibriumSubtitle: document.getElementById("fml-equilibrium-subtitle"),
     equilibriumPage: document.getElementById("fml-equilibrium-page"),
@@ -266,16 +275,27 @@
   }
 
   function setActiveTab(tab) {
-    state.activeTab = ["summary", "period", "equilibrium"].includes(tab) ? tab : "summary";
+    state.activeTab = ["summary", "period", "equilibrium", "costs"].includes(tab) ? tab : "summary";
     const summary = state.activeTab === "summary";
     const period = state.activeTab === "period";
     const equilibrium = state.activeTab === "equilibrium";
+    const costs = state.activeTab === "costs";
     els.tabSummary?.classList.toggle("is-active", summary);
     els.tabPeriod?.classList.toggle("is-active", period);
     els.tabEquilibrium?.classList.toggle("is-active", equilibrium);
+    els.tabCosts?.classList.toggle("is-active", costs);
     els.panelSummary?.classList.toggle("fml-hidden", !summary);
     els.panelPeriod?.classList.toggle("fml-hidden", !period);
     els.panelEquilibrium?.classList.toggle("fml-hidden", !equilibrium);
+    els.panelCosts?.classList.toggle("fml-hidden", !costs);
+    els.marginFilterCard?.classList.toggle("fml-hidden", costs);
+    els.marginWarningNote?.classList.toggle("fml-hidden", costs);
+    if (!costs && state.marginDirty) {
+      state.marginDirty = false;
+      loadMargin({ preservePages: true, retainOnError: true }).then((loaded) => {
+        if (!loaded) state.marginDirty = true;
+      });
+    }
   }
 
   function exportXlsx(view) {
@@ -305,6 +325,51 @@
     return `<span class="fml-chip ${tone}">${escapeHtml(status)}</span>`;
   }
 
+  function missingCostItems(row = {}) {
+    const grouped = new Map();
+    (Array.isArray(row.order_items) ? row.order_items : []).forEach((item, index) => {
+      if (item?.has_cost !== false) return;
+      const sku = String(item.sku || "").trim();
+      const title = String(item.title || item.mlb || "Item sem identificacao").trim();
+      const quantity = Math.max(0, Number(item.quantity) || 0);
+      const key = sku || `missing:${index}`;
+      if (grouped.has(key)) {
+        grouped.get(key).quantity += quantity;
+      } else {
+        grouped.set(key, { sku, title, quantity });
+      }
+    });
+    return Array.from(grouped.values());
+  }
+
+  function renderPeriodCostAction(row) {
+    const items = missingCostItems(row);
+    if (!items.length) return "";
+    const label = items.length === 1 && items[0].sku
+      ? "1 item sem custo · Cadastrar"
+      : `${fmtNum(items.length)} ${items.length === 1 ? "item" : "itens"} sem custo · Ver custos`;
+    return `<button class="fml-period-cost-action" type="button" data-period-cost-order="${escapeHtml(row.order_id || "")}">${label}</button>`;
+  }
+
+  async function openCostForSku(sku) {
+    if (!sku || !window.FinanceiroMlCosts?.openForSku) return;
+    setActiveTab("costs");
+    await window.FinanceiroMlCosts.openForSku(sku);
+  }
+
+  function openMissingCostPicker(items) {
+    if (!els.missingCostPicker?.showModal || !els.missingCostPickerList) return;
+    state.missingCostPickerItems = items;
+    state.missingCostPickerTrigger = document.activeElement;
+    els.missingCostPickerList.innerHTML = items.map((item, index) => `
+      <li class="fml-missing-cost-item">
+        <div><strong>${escapeHtml(item.title)}</strong><small>${item.sku ? `SKU ${escapeHtml(item.sku)}` : "Item sem SKU utilizavel"} · ${fmtNum(item.quantity)} un.</small></div>
+        ${item.sku ? `<button class="fml-btn fml-btn--ghost" type="button" data-missing-cost-index="${index}">Cadastrar custo</button>` : '<span class="fml-text-warn">Corrija o SKU na origem</span>'}
+      </li>`).join("");
+    els.missingCostPicker.showModal();
+    els.missingCostPicker.querySelector("[data-missing-cost-close]")?.focus();
+  }
+
   function renderPeriodRows(rows = []) {
     if (!rows.length) {
       els.body.innerHTML = '<tr><td colspan="18" class="fml-empty">Nenhum pedido encontrado.</td></tr>';
@@ -319,9 +384,6 @@
       const marginCls = marginPct > 0 ? "fml-money-positive" : marginPct < 0 ? "fml-money-negative" : "";
       const bufferCls = bufferUnit > 0 ? "fml-money-positive" : bufferUnit < 0 ? "fml-money-negative" : "";
       const rebateCls = rebate > 0 ? "fml-money-positive" : "";
-      const missing = Number(row.missing_cost_items || 0) > 0
-        ? `<small class="fml-muted fml-text-warn">${fmtNum(row.missing_cost_items)} item(ns) sem custo</small>`
-        : "";
       const mlbs = Array.from(new Set(
         (Array.isArray(row.order_items) ? row.order_items : [])
           .map((item) => String(item?.mlb || "").trim())
@@ -335,12 +397,12 @@
         : "";
       return `
         <tr>
-          <td><div><div class="fml-order-id-line"><strong>${escapeHtml(row.order_id || "-")}</strong>${mlbMeta}</div><small class="fml-muted">${escapeHtml(row.items_label || "-")}</small>${missing}</div></td>
+          <td><div><div class="fml-order-id-line"><strong>${escapeHtml(row.order_id || "-")}</strong>${mlbMeta}</div><small class="fml-muted">${escapeHtml(row.items_label || "-")}</small></div></td>
           <td>${fmtDate(row.date_created)}</td>
           <td><span class="fml-chip">${escapeHtml(row.shipping_mode || "-")}</span><small class="fml-muted">${escapeHtml(row.logistic_type || "")}</small></td>
           <td>${fmtMoney(row.gmv)}</td>
           <td>${fmtMoney(row.product_revenue)}</td>
-          <td>${fmtMoney(row.product_cost)}</td>
+          <td>${fmtMoney(row.product_cost)}${renderPeriodCostAction(row)}</td>
           <td>${fmtMoney(row.commissions)}</td>
           <td>${fmtMoney(row.buyer_shipping_paid)}</td>
           <td><strong>${fmtMoney(row.tax_base)}</strong></td>
@@ -847,6 +909,42 @@
     els.tabSummary?.addEventListener("click", () => setActiveTab("summary"));
     els.tabPeriod?.addEventListener("click", () => setActiveTab("period"));
     els.tabEquilibrium?.addEventListener("click", () => setActiveTab("equilibrium"));
+    els.tabCosts?.addEventListener("click", () => {
+      setActiveTab("costs");
+      window.FinanceiroMlCosts?.init();
+    });
+    els.body?.addEventListener("click", async (event) => {
+      const action = event.target.closest("[data-period-cost-order]");
+      if (!action) return;
+      const row = state.periodRows.find((item) => String(item.order_id || "") === action.dataset.periodCostOrder);
+      const items = missingCostItems(row);
+      if (items.length === 1 && items[0].sku) {
+        await openCostForSku(items[0].sku);
+      } else if (items.length) {
+        openMissingCostPicker(items);
+      }
+    });
+    els.missingCostPicker?.addEventListener("click", async (event) => {
+      if (event.target.closest("[data-missing-cost-close]")) {
+        els.missingCostPicker.close();
+        return;
+      }
+      const choice = event.target.closest("[data-missing-cost-index]");
+      if (!choice) return;
+      const item = state.missingCostPickerItems[Number(choice.dataset.missingCostIndex)];
+      if (!item?.sku) return;
+      state.missingCostPickerTrigger = null;
+      els.missingCostPicker.close();
+      await openCostForSku(item.sku);
+    });
+    els.missingCostPicker?.addEventListener("close", () => {
+      state.missingCostPickerTrigger?.focus?.();
+      state.missingCostPickerTrigger = null;
+      state.missingCostPickerItems = [];
+    });
+    window.addEventListener("ml:pricing-updated", () => {
+      state.marginDirty = true;
+    });
     els.form?.addEventListener("submit", (event) => {
       event.preventDefault();
       state.periodPage = 1;

@@ -144,7 +144,6 @@
       hint: "Custos, margem e preço",
       icon: "wallet",
       items: [
-        { id: "financeiro-custos-ml", label: "Custos por SKU", path: "/financeiro/custos-mercado-livre", icon: "wallet" },
         { id: "financeiro-margem-ml", label: "Margem de venda", path: "/financeiro/margem-venda-mercado-livre", icon: "chart" },
       ],
     },

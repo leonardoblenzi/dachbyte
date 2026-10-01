@@ -1,4 +1,4 @@
-(() => {
+window.FinanceiroMlCosts = (() => {
   "use strict";
 
   const moneyFmt = new Intl.NumberFormat("pt-BR", {
@@ -16,6 +16,7 @@
     pageSize: 25,
     lastQuery: "",
     riskStatus: "all",
+    initPromise: null,
   };
 
   const els = {
@@ -340,6 +341,7 @@
     const data = await response.json().catch(() => null);
     if (!response.ok || !data?.success) throw new Error(data?.error || "Falha ao salvar aliquota.");
     setStatus("Aliquota salva.", "ok");
+    window.dispatchEvent(new Event("ml:pricing-updated"));
   }
 
   async function loadCosts({ force = false } = {}) {
@@ -428,6 +430,7 @@
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.success) throw new Error(data?.error || "Falha ao salvar custo.");
+      window.dispatchEvent(new Event("ml:pricing-updated"));
       button.textContent = "Salvo";
       setStatus(`Custo salvo para ${sku}.`, "ok");
       setTimeout(() => {
@@ -507,7 +510,8 @@
     }
   }
 
-  document.addEventListener("DOMContentLoaded", async () => {
+  function init() {
+    if (state.initPromise) return state.initPromise;
     els.form?.addEventListener("submit", (event) => {
       event.preventDefault();
       state.page = 1;
@@ -562,6 +566,7 @@
           message: "Processando planilha XLSX de custos por SKU...",
         });
         await importFile(file);
+        window.dispatchEvent(new Event("ml:pricing-updated"));
         await loadCosts({ force: true });
       } catch (error) {
         setStatus(error.message || "Falha ao importar.", "error");
@@ -612,7 +617,25 @@
     });
 
     applyLookupText();
-    await loadTax().catch(() => {});
-    await loadCosts();
-  });
+    state.initPromise = (async () => {
+      await loadTax().catch(() => {});
+      await loadCosts();
+    })();
+    return state.initPromise;
+  }
+
+  async function openForSku(sku) {
+    const value = String(sku || "").trim();
+    if (!value) return;
+    const firstLoad = !state.initPromise;
+    if (els.lookupType) els.lookupType.value = "sku";
+    applyLookupText();
+    if (els.search) els.search.value = value;
+    state.page = 1;
+    await init();
+    if (!firstLoad) await loadCosts();
+    els.search?.focus();
+  }
+
+  return { init, openForSku };
 })();

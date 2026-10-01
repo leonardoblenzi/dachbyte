@@ -89,6 +89,12 @@ test("keeps the listing status filter separate from the period order status filt
   );
 });
 
+test("offers four margin tabs including the complete costs workspace", () => {
+  assert.equal((html.match(/class="fml-tab(?: is-active)?"/g) || []).length, 4);
+  assert.match(html, /id="fml-tab-costs"[^>]*>Custos por SKU<\/button>/);
+  assert.match(html, /id="fml-costs-panel"[\s\S]*?id="fml-cost-body"/);
+});
+
 test("keeps the equilibrium table at 17 columns with its editable cost column", () => {
   const equilibriumTable = html.match(
     /<table class="fml-table fml-table--equilibrium">([\s\S]*?)<\/table>/,
@@ -124,6 +130,6 @@ test("keeps nowrap styles aligned with period result columns", () => {
 });
 
 test("bumps the margin assets cache keys", () => {
-  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=17/);
-  assert.match(html, /\/ml\/css\/financeiro-ml\.css\?v=2026100101/);
+  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=18/);
+  assert.match(html, /\/ml\/css\/financeiro-ml\.css\?v=2026100102/);
 });

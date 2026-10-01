@@ -11,10 +11,7 @@ const marginHtml = fs.readFileSync(
   path.join(sellerMlRoot, "views", "financeiro-ml-margem.html"),
   "utf8",
 );
-const costsHtml = fs.readFileSync(
-  path.join(sellerMlRoot, "views", "financeiro-ml-custos.html"),
-  "utf8",
-);
+const costsHtml = marginHtml;
 const marginJs = fs.readFileSync(
   path.join(sellerMlRoot, "public", "js", "financeiro-ml-margem.js"),
   "utf8",
