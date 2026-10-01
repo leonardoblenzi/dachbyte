@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet" />
   <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
-  <link rel="stylesheet" href="/ml/css/financeiro-ml.css?v=2026100102" />
+  <link rel="stylesheet" href="/ml/css/financeiro-ml.css?v=2026100103" />
   <title>Margem de Venda Mercado Livre</title>
   <script src="/ml/js/financeiro-ml-sku-history.js?v=1" defer></script>
   <script src="/ml/js/financeiro-ml-custos.js?v=12" defer></script>
-  <script src="/ml/js/financeiro-ml-margem.js?v=18" defer></script>
+  <script src="/ml/js/financeiro-ml-margem.js?v=19" defer></script>
   <script src="/ml/js/ml-base.js?v=10"></script>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
@@ -22,7 +22,7 @@
           <h1>Margem de Venda Mercado Livre</h1>
           <p>Auditoria das vendas, custos por SKU e precificacao de equilibrio dos anuncios da conta ativa.</p>
         </div>
-        <span id="fml-margin-status" class="fml-status" data-tone="info" aria-live="polite">Pronto para consultar.</span>
+        <span id="fml-margin-status" class="fml-status" data-tone="info" aria-live="polite">Escolha o período e clique em Filtrar.</span>
       </header>
 
       <section id="fml-margin-warning-note" class="fml-card fml-warning-note">
@@ -113,7 +113,8 @@
         <button id="fml-tab-costs" class="fml-tab" type="button">Custos por SKU</button>
       </nav>
 
-      <section id="fml-summary-panel" class="fml-tab-panel">
+      <section id="fml-summary-panel" class="fml-tab-panel" data-awaiting-filter="true">
+        <div class="fml-filter-empty" role="status"><strong>Escolha o período e clique em Filtrar</strong><span>Os resultados aparecerão com os filtros selecionados.</span></div>
         <div class="fml-panel-actions">
           <button id="fml-export-summary" class="fml-btn fml-btn--ghost" type="button"><i class="bi bi-file-earmark-excel"></i> Exportar XLSX</button>
         </div>
@@ -401,7 +402,8 @@
         </section>
       </section>
 
-      <section id="fml-period-panel" class="fml-card fml-tab-panel fml-hidden">
+      <section id="fml-period-panel" class="fml-card fml-tab-panel fml-hidden" data-awaiting-filter="true">
+        <div class="fml-filter-empty" role="status"><strong>Escolha o período e clique em Filtrar</strong><span>Os pedidos aparecerão com os filtros selecionados.</span></div>
         <header class="fml-card-head">
           <div>
             <strong>Margem por periodo</strong>
@@ -448,7 +450,8 @@
         </footer>
       </section>
 
-      <section id="fml-equilibrium-panel" class="fml-card fml-tab-panel fml-hidden">
+      <section id="fml-equilibrium-panel" class="fml-card fml-tab-panel fml-hidden" data-awaiting-filter="true">
+        <div class="fml-filter-empty" role="status"><strong>Escolha o período e clique em Filtrar</strong><span>As estimativas aparecerão com os filtros selecionados.</span></div>
         <header class="fml-card-head">
           <div>
             <strong>Preco de equilibrio estimado</strong>

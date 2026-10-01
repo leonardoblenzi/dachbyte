@@ -130,6 +130,28 @@ test("keeps nowrap styles aligned with period result columns", () => {
 });
 
 test("bumps the margin assets cache keys", () => {
-  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=18/);
-  assert.match(html, /\/ml\/css\/financeiro-ml\.css\?v=2026100102/);
+  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=19/);
+  assert.match(html, /\/ml\/css\/financeiro-ml\.css\?v=2026100103/);
+});
+
+test("waits for the first filter before loading margin", () => {
+  const boot = js.match(/document\.addEventListener\("DOMContentLoaded", \(\) => \{([\s\S]*?)\n  \}\);\n\}\)\(\);/)?.[1];
+  assert.ok(boot);
+  assert.match(boot, /initDates\(\)/);
+  assert.doesNotMatch(boot, /\n    loadMargin\(\);\s*$/);
+  assert.match(boot, /els\.form\?\.addEventListener\("submit",[\s\S]*?loadMargin\(\)/);
+  for (const id of ["fml-summary-panel", "fml-period-panel", "fml-equilibrium-panel"]) {
+    assert.match(html, new RegExp(`id="${id}"[^>]*data-awaiting-filter="true"`));
+  }
+  assert.match(css, /\.fml-tab-panel\[data-awaiting-filter="true"\]/);
+  assert.match(js, /delete .*dataset\.awaitingFilter/);
+  assert.match(js, /if \(!costs && state\.marginDirty && state\.marginLoaded\)/);
+  assert.match(boot, /loadMargin\(\{ force: state\.marginLoaded \}\)/);
+});
+
+test("keeps margin dirty when a cost changes during an in-flight filter", () => {
+  assert.match(js, /pricingRevision: 0/);
+  assert.match(js, /const pricingRevisionAtStart = state\.pricingRevision/);
+  assert.match(js, /state\.marginDirty = state\.pricingRevision !== pricingRevisionAtStart/);
+  assert.match(js, /state\.pricingRevision \+= 1/);
 });

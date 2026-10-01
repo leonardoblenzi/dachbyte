@@ -118,6 +118,22 @@
   margin-top:16px;
 }
 
+.fml-filter-empty {
+  display: none;
+  min-height: 176px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 7px;
+  text-align: center;
+  color: var(--fml-muted);
+}
+
+.fml-filter-empty strong { color: var(--fml-ink); font-size: 15px; }
+.fml-filter-empty span { font-size: 13px; }
+.fml-tab-panel[data-awaiting-filter="true"] > :not(.fml-filter-empty) { display: none; }
+.fml-tab-panel[data-awaiting-filter="true"] > .fml-filter-empty { display: flex; }
+
 .fml-cost-tab-status {
   max-width: none;
   justify-self: start;
@@ -134,6 +150,7 @@
   font-size: 11px;
   font-weight: 700;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 

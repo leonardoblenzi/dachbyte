@@ -21,6 +21,8 @@
     missingCostPickerItems: [],
     missingCostPickerTrigger: null,
     marginDirty: false,
+    marginLoaded: false,
+    pricingRevision: 0,
   };
 
   const els = {
@@ -290,7 +292,7 @@
     els.panelCosts?.classList.toggle("fml-hidden", !costs);
     els.marginFilterCard?.classList.toggle("fml-hidden", costs);
     els.marginWarningNote?.classList.toggle("fml-hidden", costs);
-    if (!costs && state.marginDirty) {
+    if (!costs && state.marginDirty && state.marginLoaded) {
       state.marginDirty = false;
       loadMargin({ preservePages: true, retainOnError: true }).then((loaded) => {
         if (!loaded) state.marginDirty = true;
@@ -342,12 +344,37 @@
     return Array.from(grouped.values());
   }
 
+  function costLinkHref(sku) {
+    return `${window.location.pathname}#costs/sku/${encodeURIComponent(sku)}`;
+  }
+
+  function readCostDeepLink(hash) {
+    if (!String(hash || "").startsWith("#costs/sku/")) return "";
+    try {
+      return decodeURIComponent(String(hash).slice("#costs/sku/".length)).trim();
+    } catch {
+      return "";
+    }
+  }
+
+  function clearCostDeepLink() {
+    if (!readCostDeepLink(window.location.hash)) return;
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+  }
+
+  function isPlainPrimaryClick(event) {
+    return event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey;
+  }
+
   function renderPeriodCostAction(row) {
     const items = missingCostItems(row);
     if (!items.length) return "";
     const label = items.length === 1 && items[0].sku
       ? "1 item sem custo · Cadastrar"
       : `${fmtNum(items.length)} ${items.length === 1 ? "item" : "itens"} sem custo · Ver custos`;
+    if (items.length === 1 && items[0].sku) {
+      return `<a class="fml-period-cost-action" href="${escapeHtml(costLinkHref(items[0].sku))}" data-period-cost-order="${escapeHtml(row.order_id || "")}">${label}</a>`;
+    }
     return `<button class="fml-period-cost-action" type="button" data-period-cost-order="${escapeHtml(row.order_id || "")}">${label}</button>`;
   }
 
@@ -364,7 +391,7 @@
     els.missingCostPickerList.innerHTML = items.map((item, index) => `
       <li class="fml-missing-cost-item">
         <div><strong>${escapeHtml(item.title)}</strong><small>${item.sku ? `SKU ${escapeHtml(item.sku)}` : "Item sem SKU utilizavel"} · ${fmtNum(item.quantity)} un.</small></div>
-        ${item.sku ? `<button class="fml-btn fml-btn--ghost" type="button" data-missing-cost-index="${index}">Cadastrar custo</button>` : '<span class="fml-text-warn">Corrija o SKU na origem</span>'}
+        ${item.sku ? `<a class="fml-btn fml-btn--ghost" href="${escapeHtml(costLinkHref(item.sku))}" data-missing-cost-index="${index}">Cadastrar custo</a>` : '<span class="fml-text-warn">Corrija o SKU na origem</span>'}
       </li>`).join("");
     els.missingCostPicker.showModal();
     els.missingCostPicker.querySelector("[data-missing-cost-close]")?.focus();
@@ -820,6 +847,7 @@
 
   async function loadMargin({ force = false, preservePages = false, retainOnError = false, showLoading = true } = {}) {
     if (!validatePeriod()) return false;
+    const pricingRevisionAtStart = state.pricingRevision;
     const marginRequestId = ++state.marginRequestId;
     const params = buildQuery();
     if (force) params.set("force_refresh", "true");
@@ -876,6 +904,12 @@
       }
       if (els.note) els.note.textContent = data.meta?.note || "Margem carregada.";
 
+      state.marginLoaded = true;
+      state.marginDirty = state.pricingRevision !== pricingRevisionAtStart;
+      [els.panelSummary, els.panelPeriod, els.panelEquilibrium].forEach((panel) => {
+        if (panel) delete panel.dataset.awaitingFilter;
+      });
+
       const available = Number(data.meta?.orders_available || 0);
       const scanned = Number(data.meta?.orders_scanned || 0);
       if (data.meta?.order_partial) {
@@ -905,20 +939,37 @@
   document.addEventListener("DOMContentLoaded", () => {
     initFloatingTooltips();
     initDates();
-    setActiveTab("summary");
-    els.tabSummary?.addEventListener("click", () => setActiveTab("summary"));
-    els.tabPeriod?.addEventListener("click", () => setActiveTab("period"));
-    els.tabEquilibrium?.addEventListener("click", () => setActiveTab("equilibrium"));
+    const deepLinkSku = readCostDeepLink(window.location.hash);
+    if (deepLinkSku) {
+      openCostForSku(deepLinkSku);
+    } else {
+      setActiveTab("summary");
+    }
+    els.tabSummary?.addEventListener("click", () => {
+      clearCostDeepLink();
+      setActiveTab("summary");
+    });
+    els.tabPeriod?.addEventListener("click", () => {
+      clearCostDeepLink();
+      setActiveTab("period");
+    });
+    els.tabEquilibrium?.addEventListener("click", () => {
+      clearCostDeepLink();
+      setActiveTab("equilibrium");
+    });
     els.tabCosts?.addEventListener("click", () => {
+      clearCostDeepLink();
       setActiveTab("costs");
       window.FinanceiroMlCosts?.init();
     });
     els.body?.addEventListener("click", async (event) => {
       const action = event.target.closest("[data-period-cost-order]");
       if (!action) return;
+      if (!isPlainPrimaryClick(event)) return;
       const row = state.periodRows.find((item) => String(item.order_id || "") === action.dataset.periodCostOrder);
       const items = missingCostItems(row);
       if (items.length === 1 && items[0].sku) {
+        event.preventDefault();
         await openCostForSku(items[0].sku);
       } else if (items.length) {
         openMissingCostPicker(items);
@@ -931,8 +982,10 @@
       }
       const choice = event.target.closest("[data-missing-cost-index]");
       if (!choice) return;
+      if (!isPlainPrimaryClick(event)) return;
       const item = state.missingCostPickerItems[Number(choice.dataset.missingCostIndex)];
       if (!item?.sku) return;
+      event.preventDefault();
       state.missingCostPickerTrigger = null;
       els.missingCostPicker.close();
       await openCostForSku(item.sku);
@@ -943,6 +996,7 @@
       state.missingCostPickerItems = [];
     });
     window.addEventListener("ml:pricing-updated", () => {
+      state.pricingRevision += 1;
       state.marginDirty = true;
     });
     els.form?.addEventListener("submit", (event) => {
@@ -1002,11 +1056,10 @@
       event.preventDefault();
       await saveInlineCost(input.closest("[data-inline-cost-sku]"));
     });
-    els.refresh?.addEventListener("click", () => loadMargin({ force: true }));
-    els.refreshEquilibrium?.addEventListener("click", () => loadMargin({ force: true }));
+    els.refresh?.addEventListener("click", () => loadMargin({ force: state.marginLoaded }));
+    els.refreshEquilibrium?.addEventListener("click", () => loadMargin({ force: state.marginLoaded }));
     els.exportSummary?.addEventListener("click", () => exportXlsx("summary"));
     els.exportPeriod?.addEventListener("click", () => exportXlsx("period"));
     els.exportEquilibrium?.addEventListener("click", () => exportXlsx("equilibrium"));
-    loadMargin();
   });
 })();

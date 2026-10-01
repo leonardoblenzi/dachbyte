@@ -77,9 +77,44 @@ test("places the cost action below CMV only when the order has a missing SKU cos
   const render = vm.runInNewContext(`${source}\n(${actionSource})`, {
     fmtNum: (value) => String(value),
     escapeHtml: (value) => String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;"),
+    costLinkHref: (sku) => `#costs/sku/${encodeURIComponent(sku)}`,
   });
   assert.equal(render({ order_id: "1", order_items: [{ sku: "A", has_cost: true }] }), "");
   assert.match(render({ order_id: "2", order_items: [{ sku: "A", has_cost: false }] }), /1 item sem custo · Cadastrar/);
   assert.match(render({ order_id: "3", order_items: [{ sku: "A", has_cost: false }, { sku: "B", has_cost: false }] }), /2 itens sem custo · Ver custos/);
   assert.match(marginJs, /<td>\$\{fmtMoney\(row\.product_cost\)\}\$\{renderPeriodCostAction\(row\)\}<\/td>/);
+});
+
+test("provides a native deep link for a missing SKU cost", () => {
+  const source = marginJs.match(/function costLinkHref\(sku\) \{[\s\S]*?\n  \}/)?.[0];
+  assert.ok(source, "a cost link builder should exist");
+  const href = vm.runInNewContext(`(${source})`, {
+    window: { location: { pathname: "/ml/financeiro/margem-venda-mercado-livre" } },
+    encodeURIComponent,
+  });
+  assert.equal(href("SKU A/B"), "/ml/financeiro/margem-venda-mercado-livre#costs/sku/SKU%20A%2FB");
+  assert.match(marginJs, /<a class="fml-period-cost-action"[^>]+href=/);
+  assert.match(marginJs, /<a class="fml-btn fml-btn--ghost"[^>]+data-missing-cost-index=/);
+});
+
+test("intercepts only unmodified primary cost-link clicks", () => {
+  assert.match(marginJs, /function isPlainPrimaryClick\(event\)/);
+  assert.match(marginJs, /event\.button === 0/);
+  for (const modifier of ["ctrlKey", "metaKey", "shiftKey", "altKey"]) {
+    assert.match(marginJs, new RegExp(`!event\\.${modifier}`));
+  }
+  assert.match(marginJs, /if \(!isPlainPrimaryClick\(event\)\) return;/);
+  assert.match(marginJs, /event\.preventDefault\(\)/);
+});
+
+test("reads a SKU deep link safely and opens costs without loading margin", () => {
+  const source = marginJs.match(/function readCostDeepLink\(hash\) \{[\s\S]*?\n  \}/)?.[0];
+  assert.ok(source, "the deep-link reader should exist");
+  const read = vm.runInNewContext(`(${source})`, { decodeURIComponent });
+  assert.equal(read("#costs/sku/SKU%20A%2FB"), "SKU A/B");
+  assert.equal(read("#costs/sku/%"), "");
+  assert.equal(read("#costs/sku/"), "");
+  assert.equal(read("#summary"), "");
+  assert.match(marginJs, /const deepLinkSku = readCostDeepLink\(window\.location\.hash\)/);
+  assert.match(marginJs, /if \(deepLinkSku\) \{[\s\S]*?openCostForSku\(deepLinkSku\)/);
 });
