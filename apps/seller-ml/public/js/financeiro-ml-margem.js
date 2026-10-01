@@ -390,11 +390,16 @@
   function renderInlineCostCell(row = {}, savingSkus = state.inlineCostSavingSkus) {
     const sku = String(row.reference_sku || "").trim();
     if (!sku) return '<span class="fml-chip fml-chip--missing">Sem SKU</span>';
+    const rawCost = Number(row.product_cost);
+    const initialCost = row.has_cost && Number.isFinite(rawCost)
+      ? rawCost.toFixed(2).replace(".", ",")
+      : "";
+    const valueAttribute = initialCost ? ` value="${initialCost}"` : "";
     const isSaving = savingSkus.has(sku);
     const savingMarker = isSaving ? ' data-inline-cost-saving="true"' : "";
     const disabled = isSaving ? " disabled" : "";
     return `<div class="fml-inline-cost" data-inline-cost-sku="${escapeHtml(sku)}"${savingMarker}>
-      <input class="fml-input fml-inline-cost-input" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-label="Custo para ${escapeHtml(sku)}"${disabled} />
+      <input class="fml-input fml-inline-cost-input" type="text" inputmode="decimal" autocomplete="off"${valueAttribute} placeholder="0,00" aria-label="Custo para ${escapeHtml(sku)}"${disabled} />
       <button class="fml-inline-cost-history" type="button"${disabled}>Ver historico</button>
       <button class="fml-btn fml-btn--primary fml-inline-cost-save" type="button"${disabled}>Salvar custo</button>
     </div>`;
@@ -428,7 +433,7 @@
           <td>${escapeHtml(row.item_id || "-")}</td>
           <td>${escapeHtml(row.variation_id || "-")}</td>
           <td>${fmtMoney(row.price)}</td>
-          <td>${row.has_cost ? fmtMoney(row.product_cost) : renderInlineCostCell(row)}</td>
+          <td>${renderInlineCostCell(row)}</td>
           <td><strong>${fmtMoney(row.commission)}</strong><small class="fml-muted">${fmtPct(row.commission_rate_pct)} + ${fmtMoney(row.commission_fixed)} fixo</small></td>
           <td>${equilibriumBuyerShippingCell(row)}</td>
           <td><strong>${fmtMoney(row.tax_base_estimated)}</strong><small class="fml-muted">${row.tax_estimate_complete ? "Base estimada" : "Frete nao considerado"}</small></td>
