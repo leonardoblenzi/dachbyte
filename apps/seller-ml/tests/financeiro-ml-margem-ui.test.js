@@ -124,6 +124,6 @@ test("keeps nowrap styles aligned with period result columns", () => {
 });
 
 test("bumps the margin assets cache keys", () => {
-  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=16/);
+  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=17/);
   assert.match(html, /\/ml\/css\/financeiro-ml\.css\?v=2026100101/);
 });

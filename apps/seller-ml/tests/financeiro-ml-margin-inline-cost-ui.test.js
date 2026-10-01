@@ -99,9 +99,29 @@ test("renders an editable inline cost cell for every equilibrium SKU", () => {
   assert.equal(equilibriumCells.length, 17, "equilibrium row should retain 17 cells");
   assert.match(
     equilibriumCells[5],
-    /^<td[^>]*>\s*\$\{row\.has_cost \? fmtMoney\(row\.product_cost\) : renderInlineCostCell\(row\)\}\s*<\/td>$/,
-    "the Custo column should keep saved costs as money and render missing SKU costs inline",
+    /^<td[^>]*>\s*\$\{renderInlineCostCell\(row\)\}\s*<\/td>$/,
+    "the Custo column should render the inline editor for every equilibrium row",
   );
+});
+
+test("renders the compact editor for both saved and missing equilibrium SKU costs", () => {
+  const saved = renderInlineCostCellForTest(
+    { reference_sku: "SKU-SAVED", has_cost: true, product_cost: 408.5 },
+    new Set(),
+  );
+  const missing = renderInlineCostCellForTest(
+    { reference_sku: "SKU-MISSING", has_cost: false, product_cost: null },
+    new Set(),
+  );
+
+  assert.match(saved, /value="408,50"/);
+  assert.match(saved, /fml-inline-cost-history[\s\S]*Salvar custo/);
+  assert.match(missing, /placeholder="0,00"/);
+  assert.doesNotMatch(missing, /value="[^"]+"/);
+});
+
+test("does not render an editor when the equilibrium row has no reference SKU", () => {
+  assert.match(renderInlineCostCellForTest({}, new Set()), /Sem SKU/);
 });
 
 test("renders a SKU-wide saving lock into inline editor markup after a re-render", () => {
