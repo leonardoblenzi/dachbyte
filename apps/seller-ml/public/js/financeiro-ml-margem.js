@@ -16,6 +16,8 @@
     operationalSummary: null,
     marketingSummary: null,
     marketingRequestId: 0,
+    marginRequestId: 0,
+    inlineCostSavingSkus: new Set(),
   };
 
   const els = {
@@ -105,6 +107,21 @@
 
   function fmtMaybeMoney(value) {
     return value == null || value === "" ? "-" : fmtMoney(value);
+  }
+
+  function parseMoneyInput(value) {
+    let raw = String(value ?? "").trim();
+    if (!raw) return null;
+    raw = raw.replace(/^R\$\s*/i, "").replace(/\s/g, "");
+    const negative = raw.startsWith("-");
+    if (negative || raw.startsWith("+")) raw = raw.slice(1);
+    if (!raw) return null;
+    if (!/^(?:\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?|\d+(?:,\d{1,2})?|\d+\.\d{1,2})$/.test(raw)) return null;
+    const normalized = raw.includes(",")
+      ? raw.replace(/\./g, "").replace(",", ".")
+      : /^\d{1,3}(?:\.\d{3})+$/.test(raw) ? raw.replace(/\./g, "") : raw;
+    const amount = Number(`${negative ? "-" : ""}${normalized}`);
+    return Number.isFinite(amount) ? amount : null;
   }
 
   function fmtNum(value) {
@@ -370,6 +387,31 @@
     return '<span class="fml-chip fml-chip--missing">Sem historico</span><small class="fml-muted">Frete nao considerado</small>';
   }
 
+  function renderInlineCostCell(row = {}, savingSkus = state.inlineCostSavingSkus) {
+    const sku = String(row.reference_sku || "").trim();
+    if (!sku) return '<span class="fml-chip fml-chip--missing">Sem SKU</span>';
+    const isSaving = savingSkus.has(sku);
+    const savingMarker = isSaving ? ' data-inline-cost-saving="true"' : "";
+    const disabled = isSaving ? " disabled" : "";
+    return `<div class="fml-inline-cost" data-inline-cost-sku="${escapeHtml(sku)}"${savingMarker}>
+      <input class="fml-input fml-inline-cost-input" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-label="Custo para ${escapeHtml(sku)}"${disabled} />
+      <button class="fml-inline-cost-history" type="button"${disabled}>Ver historico</button>
+      <button class="fml-btn fml-btn--primary fml-inline-cost-save" type="button"${disabled}>Salvar custo</button>
+    </div>`;
+  }
+
+  function setInlineCostEditorsDisabled(sku, disabled) {
+    els.equilibriumBody?.querySelectorAll("[data-inline-cost-sku]").forEach((editor) => {
+      if (editor.dataset.inlineCostSku !== sku) return;
+      const editorInput = editor.querySelector(".fml-inline-cost-input");
+      const editorButtons = editor.querySelectorAll("button");
+      if (editorInput) editorInput.disabled = disabled;
+      editorButtons.forEach((button) => { button.disabled = disabled; });
+      if (disabled) editor.dataset.inlineCostSaving = "true";
+      else delete editor.dataset.inlineCostSaving;
+    });
+  }
+
   function renderEquilibriumRows(rows = []) {
     if (!rows.length) {
       els.equilibriumBody.innerHTML = '<tr><td colspan="17" class="fml-empty">Nenhum anuncio/variacao encontrado.</td></tr>';
@@ -386,7 +428,7 @@
           <td>${escapeHtml(row.item_id || "-")}</td>
           <td>${escapeHtml(row.variation_id || "-")}</td>
           <td>${fmtMoney(row.price)}</td>
-          <td>${row.has_cost ? fmtMoney(row.product_cost) : '<span class="fml-chip fml-chip--missing">Sem custo</span>'}</td>
+          <td>${row.has_cost ? fmtMoney(row.product_cost) : renderInlineCostCell(row)}</td>
           <td><strong>${fmtMoney(row.commission)}</strong><small class="fml-muted">${fmtPct(row.commission_rate_pct)} + ${fmtMoney(row.commission_fixed)} fixo</small></td>
           <td>${equilibriumBuyerShippingCell(row)}</td>
           <td><strong>${fmtMoney(row.tax_base_estimated)}</strong><small class="fml-muted">${row.tax_estimate_complete ? "Base estimada" : "Frete nao considerado"}</small></td>
@@ -658,28 +700,84 @@
     }).join("");
   }
 
-  async function loadMargin({ force = false } = {}) {
-    if (!validatePeriod()) return;
-    const params = buildQuery();
-    if (force) params.set("force_refresh", "true");
-    if (els.body) els.body.innerHTML = '<tr><td colspan="18" class="fml-empty">Carregando margens...</td></tr>';
-    if (els.equilibriumBody) els.equilibriumBody.innerHTML = '<tr><td colspan="17" class="fml-empty">Carregando precificacao estimada...</td></tr>';
-    setStatus("Calculando vendas e precificacao...", "info");
-    const marketingRequestId = ++state.marketingRequestId;
-    resetMarketingUi();
+  async function saveInlineCost(container) {
+    const sku = container?.dataset?.inlineCostSku;
+    const input = container?.querySelector(".fml-inline-cost-input");
+    const buttons = container?.querySelectorAll("button");
+    if (!sku || !input) return;
+    if (container.dataset.inlineCostSaving === "true" || state.inlineCostSavingSkus.has(sku)) return;
+    const cost = parseMoneyInput(input.value);
+    if (cost == null || cost <= 0) {
+      setStatus("Informe um custo maior que zero.", "error");
+      input.focus();
+      return;
+    }
+    state.inlineCostSavingSkus.add(sku);
+    container.dataset.inlineCostSaving = "true";
+    input.disabled = true;
+    buttons?.forEach((button) => { button.disabled = true; });
+    setInlineCostEditorsDisabled(sku, true);
     window.MLLoadingOverlay?.show({
       context: "Financeiro ML",
       label: "Margem e precificacao",
-      message: "Consultando pedidos, custos, tarifas e anuncios...",
-      texts: [
-        "Lendo pedidos do periodo...",
-        "Aplicando custos por SKU e variacao...",
-        "Conciliando cupons, rebates e descontos...",
-        "Calculando preco de equilibrio...",
-      ],
-      initialProgress: 14,
-      maxProgress: 92,
+      message: "Salvando custo e recalculando margens...",
     });
+    try {
+      const response = await fetch(mlUrl(`/api/financeiro-ml/costs/${encodeURIComponent(sku)}`), {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({ cost }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || "Falha ao salvar custo.");
+      const expectedMarginRequestId = state.marginRequestId + 1;
+      const refreshed = await loadMargin({ preservePages: true, retainOnError: true, showLoading: false });
+      if (!refreshed && expectedMarginRequestId !== state.marginRequestId) return;
+      if (!refreshed) throw new Error("Custo salvo, mas nao foi possivel recalcular as margens.");
+      setStatus("Custo salvo e margens recalculadas.", "ok");
+    } catch (error) {
+      setStatus(error.message || "Falha ao salvar custo.", "error");
+    } finally {
+      input.disabled = false;
+      buttons?.forEach((button) => { button.disabled = false; });
+      delete container.dataset.inlineCostSaving;
+      state.inlineCostSavingSkus.delete(sku);
+      setInlineCostEditorsDisabled(sku, false);
+      window.MLLoadingOverlay?.hide();
+    }
+  }
+
+  async function loadMargin({ force = false, preservePages = false, retainOnError = false, showLoading = true } = {}) {
+    if (!validatePeriod()) return false;
+    const marginRequestId = ++state.marginRequestId;
+    const params = buildQuery();
+    if (force) params.set("force_refresh", "true");
+    if (!retainOnError) {
+      if (els.body) els.body.innerHTML = '<tr><td colspan="18" class="fml-empty">Carregando margens...</td></tr>';
+      if (els.equilibriumBody) els.equilibriumBody.innerHTML = '<tr><td colspan="17" class="fml-empty">Carregando precificacao estimada...</td></tr>';
+    }
+    setStatus("Calculando vendas e precificacao...", "info");
+    const marketingRequestId = ++state.marketingRequestId;
+    if (!retainOnError) resetMarketingUi();
+    if (showLoading) {
+      window.MLLoadingOverlay?.show({
+        context: "Financeiro ML",
+        label: "Margem e precificacao",
+        message: "Consultando pedidos, custos, tarifas e anuncios...",
+        texts: [
+          "Lendo pedidos do periodo...",
+          "Aplicando custos por SKU e variacao...",
+          "Conciliando cupons, rebates e descontos...",
+          "Calculando preco de equilibrio...",
+        ],
+        initialProgress: 14,
+        maxProgress: 92,
+      });
+    }
 
     try {
       const response = await fetch(mlUrl(`/api/financeiro-ml/margin?${params.toString()}`), {
@@ -688,13 +786,16 @@
         cache: "no-store",
       });
       const data = await response.json().catch(() => null);
+      if (marginRequestId !== state.marginRequestId) return false;
       if (!response.ok || !data?.success) throw new Error(data?.error || "Falha ao carregar margem.");
 
       state.meta = data.meta || {};
       state.periodRows = Array.isArray(data.period_rows) ? data.period_rows : [];
       state.equilibriumRows = Array.isArray(data.equilibrium_rows) ? data.equilibrium_rows : [];
-      state.periodPage = 1;
-      state.equilibriumPage = 1;
+      if (!preservePages) {
+        state.periodPage = 1;
+        state.equilibriumPage = 1;
+      }
       renderSummary(data.summary || {});
       renderInsights(data.insights || []);
       loadMarketingSummary({ force, requestId: marketingRequestId });
@@ -717,15 +818,20 @@
       } else {
         setStatus("Margem e precificacao carregadas.", "ok");
       }
+      return true;
     } catch (error) {
-      if (els.body) els.body.innerHTML = `<tr><td colspan="18" class="fml-empty">${escapeHtml(error.message)}</td></tr>`;
-      if (els.equilibriumBody) els.equilibriumBody.innerHTML = `<tr><td colspan="17" class="fml-empty">${escapeHtml(error.message)}</td></tr>`;
-      state.periodRows = [];
-      state.equilibriumRows = [];
-      renderInsights([]);
+      if (marginRequestId !== state.marginRequestId) return false;
+      if (!retainOnError) {
+        if (els.body) els.body.innerHTML = `<tr><td colspan="18" class="fml-empty">${escapeHtml(error.message)}</td></tr>`;
+        if (els.equilibriumBody) els.equilibriumBody.innerHTML = `<tr><td colspan="17" class="fml-empty">${escapeHtml(error.message)}</td></tr>`;
+        state.periodRows = [];
+        state.equilibriumRows = [];
+        renderInsights([]);
+      }
       setStatus(error.message || "Falha ao carregar.", "error");
+      return false;
     } finally {
-      window.MLLoadingOverlay?.hide();
+      if (showLoading) window.MLLoadingOverlay?.hide();
     }
   }
 
@@ -767,6 +873,31 @@
         state.equilibriumPage += 1;
         renderEquilibriumPage();
       }
+    });
+    els.equilibriumBody?.addEventListener("click", async (event) => {
+      const historyButton = event.target.closest(".fml-inline-cost-history");
+      if (historyButton) {
+        const sku = historyButton.closest("[data-inline-cost-sku]")?.dataset?.inlineCostSku;
+        if (!sku || !window.FinanceiroMlSkuHistory?.open) {
+          setStatus("Historico de custo indisponivel.", "error");
+          return;
+        }
+        try {
+          await window.FinanceiroMlSkuHistory.open(sku);
+        } catch (error) {
+          setStatus(error.message || "Falha ao abrir historico de custo.", "error");
+        }
+        return;
+      }
+      const saveButton = event.target.closest(".fml-inline-cost-save");
+      if (saveButton) await saveInlineCost(saveButton.closest("[data-inline-cost-sku]"));
+    });
+    els.equilibriumBody?.addEventListener("keydown", async (event) => {
+      if (event.key !== "Enter") return;
+      const input = event.target.closest(".fml-inline-cost-input");
+      if (!input) return;
+      event.preventDefault();
+      await saveInlineCost(input.closest("[data-inline-cost-sku]"));
     });
     els.refresh?.addEventListener("click", () => loadMargin({ force: true }));
     els.refreshEquilibrium?.addEventListener("click", () => loadMargin({ force: true }));

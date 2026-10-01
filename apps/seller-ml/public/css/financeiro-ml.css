@@ -1736,6 +1736,62 @@ body.fml-app .fml-page.container{
   min-width:260px;
 }
 
+.fml-table--equilibrium td:nth-child(6){
+  min-width:146px;
+}
+
+.fml-inline-cost{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr);
+  gap:5px;
+  min-width:126px;
+}
+
+.fml-inline-cost-input{
+  min-height:30px;
+  padding:4px 8px;
+  font-size:11px;
+}
+
+.fml-inline-cost-history,
+.fml-inline-cost-save{
+  width:max-content;
+  max-width:100%;
+  min-height:24px;
+  padding:2px 7px;
+  border-radius:7px;
+  font-size:10px;
+  font-weight:800;
+  line-height:1.2;
+  white-space:normal;
+}
+
+.fml-inline-cost-history{
+  padding:0;
+  border:0;
+  background:transparent;
+  color:var(--fml-blue-dark);
+  text-align:left;
+  text-decoration:underline;
+  text-underline-offset:2px;
+  cursor:pointer;
+}
+
+.fml-inline-cost-history:hover,
+.fml-inline-cost-history:focus-visible{
+  color:var(--fml-blue);
+}
+
+body.theme-dark.fml-app .fml-inline-cost-history{
+  color:#93c5fd;
+}
+
+@media (max-width:760px){
+  .fml-inline-cost{
+    min-width:118px;
+  }
+}
+
 .fml-table--equilibrium td:nth-child(7),
 .fml-table--equilibrium td:nth-child(8){
   min-width:150px;

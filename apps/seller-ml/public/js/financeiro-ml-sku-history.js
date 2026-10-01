@@ -9,6 +9,8 @@
   let skuLabel;
   let content;
   let lastFocused;
+  let historyRequestId = 0;
+  let activeSku;
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
@@ -80,6 +82,8 @@
 
   function close() {
     if (!drawer) return;
+    historyRequestId += 1;
+    activeSku = null;
     drawer.hidden = true;
     backdrop.hidden = true;
     drawer.setAttribute("aria-hidden", "true");
@@ -136,6 +140,8 @@
   async function open(sku) {
     if (!sku) return;
     ensureShell();
+    const requestId = ++historyRequestId;
+    activeSku = sku;
     if (drawer.hidden) lastFocused = document.activeElement;
     skuLabel.textContent = sku;
     content.innerHTML = '<p class="fml-empty">Carregando historico do SKU...</p>';
@@ -150,8 +156,10 @@
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.success) throw new Error(data?.error || "Falha ao carregar historico.");
+      if (requestId !== historyRequestId || drawer.hidden || activeSku !== sku) return;
       renderHistory(data);
     } catch (error) {
+      if (requestId !== historyRequestId || drawer.hidden || activeSku !== sku) return;
       content.innerHTML = `<p class="fml-empty">${escapeHtml(error.message || "Falha ao carregar historico.")}</p>`;
     }
   }

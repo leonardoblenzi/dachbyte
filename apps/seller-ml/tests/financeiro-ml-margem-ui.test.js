@@ -64,7 +64,7 @@ test("renders product revenue between GMV and product cost and status for period
 
 test("uses 18 columns for period loading and error states", () => {
   const loadMargin = js.match(
-    /async function loadMargin\(\{ force = false \} = \{\}\) \{([\s\S]*?)\n  document\.addEventListener/,
+    /async function loadMargin\(\{ force = false, preservePages = false, retainOnError = false, showLoading = true \} = \{\}\) \{([\s\S]*?)\n  document\.addEventListener/,
   )?.[1];
 
   assert.ok(loadMargin, "margin loader should exist");
@@ -124,6 +124,6 @@ test("keeps nowrap styles aligned with period result columns", () => {
 });
 
 test("bumps the margin assets cache keys", () => {
-  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=15/);
-  assert.match(html, /\/ml\/css\/financeiro-ml\.css\?v=2026090401/);
+  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=16/);
+  assert.match(html, /\/ml\/css\/financeiro-ml\.css\?v=2026100101/);
 });
