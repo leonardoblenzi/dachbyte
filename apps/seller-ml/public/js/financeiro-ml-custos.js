@@ -43,11 +43,6 @@
     kpiCoverage: document.getElementById("fml-kpi-coverage"),
     kpiNote: document.getElementById("fml-kpi-note"),
     riskTabs: document.querySelectorAll(".fml-risk-tab"),
-    historyDrawer: document.getElementById("fml-history-drawer"),
-    historyBackdrop: document.getElementById("fml-history-backdrop"),
-    historyClose: document.getElementById("fml-history-close"),
-    historySku: document.getElementById("fml-history-sku"),
-    historyContent: document.getElementById("fml-history-content"),
     costInsights: document.getElementById("fml-cost-insights"),
     costPriority: document.getElementById("fml-cost-priority"),
   };
@@ -444,178 +439,6 @@
     }
   }
 
-  function openHistoryShell(sku) {
-    if (els.historySku) els.historySku.textContent = sku || "-";
-    if (els.historyContent) {
-      els.historyContent.innerHTML = '<p class="fml-empty">Carregando historico do SKU...</p>';
-    }
-    els.historyDrawer?.removeAttribute("hidden");
-    els.historyBackdrop?.removeAttribute("hidden");
-    els.historyDrawer?.setAttribute("aria-hidden", "false");
-    document.body.classList.add("fml-history-is-open");
-  }
-
-  function closeHistory() {
-    els.historyDrawer?.setAttribute("hidden", "");
-    els.historyBackdrop?.setAttribute("hidden", "");
-    els.historyDrawer?.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("fml-history-is-open");
-  }
-
-  function scalePoints(series = [], key = "price", width = 360, height = 120) {
-    const values = series.map((row) => Number(row[key])).filter((value) => Number.isFinite(value) && value > 0);
-    if (!values.length) return "";
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const span = Math.max(1, max - min);
-    return series.map((row, index) => {
-      const raw = Number(row[key]);
-      const value = Number.isFinite(raw) && raw > 0 ? raw : min;
-      const x = series.length <= 1 ? width : (index / (series.length - 1)) * width;
-      const y = height - ((value - min) / span) * height;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(" ");
-  }
-
-  function renderMiniChart(series = []) {
-    const clean = Array.isArray(series) ? series.slice(-24) : [];
-    if (!clean.length) {
-      return '<div class="fml-history-empty">Sem historico suficiente para montar o grafico.</div>';
-    }
-    const pricePoints = scalePoints(clean, "price");
-    const costPoints = scalePoints(clean, "cost");
-    return `
-      <div class="fml-history-chart">
-        <div class="fml-history-chart-head">
-          <span><i class="price"></i>Preco ML</span>
-          <span><i class="cost"></i>Custo</span>
-        </div>
-        <svg viewBox="0 0 360 120" preserveAspectRatio="none" aria-hidden="true">
-          <polyline class="fml-chart-line fml-chart-line--price" points="${escapeHtml(pricePoints)}"></polyline>
-          <polyline class="fml-chart-line fml-chart-line--cost" points="${escapeHtml(costPoints)}"></polyline>
-        </svg>
-      </div>
-    `;
-  }
-
-  function renderMetric(label, value, delta, options = {}) {
-    const deltaText = delta == null ? "sem comparativo" : fmtDeltaPct(delta);
-    return `
-      <article class="fml-history-metric">
-        <span>${escapeHtml(label)}</span>
-        <strong>${escapeHtml(value)}</strong>
-        <small class="${deltaClass(delta, options.inverseDelta)}">${escapeHtml(deltaText)}</small>
-      </article>
-    `;
-  }
-
-  function alertClass(tone) {
-    if (tone === "danger") return "fml-history-alert--danger";
-    if (tone === "warn") return "fml-history-alert--warn";
-    return "fml-history-alert--ok";
-  }
-
-  function renderHistory(data) {
-    const summary = data.summary || {};
-    const alerts = Array.isArray(data.alerts) ? data.alerts : [];
-    const listings = Array.isArray(data.listings) ? data.listings : [];
-    const events = Array.isArray(data.events) ? data.events : [];
-    if (els.historySku) els.historySku.textContent = data.sku || "-";
-    els.historyContent.innerHTML = `
-      <section class="fml-history-summary">
-        ${renderMetric("Custo atual", fmtMoney(summary.current_cost), summary.cost_delta_30d_pct, { inverseDelta: true })}
-        ${renderMetric("Preco vigente medio", fmtMoney(summary.current_price), summary.price_delta_30d_pct)}
-        ${renderMetric("Margem estimada", summary.estimated_margin_pct == null ? "Nao calculada" : fmtPct(summary.estimated_margin_pct), summary.margin_delta_30d_pp)}
-      </section>
-      <section class="fml-history-diagnosis">
-        <strong>Diagnostico</strong>
-        <p>${escapeHtml(summary.diagnosis || "Historico carregado para analise.")}</p>
-        <small>${escapeHtml(data.meta?.note || "")}</small>
-      </section>
-      <section class="fml-history-comparisons">
-        ${["d7", "d30", "d90"].map((key) => {
-          const comparison = data.comparisons?.[key] || {};
-          const label = key === "d7" ? "7 dias" : key === "d30" ? "30 dias" : "90 dias";
-          return `
-            <article>
-              <span>${label}</span>
-              <strong class="${deltaClass(comparison.cost_delta_pct, true)}">Custo ${fmtDeltaPct(comparison.cost_delta_pct)}</strong>
-              <small class="${deltaClass(comparison.price_delta_pct)}">Preco ${fmtDeltaPct(comparison.price_delta_pct)}</small>
-            </article>
-          `;
-        }).join("")}
-      </section>
-      <section class="fml-history-alerts">
-        ${alerts.map((alert) => `
-          <article class="fml-history-alert ${alertClass(alert.tone)}">
-            <strong>${escapeHtml(alert.title)}</strong>
-            <p>${escapeHtml(alert.description)}</p>
-          </article>
-        `).join("")}
-      </section>
-      ${renderMiniChart(data.series || [])}
-      <section class="fml-history-grid">
-        <article>
-          <span>Ultimo custo</span>
-          <strong>${fmtDate(summary.last_cost_update)}</strong>
-        </article>
-        <article>
-          <span>Ultimo preco ML</span>
-          <strong>${fmtDate(summary.last_price_snapshot)}</strong>
-        </article>
-        <article>
-          <span>Anuncios ligados</span>
-          <strong>${fmtNum(summary.listings_count)}</strong>
-        </article>
-        <article>
-          <span>Estoque total</span>
-          <strong>${fmtNum(summary.stock_total)}</strong>
-        </article>
-      </section>
-      <section class="fml-history-section">
-        <h3>Anuncios deste SKU</h3>
-        <div class="fml-history-listings">
-          ${listings.length ? listings.slice(0, 8).map((item) => `
-            <a href="${escapeHtml(item.permalink || "#")}" target="_blank" rel="noopener" class="fml-history-listing">
-              <span>${escapeHtml(item.mlb || "-")}</span>
-              <strong>${escapeHtml(item.title || data.sku || "-")}</strong>
-              <small>${escapeHtml(item.status || "-")} &middot; ${fmtMoney(item.price)} &middot; estoque ${fmtNum(item.stock)}</small>
-            </a>
-          `).join("") : '<p class="fml-history-empty">Nenhum anuncio sincronizado para este SKU ainda.</p>'}
-        </div>
-      </section>
-      <section class="fml-history-section">
-        <h3>Linha do tempo</h3>
-        <div class="fml-history-events">
-          ${events.length ? events.map((event) => `
-            <article>
-              <span>${fmtDate(event.datetime || event.date)}</span>
-              <strong>${escapeHtml(event.label)}</strong>
-              <small>${fmtMoney(event.value)}${event.listings_count ? ` em ${fmtNum(event.listings_count)} anuncio(s)` : ""}</small>
-            </article>
-          `).join("") : '<p class="fml-history-empty">Sem eventos registrados.</p>'}
-        </div>
-      </section>
-    `;
-  }
-
-  async function loadHistory(sku) {
-    if (!sku) return;
-    openHistoryShell(sku);
-    try {
-      const response = await fetch(mlUrl(`/api/financeiro-ml/costs/${encodeURIComponent(sku)}/timeline?days=180`), {
-        credentials: "include",
-        headers: { accept: "application/json" },
-        cache: "no-store",
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.success) throw new Error(data?.error || "Falha ao carregar historico.");
-      renderHistory(data);
-    } catch (error) {
-      els.historyContent.innerHTML = `<p class="fml-empty">${escapeHtml(error.message || "Falha ao carregar historico.")}</p>`;
-    }
-  }
-
   async function fileToBase64(file) {
     const buffer = await file.arrayBuffer();
     let binary = "";
@@ -754,23 +577,18 @@
         setStatus(error.message || "Falha ao salvar aliquota.", "error");
       }
     });
-    els.historyClose?.addEventListener("click", closeHistory);
-    els.historyBackdrop?.addEventListener("click", closeHistory);
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeHistory();
-    });
     els.costPriority?.addEventListener("click", (event) => {
       const historyButton = event.target.closest(".fml-history-open");
       if (!historyButton) return;
       const row = historyButton.closest("[data-sku]");
-      loadHistory(row?.dataset?.sku);
+      window.FinanceiroMlSkuHistory?.open(row?.dataset?.sku);
     });
     els.body?.addEventListener("click", async (event) => {
       const historyButton = event.target.closest(".fml-history-open");
       if (historyButton) {
         const row = historyButton.closest("[data-sku]");
         const sku = row?.dataset?.sku;
-        loadHistory(sku);
+        window.FinanceiroMlSkuHistory?.open(sku);
         return;
       }
       const button = event.target.closest(".fml-save-cost");

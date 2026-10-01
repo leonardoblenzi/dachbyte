@@ -18,6 +18,10 @@ const marginJs = fs.readFileSync(
   path.join(sellerMlRoot, "public", "js", "financeiro-ml-margem.js"),
   "utf8",
 );
+const costsJs = fs.readFileSync(
+  path.join(sellerMlRoot, "public", "js", "financeiro-ml-custos.js"),
+  "utf8",
+);
 const skuHistoryPath = path.join(
   sellerMlRoot,
   "public",
@@ -123,4 +127,46 @@ test("loads the shared SKU history module in cost and margin views", () => {
     skuHistoryJs,
     /window\.FinanceiroMlSkuHistory\s*=\s*\{\s*open\s*\}/,
   );
+});
+
+test("keeps the SKU history drawer implementation shared and delegates Cost history buttons", () => {
+  assert.match(
+    skuHistoryJs,
+    /fetch\(`\/api\/financeiro-ml\/costs\/\$\{encodeURIComponent\(sku\)\}\/timeline\?days=180`,\s*\{[\s\S]*?credentials:\s*["']include["'][\s\S]*?accept:\s*["']application\/json["'][\s\S]*?cache:\s*["']no-store["']/,
+    "shared history should fetch the canonical 180-day timeline without caching",
+  );
+  assert.match(skuHistoryJs, /fml-history-drawer/);
+  [
+    "fml-history-summary",
+    "fml-history-diagnosis",
+    "fml-history-comparisons",
+    "fml-history-alerts",
+    "fml-history-chart",
+    "fml-history-listings",
+    "fml-history-events",
+  ].forEach((className) => assert.match(skuHistoryJs, new RegExp(className)));
+  assert.match(skuHistoryJs, /function\s+escapeHtml\s*\(/);
+  assert.doesNotMatch(costsHtml, /id="fml-history-(?:backdrop|drawer|content|close|sku)"/);
+  assert.doesNotMatch(costsHtml, /fml-history-backdrop/);
+  assert.doesNotMatch(costsJs, /function\s+(?:openHistoryShell|closeHistory|renderHistory|loadHistory)\s*\(/);
+  assert.match(
+    costsJs,
+    /window\.FinanceiroMlSkuHistory\?\.open\(row\?\.dataset\?\.sku\)/,
+    "priority history buttons should invoke the shared drawer",
+  );
+  assert.match(
+    costsJs,
+    /window\.FinanceiroMlSkuHistory\?\.open\(sku\)/,
+    "cost-table history buttons should invoke the shared drawer",
+  );
+});
+
+test("traps Tab focus inside the open shared SKU history drawer", () => {
+  assert.match(skuHistoryJs, /function\s+trapFocus\s*\(/);
+  assert.match(skuHistoryJs, /event\.key\s*!==\s*["']Tab["']/);
+  assert.match(skuHistoryJs, /drawer\.querySelectorAll\(/);
+  assert.match(skuHistoryJs, /event\.shiftKey/);
+  assert.match(skuHistoryJs, /first\.focus\(\)/);
+  assert.match(skuHistoryJs, /last\.focus\(\)/);
+  assert.match(skuHistoryJs, /if\s*\(event\.key\s*===\s*["']Tab["']\)\s*trapFocus\(event\)/);
 });
