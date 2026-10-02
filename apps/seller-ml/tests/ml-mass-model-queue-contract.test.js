@@ -1,1 +1,32 @@
-"use strict";\n\nconst test = require("node:test");\nconst assert = require("node:assert/strict");\nconst fs = require("node:fs");\nconst path = require("node:path");\n\nconst root = path.resolve(__dirname, "..");\nconst service = fs.readFileSync(path.join(root, "services", "modeloMassaJobsService.js"), "utf8");\nconst controller = fs.readFileSync(path.join(root, "controllers", "ModeloMassaController.js"), "utf8");\nconst worker = fs.readFileSync(path.join(root, "worker.js"), "utf8");\n\ntest("modelo em massa usa Bull e Redis em vez de Map em memoria", () => {\n  assert.match(service, /new Bull\(QUEUE_NAME/);\n  assert.match(service, /getSharedRedis\("modelo-massa:jobs"\)/);\n  assert.doesNotMatch(service, /const\s+JOBS\s*=\s*new Map\(/);\n});\n\ntest("modelo em massa usa governor e liquida pela quantidade processada", () => {\n  assert.match(service, /waitForHeavyOperationLease/);\n  assert.match(service, /lane:\s*job\.data\?\.dryRun === true \? "read" : "write"/);\n  assert.match(service, /consumedUnits:\s*processed > 0 \? processed : null/);\n  assert.ok(service.includes("mass-model:${operationId}"));\n});\n\ntest("controller aguarda operacoes persistentes e worker inicia a fila", () => {\n  assert.match(controller, /await ModeloMassaJobsService\.listRecent/);\n  assert.match(controller, /await ModeloMassaJobsService\.jobDetail/);\n  assert.match(controller, /await ModeloMassaJobsService\.cancelJob/);\n  assert.match(controller, /await ModeloMassaJobsService\.getJobCsv/);\n  assert.match(worker, /ModeloMassaJobsService\.initWorker\(\)/);\n});\n
+"use strict";
+
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const root = path.resolve(__dirname, "..");
+const service = fs.readFileSync(path.join(root, "services", "modeloMassaJobsService.js"), "utf8");
+const controller = fs.readFileSync(path.join(root, "controllers", "ModeloMassaController.js"), "utf8");
+const worker = fs.readFileSync(path.join(root, "worker.js"), "utf8");
+
+test("modelo em massa usa Bull e Redis em vez de Map em memoria", () => {
+  assert.match(service, /new Bull\(QUEUE_NAME/);
+  assert.match(service, /getSharedRedis\("modelo-massa:jobs"\)/);
+  assert.doesNotMatch(service, /const\s+JOBS\s*=\s*new Map\(/);
+});
+
+test("modelo em massa usa governor e liquida pela quantidade processada", () => {
+  assert.match(service, /waitForHeavyOperationLease/);
+  assert.match(service, /lane:\s*job\.data\?\.dryRun === true \? "read" : "write"/);
+  assert.match(service, /consumedUnits:\s*processed > 0 \? processed : null/);
+  assert.ok(service.includes("mass-model:${operationId}"));
+});
+
+test("controller aguarda operacoes persistentes e worker inicia a fila", () => {
+  assert.match(controller, /await ModeloMassaJobsService\.listRecent/);
+  assert.match(controller, /await ModeloMassaJobsService\.jobDetail/);
+  assert.match(controller, /await ModeloMassaJobsService\.cancelJob/);
+  assert.match(controller, /await ModeloMassaJobsService\.getJobCsv/);
+  assert.match(worker, /ModeloMassaJobsService\.initWorker\(\)/);
+});
