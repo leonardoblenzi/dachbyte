@@ -8,6 +8,7 @@ const { refreshAccount } = require("../services/magaluTokenService");
 const { checkHubAccess } = require("../services/hubAccessService");
 const { checkAccountAccess } = require("../services/hubResourceAccessService");
 const { readSuiteIdentity } = require("../middlewares/suiteAuth");
+const { recordBestEffort } = require("../services/auditService");
 const {
   beginAuthorization,
   finishAuthorization,
@@ -85,6 +86,30 @@ function oauthError(code, message, status) {
   return error;
 }
 
+function scopeCount(scopes) {
+  return Array.isArray(scopes) ? scopes.length : 0;
+}
+
+async function recordOAuthLifecycle({ eventKey, identity = null, stateRecord = null, account = null, outcome = "success", errorCode = null, httpStatus = null, requestedScopeCount = null, grantedScopeCount = null, req = null } = {}) {
+  const details = {
+    flow_mode: String(stateRecord?.flow_mode || "tenant"),
+  };
+  if (requestedScopeCount != null && Number.isFinite(Number(requestedScopeCount))) details.requested_scope_count = Number(requestedScopeCount);
+  if (grantedScopeCount != null && Number.isFinite(Number(grantedScopeCount))) details.granted_scope_count = Number(grantedScopeCount);
+  if (errorCode) details.error_code = String(errorCode).slice(0, 100);
+  if (Number.isFinite(Number(httpStatus)) && Number(httpStatus) > 0) details.http_status = Number(httpStatus);
+  return recordBestEffort({
+    eventKey,
+    source: "oauth",
+    outcome,
+    dachTenantId: identity?.dachTenantId || stateRecord?.dach_tenant_id || null,
+    dachUserId: identity?.dachUserId || stateRecord?.dach_user_id || null,
+    accountId: account?.id || null,
+    magaluTenantId: account?.magalu_tenant_id || stateRecord?.expected_magalu_tenant_id || null,
+    details,
+  }, req);
+}
+
 async function revalidateCallbackAccess(req, stateRecord) {
   const session = readSuiteIdentity(req);
   if (!session.ok) throw oauthError("MAGALU_OAUTH_SESSION_REQUIRED", "A sessão DACH não está mais válida para concluir o OAuth Magalu.", 401);
@@ -117,6 +142,12 @@ async function start(req, res, next) {
       identity: req.magaluIdentity,
       redirectAfter: req.query?.return || "/magalu/contas",
     });
+    await recordOAuthLifecycle({
+      eventKey: "oauth_started",
+      identity: req.magaluIdentity,
+      requestedScopeCount: scopeCount(env.MAGALU_OAUTH_SCOPES),
+      req,
+    });
     const maxAge = Math.max(120, env.MAGALU_OAUTH_STATE_TTL_SECONDS) * 1000;
     res.cookie(STATE_COOKIE, flow.stateHash, stateCookieOptions(maxAge));
     return res.redirect(302, flow.authorizationUrl);
@@ -140,6 +171,14 @@ async function masterReconnectStart(req, res, next) {
       flowMode: "master_reconnect",
       targetAccountId: account.id,
       expectedMagaluTenantId: account.magalu_tenant_id,
+    });
+    await recordOAuthLifecycle({
+      eventKey: "oauth_started",
+      identity,
+      stateRecord: { flow_mode: "master_reconnect", expected_magalu_tenant_id: account.magalu_tenant_id },
+      account,
+      requestedScopeCount: scopeCount(env.MAGALU_OAUTH_SCOPES),
+      req,
     });
     const maxAge = Math.max(120, env.MAGALU_OAUTH_STATE_TTL_SECONDS) * 1000;
     res.cookie(STATE_COOKIE, flow.stateHash, stateCookieOptions(maxAge));
@@ -171,6 +210,12 @@ async function callback(req, res) {
 
   const redirectAfter = safeRedirectAfter(stateRecord.redirect_after || "/magalu/contas");
   if (providerError) {
+    await recordOAuthLifecycle({
+      eventKey: "oauth_failed",
+      stateRecord,
+      outcome: "failed",
+      errorCode: providerError === "access_denied" ? "access_denied" : "provider_error",
+    });
     return res.redirect(302, withOAuthResult(redirectAfter, "error", providerError === "access_denied" ? "access_denied" : "provider_error"));
   }
   if (!code) {
@@ -180,6 +225,12 @@ async function callback(req, res) {
   try {
     await revalidateCallbackAccess(req, stateRecord);
     const connected = await finishAuthorization({ stateRecord, code });
+    await recordOAuthLifecycle({
+      eventKey: "oauth_connected",
+      stateRecord,
+      account: connected.account,
+      grantedScopeCount: scopeCount(connected.scopes),
+    });
     // Refresh é feito pelo worker. O enqueue imediato serve apenas para garantir
     // que uma conexão com expiração atípica entre rapidamente no fluxo normal.
     if (connected?.accessExpiresAt && new Date(connected.accessExpiresAt).getTime() <= Date.now() + env.MAGALU_TOKEN_REFRESH_SKEW_SECONDS * 1000) {
@@ -212,6 +263,13 @@ async function callback(req, res) {
       code: error?.code || null,
       status: error?.status || null,
       message: error?.message || String(error),
+    });
+    await recordOAuthLifecycle({
+      eventKey: "oauth_failed",
+      stateRecord,
+      outcome: "failed",
+      errorCode: safeReason(error),
+      httpStatus: error?.status,
     });
     return res.redirect(302, withOAuthResult(redirectAfter, "error", safeReason(error)));
   }
@@ -266,4 +324,4 @@ async function refresh(req, res, next) {
   }
 }
 
-module.exports = { start, masterReconnectStart, callback, status, accounts, refresh, _test: { parseCookies, withOAuthResult, safeReason, revalidateCallbackAccess, authorizedAccounts } };
+module.exports = { start, masterReconnectStart, callback, status, accounts, refresh, _test: { parseCookies, withOAuthResult, safeReason, scopeCount, recordOAuthLifecycle, revalidateCallbackAccess, authorizedAccounts } };

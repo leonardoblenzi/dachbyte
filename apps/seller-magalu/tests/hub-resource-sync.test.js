@@ -168,6 +168,7 @@ test("OAuth remains connected when Hub resource enqueue fails", async () => {
     "../middlewares/suiteAuth": { readSuiteIdentity: () => ({ ok: true, identity: { dachTenantId: "dach", dachUserId: "user" } }) },
     "../services/magaluOAuthService": { beginAuthorization: async () => ({}), finishAuthorization: async () => ({ account: { id: 7 }, accessExpiresAt: null }), publicOAuthConfig: () => ({}) },
     "../services/oauthSecurity": { hashOAuthState: (value) => value, safeRedirectAfter: (value) => value, secureEqual: () => true },
+    "../services/auditService": { recordBestEffort: async () => null },
   }, () => require("../src/controllers/oauthController"), async (controller) => {
     try {
       let location = null;
@@ -219,6 +220,7 @@ test("OAuth preserves an already synced Hub resource when its stable job exists"
     "../middlewares/suiteAuth": { readSuiteIdentity: () => ({ ok: true, identity: { dachTenantId: "dach", dachUserId: "user" } }) },
     "../services/magaluOAuthService": { beginAuthorization: async () => ({}), finishAuthorization: async () => ({ account: { id: 7 }, accessExpiresAt: null }), publicOAuthConfig: () => ({}) },
     "../services/oauthSecurity": { hashOAuthState: (value) => value, safeRedirectAfter: (value) => value, secureEqual: () => true },
+    "../services/auditService": { recordBestEffort: async () => null },
   }, () => require("../src/controllers/oauthController"), async (controller) => {
     try {
       let location = null;
@@ -255,6 +257,7 @@ test("OAuth cannot downgrade a resource that syncs between enqueue reservation a
     "../middlewares/suiteAuth": { readSuiteIdentity: () => ({ ok: true, identity: { dachTenantId: "dach", dachUserId: "user" } }) },
     "../services/magaluOAuthService": { beginAuthorization: async () => ({}), finishAuthorization: async () => ({ account: { id: 7 }, accessExpiresAt: null }), publicOAuthConfig: () => ({}) },
     "../services/oauthSecurity": { hashOAuthState: (value) => value, safeRedirectAfter: (value) => value, secureEqual: () => true },
+    "../services/auditService": { recordBestEffort: async () => null },
   }, () => require("../src/controllers/oauthController"), async (controller) => {
     let location = null;
     await controller.callback({ query: { state: "state", code: "code" }, headers: { cookie: "magalu_oauth_state=state" } }, {
@@ -290,6 +293,7 @@ test("OAuth cannot downgrade a resource that syncs after a stale failed read", a
     "../middlewares/suiteAuth": { readSuiteIdentity: () => ({ ok: true, identity: { dachTenantId: "dach", dachUserId: "user" } }) },
     "../services/magaluOAuthService": { beginAuthorization: async () => ({}), finishAuthorization: async () => ({ account: { id: 7 }, accessExpiresAt: null }), publicOAuthConfig: () => ({}) },
     "../services/oauthSecurity": { hashOAuthState: (value) => value, safeRedirectAfter: (value) => value, secureEqual: () => true },
+    "../services/auditService": { recordBestEffort: async () => null },
   }, () => require("../src/controllers/oauthController"), async (controller) => {
     let location = null;
     await controller.callback({ query: { state: "state", code: "code" }, headers: { cookie: "magalu_oauth_state=state" } }, {
