@@ -34,6 +34,7 @@ const validarDimensoesJobService = require("./services/validarDimensoesJobServic
 const estoqueAlertaQueueService = require("./services/estoqueAlertaQueueService");
 const estoqueAtualizacaoQueueService = require("./services/EstoqueAtualizacaoQueueService");
 const CaracteristicasJobsService = require("./services/caracteristicasJobsService");
+const ModeloMassaJobsService = require("./services/modeloMassaJobsService");
 const MeliWebhookQueueService = require("./services/meliWebhookQueueService");
 const {
   startBullRetentionScheduler,
@@ -57,6 +58,7 @@ function boot() {
   estoqueAtualizacaoQueueService.initWorker();
   validarDimensoesJobService.iniciarWorker();
   CaracteristicasJobsService.initWorker();
+  ModeloMassaJobsService.initWorker();
   MeliWebhookQueueService.initWorker();
   startBullRetentionScheduler();
   startDataRetentionScheduler();
