@@ -11,6 +11,7 @@
 const Queue = require('bull');
 const crypto = require('crypto');
 const os = require('os');
+const { AsyncLocalStorage } = require('node:async_hooks');
 const fetch = require('node-fetch');
 const ExcelJS = require('exceljs');
 const TokenService = require('./tokenService');
@@ -165,6 +166,14 @@ const PROMO_CANCEL_TOMBSTONE_MS = Math.max(
   60 * 60 * 1000,
   Number(process.env.PROMO_CANCEL_TOMBSTONE_MS || 7 * 24 * 60 * 60 * 1000),
 );
+const PROMO_REPEAT_COOLDOWN_MS = Math.max(
+  5 * 60 * 1000,
+  Number(process.env.PROMO_REPEAT_COOLDOWN_MS || 6 * 60 * 60 * 1000),
+);
+const PROMO_RECENT_HISTORY_MS = Math.max(
+  PROMO_REPEAT_COOLDOWN_MS,
+  Number(process.env.PROMO_RECENT_HISTORY_MS || 24 * 60 * 60 * 1000),
+);
 
 // === Adapter opcional para remoção em massa (reutiliza seu service atual)
 let RemovalAdapter = null;
@@ -180,6 +189,7 @@ let workerStarted = false;
 let workerHeartbeatTimer = null;
 let workerWatchdogTimer = null;
 const localActivePromoJobs = new Set();
+const promoTelemetryStorage = new AsyncLocalStorage();
 const WORKER_INSTANCE_ID =
   process.env.RENDER_INSTANCE_ID ||
   process.env.HOSTNAME ||
@@ -715,6 +725,7 @@ function updateMlCredsFromToken(mlCreds = {}, tokenData = {}) {
 
 async function authFetch(url, init = {}, mlCreds = {}) {
   const call = async (tkn) => {
+    recordPromoMlApiCall();
     const headers = {
       ...(init.headers || {}),
       Authorization: `Bearer ${tkn}`,
@@ -1172,6 +1183,143 @@ function canAccessJobData(data = {}, accountKey = null) {
 
 function promoOrchestrationRedis() {
   return getSharedRedis('promo:orchestration');
+}
+
+function recentPromotionFingerprintKey(fingerprint) {
+  return `promo:recent-fingerprint:${String(fingerprint || '').trim()}`;
+}
+
+async function getRecentPromotionExecution(data = {}) {
+  const fingerprint = String(
+    data?.requestFingerprint || buildPromoRequestFingerprint(data) || '',
+  ).trim();
+  if (!fingerprint) return null;
+  try {
+    const redis = promoOrchestrationRedis();
+    const raw = await redis.get(recentPromotionFingerprintKey(fingerprint));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const finishedAtMs = Number(parsed?.finished_at_ms || 0);
+    const ageMs = finishedAtMs > 0 ? Math.max(0, Date.now() - finishedAtMs) : null;
+    return {
+      ...parsed,
+      age_ms: ageMs,
+      within_cooldown: ageMs != null && ageMs <= PROMO_REPEAT_COOLDOWN_MS,
+      within_history: ageMs != null && ageMs <= PROMO_RECENT_HISTORY_MS,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function rememberRecentPromotionExecution(data = {}, summary = {}) {
+  const fingerprint = String(
+    data?.requestFingerprint || buildPromoRequestFingerprint(data) || '',
+  ).trim();
+  if (!fingerprint) return;
+  const processed = Math.max(0, Number(summary?.processed ?? data?.counters?.processed ?? 0));
+  if (processed <= 0) return;
+  const payload = {
+    request_fingerprint: fingerprint,
+    operation_id: data?.operationId || data?.options?.operation_id || null,
+    job_id: summary?.id != null ? String(summary.id) : null,
+    account_key: normalizeAccountKey(data?.accountKey),
+    action: data?.action === 'remove' ? 'remove' : 'apply',
+    promotion_id: data?.promotion?.id || null,
+    promotion_type: data?.promotion?.type || null,
+    processed,
+    success: Math.max(0, Number(summary?.success ?? data?.counters?.success ?? 0)),
+    failed: Math.max(0, Number(summary?.failed ?? data?.counters?.failed ?? 0)),
+    status: summary?.status || data?.operationLifecycle || null,
+    finished_at: new Date().toISOString(),
+    finished_at_ms: Date.now(),
+  };
+  try {
+    const redis = promoOrchestrationRedis();
+    await redis.set(
+      recentPromotionFingerprintKey(fingerprint),
+      JSON.stringify(payload),
+      'PX',
+      PROMO_RECENT_HISTORY_MS,
+    );
+  } catch {}
+}
+
+function currentPromoTelemetryRuntime() {
+  return promoTelemetryStorage.getStore() || null;
+}
+
+function recordPromoMlApiCall() {
+  const runtime = currentPromoTelemetryRuntime();
+  if (!runtime) return;
+  runtime.mlApiCalls = Math.max(0, Number(runtime.mlApiCalls || 0)) + 1;
+}
+
+function promotionSelectedCount(data = {}, fallbackTotal = 0) {
+  const candidates = [
+    Number(data?.options?.selection_count || 0),
+    Number(data?.options?.expected_total || 0),
+    Array.isArray(data?.selectionItems) ? data.selectionItems.length : 0,
+    Array.isArray(data?.filters?.mlbs) ? data.filters.mlbs.length : 0,
+    data?.filters?.mlb ? 1 : 0,
+    Number(fallbackTotal || 0),
+  ].filter((value) => Number.isFinite(value) && value > 0);
+  return candidates.length ? Math.max(...candidates) : 0;
+}
+
+function buildPromotionBillingTelemetry(
+  data = {},
+  { total = 0, processed = 0, success = 0, failed = 0, results = [], finished = false } = {},
+) {
+  const previous = data?.billingTelemetry || {};
+  const runtime = currentPromoTelemetryRuntime() || {};
+  const selected = promotionSelectedCount(data, total);
+  const normalizedResults = Array.isArray(results) ? results : [];
+  const retries = normalizedResults.reduce(
+    (sum, row) => sum + Math.max(0, Number(row?.transient_retries || 0)),
+    0,
+  );
+  const eligible = Math.max(0, Number(total || processed || 0));
+  const ignored = selected > 0 ? Math.max(0, selected - Math.max(eligible, processed)) : 0;
+  const startedAtMs = Number(previous?.started_at_ms || data?.createdAt || Date.now());
+  const reservation = data?.creditReservation || {};
+  const quote = reservation?.quote || {};
+  return {
+    version: 1,
+    billing_mode: reservation?.shadow === true
+      ? 'shadow'
+      : reservation?.bypass === true
+        ? 'bypass'
+        : 'enforce',
+    operation_key:
+      quote?.operation_key ||
+      reservation?.operation_key ||
+      data?.billingOperationKey ||
+      null,
+    operation_id: data?.operationId || data?.options?.operation_id || null,
+    request_fingerprint: data?.requestFingerprint || null,
+    recent_repeat: data?.recentRepeat === true,
+    selected,
+    eligible,
+    processed: Math.max(0, Number(processed || 0)),
+    altered: data?.options?.dryRun === true ? 0 : Math.max(0, Number(success || 0)),
+    validated: data?.options?.dryRun === true ? Math.max(0, Number(success || 0)) : 0,
+    ignored,
+    errors: Math.max(0, Number(failed || 0)),
+    retries,
+    ml_api_calls:
+      Math.max(0, Number(previous?.ml_api_calls || 0)) +
+      Math.max(0, Number(runtime?.mlApiCalls || 0)),
+    estimated_credits:
+      quote?.estimated_credits ??
+      reservation?.reserved_credits ??
+      previous?.estimated_credits ??
+      null,
+    started_at_ms: startedAtMs,
+    started_at: previous?.started_at || new Date(startedAtMs).toISOString(),
+    duration_ms: Math.max(0, Date.now() - startedAtMs),
+    finished_at: finished ? new Date().toISOString() : null,
+  };
 }
 
 function stablePromoValue(value) {
@@ -1847,7 +1995,11 @@ async function settleLogicalOperationResources(job, { releaseCredits = false } =
   } else {
     await trackLogicalOperation(job, { open: true });
   }
-  await settleCredits(data?.creditReservation, { release: releaseCredits }).catch(() => {});
+  const processed = Math.max(0, Number(data?.counters?.processed || 0));
+  await settleCredits(data?.creditReservation, {
+    release: Boolean(releaseCredits && processed <= 0),
+    consumedUnits: processed > 0 ? processed : null,
+  }).catch(() => {});
   if (!jobHasPendingRemediation(data) && data?.operationTerminal === true) {
     await releaseCampaignGuard(data, String(job.id)).catch(() => {});
   }
@@ -5737,6 +5889,14 @@ async function scheduleLogicalPromotionOperation(job, done) {
       queueReason: null,
       cancelRequested: false,
       cancelCompletedAt: Date.now(),
+      billingTelemetry: buildPromotionBillingTelemetry(latestData, {
+        total: finalTotal,
+        processed: finalProcessed,
+        success: finalSuccess,
+        failed: finalFailed,
+        results: finalResults,
+        finished: true,
+      }),
       lastUpdate: Date.now(),
     };
     await latest.update(canceledData).catch(() => {});
@@ -5853,7 +6013,11 @@ async function runPromotionChunkJob(chunkJob, done) {
         lastUpdate: Date.now(),
       }).catch(() => {});
       await storeCanceledTombstone(parentJob, parentJob.data || freshData).catch(() => {});
-      await settleCredits(freshData?.creditReservation, { release: true }).catch(() => {});
+      const canceledProcessed = Math.max(0, Number(freshData?.counters?.processed || 0));
+      await settleCredits(freshData?.creditReservation, {
+        release: canceledProcessed <= 0,
+        consumedUnits: canceledProcessed > 0 ? canceledProcessed : null,
+      }).catch(() => {});
       await releaseCampaignGuard(freshData, parentJobId).catch(() => {});
       done(null, {
         id: chunkJob.id,
@@ -5914,7 +6078,11 @@ async function runPromotionChunkJob(chunkJob, done) {
           lastUpdate: Date.now(),
         };
         await latestParent.update(failedData).catch(() => {});
-        await settleCredits(failedData?.creditReservation, { release: true }).catch(() => {});
+        const failedProcessed = Math.max(0, Number(failedData?.counters?.processed || 0));
+        await settleCredits(failedData?.creditReservation, {
+          release: failedProcessed <= 0,
+          consumedUnits: failedProcessed > 0 ? failedProcessed : null,
+        }).catch(() => {});
         await releaseCampaignGuard(failedData, parentJobId).catch(() => {});
       }
     }
@@ -5927,7 +6095,10 @@ async function runPromotionChunkJob(chunkJob, done) {
   };
 
   try {
-    return runBulkJob(parentJob, finish);
+    return promoTelemetryStorage.run(
+      { mlApiCalls: 0 },
+      () => runBulkJob(parentJob, finish),
+    );
   } catch (error) {
     return finish(error);
   }
@@ -6023,7 +6194,10 @@ async function runPromoJob(job, done) {
   };
 
   try {
-    return runBulkJob(job, finish);
+    return promoTelemetryStorage.run(
+      { mlApiCalls: 0 },
+      () => runBulkJob(job, finish),
+    );
   } catch (error) {
     return finish(error);
   }
@@ -6168,7 +6342,10 @@ async function runBulkJob(job, done) {
     await job.progress(cancellationCoverage).catch(() => {});
     if (logicalOperation) {
       await storeCanceledTombstone(job, cancelledData).catch(() => {});
-      await settleCredits(cancelledData?.creditReservation, { release: true }).catch(() => {});
+      await settleCredits(cancelledData?.creditReservation, {
+        release: finalProcessed <= 0,
+        consumedUnits: finalProcessed > 0 ? finalProcessed : null,
+      }).catch(() => {});
       await releaseCampaignGuard(cancelledData, String(job.id)).catch(() => {});
     }
 
@@ -6325,6 +6502,14 @@ async function runBulkJob(job, done) {
         failedItems,
         itemTraces,
         results,
+        billingTelemetry: buildPromotionBillingTelemetry(latest, {
+          total,
+          processed,
+          success,
+          failed,
+          results,
+          finished: false,
+        }),
         chunkCheckpoint: {
           offset: nextOffset,
           sourceCount,
@@ -7399,6 +7584,14 @@ async function runBulkJob(job, done) {
     operationTerminal: logicalOperation ? logicalFinalTerminal : job.data?.operationTerminal,
     activeChunkJobId: logicalOperation ? null : job.data?.activeChunkJobId,
     queueReason: null,
+    billingTelemetry: buildPromotionBillingTelemetry(job.data || data, {
+      total,
+      processed,
+      success,
+      failed,
+      results,
+      finished: logicalOperation ? logicalFinalTerminal : true,
+    }),
     stateLabel:
       processed === 0 && total === 0
         ? 'concluído: nenhum item elegível'
@@ -7413,8 +7606,12 @@ async function runBulkJob(job, done) {
     await job.progress(100);
     if (logicalOperation) {
       if (logicalFinalTerminal) {
-        await settleCredits(finalData?.creditReservation, { release: false }).catch(() => {});
+        await settleCredits(finalData?.creditReservation, {
+          release: processed <= 0,
+          consumedUnits: processed > 0 ? processed : null,
+        }).catch(() => {});
         await releaseCampaignGuard(finalData, String(job.id)).catch(() => {});
+        await rememberRecentPromotionExecution(finalData, summary).catch(() => {});
       } else {
         await claimCampaignGuard(finalData, String(job.id)).catch(() => {});
       }
@@ -7559,6 +7756,14 @@ module.exports = {
     baseData.operationTotal = inferOperationTotal(baseData);
     baseData.requestFingerprint = buildPromoRequestFingerprint(baseData);
     baseData.campaignGuardKey = campaignGuardKey(baseData);
+    baseData.recentExecution = await getRecentPromotionExecution(baseData);
+    baseData.recentRepeat = Boolean(baseData.recentExecution?.within_cooldown);
+    baseData.billingOperationKey =
+      action === 'apply' && baseData.recentRepeat
+        ? 'promotions.reapply_recent'
+        : action === 'remove'
+          ? 'promotions.remove'
+          : 'promotions.apply';
 
     // Dupla protecao: primeiro detecta jobs ja existentes (inclusive legados);
     // depois reserva atomicamente a campanha no Redis para fechar a janela de
@@ -7621,9 +7826,9 @@ module.exports = {
     try {
       creditReservation = await reserveCredits({
         mlCreds: opts?.mlCreds || null,
-        operationKey: action === 'remove' ? 'promotions.remove' : 'promotions.apply',
+        operationKey: baseData.billingOperationKey,
         units: unitCount,
-        idempotencyKey: `promotions:${baseData.requestFingerprint}`,
+        idempotencyKey: `promotions:${baseData.operationId}`,
       });
 
       const data = {
@@ -7638,6 +7843,16 @@ module.exports = {
         operationTotal: Number(baseData.operationTotal || 0),
         operationLifecycle: 'queued',
         operationTerminal: false,
+        billingTelemetry: buildPromotionBillingTelemetry(
+          { ...baseData, creditReservation },
+          {
+            total: Number(baseData.operationTotal || unitCount || 0),
+            processed: 0,
+            success: 0,
+            failed: 0,
+            results: [],
+          },
+        ),
         stateLabel: 'na fila: aguardando worker',
         queueReason: 'worker_queue',
       };
@@ -7672,6 +7887,13 @@ module.exports = {
         reused: false,
         reusedReason: null,
         lifecycle_status: 'queued',
+        recent_repeat: baseData.recentRepeat,
+        recent_execution: baseData.recentExecution || null,
+        billing_operation_key: baseData.billingOperationKey,
+        estimated_credits:
+          creditReservation?.quote?.estimated_credits ??
+          creditReservation?.reserved_credits ??
+          null,
       };
     } catch (error) {
       if (creditReservation) {
