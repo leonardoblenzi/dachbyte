@@ -202,7 +202,7 @@ class ModeloMassaController {
     try {
       return res.json({
         success: true,
-        jobs: ModeloMassaJobsService.listRecent(25, {
+        jobs: await ModeloMassaJobsService.listRecent(25, {
           accountKey: res.locals?.accountKey || null,
         }),
       });
@@ -216,7 +216,7 @@ class ModeloMassaController {
 
   static async jobDetail(req, res) {
     try {
-      const job = ModeloMassaJobsService.jobDetail(req.params?.job_id, {
+      const job = await ModeloMassaJobsService.jobDetail(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
       });
       if (!job) {
@@ -237,7 +237,7 @@ class ModeloMassaController {
 
   static async cancelJob(req, res) {
     try {
-      const job = ModeloMassaJobsService.cancelJob(req.params?.job_id, {
+      const job = await ModeloMassaJobsService.cancelJob(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
       });
       if (!job) {
@@ -271,7 +271,7 @@ class ModeloMassaController {
 
   static async downloadCsv(req, res) {
     try {
-      const file = ModeloMassaJobsService.getJobCsv(req.params?.job_id, {
+      const file = await ModeloMassaJobsService.getJobCsv(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
       });
       if (!file?.csv) {
