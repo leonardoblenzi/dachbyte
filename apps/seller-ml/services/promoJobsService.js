@@ -5879,6 +5879,10 @@ async function scheduleLogicalPromotionOperation(job, done) {
   if (data?.cancelRequested === true || data?.stateLabel === 'cancelado') {
     const operationTotal = inferOperationTotal(data);
     const counters = data?.counters || {};
+    const canceledProcessed = Math.max(0, Number(counters.processed || 0));
+    const canceledSuccess = Math.max(0, Number(counters.success || 0));
+    const canceledFailed = Math.max(0, Number(counters.failed || 0));
+    const canceledResults = Array.isArray(data?.results) ? data.results : [];
     const canceledData = {
       ...data,
       operationTotal,
@@ -5889,19 +5893,31 @@ async function scheduleLogicalPromotionOperation(job, done) {
       queueReason: null,
       cancelRequested: false,
       cancelCompletedAt: Date.now(),
-      billingTelemetry: buildPromotionBillingTelemetry(latestData, {
-        total: finalTotal,
-        processed: finalProcessed,
-        success: finalSuccess,
-        failed: finalFailed,
-        results: finalResults,
+      billingTelemetry: buildPromotionBillingTelemetry(data, {
+        total: operationTotal,
+        processed: canceledProcessed,
+        success: canceledSuccess,
+        failed: canceledFailed,
+        results: canceledResults,
         finished: true,
       }),
       lastUpdate: Date.now(),
     };
     await latest.update(canceledData).catch(() => {});
     await storeCanceledTombstone(latest, canceledData).catch(() => {});
-    await settleCredits(canceledData?.creditReservation, { release: true }).catch(() => {});
+    await settleCredits(canceledData?.creditReservation, {
+      release: canceledProcessed <= 0,
+      consumedUnits: canceledProcessed > 0 ? canceledProcessed : null,
+    }).catch(() => {});
+    if (canceledProcessed > 0) {
+      await rememberRecentPromotionExecution(canceledData, {
+        id: latest.id,
+        status: 'canceled',
+        processed: canceledProcessed,
+        success: canceledSuccess,
+        failed: canceledFailed,
+      }).catch(() => {});
+    }
     await releaseCampaignGuard(canceledData, String(latest.id)).catch(() => {});
     done(null, {
       id: latest.id,
@@ -6075,6 +6091,14 @@ async function runPromotionChunkJob(chunkJob, done) {
           stateLabel: latestData?.stateLabel || 'falhou',
           queueReason: null,
           failedReason: error?.message || String(error),
+          billingTelemetry: buildPromotionBillingTelemetry(latestData, {
+            total: Number(latestData?.counters?.total || inferOperationTotal(latestData) || 0),
+            processed: Number(latestData?.counters?.processed || 0),
+            success: Number(latestData?.counters?.success || 0),
+            failed: Number(latestData?.counters?.failed || 0),
+            results: Array.isArray(latestData?.results) ? latestData.results : [],
+            finished: true,
+          }),
           lastUpdate: Date.now(),
         };
         await latestParent.update(failedData).catch(() => {});
@@ -6083,6 +6107,15 @@ async function runPromotionChunkJob(chunkJob, done) {
           release: failedProcessed <= 0,
           consumedUnits: failedProcessed > 0 ? failedProcessed : null,
         }).catch(() => {});
+        if (failedProcessed > 0) {
+          await rememberRecentPromotionExecution(failedData, {
+            id: parentJobId,
+            status: 'failed',
+            processed: failedProcessed,
+            success: Number(failedData?.counters?.success || 0),
+            failed: Number(failedData?.counters?.failed || 0),
+          }).catch(() => {});
+        }
         await releaseCampaignGuard(failedData, parentJobId).catch(() => {});
       }
     }
@@ -6333,6 +6366,14 @@ async function runBulkJob(job, done) {
       safetyPaused: false,
       resumable: false,
       transientRetry: null,
+      billingTelemetry: buildPromotionBillingTelemetry(latestData, {
+        total: finalTotal,
+        processed: finalProcessed,
+        success: finalSuccess,
+        failed: finalFailed,
+        results: finalResults,
+        finished: true,
+      }),
       lastUpdate: Date.now(),
     };
 
@@ -6346,6 +6387,15 @@ async function runBulkJob(job, done) {
         release: finalProcessed <= 0,
         consumedUnits: finalProcessed > 0 ? finalProcessed : null,
       }).catch(() => {});
+      if (finalProcessed > 0) {
+        await rememberRecentPromotionExecution(cancelledData, {
+          id: job.id,
+          status: 'canceled',
+          processed: finalProcessed,
+          success: finalSuccess,
+          failed: finalFailed,
+        }).catch(() => {});
+      }
       await releaseCampaignGuard(cancelledData, String(job.id)).catch(() => {});
     }
 
