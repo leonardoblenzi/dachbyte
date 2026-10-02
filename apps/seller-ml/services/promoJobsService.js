@@ -7609,6 +7609,14 @@ async function runBulkJob(job, done) {
         lastUpdate: Date.now(),
       }).catch(() => {});
     }
+    const failedBillingTelemetry = buildPromotionBillingTelemetry(job.data || data, {
+      total,
+      processed,
+      success,
+      failed,
+      results,
+      finished: true,
+    });
     await auditPromoJobEvent(job, "promotion_job_failed", "error", {
       total_items: total,
       processed,
@@ -7617,6 +7625,7 @@ async function runBulkJob(job, done) {
       application_source: applicationSource,
       selection_count: selectionCount,
       prevalidated_selection: prevalidatedSelection,
+      billing_telemetry: failedBillingTelemetry,
       safety_circuit_breaker: e instanceof PromotionSafetyCircuitBreakerError,
       safety_details:
         e instanceof PromotionSafetyCircuitBreakerError ? e.details : null,
@@ -7789,6 +7798,7 @@ async function runBulkJob(job, done) {
     application_source: applicationSource,
     selection_count: selectionCount,
     prevalidated_selection: prevalidatedSelection,
+    billing_telemetry: finalData.billingTelemetry || null,
   });
 
   done(null, summary);
