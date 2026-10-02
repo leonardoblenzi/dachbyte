@@ -202,6 +202,7 @@ function auditBase(data = {}, jobId = null) {
     route: context.route || null,
     method: context.method || null,
     job_id: jobId == null ? null : String(jobId),
+    operation_id: data.operationId || null,
   };
 }
 
@@ -221,6 +222,7 @@ async function auditAtacadoEvent(data, jobId, evento, status, metadata = {}) {
       route: base.route,
       method: base.method,
       job_id: base.job_id,
+      operation_id: base.operation_id,
       action: "apply_wholesale_price",
       ...metadata,
     },
@@ -389,6 +391,14 @@ async function runJob(job) {
     wholesale_tiers: requestedTierSummary.tiers,
     wholesale_min_discount_percent: requestedTierSummary.min_discount_percent,
     wholesale_max_discount_percent: requestedTierSummary.max_discount_percent,
+    billing_telemetry: telemetryFrom(job, {
+      total: ids.length,
+      processed: 0,
+      applied: 0,
+      skipped: 0,
+      errors: 0,
+      started_at: nowISO(),
+    }),
   });
 
   const state = await AtacadoService.prepareState(data.mlCreds || {});
@@ -504,6 +514,15 @@ async function runJob(job) {
       promo_only: data.promoOnly !== false,
       wholesale_tier_count: requestedTierSummary.tier_count,
       wholesale_tiers: requestedTierSummary.tiers,
+      billing_telemetry: telemetryFrom(job, {
+        total: ids.length,
+        processed,
+        applied,
+        skipped,
+        errors,
+        started_at: initialMeta.started_at || null,
+        finished_at: finishedAt,
+      }),
     },
   );
 
@@ -568,6 +587,10 @@ class AtacadoJobsService {
             applied: Number(meta.applied || 0),
             skipped: Number(meta.skipped || 0),
             errors: Number(meta.errors || 0),
+            billing_telemetry: telemetryFrom(job, {
+              ...meta,
+              finished_at: finishedAt,
+            }),
           });
           return {
             ok: false,
@@ -591,6 +614,10 @@ class AtacadoJobsService {
           applied: Number(meta.applied || 0),
           skipped: Number(meta.skipped || 0),
           errors: Number(meta.errors || 0),
+          billing_telemetry: telemetryFrom(job, {
+            ...meta,
+            finished_at: nowISO(),
+          }),
           error: safeText(error?.message || String(error)),
         });
         throw error;
