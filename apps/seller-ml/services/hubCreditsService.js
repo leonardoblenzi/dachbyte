@@ -545,11 +545,13 @@ async function settleCredits(reservation, { release = false, consumedUnits = nul
 }
 
 async function reserveAdsFilterCredits({ mlCreds, account = null, filters = {}, idempotencyKey = null }) {
+  const workUnits = estimateAdsFilterCredits(filters);
   return reserveCredits({
     mlCreds,
     account,
     operationKey: "ads.filter",
-    credits: estimateAdsFilterCredits(filters),
+    units: workUnits,
+    credits: workUnits,
     idempotencyKey,
   });
 }
