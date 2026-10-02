@@ -334,6 +334,10 @@ async function shapeJob(job, { includeResults = false } = {}) {
 
 async function runJob(job) {
   const data = job.data || {};
+  const initialMeta = (await readMeta(job.id)) || {};
+  if (initialMeta.cancelRequested === true || initialMeta.status === "cancelado") {
+    throw new AtacadoJobCancelledError();
+  }
   const ids = Array.from(
     new Set(
       (Array.isArray(data.itemIds) ? data.itemIds : [])
@@ -524,6 +528,7 @@ class AtacadoJobsService {
             job_id: String(job.id),
             dry_run: job.data?.dryRun === true,
           },
+          lane: job.data?.dryRun === true ? "read" : "write",
           onWait: async (holder) => {
             await writeMeta(job.id, {
               status: "aguardando",
