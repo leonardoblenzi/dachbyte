@@ -95,7 +95,7 @@ class AtacadoController {
     try {
       return res.json({
         success: true,
-        jobs: AtacadoJobsService.listRecent(25, {
+        jobs: await AtacadoJobsService.listRecent(25, {
           accountKey: res.locals?.accountKey || null,
         }),
       });
@@ -109,7 +109,7 @@ class AtacadoController {
 
   static async jobDetail(req, res) {
     try {
-      const job = AtacadoJobsService.jobDetail(req.params?.job_id, {
+      const job = await AtacadoJobsService.jobDetail(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
       });
       if (!job) {
@@ -129,7 +129,7 @@ class AtacadoController {
 
   static async cancelJob(req, res) {
     try {
-      const job = AtacadoJobsService.cancelJob(req.params?.job_id, {
+      const job = await AtacadoJobsService.cancelJob(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
       });
       if (!job) {
@@ -161,7 +161,7 @@ class AtacadoController {
 
   static async downloadCsv(req, res) {
     try {
-      const file = AtacadoJobsService.getJobCsv(req.params?.job_id, {
+      const file = await AtacadoJobsService.getJobCsv(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
       });
       if (!file?.csv) {
