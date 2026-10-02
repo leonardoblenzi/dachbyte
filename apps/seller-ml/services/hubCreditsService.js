@@ -314,7 +314,12 @@ async function getCreditAccountAccess({ mlCreds, account = null } = {}) {
   return {
     ...response.data,
     billing_context: context,
-    unlimited: hasUnlimitedAccess(context),
+    unlimited: Boolean(
+      response.data?.unlimited ||
+      response.data?.access?.unlimited ||
+      response.data?.resource?.consumption_model === "unlimited" ||
+      hasUnlimitedAccess(context)
+    ),
   };
 }
 
@@ -331,7 +336,12 @@ async function getCreditActivity({ mlCreds, account = null, limit = 50 } = {}) {
   return {
     ...response.data,
     billing_context: context,
-    unlimited: hasUnlimitedAccess(context),
+    unlimited: Boolean(
+      response.data?.unlimited ||
+      response.data?.access?.unlimited ||
+      response.data?.resource?.consumption_model === "unlimited" ||
+      hasUnlimitedAccess(context)
+    ),
   };
 }
 
