@@ -28,10 +28,14 @@ function normalizeConfigValue(value) {
 }
 
 function creditsMode() {
-  const value = String(process.env.HUB_CREDITS_MODE || "monitor").trim().toLowerCase();
+  const value = String(
+    process.env.HUB_RESOURCE_CREDITS_MODE ||
+    process.env.HUB_CREDITS_MODE ||
+    "shadow",
+  ).trim().toLowerCase();
   if (["off", "disabled", "legacy"].includes(value)) return "off";
   if (["strict", "enforce", "enabled"].includes(value)) return "enforce";
-  return "monitor";
+  return "shadow";
 }
 
 function hubConfig() {
@@ -241,17 +245,20 @@ async function ensureAccountSynced(context) {
   const cachedAt = Number(syncedAccounts.get(cacheKey) || 0);
   if (Date.now() - cachedAt < SYNC_TTL_MS) return;
 
-  const response = await postHub("/v1/internal/ml/accounts/sync", {
+  const response = await postHub("/v1/internal/resources/sync", {
     tenant_id: context.tenantId,
+    module_slug: "ml",
     account_id: context.accountId,
     label: context.label,
-    status: context.status,
-    billing_mode: context.billingMode,
-    usage_policy: context.usagePolicy,
-    range_enforcement: context.rangeEnforcement,
-    plan_code: context.planCode,
-    order_range_code: context.orderRangeCode,
-    metadata: { ml_local_account_id: context.localAccountId },
+    metadata: {
+      source: "dachbyte_ml",
+      ml_local_account_id: context.localAccountId,
+      legacy_billing_status: context.status,
+      legacy_billing_mode: context.billingMode,
+      legacy_usage_policy: context.usagePolicy,
+      plan_code: context.planCode,
+      order_range_code: context.orderRangeCode,
+    },
   });
   if (!response.ok) {
     throw responseError(response, "Nao foi possivel sincronizar a conta com o Hub.");
@@ -287,7 +294,7 @@ async function unlinkBillingResource({ account, reason = "Conta ML desvinculada 
 }
 
 async function getCreditPolicy() {
-  const response = await getHub("/v1/internal/ml/credits/policy");
+  const response = await getHub("/v1/internal/resources/credits/policy");
   if (!response.ok) {
     throw responseError(response, "Nao foi possivel carregar a politica de creditos.");
   }
@@ -297,7 +304,8 @@ async function getCreditPolicy() {
 async function getCreditAccountAccess({ mlCreds, account = null } = {}) {
   const context = billingContext({ mlCreds, account });
   await ensureAccountSynced(context);
-  const response = await postHub("/v1/internal/ml/accounts/access", {
+  const response = await postHub("/v1/internal/resources/access", {
+    module_slug: "ml",
     account_id: context.accountId,
   });
   if (!response.ok) {
@@ -315,7 +323,7 @@ async function getCreditActivity({ mlCreds, account = null, limit = 50 } = {}) {
   await ensureAccountSynced(context);
   const safeLimit = Math.min(100, Math.max(1, Math.trunc(Number(limit) || 50)));
   const response = await getHub(
-    `/v1/internal/ml/credits/activity?account_id=${encodeURIComponent(context.accountId)}&limit=${safeLimit}`,
+    `/v1/internal/resources/credits/activity?module_slug=ml&account_id=${encodeURIComponent(context.accountId)}&limit=${safeLimit}`,
   );
   if (!response.ok) {
     throw responseError(response, "Nao foi possivel carregar o extrato de creditos.");
@@ -337,7 +345,8 @@ async function createCreditTopupCheckout({
 } = {}) {
   const context = billingContext({ mlCreds, account });
   await ensureAccountSynced(context);
-  const response = await postHub("/v1/internal/ml/credits/topup/checkout", {
+  const response = await postHub("/v1/internal/resources/credits/topup/checkout", {
+    module_slug: "ml",
     account_id: context.accountId,
     package_code: packageCode,
     customer_email: customerEmail,
@@ -370,6 +379,31 @@ function responseError(response, fallbackMessage) {
   });
 }
 
+async function quoteCredits({
+  mlCreds,
+  account = null,
+  operationKey,
+  units = 1,
+}) {
+  const context = billingContext({ mlCreds, account });
+  await ensureAccountSynced(context);
+  const normalizedOperation = String(operationKey || "").trim().toLowerCase();
+  const quantity = Math.max(1, Math.trunc(Number(units) || 1));
+  const response = await postHub("/v1/internal/resources/credits/quote", {
+    module_slug: "ml",
+    account_id: context.accountId,
+    operation_key: normalizedOperation,
+    quantity,
+  });
+  if (!response.ok) {
+    throw responseError(response, "Nao foi possivel calcular o custo da operacao.");
+  }
+  return {
+    ...(response.data.quote || {}),
+    billing_context: context,
+  };
+}
+
 async function reserveCredits({
   mlCreds,
   account = null,
@@ -381,12 +415,24 @@ async function reserveCredits({
 }) {
   const mode = creditsMode();
   const normalizedOperation = String(operationKey || "").trim().toLowerCase();
-  const calculatedCredits = Number.isFinite(Number(credits))
+  const quantity = Math.max(1, Math.trunc(Number(units) || 1));
+  const localEstimate = Number.isFinite(Number(credits))
     ? Math.max(0, Math.trunc(Number(credits)))
-    : calculateOperationCredits(normalizedOperation, { units, extras });
+    : (() => {
+        try {
+          return calculateOperationCredits(normalizedOperation, { units: quantity, extras });
+        } catch {
+          return 0;
+        }
+      })();
   const key = String(idempotencyKey || `${normalizedOperation}:${crypto.randomUUID()}`);
   if (mode === "off") {
-    return bypassReservation({ operationKey: normalizedOperation, credits: calculatedCredits, reason: "credits_off", idempotencyKey: key });
+    return bypassReservation({
+      operationKey: normalizedOperation,
+      credits: localEstimate,
+      reason: "credits_off",
+      idempotencyKey: key,
+    });
   }
 
   const context = billingContext({ mlCreds, account });
@@ -399,13 +445,48 @@ async function reserveCredits({
     });
   }
 
+  if (mode === "shadow") {
+    try {
+      const quote = await quoteCredits({
+        mlCreds,
+        account,
+        operationKey: normalizedOperation,
+        units: quantity,
+      });
+      return {
+        ...bypassReservation({
+          operationKey: normalizedOperation,
+          credits: Number(quote.estimated_credits || 0),
+          reason: "shadow_mode",
+          idempotencyKey: key,
+        }),
+        shadow: true,
+        operation_quantity: quantity,
+        quote,
+      };
+    } catch (error) {
+      console.warn("[hub-credits] quote em shadow:", error?.code || error?.message || error);
+      return {
+        ...bypassReservation({
+          operationKey: normalizedOperation,
+          credits: localEstimate,
+          reason: error?.code || "shadow_quote_unavailable",
+          idempotencyKey: key,
+        }),
+        shadow: true,
+        operation_quantity: quantity,
+      };
+    }
+  }
+
   try {
     await ensureAccountSynced(context);
-    const response = await postHub("/v1/internal/ml/credits/reserve", {
+    const response = await postHub("/v1/internal/resources/credits/reserve", {
+      module_slug: "ml",
       account_id: context.accountId,
       operation_key: normalizedOperation,
       idempotency_key: key,
-      credits: calculatedCredits,
+      quantity,
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     });
     if (!response.ok) throw responseError(response, "Nao foi possivel reservar os creditos.");
@@ -416,15 +497,6 @@ async function reserveCredits({
       access: response.data.access || null,
     };
   } catch (error) {
-    if (mode === "monitor") {
-      console.warn("[hub-credits] reserva em modo monitor:", error?.code || error?.message || error);
-      return bypassReservation({
-        operationKey: normalizedOperation,
-        credits: calculatedCredits,
-        reason: error?.code || "monitor_bypass",
-        idempotencyKey: key,
-      });
-    }
     if (error instanceof HubCreditError) throw error;
     throw new HubCreditError("Hub indisponivel para validar os creditos.", {
       code: "hub_credits_unreachable",
@@ -433,15 +505,17 @@ async function reserveCredits({
   }
 }
 
-async function settleCredits(reservation, { release = false, consumedCredits = null } = {}) {
+async function settleCredits(reservation, { release = false, consumedUnits = null } = {}) {
   if (!reservation || reservation.bypass) return reservation || null;
   const idempotencyKey = String(reservation.idempotency_key || "").trim();
   if (!idempotencyKey) return null;
-  const reserved = Math.max(0, Number(reservation.reserved_credits || 0));
   try {
-    const response = await postHub("/v1/internal/ml/credits/settle", {
+    const response = await postHub("/v1/internal/resources/credits/settle", {
       idempotency_key: idempotencyKey,
-      consumed_credits: consumedCredits === null ? reserved : Math.max(0, Math.trunc(Number(consumedCredits) || 0)),
+      consumed_quantity:
+        consumedUnits === null
+          ? null
+          : Math.max(0, Math.trunc(Number(consumedUnits) || 0)),
       release: Boolean(release),
     });
     if (!response.ok) throw responseError(response, "Nao foi possivel liquidar a reserva de creditos.");
@@ -471,6 +545,7 @@ module.exports = {
   getCreditActivity,
   getCreditPolicy,
   hasUnlimitedAccess,
+  quoteCredits,
   unlinkBillingResource,
   reserveAdsFilterCredits,
   reserveCredits,
