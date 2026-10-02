@@ -26,6 +26,7 @@ const PromoJobsService = require("./services/promoJobsService");
 const PromoSmartOptimizerService = require("./services/promoSmartOptimizerService");
 const PromoBulkRemove = require("./services/promoBulkRemoveAdapter");
 const ExclusaoLoteJobService = require("./services/exclusaoLoteJobService");
+const AtacadoJobsService = require("./services/atacadoJobsService");
 const filtroAnunciosQueueService = require("./services/filtroAnunciosQueueService");
 const FinanceiroMlSkuCatalogSyncService = require("./services/financeiroMlSkuCatalogSyncService");
 const prazoProducaoQueueService = require("./services/prazoProducaoQueueService");
@@ -48,6 +49,7 @@ function boot() {
   PromoSmartOptimizerService.initWorker();
   PromoBulkRemove.initWorker();
   ExclusaoLoteJobService.initWorker();
+  AtacadoJobsService.initWorker();
   filtroAnunciosQueueService.initWorker();
   FinanceiroMlSkuCatalogSyncService.initWorker();
   prazoProducaoQueueService.initWorker();
