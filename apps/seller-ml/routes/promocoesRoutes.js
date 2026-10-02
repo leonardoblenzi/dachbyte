@@ -208,6 +208,13 @@ function normalizePromoEnqueueResult(value) {
       reused: value.reused === true,
       reusedReason: value.reusedReason || value.reused_reason || null,
       lifecycleStatus: value.lifecycle_status || null,
+      recentRepeat: value.recent_repeat === true || value.recentRepeat === true,
+      recentExecution: value.recent_execution || value.recentExecution || null,
+      billingOperationKey: value.billing_operation_key || value.billingOperationKey || null,
+      estimatedCredits:
+        value.estimated_credits == null
+          ? value.estimatedCredits ?? null
+          : value.estimated_credits,
     };
   }
   return {
@@ -215,6 +222,10 @@ function normalizePromoEnqueueResult(value) {
     reused: false,
     reusedReason: null,
     lifecycleStatus: null,
+    recentRepeat: false,
+    recentExecution: null,
+    billingOperationKey: null,
+    estimatedCredits: null,
   };
 }
 
@@ -4711,6 +4722,10 @@ core.post(
         job_id: encodedJobId,
         reused: normalizedEnqueue.reused,
         reused_reason: normalizedEnqueue.reusedReason,
+        recent_repeat: normalizedEnqueue.recentRepeat,
+        recent_execution: normalizedEnqueue.recentExecution,
+        billing_operation_key: normalizedEnqueue.billingOperationKey,
+        estimated_credits: normalizedEnqueue.estimatedCredits,
         ...promotionJobIdentity(encodedJobId, PROMO_JOB_SOURCE_BULL),
         account: {
           key: accountKey,
@@ -6721,6 +6736,10 @@ core.post(
         job_id: encodedJobId,
         reused: normalizedEnqueue.reused,
         reused_reason: normalizedEnqueue.reusedReason,
+        recent_repeat: normalizedEnqueue.recentRepeat,
+        recent_execution: normalizedEnqueue.recentExecution,
+        billing_operation_key: normalizedEnqueue.billingOperationKey,
+        estimated_credits: normalizedEnqueue.estimatedCredits,
         ...promotionJobIdentity(encodedJobId, PROMO_JOB_SOURCE_BULL),
         total: selectionIds.length,
         account: {
