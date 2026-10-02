@@ -19,7 +19,7 @@ const { makeBullClient, getSharedRedis } = require('../lib/redisClient');
 const { buildCsv, attachJobReview } = require('./jobReviewHelper');
 const { recordAuthEvent, listAuthEvents } = require('./authAuditService');
 const PromoSelectionStore = require('./promoSelectionStore');
-const { reserveCredits, settleCredits } = require('./hubCreditsService');
+const { quoteCredits, reserveCredits, settleCredits } = require('./hubCreditsService');
 
 // Concurrency do worker (ajustável por env)
 const CONCURRENCY = Number(process.env.PROMO_JOBS_CONCURRENCY || 4);
@@ -7805,6 +7805,63 @@ module.exports = {
 
   async workerHealth() {
     return getWorkerHealth();
+  },
+
+  async previewBulkApplyCredits(opts) {
+    const accountKey = normalizeAccountKey(opts?.accountKey);
+    if (!accountKey) {
+      throw new Error('Conta obrigatoria para calcular o custo da promocao.');
+    }
+    const action = opts?.action === 'remove' ? 'remove' : 'apply';
+    const previewData = {
+      ...opts,
+      action,
+      accountKey,
+      accountLabel: opts?.accountLabel || accountKey,
+      price_policy: normalizePricePolicy(opts?.price_policy),
+      promotion: {
+        id: String(opts?.promotion?.id || ''),
+        type: String(opts?.promotion?.type || '').toUpperCase(),
+      },
+      options: {
+        ...(opts?.options || {}),
+      },
+    };
+    previewData.requestFingerprint = buildPromoRequestFingerprint(previewData);
+    const recentExecution = await getRecentPromotionExecution(previewData);
+    const recentRepeat = Boolean(recentExecution?.within_cooldown);
+    const operationKey =
+      action === 'apply' && recentRepeat
+        ? 'promotions.reapply_recent'
+        : action === 'remove'
+          ? 'promotions.remove'
+          : 'promotions.apply';
+    const units = Math.max(
+      1,
+      Number(opts?.options?.expected_total || 0),
+      Number(opts?.options?.selection_count || 0),
+      Array.isArray(opts?.filters?.mlbs) ? opts.filters.mlbs.length : 0,
+      Array.isArray(opts?.selectionItems) ? opts.selectionItems.length : 0,
+    );
+    const quote = await quoteCredits({
+      mlCreds: opts?.mlCreds || null,
+      account: opts?.account || null,
+      operationKey,
+      units,
+    });
+    return {
+      operation_key: operationKey,
+      quantity: units,
+      request_fingerprint: previewData.requestFingerprint,
+      recent_repeat: recentRepeat,
+      recent_execution: recentExecution || null,
+      estimated_credits: Number(quote?.estimated_credits || 0),
+      available_credits:
+        quote?.available_credits == null ? null : Number(quote.available_credits),
+      sufficient: quote?.sufficient !== false,
+      unlimited: quote?.unlimited === true,
+      quote,
+    };
   },
 
   /**
