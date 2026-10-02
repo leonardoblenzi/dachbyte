@@ -20,6 +20,10 @@ const { buildCsv, attachJobReview } = require('./jobReviewHelper');
 const { recordAuthEvent, listAuthEvents } = require('./authAuditService');
 const PromoSelectionStore = require('./promoSelectionStore');
 const { quoteCredits, reserveCredits, settleCredits } = require('./hubCreditsService');
+const {
+  acquireHeavyOperationLease,
+  waitForHeavyOperationLease,
+} = require('./mlHeavyOperationGovernor');
 
 // Concurrency do worker (ajustável por env)
 const CONCURRENCY = Number(process.env.PROMO_JOBS_CONCURRENCY || 4);
@@ -6114,13 +6118,71 @@ async function runPromotionChunkJob(chunkJob, done) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
   }
 
+  let heavyLease = await acquireHeavyOperationLease({
+    accountKey: parentData?.accountKey,
+    kind: 'promotions',
+    ownerId: `promo:${parentJobId}:chunk:${chunkJob.id}`,
+    metadata: {
+      parent_job_id: parentJobId,
+      chunk_job_id: String(chunkJob.id),
+      promotion_id: parentData?.promotion?.id || null,
+      promotion_type: parentData?.promotion?.type || null,
+    },
+  });
+
+  if (!heavyLease?.acquired) {
+    const holderKind = String(heavyLease?.holder?.kind || 'outra operacao pesada');
+    const reason = `na fila: aguardando ${holderKind} finalizar nesta conta`;
+    await parentJob.update({
+      ...(parentJob.data || parentData),
+      operationLifecycle: 'queued',
+      operationTerminal: false,
+      stateLabel: reason,
+      queueReason: 'heavy_operation_busy',
+      activeChunkJobId: String(chunkJob.id),
+      heavyOperationHolder: heavyLease?.holder || null,
+      lastUpdate: Date.now(),
+    }).catch(() => {});
+
+    if (canCooperativelyYield(chunkJob)) {
+      await lease?.release?.().catch(() => {});
+      done(new PromoFairnessYieldError(`PROMO_YIELD: ${reason}`));
+      return;
+    }
+
+    heavyLease = await waitForHeavyOperationLease({
+      accountKey: parentData?.accountKey,
+      kind: 'promotions',
+      ownerId: `promo:${parentJobId}:chunk:${chunkJob.id}`,
+      metadata: {
+        parent_job_id: parentJobId,
+        chunk_job_id: String(chunkJob.id),
+        promotion_id: parentData?.promotion?.id || null,
+        promotion_type: parentData?.promotion?.type || null,
+      },
+      onWait: async (holder) => {
+        await parentJob.update({
+          ...(parentJob.data || parentData),
+          operationLifecycle: 'queued',
+          operationTerminal: false,
+          stateLabel: reason,
+          queueReason: 'heavy_operation_busy',
+          heavyOperationHolder: holder || null,
+          lastUpdate: Date.now(),
+        }).catch(() => {});
+      },
+    });
+  }
+
   const refreshTimer = setInterval(() => {
     lease?.refresh?.().catch(() => {});
+    heavyLease?.refresh?.().catch(() => {});
   }, Math.max(5000, Math.floor(PROMO_RUNTIME_LEASE_MS / 3)));
   refreshTimer.unref?.();
 
   const finish = async (error, result) => {
     clearInterval(refreshTimer);
+    await heavyLease?.release?.().catch(() => {});
     await lease?.release?.().catch(() => {});
 
     if (error && !isInternalYieldError(error)) {
