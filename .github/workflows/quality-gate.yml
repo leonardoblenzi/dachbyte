@@ -65,6 +65,10 @@ jobs:
           node --check services/hubCreditsService.js
           node --check services/promoJobsService.js
           node --check services/atacadoJobsService.js
+          node --check services/caracteristicasJobsService.js
+          node --check services/prazoProducaoQueueService.js
+          node --check services/validarDimensoesJobService.js
+          node --check services/estoqueAlertaQueueService.js
           node --check services/mlHeavyOperationGovernor.js
           node --check routes/billingRoutes.js
           node --check public/js/conta-creditos.js
