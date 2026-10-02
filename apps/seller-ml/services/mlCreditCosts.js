@@ -2,10 +2,11 @@
 
 const OPERATION_COSTS = Object.freeze({
   "ads.filter": Object.freeze({ base: 5, perUnits: 0, unitBlock: 1 }),
-  "promotions.apply": Object.freeze({ base: 2, perUnits: 1, unitBlock: 1 }),
-  "promotions.remove": Object.freeze({ base: 2, perUnits: 1, unitBlock: 1 }),
-  "promotions.validate": Object.freeze({ base: 2, perUnits: 1, unitBlock: 5 }),
-  "wholesale.apply": Object.freeze({ base: 2, perUnits: 1, unitBlock: 1 }),
+  "promotions.apply": Object.freeze({ base: 0, perUnits: 1, unitBlock: 3000 }),
+  "promotions.remove": Object.freeze({ base: 0, perUnits: 1, unitBlock: 3000 }),
+  "promotions.validate": Object.freeze({ base: 0, perUnits: 1, unitBlock: 15000 }),
+  "promotions.reapply_recent": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1500 }),
+  "wholesale.apply": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1500 }),
   "dimensions.validate": Object.freeze({ base: 2, perUnits: 1, unitBlock: 2 }),
   "mass-model.apply": Object.freeze({ base: 2, perUnits: 1, unitBlock: 1 }),
   "characteristics.apply": Object.freeze({ base: 2, perUnits: 1, unitBlock: 1 }),
