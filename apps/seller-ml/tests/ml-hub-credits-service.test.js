@@ -160,3 +160,81 @@ test("modo shadow consulta quote generico sem reservar saldo", async () => {
     global.fetch = previous.fetch;
   }
 });
+
+
+test("modo enforce normaliza reserva em pontos para creditos visiveis", async () => {
+  const previous = {
+    mode: process.env.HUB_RESOURCE_CREDITS_MODE,
+    legacyMode: process.env.HUB_CREDITS_MODE,
+    baseUrl: process.env.HUB_BASE_URL,
+    token: process.env.HUB_INTERNAL_TOKEN,
+    fetch: global.fetch,
+  };
+  process.env.HUB_RESOURCE_CREDITS_MODE = "enforce";
+  delete process.env.HUB_CREDITS_MODE;
+  process.env.HUB_BASE_URL = "https://hub-enforce.example.test";
+  process.env.HUB_INTERNAL_TOKEN = "internal-test-token";
+
+  global.fetch = async (url, options = {}) => {
+    const pathname = new URL(String(url)).pathname;
+    if (pathname === "/v1/internal/resources/sync") {
+      return {
+        ok: true,
+        status: 200,
+        async text() { return JSON.stringify({ ok: true, resource: { resource_key: "ml:enforce_123" } }); },
+      };
+    }
+    if (pathname === "/v1/internal/resources/credits/reserve") {
+      const body = JSON.parse(String(options.body || "{}"));
+      assert.equal(body.quantity, 30000);
+      assert.equal(body.operation_key, "promotions.apply");
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            ok: true,
+            reservation: {
+              idempotency_key: body.idempotency_key,
+              operation_key: body.operation_key,
+              reserved_credits: 1000,
+              credit_unit_scale: 100,
+            },
+            wallet: { purchased_balance: 99000, credit_unit_scale: 100 },
+          });
+        },
+      };
+    }
+    throw new Error(`unexpected_hub_call:${pathname}`);
+  };
+
+  try {
+    const reservation = await reserveCredits({
+      mlCreds: {
+        meli_user_id: "enforce_123",
+        tenant_id: "tenant_enforce_123",
+        billing_status: "active",
+        billing_mode: "paid",
+        usage_policy: "metered",
+      },
+      operationKey: "promotions.apply",
+      units: 30000,
+      idempotencyKey: "promotion-operation:enforce-test",
+    });
+
+    assert.equal(reservation.bypass, false);
+    assert.equal(reservation.credit_unit_scale, 100);
+    assert.equal(reservation.reserved_credit_units, 1000);
+    assert.equal(reservation.reserved_credits, 10);
+  } finally {
+    if (previous.mode === undefined) delete process.env.HUB_RESOURCE_CREDITS_MODE;
+    else process.env.HUB_RESOURCE_CREDITS_MODE = previous.mode;
+    if (previous.legacyMode === undefined) delete process.env.HUB_CREDITS_MODE;
+    else process.env.HUB_CREDITS_MODE = previous.legacyMode;
+    if (previous.baseUrl === undefined) delete process.env.HUB_BASE_URL;
+    else process.env.HUB_BASE_URL = previous.baseUrl;
+    if (previous.token === undefined) delete process.env.HUB_INTERNAL_TOKEN;
+    else process.env.HUB_INTERNAL_TOKEN = previous.token;
+    global.fetch = previous.fetch;
+  }
+});
