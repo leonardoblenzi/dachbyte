@@ -366,6 +366,7 @@ async function runJob(job) {
         }],
   );
 
+  const startedAt = nowISO();
   await writeMeta(job.id, {
     status: "processando",
     total: ids.length,
@@ -376,7 +377,7 @@ async function runJob(job) {
     cancelRequested: false,
     queueReason: null,
     heavyOperationHolder: null,
-    started_at: nowISO(),
+    started_at: startedAt,
   });
   await job.progress(0);
 
@@ -397,7 +398,7 @@ async function runJob(job) {
       applied: 0,
       skipped: 0,
       errors: 0,
-      started_at: nowISO(),
+      started_at: startedAt,
     }),
   });
 
@@ -520,7 +521,7 @@ async function runJob(job) {
         applied,
         skipped,
         errors,
-        started_at: initialMeta.started_at || null,
+        started_at: startedAt,
         finished_at: finishedAt,
       }),
     },
