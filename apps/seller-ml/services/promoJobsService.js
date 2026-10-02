@@ -8018,10 +8018,15 @@ module.exports = {
     }
 
     const mlbs = normalizeMlbFilterList(opts?.mlbs || opts?.filters?.mlbs || opts?.raw_list || []);
+    const validationOperationId =
+      opts?.operationId ||
+      opts?.options?.operation_id ||
+      `VAL-${crypto.randomUUID()}`;
     const creditReservation = await reserveCredits({
       mlCreds: opts?.mlCreds || null,
       operationKey: 'promotions.validate',
       units: Math.max(1, mlbs.length),
+      idempotencyKey: `promotions-validate:${validationOperationId}`,
     });
     const data = {
       ...opts,
@@ -8029,7 +8034,7 @@ module.exports = {
       action: 'validate-list',
       accountKey,
       accountLabel: opts?.accountLabel || accountKey,
-      operationId: opts?.operationId || `VAL-${crypto.randomUUID()}`,
+      operationId: validationOperationId,
       promotion: {
         id: String(opts?.promotion?.id || ''),
         type: String(opts?.promotion?.type || '').toUpperCase(),
@@ -8049,7 +8054,7 @@ module.exports = {
         ...buildPromotionBillingTelemetry(
           {
             ...opts,
-            operationId: opts?.operationId || null,
+            operationId: validationOperationId,
             filters: { ...(opts?.filters || {}), mlbs },
             creditReservation,
             createdAt: Date.now(),
