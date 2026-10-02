@@ -294,7 +294,7 @@ async function unlinkBillingResource({ account, reason = "Conta ML desvinculada 
 }
 
 async function getCreditPolicy() {
-  const response = await getHub("/v1/internal/resources/credits/policy");
+  const response = await getHub("/v1/internal/resources/credits/policy?product_key=ml");
   if (!response.ok) {
     throw responseError(response, "Nao foi possivel carregar a politica de creditos.");
   }
