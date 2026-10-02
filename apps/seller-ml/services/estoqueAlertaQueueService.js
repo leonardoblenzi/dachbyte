@@ -295,11 +295,21 @@ function initWorker() {
   queue.on("active", (job) => console.log("[EstoqueAlertaQueue] job active:", job?.id));
   queue.on("completed", async (job) => {
     console.log("[EstoqueAlertaQueue] job completed:", job?.id);
-    await settleCredits(job?.data?.creditReservation, { release: false });
+    const metrics = resolveMetrics(job, "completed");
+    const processed = Math.max(0, Number(metrics.processed || 0));
+    await settleCredits(job?.data?.creditReservation, {
+      release: processed <= 0,
+      consumedUnits: processed > 0 ? processed : null,
+    });
   });
   queue.on("failed", async (job, error) => {
     console.error("[EstoqueAlertaQueue] job failed:", job?.id, error?.message || error);
-    await settleCredits(job?.data?.creditReservation, { release: true });
+    const metrics = resolveMetrics(job, "failed");
+    const processed = Math.max(0, Number(metrics.processed || 0));
+    await settleCredits(job?.data?.creditReservation, {
+      release: processed <= 0,
+      consumedUnits: processed > 0 ? processed : null,
+    });
   });
   queue.on("stalled", (job) => console.warn("[EstoqueAlertaQueue] job stalled:", job?.id));
   console.log("[EstoqueAlertaQueue] worker iniciado");
