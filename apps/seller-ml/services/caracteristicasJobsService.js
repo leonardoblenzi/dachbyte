@@ -736,10 +736,20 @@ class CaracteristicasJobsService {
       }
     });
     queue.on("completed", async (job) => {
-      await settleCredits(job?.data?.creditReservation, { release: false });
+      const meta = (await readJson(metaKey(job.id))) || {};
+      const processed = Math.max(0, Number(meta.processed || 0));
+      await settleCredits(job?.data?.creditReservation, {
+        release: processed <= 0,
+        consumedUnits: processed > 0 ? processed : null,
+      });
     });
     queue.on("failed", async (job) => {
-      await settleCredits(job?.data?.creditReservation, { release: true });
+      const meta = (await readJson(metaKey(job.id))) || {};
+      const processed = Math.max(0, Number(meta.processed || 0));
+      await settleCredits(job?.data?.creditReservation, {
+        release: processed <= 0,
+        consumedUnits: processed > 0 ? processed : null,
+      });
     });
     console.log(`[CaracteristicasJobsService] worker iniciado (concurrency=${WORKER_CONCURRENCY})`);
     return queue;
