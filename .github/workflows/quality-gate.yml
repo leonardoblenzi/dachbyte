@@ -60,6 +60,8 @@ jobs:
         run: npm ci
       - name: Credit contract tests
         run: npm run test:credits
+      - name: Queue safety tests
+        run: npm run test:stage3-queues
       - name: Parse critical billing runtime
         run: |
           node --check services/hubCreditsService.js
@@ -70,6 +72,7 @@ jobs:
           node --check services/validarDimensoesJobService.js
           node --check services/estoqueAlertaQueueService.js
           node --check services/modeloMassaJobsService.js
+          node --check services/bullRetentionService.js
           node --check controllers/ModeloMassaController.js
           node --check worker.js
           node --check services/mlHeavyOperationGovernor.js
