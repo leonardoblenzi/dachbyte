@@ -271,7 +271,11 @@ function ensureQueue() {
       return;
     }
     if (data?.safetyPaused !== true && data?.resumable !== true) {
-      await settleCredits(data?.creditReservation, { release: true });
+      const processed = Math.max(0, Number(data?.counters?.processed || 0));
+      await settleCredits(data?.creditReservation, {
+        release: processed <= 0,
+        consumedUnits: processed > 0 ? processed : null,
+      });
       await releaseCampaignGuard(data, String(job?.id || ''));
     }
   });
@@ -290,7 +294,11 @@ function ensureQueue() {
       }
       return;
     }
-    await settleCredits(data?.creditReservation, { release: false });
+    const processed = Math.max(0, Number(data?.counters?.processed || 0));
+    await settleCredits(data?.creditReservation, {
+      release: processed <= 0,
+      consumedUnits: processed > 0 ? processed : null,
+    });
     if (!jobHasPendingRemediation(data)) {
       await releaseCampaignGuard(data, String(job?.id || ''));
     }
@@ -5513,6 +5521,7 @@ async function removeItem({ mlCreds, promotion_id, promotion_type, item }) {
   }
   const item_id = item.id || item.item_id;
   try {
+    recordPromoMlApiCall();
     const r = await RemovalAdapter.removeOne({ mlCreds, promotion_id, promotion_type, item_id });
     // Normalize resultado
     return {
@@ -5793,6 +5802,23 @@ async function runListValidationJob(job, done) {
       listDiagnostics: diagnostics,
       selectionToken,
       selectionIds: eligibleIds,
+      billingTelemetry: {
+        ...buildPromotionBillingTelemetry(job.data || data, {
+          total,
+          processed: total,
+          success: eligibleIds.length,
+          failed: 0,
+          results: diagnostics,
+          finished: true,
+        }),
+        selected: wantedIds.length,
+        eligible: eligibleIds.length,
+        processed: total,
+        altered: 0,
+        validated: total,
+        ignored: notEligible,
+        errors: 0,
+      },
       stateLabel: `concluido: ${eligibleIds.length} elegiveis, ${notEligible} fora`,
     });
     await job.progress(100).catch(() => {});
@@ -5820,6 +5846,7 @@ async function runListValidationJob(job, done) {
       );
       const cancelCoverage =
         total > 0 ? clampPct((cancelProcessed / total) * 100) : 0;
+      const cancelNotEligible = Math.max(0, cancelProcessed - eligibleIds.length);
       await updateJob({
         counters: {
           processed: cancelProcessed,
@@ -5829,6 +5856,23 @@ async function runListValidationJob(job, done) {
         },
         results: diagnostics,
         listDiagnostics: diagnostics,
+        billingTelemetry: {
+          ...buildPromotionBillingTelemetry(job.data || data, {
+            total,
+            processed: cancelProcessed,
+            success: eligibleIds.length,
+            failed: 0,
+            results: diagnostics,
+            finished: true,
+          }),
+          selected: wantedIds.length,
+          eligible: eligibleIds.length,
+          processed: cancelProcessed,
+          altered: 0,
+          validated: cancelProcessed,
+          ignored: cancelNotEligible,
+          errors: 0,
+        },
         stateLabel: "cancelado",
         cancelRequested: false,
         cancelCompletedAt: Date.now(),
@@ -6140,7 +6184,10 @@ async function runPromotionChunkJob(chunkJob, done) {
 async function runPromoJob(job, done) {
   const kind = String(job?.data?.kind || "").toLowerCase();
   if (kind === "list-validation") {
-    return runListValidationJob(job, done);
+    return promoTelemetryStorage.run(
+      { mlApiCalls: 0 },
+      () => runListValidationJob(job, done),
+    );
   }
   if (kind === "promotion-remediation") {
     return runPromotionRemediationJob(job, done);
@@ -7982,6 +8029,7 @@ module.exports = {
       action: 'validate-list',
       accountKey,
       accountLabel: opts?.accountLabel || accountKey,
+      operationId: opts?.operationId || `VAL-${crypto.randomUUID()}`,
       promotion: {
         id: String(opts?.promotion?.id || ''),
         type: String(opts?.promotion?.type || '').toUpperCase(),
@@ -7996,6 +8044,26 @@ module.exports = {
       },
       auditContext: opts?.auditContext || null,
       creditReservation,
+      billingOperationKey: 'promotions.validate',
+      billingTelemetry: {
+        ...buildPromotionBillingTelemetry(
+          {
+            ...opts,
+            operationId: opts?.operationId || null,
+            filters: { ...(opts?.filters || {}), mlbs },
+            creditReservation,
+            createdAt: Date.now(),
+          },
+          { total: mlbs.length, processed: 0, success: 0, failed: 0, results: [] },
+        ),
+        selected: mlbs.length,
+        eligible: 0,
+        processed: 0,
+        altered: 0,
+        validated: 0,
+        ignored: 0,
+        errors: 0,
+      },
       createdAt: Date.now(),
     };
 
@@ -8250,6 +8318,19 @@ module.exports = {
               retry_reason: d.transientRetry?.reason || null,
               cancel_requested: d.cancelRequested === true,
               operation_id: d.operationId || d.options?.operation_id || null,
+              billing_telemetry: d.billingTelemetry || null,
+              billing_operation_key:
+                d.billingOperationKey ||
+                d.billingTelemetry?.operation_key ||
+                d.creditReservation?.operation_key ||
+                null,
+              estimated_credits:
+                d.billingTelemetry?.estimated_credits ??
+                d.creditReservation?.quote?.estimated_credits ??
+                d.creditReservation?.reserved_credits ??
+                null,
+              recent_repeat: d.recentRepeat === true,
+              recent_execution: d.recentExecution || null,
               remediation_total: Number(d.quarantineCounters?.total || 0),
               remediation_pending: Number(d.quarantineCounters?.pending || 0),
               remediation_resolved: Number(d.quarantineCounters?.resolved || 0),
