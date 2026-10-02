@@ -6687,7 +6687,11 @@ core.post("/api/promocoes/credits/quote", async (req, res) => {
         mlbs: selectionIds,
       },
       selectionItems:
-        storedItems.length && storedItems.length <= 5000 ? storedItems : null,
+        storedItems.length && isOfferBasedPromotionType(promotionType)
+          ? storedItems.map(compactPreparedOfferSelectionItem)
+          : storedItems.length && storedItems.length <= 200
+            ? storedItems
+            : null,
       price_policy: body.price_policy || "min",
       options: quoteOptions,
     });
