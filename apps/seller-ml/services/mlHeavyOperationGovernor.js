@@ -31,12 +31,17 @@ function accountHash(accountKey) {
     .digest("hex");
 }
 
-function lockKey(accountKey) {
-  return `ml:heavy-operation:lock:${accountHash(accountKey)}`;
+function normalizeLane(value) {
+  const lane = String(value || "write").trim().toLowerCase();
+  return lane === "read" ? "read" : "write";
 }
 
-function metaKey(accountKey) {
-  return `ml:heavy-operation:meta:${accountHash(accountKey)}`;
+function lockKey(accountKey, lane = "write") {
+  return `ml:heavy-operation:${normalizeLane(lane)}:lock:${accountHash(accountKey)}`;
+}
+
+function metaKey(accountKey, lane = "write") {
+  return `ml:heavy-operation:${normalizeLane(lane)}:meta:${accountHash(accountKey)}`;
 }
 
 function redisClient() {
@@ -47,9 +52,9 @@ function safeLeaseMs(value) {
   return Math.max(30_000, Number(value || DEFAULT_LEASE_MS));
 }
 
-async function readHolder(redis, accountKey) {
+async function readHolder(redis, accountKey, lane = "write") {
   try {
-    const raw = await redis.get(metaKey(accountKey));
+    const raw = await redis.get(metaKey(accountKey, lane));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === "object" ? parsed : null;
@@ -64,18 +69,20 @@ async function acquireHeavyOperationLease({
   ownerId = null,
   leaseMs = DEFAULT_LEASE_MS,
   metadata = null,
+  lane = "write",
 } = {}) {
   const account = normalizeAccountKey(accountKey);
+  const normalizedLane = normalizeLane(lane);
   const ttl = safeLeaseMs(leaseMs);
   const ownerToken = `${String(kind || "heavy_write")}:${String(ownerId || crypto.randomUUID())}:${crypto.randomUUID()}`;
   const redis = redisClient();
-  const acquired = await redis.set(lockKey(account), ownerToken, "PX", ttl, "NX");
+  const acquired = await redis.set(lockKey(account, normalizedLane), ownerToken, "PX", ttl, "NX");
 
   if (acquired !== "OK") {
     return {
       acquired: false,
       accountKey: account,
-      holder: await readHolder(redis, account),
+      holder: await readHolder(redis, account, normalizedLane),
       async refresh() { return false; },
       async release() { return false; },
     };
@@ -83,6 +90,7 @@ async function acquireHeavyOperationLease({
 
   const holder = {
     account_key: account,
+    lane: normalizedLane,
     kind: String(kind || "heavy_write"),
     owner_id: ownerId == null ? null : String(ownerId),
     owner_token: ownerToken,
@@ -91,7 +99,7 @@ async function acquireHeavyOperationLease({
     metadata: metadata && typeof metadata === "object" ? metadata : null,
   };
   await redis
-    .set(metaKey(account), JSON.stringify(holder), "PX", ttl)
+    .set(metaKey(account, normalizedLane), JSON.stringify(holder), "PX", ttl)
     .catch(() => {});
 
   return {
@@ -114,8 +122,8 @@ async function acquireHeavyOperationLease({
       const result = await redis.eval(
         script,
         2,
-        lockKey(account),
-        metaKey(account),
+        lockKey(account, normalizedLane),
+        metaKey(account, normalizedLane),
         ownerToken,
         String(ttl),
       );
@@ -133,8 +141,8 @@ async function acquireHeavyOperationLease({
       const result = await redis.eval(
         script,
         2,
-        lockKey(account),
-        metaKey(account),
+        lockKey(account, normalizedLane),
+        metaKey(account, normalizedLane),
         ownerToken,
       );
       return Number(result || 0) === 1;
@@ -152,6 +160,7 @@ async function waitForHeavyOperationLease({
   metadata = null,
   onWait = null,
   shouldCancel = null,
+  lane = "write",
 } = {}) {
   const startedAt = Date.now();
   const sleepMs = Math.max(250, Number(waitMs || DEFAULT_WAIT_MS));
@@ -170,6 +179,7 @@ async function waitForHeavyOperationLease({
       ownerId,
       leaseMs,
       metadata,
+      lane,
     });
     if (lease.acquired) {
       return {
@@ -192,9 +202,9 @@ async function waitForHeavyOperationLease({
   }
 }
 
-async function getHeavyOperationHolder(accountKey) {
+async function getHeavyOperationHolder(accountKey, lane = "write") {
   const account = normalizeAccountKey(accountKey);
-  return readHolder(redisClient(), account);
+  return readHolder(redisClient(), account, normalizeLane(lane));
 }
 
 module.exports = {
@@ -206,6 +216,7 @@ module.exports = {
     lockKey,
     metaKey,
     normalizeAccountKey,
+    normalizeLane,
     safeLeaseMs,
   },
 };
