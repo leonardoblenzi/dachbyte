@@ -15,6 +15,7 @@ const { buildCsv, attachJobReview } = require("./jobReviewHelper");
 const { attachJobContract, backendJobIdFromUid } = require("./jobContract");
 const { recordAuthEvent } = require("./authAuditService");
 const { reserveCredits, settleCredits } = require("./hubCreditsService");
+const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 function resolveJobId(value) {
   return backendJobIdFromUid("prazo", value);
@@ -499,9 +500,49 @@ function initWorker() {
 
   workerStarted = true;
   queue.process(async (job) => {
+    let heavyLease = null;
+    let refreshTimer = null;
     try {
+      const heavyAccountKey = String(
+        job?.data?.accountKey ||
+        job?.data?.mlCreds?.meli_user_id ||
+        job?.data?.mlCreds?.meli_conta_id ||
+        ""
+      ).trim();
+      if (heavyAccountKey) {
+        const lookupOnly = job?.data?.type === "lookup_active";
+        heavyLease = await waitForHeavyOperationLease({
+          accountKey: heavyAccountKey,
+          kind: lookupOnly ? "production-time-lookup" : "production-time",
+          ownerId: `production-time:${job.id}`,
+          lane: lookupOnly ? "read" : "write",
+          metadata: {
+            job_id: String(job.id),
+            lookup_only: lookupOnly,
+          },
+          onWait: async (holder) => {
+            job.data.__meta = {
+              ...(job.data.__meta || {}),
+              status: "aguardando",
+              queueReason: "heavy_operation_busy",
+              heavyOperationHolder: holder || null,
+              updatedAt: Date.now(),
+            };
+            await job.update(job.data);
+          },
+          shouldCancel: async () => job.data?.__meta?.cancelRequested === true,
+        });
+        refreshTimer = setInterval(() => {
+          heavyLease?.refresh?.().catch(() => {});
+        }, 60_000);
+        refreshTimer.unref?.();
+      }
+
       return await processPrazoJob(job);
-    } catch (error) {
+    } catch (rawError) {
+      const error = rawError?.code === "HEAVY_OPERATION_WAIT_CANCELLED"
+        ? new JobCancelledError()
+        : rawError;
       if (error instanceof JobCancelledError) {
         job.data.__meta = {
           ...(job.data.__meta || {}),
@@ -538,6 +579,9 @@ function initWorker() {
         error: safeText(error?.message || String(error)),
       });
       throw error;
+    } finally {
+      if (refreshTimer) clearInterval(refreshTimer);
+      await heavyLease?.release?.().catch(() => {});
     }
   });
   queue.on("failed", async (job, err) => {
