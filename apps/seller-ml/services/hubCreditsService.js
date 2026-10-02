@@ -500,8 +500,13 @@ async function reserveCredits({
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     });
     if (!response.ok) throw responseError(response, "Nao foi possivel reservar os creditos.");
+    const hubReservation = response.data.reservation || {};
+    const creditUnitScale = Math.max(1, Number(hubReservation.credit_unit_scale || 1));
+    const reservedCreditUnits = Math.max(0, Number(hubReservation.reserved_credits || 0));
     return {
-      ...response.data.reservation,
+      ...hubReservation,
+      reserved_credit_units: reservedCreditUnits,
+      reserved_credits: reservedCreditUnits / creditUnitScale,
       bypass: false,
       wallet: response.data.wallet || null,
       access: response.data.access || null,
