@@ -7,6 +7,7 @@ const { attachJobReview } = require("./jobReviewHelper");
 const { attachJobContract, backendJobIdFromUid } = require("./jobContract");
 const { recordAuthEvent } = require("./authAuditService");
 const { reserveCredits, settleCredits } = require("./hubCreditsService");
+const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 const QUEUE_NAME = "ml-caracteristicas";
 
@@ -543,6 +544,7 @@ class CaracteristicasJobsService {
     mlCreds = {},
     accountKey = null,
     accountLabel = null,
+    auditContext = null,
   }) {
     const category = String(categoryId || "").trim().toUpperCase();
     const cleanRows = Array.isArray(rows)
@@ -708,10 +710,48 @@ class CaracteristicasJobsService {
     if (workerStarted) return queue;
     workerStarted = true;
     queue.process(WORKER_CONCURRENCY, async (job) => {
+      let heavyLease = null;
+      let refreshTimer = null;
       try {
+        const heavyAccountKey = String(
+          job?.data?.accountKey ||
+          job?.data?.mlCreds?.meli_user_id ||
+          job?.data?.mlCreds?.meli_conta_id ||
+          ""
+        ).trim();
+        if (heavyAccountKey) {
+          heavyLease = await waitForHeavyOperationLease({
+            accountKey: heavyAccountKey,
+            kind: job?.data?.dryRun === true ? "characteristics-validation" : "characteristics",
+            ownerId: `characteristics:${job.id}`,
+            lane: job?.data?.dryRun === true ? "read" : "write",
+            metadata: {
+              job_id: String(job.id),
+              dry_run: job?.data?.dryRun === true,
+            },
+            onWait: async (holder) => {
+              await updateMeta(job.id, {
+                state: "aguardando operacao pesada anterior",
+                status: "aguardando",
+                queue_reason: "heavy_operation_busy",
+                heavy_operation_holder: holder || null,
+              });
+            },
+            shouldCancel: async () => {
+              const meta = (await readJson(metaKey(job.id))) || {};
+              return meta.cancel_requested === true || meta.status === "cancelado";
+            },
+          });
+          refreshTimer = setInterval(() => {
+            heavyLease?.refresh?.().catch(() => {});
+          }, 60_000);
+          refreshTimer.unref?.();
+        }
         return await processJob(job);
       } catch (error) {
-        if (error?.cancelled) return { cancelled: true };
+        if (error?.code === "HEAVY_OPERATION_WAIT_CANCELLED" || error?.cancelled) {
+          return { cancelled: true };
+        }
         const meta = (await readJson(metaKey(job.id))) || {};
         await updateMeta(job.id, {
           state: `erro: ${error?.message || error}`,
@@ -733,6 +773,9 @@ class CaracteristicasJobsService {
         });
         await job.progress(100);
         throw error;
+      } finally {
+        if (refreshTimer) clearInterval(refreshTimer);
+        await heavyLease?.release?.().catch(() => {});
       }
     });
     queue.on("completed", async (job) => {
