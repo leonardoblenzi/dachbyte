@@ -7,6 +7,7 @@ const OPERATION_COSTS = Object.freeze({
   "promotions.validate": Object.freeze({ base: 0, perUnits: 1, unitBlock: 15000 }),
   "promotions.reapply_recent": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1500 }),
   "wholesale.apply": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1500 }),
+  "wholesale.validate": Object.freeze({ base: 0, perUnits: 1, unitBlock: 15000 }),
   "dimensions.validate": Object.freeze({ base: 2, perUnits: 1, unitBlock: 2 }),
   "mass-model.apply": Object.freeze({ base: 2, perUnits: 1, unitBlock: 1 }),
   "characteristics.apply": Object.freeze({ base: 2, perUnits: 1, unitBlock: 1 }),
