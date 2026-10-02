@@ -30,7 +30,7 @@
     "hotfix:pre-stage6:apply": "node scripts/apply-pre-stage6-hotfix.js",
     "hotfix:pre-stage6:cleanup-results": "node scripts/untrack-legacy-results.js",
     "test:pre-stage6-hotfix": "node --test tests/ml-pre-stage6-hotfix.test.js",
-    "test:credits": "node --test tests/ml-credit-costs.test.js tests/ml-hub-credits-service.test.js tests/ml-heavy-operation-governor.test.js"
+    "test:credits": "node --test tests/ml-credit-costs.test.js tests/ml-hub-credits-service.test.js tests/ml-heavy-operation-governor.test.js tests/ml-mass-model-queue-contract.test.js"
   },
   "engines": {
     "node": ">=20"
