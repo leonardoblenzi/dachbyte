@@ -542,11 +542,19 @@ function initWorker() {
   });
   queue.on("failed", async (job, err) => {
     console.error("[prazo-producao] job failed:", job?.id, err?.message || err);
-    await settleCredits(job?.data?.creditReservation, { release: true });
+    const processed = Math.max(0, Number(job?.data?.__meta?.processed || 0));
+    await settleCredits(job?.data?.creditReservation, {
+      release: processed <= 0,
+      consumedUnits: processed > 0 ? processed : null,
+    });
   });
   queue.on("completed", async (job) => {
     console.log("[prazo-producao] job completed:", job?.id);
-    await settleCredits(job?.data?.creditReservation, { release: false });
+    const processed = Math.max(0, Number(job?.data?.__meta?.processed || 0));
+    await settleCredits(job?.data?.creditReservation, {
+      release: processed <= 0,
+      consumedUnits: processed > 0 ? processed : null,
+    });
   });
   console.log("[prazo-producao] worker iniciado");
   return queue;
