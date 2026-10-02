@@ -560,6 +560,7 @@
 
       const quotePayload = {
         action: "apply",
+        token: selectionToken || null,
         promotion_id: state.selectedCard.id,
         promotion_type: state.selectedCard.type,
         promotion_name: campaignName,
