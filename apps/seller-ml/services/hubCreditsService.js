@@ -381,6 +381,7 @@ function responseError(response, fallbackMessage) {
     awaiting_subscription: "Esta conta precisa de uma assinatura ativa.",
     suspended_by_range: "A faixa contratada desta conta precisa ser regularizada.",
     suspended_by_payment: "O pagamento desta conta precisa ser regularizado.",
+    credit_operation_not_enforce_ready: "Esta operacao ainda esta em validacao de custo e nao pode debitar creditos.",
   };
   return new HubCreditError(messages[code] || fallbackMessage, {
     statusCode: Number(response?.status || 503),
