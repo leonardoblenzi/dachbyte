@@ -6579,16 +6579,55 @@ core.post("/api/promocoes/credits/quote", async (req, res) => {
     const action = String(body.action || "apply").toLowerCase() === "remove"
       ? "remove"
       : "apply";
-    const promotionId = String(body.promotion_id || body.promotionId || "").trim();
-    const promotionType = String(body.promotion_type || body.promotionType || "")
+    const token = String(body.token || "").trim();
+    const storedSelection =
+      token &&
+      PromoSelectionStore &&
+      typeof PromoSelectionStore.getSelection === "function"
+        ? await PromoSelectionStore.getSelection(token, { accountKey })
+        : null;
+    const storedItems = Array.isArray(storedSelection?.items)
+      ? storedSelection.items
+      : [];
+    const storedIds = storedItems
+      .map((item) =>
+        String(
+          item && typeof item === "object"
+            ? item.id || item.item_id || ""
+            : item || ""
+        )
+          .trim()
+          .toUpperCase()
+      )
+      .filter(Boolean);
+    const selectionIds = normalizeMlbList(
+      body.selection_ids ||
+        body.selectionIds ||
+        body.mlbs ||
+        body.ids ||
+        storedIds ||
+        null
+    );
+    const storedFilters = storedSelection?.filters || {};
+    const promotionId = String(
+      body.promotion_id ||
+        body.promotionId ||
+        storedSelection?.promotionId ||
+        ""
+    ).trim();
+    const promotionType = String(
+      body.promotion_type ||
+        body.promotionType ||
+        storedSelection?.promotionType ||
+        ""
+    )
       .trim()
       .toUpperCase();
-    const selectionIds = normalizeMlbList(
-      body.selection_ids || body.selectionIds || body.mlbs || body.ids || null
-    );
     const expectedTotal = Math.max(
       1,
       Math.trunc(Number(body.expected_total || body.expectedTotal || 0)),
+      Math.trunc(Number(storedSelection?.total || 0)),
+      storedItems.length,
       selectionIds.length,
     );
     if (!promotionId || !promotionType) {
@@ -6598,6 +6637,21 @@ core.post("/api/promocoes/credits/quote", async (req, res) => {
       });
     }
 
+    const quoteOptions = {
+      ...(body.options || {}),
+      expected_total: expectedTotal,
+      selection_count:
+        body.options?.selection_count ??
+        body.selection_count ??
+        storedSelection?.meta?.selection_count ??
+        (selectionIds.length || expectedTotal),
+      application_source:
+        body.options?.application_source ||
+        storedSelection?.meta?.application_source ||
+        (token ? "selection_token" : "credit_quote"),
+    };
+    if (selectionIds.length) quoteOptions.prevalidated_selection = true;
+
     const quote = await PromoJobsService.previewBulkApplyCredits({
       mlCreds: res.locals.mlCreds || {},
       accountKey,
@@ -6606,28 +6660,36 @@ core.post("/api/promocoes/credits/quote", async (req, res) => {
       promotion: {
         id: promotionId,
         type: promotionType,
-        name: String(body.promotion_name || body.campaign_name || promotionId),
+        name: String(
+          body.promotion_name ||
+            body.campaign_name ||
+            storedSelection?.promotionName ||
+            storedSelection?.meta?.promotionName ||
+            promotionId
+        ),
       },
       filters: {
+        ...storedFilters,
         ...(body.filters || {}),
-        status: body.status ?? body.filters?.status ?? null,
+        status:
+          body.status ??
+          body.filters?.status ??
+          storedFilters.status ??
+          null,
         maxDesc:
           body.percent_max ??
           body.discount_max ??
           body.filters?.maxDesc ??
           body.filters?.percent_max ??
+          storedFilters.maxDesc ??
+          storedFilters.percent_max ??
           null,
         mlbs: selectionIds,
       },
+      selectionItems:
+        storedItems.length && storedItems.length <= 5000 ? storedItems : null,
       price_policy: body.price_policy || "min",
-      options: {
-        ...(body.options || {}),
-        expected_total: expectedTotal,
-        selection_count:
-          body.options?.selection_count ??
-          body.selection_count ??
-          (selectionIds.length || expectedTotal),
-      },
+      options: quoteOptions,
     });
 
     return res.json({ ok: true, ...quote });
