@@ -446,14 +446,7 @@ async function reserveCredits({
   }
 
   const context = billingContext({ mlCreds, account });
-  if (hasUnlimitedAccess(context)) {
-    return bypassReservation({
-      operationKey: normalizedOperation,
-      credits: 0,
-      reason: "unlimited_account",
-      idempotencyKey: key,
-    });
-  }
+  const unlimited = hasUnlimitedAccess(context);
 
   if (mode === "shadow") {
     try {
@@ -466,8 +459,8 @@ async function reserveCredits({
       return {
         ...bypassReservation({
           operationKey: normalizedOperation,
-          credits: Number(quote.estimated_credits || 0),
-          reason: "shadow_mode",
+          credits: unlimited ? 0 : Number(quote.estimated_credits || 0),
+          reason: unlimited ? "unlimited_shadow" : "shadow_mode",
           idempotencyKey: key,
         }),
         shadow: true,
@@ -479,14 +472,23 @@ async function reserveCredits({
       return {
         ...bypassReservation({
           operationKey: normalizedOperation,
-          credits: localEstimate,
-          reason: error?.code || "shadow_quote_unavailable",
+          credits: unlimited ? 0 : localEstimate,
+          reason: unlimited ? "unlimited_shadow_quote_unavailable" : error?.code || "shadow_quote_unavailable",
           idempotencyKey: key,
         }),
         shadow: true,
         operation_quantity: quantity,
       };
     }
+  }
+
+  if (unlimited) {
+    return bypassReservation({
+      operationKey: normalizedOperation,
+      credits: 0,
+      reason: "unlimited_account",
+      idempotencyKey: key,
+    });
   }
 
   try {
