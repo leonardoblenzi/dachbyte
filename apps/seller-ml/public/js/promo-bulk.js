@@ -1023,6 +1023,7 @@ function withBase(path) {
         };
         const creditPreview = await window.PromoHttp?.postCreditQuote?.({
           action: "apply",
+          token: ctx.global.token || null,
           promotion_id: ctx.promotion_id,
           promotion_type: ctx.promotion_type,
           promotion_name: ctx.promotion_name || camp,
