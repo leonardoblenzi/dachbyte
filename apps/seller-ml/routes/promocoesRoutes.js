@@ -6553,6 +6553,95 @@ core.get(
 );
 
 /**
+ * Calcula o custo estimado de uma operacao promocional sem criar job ou reservar saldo.
+ */
+core.post("/api/promocoes/credits/quote", async (req, res) => {
+  try {
+    if (
+      !PromoJobsService ||
+      typeof PromoJobsService.previewBulkApplyCredits !== "function"
+    ) {
+      return res.status(503).json({
+        ok: false,
+        error: "Previa de creditos de promocao indisponivel.",
+      });
+    }
+
+    const accountKey = resolveAccountKeyFromLocals(res);
+    if (!accountKey) {
+      return res.status(400).json({
+        ok: false,
+        error: "Conta selecionada e obrigatoria para calcular o custo.",
+      });
+    }
+
+    const body = req.body || {};
+    const action = String(body.action || "apply").toLowerCase() === "remove"
+      ? "remove"
+      : "apply";
+    const promotionId = String(body.promotion_id || body.promotionId || "").trim();
+    const promotionType = String(body.promotion_type || body.promotionType || "")
+      .trim()
+      .toUpperCase();
+    const selectionIds = normalizeMlbList(
+      body.selection_ids || body.selectionIds || body.mlbs || body.ids || null
+    );
+    const expectedTotal = Math.max(
+      1,
+      Math.trunc(Number(body.expected_total || body.expectedTotal || 0)),
+      selectionIds.length,
+    );
+    if (!promotionId || !promotionType) {
+      return res.status(400).json({
+        ok: false,
+        error: "promotion_id e promotion_type sao obrigatorios.",
+      });
+    }
+
+    const quote = await PromoJobsService.previewBulkApplyCredits({
+      mlCreds: res.locals.mlCreds || {},
+      accountKey,
+      accountLabel: String(res.locals.accountLabel || accountKey),
+      action,
+      promotion: {
+        id: promotionId,
+        type: promotionType,
+        name: String(body.promotion_name || body.campaign_name || promotionId),
+      },
+      filters: {
+        ...(body.filters || {}),
+        status: body.status ?? body.filters?.status ?? null,
+        maxDesc:
+          body.percent_max ??
+          body.discount_max ??
+          body.filters?.maxDesc ??
+          body.filters?.percent_max ??
+          null,
+        mlbs: selectionIds,
+      },
+      price_policy: body.price_policy || "min",
+      options: {
+        ...(body.options || {}),
+        expected_total: expectedTotal,
+        selection_count:
+          body.options?.selection_count ??
+          body.selection_count ??
+          (selectionIds.length || expectedTotal),
+      },
+    });
+
+    return res.json({ ok: true, ...quote });
+  } catch (error) {
+    console.error("[/api/promocoes/credits/quote] erro:", error);
+    return res.status(Number(error?.statusCode || 500)).json({
+      ok: false,
+      error: error?.message || String(error),
+      code: error?.code || null,
+    });
+  }
+});
+
+/**
  * Dispara job de aplicacao em lista validada.
  * Este fluxo nao depende do PromoSelectionStore porque a validacao da lista pode
  * rodar no worker e o store em memoria nao atravessa processos no Render.
