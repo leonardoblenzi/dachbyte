@@ -349,6 +349,18 @@ async function runJob(job) {
     if (processed === 0 || processed % META_UPDATE_EVERY === 0) {
       const latestMeta = (await readMeta(job.id)) || {};
       if (latestMeta.cancelRequested === true || latestMeta.status === "cancelado") {
+        if (resultBuffer.length) {
+          await appendResults(job.id, resultBuffer);
+          resultBuffer = [];
+        }
+        await writeMeta(job.id, {
+          total: ids.length,
+          processed,
+          applied,
+          manual,
+          skipped,
+          errors,
+        });
         throw new ModeloMassaJobCancelledError();
       }
     }
