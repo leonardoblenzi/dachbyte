@@ -197,11 +197,13 @@ function productionTimeBillingTelemetry(job, meta = {}) {
   const reservation = job?.data?.creditReservation || {};
   return {
     billing_mode:
-      reservation?.shadow === true
-        ? "shadow"
-        : reservation?.bypass === true
-          ? "bypass"
-          : "enforce",
+      !reservation || Object.keys(reservation).length === 0
+        ? "pending"
+        : reservation?.shadow === true
+          ? "shadow"
+          : reservation?.bypass === true
+            ? "bypass"
+            : "enforce",
     operation_key:
       job?.data?.billingOperationKey ||
       reservation?.quote?.operation_key ||
