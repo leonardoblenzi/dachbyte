@@ -931,6 +931,7 @@ async function mapPrazoJob(job, { includeRows = false } = {}) {
     completed: state === "completed" || state === "failed",
     account: buildPrazoAccount(job),
     result: returnValue,
+    billing_telemetry: productionTimeBillingTelemetry(job, meta),
   }, {
     basePath: "/anuncios/jobs-prazo",
     hasCsv: results.length > 0 || resultsCount > 0,
@@ -1059,4 +1060,11 @@ module.exports = {
   getPrazoJobDetail,
   getPrazoJobCsv,
   cancelPrazoJob,
+  previewPrazoCredits,
+  _test: {
+    productionTimeBillingOperationKey,
+    productionTimeBillingIdempotencyKey,
+    productionTimeBillableUnits,
+    productionTimeBillingTelemetry,
+  },
 };
