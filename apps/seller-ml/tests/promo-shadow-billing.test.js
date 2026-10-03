@@ -3,6 +3,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+process.env.ML_DATABASE_URL ||= "postgres://test:test@127.0.0.1:5432/test";
+process.env.REDIS_URL ||= "redis://127.0.0.1:6379";
+
 const { _test } = require("../services/promoJobsService");
 
 test("fingerprint promocional identifica a operacao logica e ignora operationId", () => {
