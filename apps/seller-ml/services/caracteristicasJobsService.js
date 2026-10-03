@@ -6,7 +6,7 @@ const CaracteristicasService = require("./caracteristicasService");
 const { attachJobReview } = require("./jobReviewHelper");
 const { attachJobContract, backendJobIdFromUid } = require("./jobContract");
 const { recordAuthEvent } = require("./authAuditService");
-const { reserveCredits, settleCredits } = require("./hubCreditsService");
+const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
 const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 const QUEUE_NAME = "ml-caracteristicas";
@@ -402,6 +402,60 @@ async function processWorkbookExportJob(job) {
   return { total: 1, processed: 1, file_ready: true };
 }
 
+function characteristicsBillingOperationKey(dryRun = false) {
+  return dryRun === true ? "characteristics.validate" : "characteristics.apply";
+}
+
+function characteristicsBillingIdempotencyKey(operationId) {
+  const id = String(operationId || "").trim();
+  if (!id) throw new Error("characteristics_operation_id_required");
+  return `characteristics:${id}`;
+}
+
+function characteristicsBillableUnits(data = {}, meta = {}) {
+  if (data?.dryRun === true) {
+    return Math.max(0, Number(meta.skipped || 0));
+  }
+  return Math.max(0, Number(meta.applied || 0));
+}
+
+function characteristicsBillingTelemetry(job, meta = {}) {
+  const reservation = job?.data?.creditReservation || {};
+  const dryRun = job?.data?.dryRun === true;
+  return {
+    billing_mode:
+      reservation?.shadow === true
+        ? "shadow"
+        : reservation?.bypass === true
+          ? "bypass"
+          : "enforce",
+    operation_key:
+      job?.data?.billingOperationKey ||
+      reservation?.quote?.operation_key ||
+      reservation?.operation_key ||
+      null,
+    operation_id: job?.data?.operationId || job?.id || null,
+    selected: Math.max(0, Number(meta.total ?? job?.data?.total ?? 0)),
+    processed: Math.max(0, Number(meta.processed || 0)),
+    applied: Math.max(0, Number(meta.applied || 0)),
+    validated: dryRun ? Math.max(0, Number(meta.skipped || 0)) : 0,
+    skipped: dryRun ? 0 : Math.max(0, Number(meta.skipped || 0)),
+    errors: Math.max(0, Number(meta.errors || 0)),
+    billable_units: characteristicsBillableUnits(job?.data || {}, meta),
+    estimated_credits:
+      reservation?.quote?.estimated_credits ??
+      reservation?.reserved_credits ??
+      null,
+    duration_ms:
+      meta.started_at && meta.finished_at
+        ? Math.max(
+            0,
+            new Date(meta.finished_at).getTime() - new Date(meta.started_at).getTime(),
+          )
+        : null,
+  };
+}
+
 async function mapJob(job) {
   if (!job) return null;
   const bullState = await job.getState().catch(() => "unknown");
@@ -433,6 +487,7 @@ async function mapJob(job) {
     created_at: meta.created_at || new Date(job.timestamp).toISOString(),
     updated_at: meta.updated_at || new Date(job.timestamp).toISOString(),
     completed,
+    billing_telemetry: isWorkbookExport ? null : characteristicsBillingTelemetry(job, meta),
     account: job.data?.accountKey || job.data?.accountLabel
       ? { key: job.data.accountKey || null, label: job.data.accountLabel || job.data.accountKey }
       : null,
@@ -537,6 +592,33 @@ class CaracteristicasJobsService {
     return mapJob(job);
   }
 
+  static async previewCredits({
+    rows = [],
+    dryRun = false,
+    mlCreds = {},
+    account = null,
+  } = {}) {
+    const quantity = Math.max(0, Array.isArray(rows) ? rows.length : 0);
+    if (!quantity) throw new Error("Nenhuma linha informada para calcular o custo.");
+    const operationKey = characteristicsBillingOperationKey(dryRun);
+    const quote = await quoteCredits({
+      mlCreds,
+      account,
+      operationKey,
+      units: quantity,
+    });
+    return {
+      operation_key: operationKey,
+      quantity,
+      estimated_credits: Number(quote?.estimated_credits || 0),
+      available_credits:
+        quote?.available_credits == null ? null : Number(quote.available_credits),
+      sufficient: quote?.sufficient !== false,
+      unlimited: quote?.unlimited === true,
+      quote,
+    };
+  }
+
   static async enqueue({
     categoryId,
     rows = [],
@@ -584,11 +666,13 @@ class CaracteristicasJobsService {
       created_at: createdAt,
       updated_at: createdAt,
     });
+    const operationId = id;
+    const billingOperationKey = characteristicsBillingOperationKey(dryRun);
     const creditReservation = await reserveCredits({
       mlCreds,
-      operationKey: "characteristics.apply",
+      operationKey: billingOperationKey,
       units: cleanRows.length,
-      idempotencyKey: `characteristics:${id}`,
+      idempotencyKey: characteristicsBillingIdempotencyKey(operationId),
     });
     let job;
     try {
@@ -596,6 +680,8 @@ class CaracteristicasJobsService {
         {
           categoryId: category,
           dryRun: Boolean(dryRun),
+          operationId,
+          billingOperationKey,
           mlCreds,
           accountKey,
           accountLabel,
@@ -780,23 +866,30 @@ class CaracteristicasJobsService {
     });
     queue.on("completed", async (job) => {
       const meta = (await readJson(metaKey(job.id))) || {};
-      const processed = Math.max(0, Number(meta.processed || 0));
+      const billableUnits = characteristicsBillableUnits(job?.data || {}, meta);
       await settleCredits(job?.data?.creditReservation, {
-        release: processed <= 0,
-        consumedUnits: processed > 0 ? processed : null,
+        release: billableUnits <= 0,
+        consumedUnits: billableUnits > 0 ? billableUnits : null,
       });
     });
     queue.on("failed", async (job) => {
       const meta = (await readJson(metaKey(job.id))) || {};
-      const processed = Math.max(0, Number(meta.processed || 0));
+      const billableUnits = characteristicsBillableUnits(job?.data || {}, meta);
       await settleCredits(job?.data?.creditReservation, {
-        release: processed <= 0,
-        consumedUnits: processed > 0 ? processed : null,
+        release: billableUnits <= 0,
+        consumedUnits: billableUnits > 0 ? billableUnits : null,
       });
     });
     console.log(`[CaracteristicasJobsService] worker iniciado (concurrency=${WORKER_CONCURRENCY})`);
     return queue;
   }
 }
+
+CaracteristicasJobsService._test = {
+  characteristicsBillingOperationKey,
+  characteristicsBillingIdempotencyKey,
+  characteristicsBillableUnits,
+  characteristicsBillingTelemetry,
+};
 
 module.exports = CaracteristicasJobsService;
