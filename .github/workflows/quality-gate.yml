@@ -75,6 +75,10 @@ jobs:
           node --check routes/caracteristicasRoutes.js
           node --check public/js/caracteristicas.js
           node --check services/prazoProducaoQueueService.js
+          node --check controllers/PrazoProducaoController.js
+          node --check routes/prazoProducaoRoutes.js
+          node --check public/js/prazo.js
+          node --check public/js/prazo-bulk.js
           node --check services/validarDimensoesJobService.js
           node --check services/estoqueAlertaQueueService.js
           node --check services/modeloMassaJobsService.js
