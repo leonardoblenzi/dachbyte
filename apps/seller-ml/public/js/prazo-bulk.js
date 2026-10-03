@@ -27,6 +27,7 @@ function withBase(path) {
   let currentProcessId = null;
   let panelSyncTimer = null;
   const API_CREATE = () => withBase("/anuncios/prazo-dias-lote");
+  const API_QUOTE = () => withBase("/anuncios/prazo-producao/credits/quote");
   const API_JOBS = () => withBase("/anuncios/jobs-prazo");
   const API_JOB_DETAIL = (id) =>
     withBase(`/anuncios/jobs-prazo/${encodeURIComponent(id)}`);
@@ -78,6 +79,45 @@ function withBase(path) {
 
   function wait(ms) {
     return new Promise((r) => setTimeout(r, ms));
+  }
+
+  async function fetchPrazoCreditQuote(items) {
+    const response = await fetch(API_QUOTE(), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "apply",
+        mlb_ids: items,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.success === false) {
+      throw new Error(payload?.error || `HTTP ${response.status}`);
+    }
+    return payload;
+  }
+
+  function confirmPrazoCreditQuote(quote, itemCount) {
+    const estimated = Number(quote?.estimated_credits || 0);
+    const unlimited = quote?.unlimited === true;
+    if (unlimited || estimated <= 0) return true;
+
+    const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+    const lines = [
+      `Atualização de prazo para aproximadamente ${formatter.format(Number(quote?.quantity || itemCount || 0))} anúncio(s).`,
+      `Custo estimado: ${formatter.format(estimated)} crédito(s).`,
+    ];
+    if (quote?.available_credits != null) {
+      lines.push(
+        `Saldo disponível: ${formatter.format(Number(quote.available_credits || 0))} crédito(s).`,
+      );
+    }
+    if (quote?.sufficient === false) {
+      lines.push("O saldo atual é menor que a estimativa informada.");
+    }
+    lines.push("Deseja continuar?");
+    return window.confirm(lines.join("\n\n"));
   }
 
   // Mapeia conta -> classe CSS do badge
@@ -134,6 +174,17 @@ function withBase(path) {
 
   async function startJob(entry) {
     const badge = await getAccountBadge();
+
+    try {
+      const quote = await fetchPrazoCreditQuote(entry.items);
+      const confirmed = confirmPrazoCreditQuote(quote, entry.items.length);
+      if (confirmed === false) return;
+    } catch (error) {
+      console.warn(
+        "[prazo-bulk] prévia de créditos indisponível; seguindo em shadow:",
+        error?.message || error,
+      );
+    }
 
     const tempId = JobsPanel.addLocalJob({
       title:
