@@ -7,7 +7,7 @@ const { makeBullClient, getSharedRedis } = require("../lib/redisClient");
 const { buildCsv, attachJobReview } = require("./jobReviewHelper");
 const { attachJobContract, backendJobIdFromUid } = require("./jobContract");
 const { recordAuthEvent } = require("./authAuditService");
-const { reserveCredits, settleCredits } = require("./hubCreditsService");
+const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
 const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 const QUEUE_NAME = "ml-atacado";
@@ -243,8 +243,26 @@ function canAccessJob(job, accountKey) {
   return Boolean(wanted && current && wanted === current);
 }
 
+function wholesaleBillingOperationKey(dryRun = false) {
+  return dryRun === true ? "wholesale.validate" : "wholesale.apply";
+}
+
+function wholesaleBillingIdempotencyKey(operationId) {
+  const id = String(operationId || "").trim();
+  if (!id) throw new Error("wholesale_operation_id_required");
+  return `wholesale:${id}`;
+}
+
+function wholesaleBillableUnits(data = {}, meta = {}) {
+  if (data?.dryRun === true) {
+    return Math.max(0, Number(meta.processed || 0));
+  }
+  return Math.max(0, Number(meta.applied || 0));
+}
+
 function telemetryFrom(job, meta = {}) {
   const reservation = job?.data?.creditReservation || {};
+  const billableUnits = wholesaleBillableUnits(job?.data || {}, meta);
   return {
     billing_mode:
       reservation?.shadow === true
@@ -261,8 +279,10 @@ function telemetryFrom(job, meta = {}) {
     selected: Number(meta.total || job?.data?.itemIds?.length || 0),
     processed: Number(meta.processed || 0),
     applied: Number(meta.applied || 0),
+    validated: job?.data?.dryRun === true ? Number(meta.processed || 0) : 0,
     skipped: Number(meta.skipped || 0),
     errors: Number(meta.errors || 0),
+    billable_units: billableUnits,
     estimated_credits:
       reservation?.quote?.estimated_credits ??
       reservation?.reserved_credits ??
@@ -630,20 +650,20 @@ class AtacadoJobsService {
 
     queue.on("completed", async (job) => {
       const meta = (await readMeta(job.id)) || {};
-      const processed = Math.max(0, Number(meta.processed || 0));
+      const billableUnits = wholesaleBillableUnits(job?.data || {}, meta);
       await settleCredits(job?.data?.creditReservation, {
-        release: processed <= 0,
-        consumedUnits: processed > 0 ? processed : null,
+        release: billableUnits <= 0,
+        consumedUnits: billableUnits > 0 ? billableUnits : null,
       }).catch(() => {});
     });
 
     queue.on("failed", async (job, error) => {
       console.error("[AtacadoJobsService] job failed:", job?.id, error?.message || error);
       const meta = (await readMeta(job.id)) || {};
-      const processed = Math.max(0, Number(meta.processed || 0));
+      const billableUnits = wholesaleBillableUnits(job?.data || {}, meta);
       await settleCredits(job?.data?.creditReservation, {
-        release: processed <= 0,
-        consumedUnits: processed > 0 ? processed : null,
+        release: billableUnits <= 0,
+        consumedUnits: billableUnits > 0 ? billableUnits : null,
       }).catch(() => {});
     });
 
@@ -651,6 +671,39 @@ class AtacadoJobsService {
       `[AtacadoJobsService] worker Bull inicializado (concurrency=${WORKER_CONCURRENCY})`,
     );
     return queue;
+  }
+
+  static async previewCredits({
+    itemIds = [],
+    dryRun = false,
+    mlCreds = {},
+    account = null,
+  } = {}) {
+    const ids = Array.from(
+      new Set(
+        (itemIds || [])
+          .map((value) => String(value || "").trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    );
+    if (!ids.length) throw new Error("Nenhum anuncio informado para calcular o custo do atacado.");
+    const operationKey = wholesaleBillingOperationKey(dryRun);
+    const quote = await quoteCredits({
+      mlCreds,
+      account,
+      operationKey,
+      units: ids.length,
+    });
+    return {
+      operation_key: operationKey,
+      quantity: ids.length,
+      estimated_credits: Number(quote?.estimated_credits || 0),
+      available_credits:
+        quote?.available_credits == null ? null : Number(quote.available_credits),
+      sufficient: quote?.sufficient !== false,
+      unlimited: quote?.unlimited === true,
+      quote,
+    };
   }
 
   static async enqueue({
@@ -677,12 +730,12 @@ class AtacadoJobsService {
     if (!normalizedAccount) throw new Error("Conta obrigatoria para iniciar job de atacado.");
 
     const operationId = `WHOLESALE-${crypto.randomUUID()}`;
-    const billingOperationKey = dryRun ? "wholesale.validate" : "wholesale.apply";
+    const billingOperationKey = wholesaleBillingOperationKey(dryRun);
     const creditReservation = await reserveCredits({
       mlCreds,
       operationKey: billingOperationKey,
       units: ids.length,
-      idempotencyKey: `wholesale:${operationId}`,
+      idempotencyKey: wholesaleBillingIdempotencyKey(operationId),
     });
 
     const queue = getQueue();
@@ -823,5 +876,12 @@ class AtacadoJobsService {
     };
   }
 }
+
+AtacadoJobsService._test = {
+  wholesaleBillingOperationKey,
+  wholesaleBillingIdempotencyKey,
+  wholesaleBillableUnits,
+  telemetryFrom,
+};
 
 module.exports = AtacadoJobsService;
