@@ -415,6 +415,19 @@ function withBase(path) {
     }
 
     try {
+      try {
+        const quote = await postJson(API_CREDIT_QUOTE, {
+          type: "lookup",
+          mlb_ids: mlbs,
+        });
+        if (!confirmProductionTimeQuote(quote, { lookup: true })) return;
+      } catch (quoteError) {
+        console.warn(
+          "[prazo] prévia de créditos indisponível; seguindo em shadow:",
+          quoteError?.message || quoteError,
+        );
+      }
+
       box("info", `Consultando prazo de producao...\n\nItens: ${mlbs.length}`);
       const payload = await postJson(API_LOOKUP, { mlb_ids: mlbs });
       renderLookupStats(payload);
