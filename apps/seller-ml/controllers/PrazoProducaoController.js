@@ -127,7 +127,7 @@ async function quotePrazoCredits(req, res) {
   try {
     const type = String(req.body?.type || "apply").trim().toLowerCase();
     const quote = await previewPrazoCredits({
-      type: type === "lookup_active" ? "lookup_active" : "apply",
+      type: ["lookup", "lookup_active"].includes(type) ? type : "apply",
       mlbIds: req.body?.mlb_ids || req.body?.item_ids || [],
       maxItems: req.body?.max_items ?? req.body?.maxItems ?? null,
       mlCreds: res.locals?.mlCreds || {},
