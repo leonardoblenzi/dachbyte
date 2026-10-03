@@ -6,6 +6,7 @@ const { makeBullClient, getSharedRedis } = require("../lib/redisClient");
 const {
   updatePrazoProducao,
   consultPrazoItemRow,
+  consultPrazoProducao,
   summarizePrazoRows,
   listActiveSellerItemIds,
   prepareAuthState,
@@ -180,7 +181,9 @@ function prazoTermDays(term) {
 }
 
 function productionTimeBillingOperationKey(type = "apply") {
-  return type === "lookup_active" ? "production-time.lookup" : "production-time.apply";
+  return ["lookup", "lookup_active"].includes(String(type || "").trim().toLowerCase())
+    ? "production-time.lookup"
+    : "production-time.apply";
 }
 
 function productionTimeBillingIdempotencyKey(operationId) {
@@ -757,6 +760,66 @@ async function enqueuePrazoLookupActiveJob({
   return String(job.id);
 }
 
+async function consultPrazoWithCredits({
+  accessToken,
+  mlCreds = {},
+  mlbIds = [],
+  account = null,
+} = {}) {
+  const ids = Array.from(
+    new Set((Array.isArray(mlbIds) ? mlbIds : []).map(normMlb).filter(Boolean)),
+  );
+  if (!ids.length) throw new Error("Informe ao menos um MLB valido para consultar.");
+
+  const operationId = `PRAZO-LOOKUP-DIRECT-${crypto.randomUUID()}`;
+  const operationKey = productionTimeBillingOperationKey("lookup");
+  const creditReservation = await reserveCredits({
+    mlCreds,
+    account,
+    operationKey,
+    units: ids.length,
+    idempotencyKey: productionTimeBillingIdempotencyKey(operationId),
+  });
+
+  try {
+    const payload = await consultPrazoProducao({
+      accessToken,
+      mlCreds,
+      mlbIds: ids,
+    });
+    const billableUnits = Math.max(0, Number(payload?.found || 0));
+    await settleCredits(creditReservation, {
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
+    });
+    return {
+      ...payload,
+      billing_telemetry: {
+        billing_mode:
+          creditReservation?.shadow === true
+            ? "shadow"
+            : creditReservation?.bypass === true
+              ? "bypass"
+              : "enforce",
+        operation_key: operationKey,
+        operation_id: operationId,
+        selected: ids.length,
+        processed: Number(payload?.total || ids.length),
+        success: Number(payload?.found || 0),
+        failed: Number(payload?.errors || 0),
+        billable_units: billableUnits,
+        estimated_credits:
+          creditReservation?.quote?.estimated_credits ??
+          creditReservation?.reserved_credits ??
+          null,
+      },
+    };
+  } catch (error) {
+    await settleCredits(creditReservation, { release: true }).catch(() => {});
+    throw error;
+  }
+}
+
 async function previewPrazoCredits({
   type = "apply",
   mlbIds = [],
@@ -1062,6 +1125,7 @@ module.exports = {
   getPrazoJobDetail,
   getPrazoJobCsv,
   cancelPrazoJob,
+  consultPrazoWithCredits,
   previewPrazoCredits,
   _test: {
     productionTimeBillingOperationKey,
