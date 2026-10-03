@@ -66,6 +66,39 @@
     return payload;
   }
 
+  async function fetchCharacteristicsCreditQuote(rows, dryRun) {
+    return apiJson("/api/caracteristicas/credits/quote", {
+      method: "POST",
+      body: JSON.stringify({
+        rows,
+        dry_run: dryRun === true,
+      }),
+    });
+  }
+
+  function confirmCharacteristicsCreditQuote(quote, { dryRun = false } = {}) {
+    const estimated = Number(quote?.estimated_credits || 0);
+    const quantity = Math.max(0, Number(quote?.quantity || 0));
+    const unlimited = quote?.unlimited === true;
+    if (unlimited || estimated <= 0) return true;
+
+    const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+    const lines = [
+      `${dryRun ? "Simulação" : "Aplicação"} de características para aproximadamente ${formatter.format(quantity)} anúncio(s).`,
+      `Custo estimado: ${formatter.format(estimated)} crédito(s).`,
+    ];
+    if (quote?.available_credits != null) {
+      lines.push(
+        `Saldo disponível: ${formatter.format(Number(quote.available_credits || 0))} crédito(s).`,
+      );
+    }
+    if (quote?.sufficient === false) {
+      lines.push("O saldo atual é menor que a estimativa informada.");
+    }
+    lines.push("Deseja continuar?");
+    return window.confirm(lines.join("\n\n"));
+  }
+
   function accountLabel() {
     const raw = String(document.getElementById("account-current")?.textContent || "").trim();
     if (!raw || /carregando|indispon|nenhuma|nao selecionada/i.test(raw)) return null;
@@ -369,7 +402,18 @@
     if (!state.validation?.apply_rows?.length) return;
     const dryRun = Boolean($("#dryRun")?.checked);
     const rows = state.validation.apply_rows;
-    if (!window.confirm(`${dryRun ? "Simular" : "Aplicar"} caracteristicas em ${rows.length} MLB(s)?`)) return;
+
+    try {
+      const creditQuote = await fetchCharacteristicsCreditQuote(rows, dryRun);
+      const confirmed = confirmCharacteristicsCreditQuote(creditQuote, { dryRun });
+      if (confirmed === false) return;
+    } catch (error) {
+      console.warn(
+        "[caracteristicas] prévia de créditos indisponível; seguindo em shadow:",
+        error?.message || error,
+      );
+      if (!window.confirm(`${dryRun ? "Simular" : "Aplicar"} caracteristicas em ${rows.length} MLB(s)?`)) return;
+    }
 
     const localJobId = window.JobsPanel?.addLocalJob?.({
       title: `${dryRun ? "Simular" : "Aplicar"} Caracteristicas - ${rows.length} item(ns)`,
