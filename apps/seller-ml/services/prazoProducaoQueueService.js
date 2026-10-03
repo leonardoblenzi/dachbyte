@@ -449,6 +449,19 @@ async function processPrazoLookupActiveJob(job) {
   const { sellerId, ids } = listing;
 
   const total = ids.length;
+  if (total > 0 && !job.data?.creditReservation) {
+    const creditReservation = await reserveCredits({
+      mlCreds,
+      operationKey:
+        job.data?.billingOperationKey || productionTimeBillingOperationKey("lookup_active"),
+      units: total,
+      idempotencyKey: productionTimeBillingIdempotencyKey(
+        job.data?.operationId || String(job.id),
+      ),
+    });
+    job.data.creditReservation = creditReservation;
+    await job.update(job.data);
+  }
   const results = new Array(total);
   let processed = 0;
   let ok = 0;
