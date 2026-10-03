@@ -59,6 +59,24 @@ class AtacadoController {
     }
   }
 
+  static async quoteCredits(req, res) {
+    try {
+      const quote = await AtacadoJobsService.previewCredits({
+        itemIds: req.body?.item_ids,
+        dryRun: req.body?.dry_run === true,
+        mlCreds: res.locals?.mlCreds || {},
+        account: res.locals?.account || null,
+      });
+      return res.json({ success: true, ...quote });
+    } catch (error) {
+      return res.status(Number(error?.statusCode || 400)).json({
+        success: false,
+        error: error?.message || "Erro ao calcular o custo do atacado.",
+        code: error?.code || null,
+      });
+    }
+  }
+
   static async apply(req, res) {
     try {
       const job = await AtacadoJobsService.enqueue({
