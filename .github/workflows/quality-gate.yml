@@ -71,6 +71,9 @@ jobs:
           node --check routes/atacadoRoutes.js
           node --check public/js/atacado.js
           node --check services/caracteristicasJobsService.js
+          node --check controllers/CaracteristicasController.js
+          node --check routes/caracteristicasRoutes.js
+          node --check public/js/caracteristicas.js
           node --check services/prazoProducaoQueueService.js
           node --check services/validarDimensoesJobService.js
           node --check services/estoqueAlertaQueueService.js
