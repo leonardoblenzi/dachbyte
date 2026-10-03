@@ -7,7 +7,7 @@ const { makeBullClient, getSharedRedis } = require("../lib/redisClient");
 const { buildCsv, attachJobReview } = require("./jobReviewHelper");
 const { attachJobContract, backendJobIdFromUid } = require("./jobContract");
 const { recordAuthEvent } = require("./authAuditService");
-const { reserveCredits, settleCredits } = require("./hubCreditsService");
+const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
 const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 const QUEUE_NAME = "ml-modelo-massa";
@@ -189,6 +189,23 @@ async function auditModeloEvent(data, jobId, evento, status, metadata = {}) {
   });
 }
 
+function massModelBillingOperationKey(dryRun = false) {
+  return dryRun === true ? "mass-model.validate" : "mass-model.apply";
+}
+
+function massModelBillingIdempotencyKey(operationId) {
+  const id = String(operationId || "").trim();
+  if (!id) throw new Error("mass_model_operation_id_required");
+  return `mass-model:${id}`;
+}
+
+function massModelBillableUnits(data = {}, meta = {}) {
+  if (data?.dryRun === true) {
+    return Math.max(0, Number(meta.validated || 0));
+  }
+  return Math.max(0, Number(meta.applied || 0));
+}
+
 function telemetryFrom(job, meta = {}) {
   const reservation = job?.data?.creditReservation || {};
   return {
@@ -207,9 +224,11 @@ function telemetryFrom(job, meta = {}) {
     selected: Number(meta.total || job?.data?.itemIds?.length || 0),
     processed: Number(meta.processed || 0),
     applied: Number(meta.applied || 0),
+    validated: Number(meta.validated || 0),
     manual: Number(meta.manual || 0),
     skipped: Number(meta.skipped || 0),
     errors: Number(meta.errors || 0),
+    billable_units: massModelBillableUnits(job?.data || {}, meta),
     estimated_credits:
       reservation?.quote?.estimated_credits ??
       reservation?.reserved_credits ??
@@ -260,6 +279,7 @@ async function shapeJob(job, { includeResults = false } = {}) {
     processed,
     total,
     applied,
+    validated: Math.max(0, Number(meta.validated || 0)),
     manual,
     skipped,
     errors,
@@ -311,6 +331,7 @@ async function runJob(job) {
     total: ids.length,
     processed: 0,
     applied: 0,
+    validated: 0,
     manual: 0,
     skipped: 0,
     errors: 0,
@@ -330,6 +351,7 @@ async function runJob(job) {
       total: ids.length,
       processed: 0,
       applied: 0,
+      validated: 0,
       manual: 0,
       skipped: 0,
       errors: 0,
@@ -340,6 +362,7 @@ async function runJob(job) {
   const state = await ModeloMassaService.prepareState(data.mlCreds || {});
   let processed = 0;
   let applied = 0;
+  let validated = 0;
   let manual = 0;
   let skipped = 0;
   let errors = 0;
@@ -357,6 +380,7 @@ async function runJob(job) {
           total: ids.length,
           processed,
           applied,
+          validated,
           manual,
           skipped,
           errors,
@@ -411,8 +435,9 @@ async function runJob(job) {
     );
 
     if (result.status === "applied") applied += 1;
+    else if (result.status === "dry_run") validated += 1;
     else if (result.status === "manual") manual += 1;
-    else if (result.status === "skipped" || result.status === "dry_run") skipped += 1;
+    else if (result.status === "skipped") skipped += 1;
     else errors += 1;
 
     if (resultBuffer.length >= RESULT_FLUSH_EVERY) {
@@ -427,6 +452,7 @@ async function runJob(job) {
         total: ids.length,
         processed,
         applied,
+        validated,
         manual,
         skipped,
         errors,
@@ -444,6 +470,7 @@ async function runJob(job) {
     total: ids.length,
     processed,
     applied,
+    validated,
     manual,
     skipped,
     errors,
@@ -456,6 +483,7 @@ async function runJob(job) {
     total_items: ids.length,
     processed,
     applied,
+    validated,
     manual,
     skipped,
     errors,
@@ -464,7 +492,7 @@ async function runJob(job) {
     billing_telemetry: telemetryFrom(job, finalMeta),
   });
 
-  return { ok: true, total: ids.length, processed, applied, manual, skipped, errors };
+  return { ok: true, total: ids.length, processed, applied, validated, manual, skipped, errors };
 }
 
 class ModeloMassaJobsService {
@@ -575,20 +603,20 @@ class ModeloMassaJobsService {
 
     queue.on("completed", async (job) => {
       const meta = (await readMeta(job.id)) || {};
-      const processed = Math.max(0, Number(meta.processed || 0));
+      const billableUnits = massModelBillableUnits(job?.data || {}, meta);
       await settleCredits(job?.data?.creditReservation, {
-        release: processed <= 0,
-        consumedUnits: processed > 0 ? processed : null,
+        release: billableUnits <= 0,
+        consumedUnits: billableUnits > 0 ? billableUnits : null,
       }).catch(() => {});
     });
 
     queue.on("failed", async (job, error) => {
       console.error("[ModeloMassaJobsService] job failed:", job?.id, error?.message || error);
       const meta = (await readMeta(job.id)) || {};
-      const processed = Math.max(0, Number(meta.processed || 0));
+      const billableUnits = massModelBillableUnits(job?.data || {}, meta);
       await settleCredits(job?.data?.creditReservation, {
-        release: processed <= 0,
-        consumedUnits: processed > 0 ? processed : null,
+        release: billableUnits <= 0,
+        consumedUnits: billableUnits > 0 ? billableUnits : null,
       }).catch(() => {});
     });
 
@@ -596,6 +624,39 @@ class ModeloMassaJobsService {
       `[ModeloMassaJobsService] worker Bull inicializado (concurrency=${WORKER_CONCURRENCY})`,
     );
     return queue;
+  }
+
+  static async previewCredits({
+    itemIds = [],
+    dryRun = false,
+    mlCreds = {},
+    account = null,
+  } = {}) {
+    const ids = Array.from(
+      new Set(
+        (itemIds || [])
+          .map((value) => String(value || "").trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    );
+    if (!ids.length) throw new Error("Nenhum anuncio informado para calcular o custo.");
+    const operationKey = massModelBillingOperationKey(dryRun);
+    const quote = await quoteCredits({
+      mlCreds,
+      account,
+      operationKey,
+      units: ids.length,
+    });
+    return {
+      operation_key: operationKey,
+      quantity: ids.length,
+      estimated_credits: Number(quote?.estimated_credits || 0),
+      available_credits:
+        quote?.available_credits == null ? null : Number(quote.available_credits),
+      sufficient: quote?.sufficient !== false,
+      unlimited: quote?.unlimited === true,
+      quote,
+    };
   }
 
   static async enqueue({
@@ -631,12 +692,12 @@ class ModeloMassaJobsService {
     }
 
     const operationId = `MODEL-${crypto.randomUUID()}`;
-    const billingOperationKey = "mass-model.apply";
+    const billingOperationKey = massModelBillingOperationKey(dryRun);
     const creditReservation = await reserveCredits({
       mlCreds,
       operationKey: billingOperationKey,
       units: ids.length,
-      idempotencyKey: `mass-model:${operationId}`,
+      idempotencyKey: massModelBillingIdempotencyKey(operationId),
     });
 
     let job;
@@ -670,6 +731,7 @@ class ModeloMassaJobsService {
         total: ids.length,
         processed: 0,
         applied: 0,
+        validated: 0,
         manual: 0,
         skipped: 0,
         errors: 0,
@@ -777,5 +839,12 @@ class ModeloMassaJobsService {
     };
   }
 }
+
+ModeloMassaJobsService._test = {
+  massModelBillingOperationKey,
+  massModelBillingIdempotencyKey,
+  massModelBillableUnits,
+  telemetryFrom,
+};
 
 module.exports = ModeloMassaJobsService;
