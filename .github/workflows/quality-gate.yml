@@ -67,6 +67,9 @@ jobs:
           node --check services/hubCreditsService.js
           node --check services/promoJobsService.js
           node --check services/atacadoJobsService.js
+          node --check controllers/AtacadoController.js
+          node --check routes/atacadoRoutes.js
+          node --check public/js/atacado.js
           node --check services/caracteristicasJobsService.js
           node --check services/prazoProducaoQueueService.js
           node --check services/validarDimensoesJobService.js
