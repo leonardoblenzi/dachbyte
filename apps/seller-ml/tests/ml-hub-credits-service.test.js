@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const {
   hasUnlimitedAccess,
   reserveCredits,
+  settleCredits,
 } = require("../services/hubCreditsService");
 
 test("identifica contas ilimitadas migradas ou de cortesia", () => {
@@ -276,7 +277,7 @@ test("conta ilimitada em shadow recebe estimativa sem reservar saldo", async () 
               chargeable: false,
               operation_key: "promotions.apply",
               quantity: 30000,
-              estimated_credits: 10,
+              estimated_credits: 0,
               available_credits: 0,
               sufficient: true,
             },
@@ -305,9 +306,185 @@ test("conta ilimitada em shadow recebe estimativa sem reservar saldo", async () 
     assert.equal(reservation.shadow, true);
     assert.equal(reservation.reason, "unlimited_shadow");
     assert.equal(reservation.reserved_credits, 0);
-    assert.equal(reservation.quote.estimated_credits, 10);
+    assert.equal(reservation.quote.estimated_credits, 0);
     assert.equal(reservation.quote.chargeable, false);
     assert.equal(calls.some((call) => call.url.includes("/credits/reserve")), false);
+  } finally {
+    if (previous.mode === undefined) delete process.env.HUB_RESOURCE_CREDITS_MODE;
+    else process.env.HUB_RESOURCE_CREDITS_MODE = previous.mode;
+    if (previous.legacyMode === undefined) delete process.env.HUB_CREDITS_MODE;
+    else process.env.HUB_CREDITS_MODE = previous.legacyMode;
+    if (previous.baseUrl === undefined) delete process.env.HUB_BASE_URL;
+    else process.env.HUB_BASE_URL = previous.baseUrl;
+    if (previous.token === undefined) delete process.env.HUB_INTERNAL_TOKEN;
+    else process.env.HUB_INTERNAL_TOKEN = previous.token;
+    global.fetch = previous.fetch;
+  }
+});
+
+
+test("sem configuracao explicita o modo padrao e shadow e nunca liquida saldo", async () => {
+  const previous = {
+    mode: process.env.HUB_RESOURCE_CREDITS_MODE,
+    legacyMode: process.env.HUB_CREDITS_MODE,
+    baseUrl: process.env.HUB_BASE_URL,
+    token: process.env.HUB_INTERNAL_TOKEN,
+    fetch: global.fetch,
+  };
+  delete process.env.HUB_RESOURCE_CREDITS_MODE;
+  delete process.env.HUB_CREDITS_MODE;
+  process.env.HUB_BASE_URL = "https://hub-default-shadow.example.test";
+  process.env.HUB_INTERNAL_TOKEN = "internal-test-token";
+
+  const calls = [];
+  global.fetch = async (url, options = {}) => {
+    calls.push({
+      url: String(url),
+      method: options.method || "GET",
+      body: options.body ? JSON.parse(String(options.body)) : null,
+    });
+    const pathname = new URL(String(url)).pathname;
+    if (pathname === "/v1/internal/resources/sync") {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({ ok: true, resource: { resource_key: "ml:default_shadow" } });
+        },
+      };
+    }
+    if (pathname === "/v1/internal/resources/credits/quote") {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            ok: true,
+            quote: {
+              operation_key: "promotions.apply",
+              quantity: 30000,
+              estimated_credits: 10,
+              available_credits: 1000,
+              sufficient: true,
+              unlimited: false,
+              chargeable: true,
+            },
+          });
+        },
+      };
+    }
+    throw new Error(`unexpected_hub_call:${pathname}`);
+  };
+
+  try {
+    const reservation = await reserveCredits({
+      mlCreds: {
+        meli_user_id: "default_shadow",
+        tenant_id: "tenant_default_shadow",
+        billing_status: "active",
+        billing_mode: "paid",
+        usage_policy: "metered",
+      },
+      operationKey: "promotions.apply",
+      units: 30000,
+      idempotencyKey: "promotion-operation:default-shadow",
+    });
+
+    const settled = await settleCredits(reservation, {
+      release: false,
+      consumedUnits: 30000,
+    });
+
+    assert.equal(reservation.shadow, true);
+    assert.equal(reservation.bypass, true);
+    assert.equal(reservation.reason, "shadow_mode");
+    assert.equal(settled, reservation);
+
+    const paths = calls.map((call) => new URL(call.url).pathname);
+    assert.deepEqual(paths, [
+      "/v1/internal/resources/sync",
+      "/v1/internal/resources/credits/quote",
+    ]);
+    assert.equal(paths.some((pathname) => pathname.endsWith("/credits/reserve")), false);
+    assert.equal(paths.some((pathname) => pathname.endsWith("/credits/settle")), false);
+  } finally {
+    if (previous.mode === undefined) delete process.env.HUB_RESOURCE_CREDITS_MODE;
+    else process.env.HUB_RESOURCE_CREDITS_MODE = previous.mode;
+    if (previous.legacyMode === undefined) delete process.env.HUB_CREDITS_MODE;
+    else process.env.HUB_CREDITS_MODE = previous.legacyMode;
+    if (previous.baseUrl === undefined) delete process.env.HUB_BASE_URL;
+    else process.env.HUB_BASE_URL = previous.baseUrl;
+    if (previous.token === undefined) delete process.env.HUB_INTERNAL_TOKEN;
+    else process.env.HUB_INTERNAL_TOKEN = previous.token;
+    global.fetch = previous.fetch;
+  }
+});
+
+test("falha de quote em shadow usa estimativa local sem reservar ou liquidar saldo", async () => {
+  const previous = {
+    mode: process.env.HUB_RESOURCE_CREDITS_MODE,
+    legacyMode: process.env.HUB_CREDITS_MODE,
+    baseUrl: process.env.HUB_BASE_URL,
+    token: process.env.HUB_INTERNAL_TOKEN,
+    fetch: global.fetch,
+  };
+  process.env.HUB_RESOURCE_CREDITS_MODE = "shadow";
+  delete process.env.HUB_CREDITS_MODE;
+  process.env.HUB_BASE_URL = "https://hub-shadow-fallback.example.test";
+  process.env.HUB_INTERNAL_TOKEN = "internal-test-token";
+
+  const calls = [];
+  global.fetch = async (url, options = {}) => {
+    calls.push(String(url));
+    const pathname = new URL(String(url)).pathname;
+    if (pathname === "/v1/internal/resources/sync") {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({ ok: true, resource: { resource_key: "ml:shadow_fallback" } });
+        },
+      };
+    }
+    if (pathname === "/v1/internal/resources/credits/quote") {
+      return {
+        ok: false,
+        status: 503,
+        async text() {
+          return JSON.stringify({ ok: false, error: "temporary_unavailable" });
+        },
+      };
+    }
+    throw new Error(`unexpected_hub_call:${pathname}`);
+  };
+
+  try {
+    const reservation = await reserveCredits({
+      mlCreds: {
+        meli_user_id: "shadow_fallback",
+        tenant_id: "tenant_shadow_fallback",
+        billing_status: "active",
+        billing_mode: "paid",
+        usage_policy: "metered",
+      },
+      operationKey: "promotions.apply",
+      units: 30000,
+      idempotencyKey: "promotion-operation:shadow-fallback",
+    });
+
+    await settleCredits(reservation, { release: true });
+
+    assert.equal(reservation.shadow, true);
+    assert.equal(reservation.bypass, true);
+    assert.equal(reservation.reserved_credits, 10);
+    assert.equal(
+      calls.some((url) => new URL(url).pathname.endsWith("/credits/reserve")),
+      false,
+    );
+    assert.equal(
+      calls.some((url) => new URL(url).pathname.endsWith("/credits/settle")),
+      false,
+    );
   } finally {
     if (previous.mode === undefined) delete process.env.HUB_RESOURCE_CREDITS_MODE;
     else process.env.HUB_RESOURCE_CREDITS_MODE = previous.mode;
