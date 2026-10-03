@@ -12,6 +12,7 @@ const {
   getPrazoJobDetail,
   getPrazoJobCsv,
   cancelPrazoJob,
+  previewPrazoCredits,
 } = require("../services/prazoProducaoQueueService");
 const { attachJobContract } = require("../services/jobContract");
 const {
@@ -116,6 +117,26 @@ async function consultarPrazoProducao(req, res) {
     res.status(e.statusCode || 400).json({
       success: false,
       error: e.message || "Falha ao consultar prazos",
+      details: e.details || null,
+    });
+  }
+}
+
+async function quotePrazoCredits(req, res) {
+  try {
+    const type = String(req.body?.type || "apply").trim().toLowerCase();
+    const quote = await previewPrazoCredits({
+      type: type === "lookup_active" ? "lookup_active" : "apply",
+      mlbIds: req.body?.mlb_ids || req.body?.item_ids || [],
+      maxItems: req.body?.max_items ?? req.body?.maxItems ?? null,
+      mlCreds: res.locals?.mlCreds || {},
+      account: res.locals?.account || null,
+    });
+    return res.json({ success: true, ...quote });
+  } catch (e) {
+    return res.status(e.statusCode || 400).json({
+      success: false,
+      error: e.message || "Falha ao calcular o custo do prazo de producao.",
       details: e.details || null,
     });
   }
@@ -288,4 +309,5 @@ module.exports = {
   detailJobPrazoProducao,
   downloadJobPrazoProducao,
   cancelJobPrazoProducao,
+  quotePrazoCredits,
 };
