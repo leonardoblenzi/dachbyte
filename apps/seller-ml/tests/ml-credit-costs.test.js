@@ -25,9 +25,19 @@ test("enriquecimentos de anuncios somam apenas uma vez", () => {
   );
 });
 
-test("operacoes em massa crescem por unidade configurada", () => {
-  assert.equal(calculateOperationCredits("promotions.apply", { units: 10 }), 12);
-  assert.equal(calculateOperationCredits("promotions.validate", { units: 10 }), 4);
+test("operacoes em massa usam a escala comercial aprovada", () => {
+  assert.equal(calculateOperationCredits("promotions.apply", { units: 30000 }), 10);
+  assert.equal(calculateOperationCredits("promotions.remove", { units: 30000 }), 10);
+  assert.equal(calculateOperationCredits("promotions.validate", { units: 30000 }), 2);
+  assert.equal(calculateOperationCredits("promotions.reapply_recent", { units: 30000 }), 20);
+  assert.equal(calculateOperationCredits("wholesale.apply", { units: 30000 }), 20);
+  assert.equal(calculateOperationCredits("wholesale.validate", { units: 30000 }), 2);
+  assert.equal(calculateOperationCredits("characteristics.apply", { units: 30000 }), 20);
+  assert.equal(calculateOperationCredits("characteristics.validate", { units: 30000 }), 2);
+  assert.equal(calculateOperationCredits("mass-model.apply", { units: 30000 }), 20);
+  assert.equal(calculateOperationCredits("mass-model.validate", { units: 30000 }), 2);
+  assert.equal(calculateOperationCredits("production-time.apply", { units: 30000 }), 20);
+  assert.equal(calculateOperationCredits("production-time.lookup", { units: 30000 }), 2);
   assert.equal(calculateOperationCredits("dimensions.validate", { units: 10 }), 7);
 });
 

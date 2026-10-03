@@ -2,7 +2,6 @@
 
 const {
   updatePrazoProducao,
-  consultPrazoProducao,
 } = require("../services/prazoProducaoService");
 const {
   enqueuePrazoJob,
@@ -12,6 +11,8 @@ const {
   getPrazoJobDetail,
   getPrazoJobCsv,
   cancelPrazoJob,
+  previewPrazoCredits,
+  consultPrazoWithCredits,
 } = require("../services/prazoProducaoQueueService");
 const { attachJobContract } = require("../services/jobContract");
 const {
@@ -105,10 +106,11 @@ async function setPrazoProducaoSingle(req, res) {
 async function consultarPrazoProducao(req, res) {
   try {
     const accessToken = pickAccessToken(req);
-    const payload = await consultPrazoProducao({
+    const payload = await consultPrazoWithCredits({
       accessToken,
       mlCreds: res.locals?.mlCreds || {},
       mlbIds: req.body?.mlb_ids || req.body?.item_ids || [],
+      account: res.locals?.account || null,
     });
 
     res.json(payload);
@@ -116,6 +118,26 @@ async function consultarPrazoProducao(req, res) {
     res.status(e.statusCode || 400).json({
       success: false,
       error: e.message || "Falha ao consultar prazos",
+      details: e.details || null,
+    });
+  }
+}
+
+async function quotePrazoCredits(req, res) {
+  try {
+    const type = String(req.body?.type || "apply").trim().toLowerCase();
+    const quote = await previewPrazoCredits({
+      type: ["lookup", "lookup_active"].includes(type) ? type : "apply",
+      mlbIds: req.body?.mlb_ids || req.body?.item_ids || [],
+      maxItems: req.body?.max_items ?? req.body?.maxItems ?? null,
+      mlCreds: res.locals?.mlCreds || {},
+      account: res.locals?.account || null,
+    });
+    return res.json({ success: true, ...quote });
+  } catch (e) {
+    return res.status(e.statusCode || 400).json({
+      success: false,
+      error: e.message || "Falha ao calcular o custo do prazo de producao.",
       details: e.details || null,
     });
   }
@@ -288,4 +310,5 @@ module.exports = {
   detailJobPrazoProducao,
   downloadJobPrazoProducao,
   cancelJobPrazoProducao,
+  quotePrazoCredits,
 };

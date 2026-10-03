@@ -45,7 +45,25 @@
   }
 
   function resourceFrom(payload) {
-    return payload?.resource || {};
+    return {
+      ...(payload?.resource || {}),
+      ...(payload?.wallet || {}),
+    };
+  }
+
+  function creditScale(payload) {
+    return Math.max(
+      1,
+      Number(
+        payload?.wallet?.credit_unit_scale ||
+        payload?.resource?.credit_unit_scale ||
+        1
+      ) || 1,
+    );
+  }
+
+  function visibleCreditUnits(value, scale = 1) {
+    return Number(value || 0) / Math.max(1, Number(scale || 1));
   }
 
   function isUnlimited(payload) {
@@ -69,13 +87,14 @@
     document.body?.classList.toggle("credits-app--unlimited", unlimited);
     const monthly = Number(resource.monthly_balance || 0);
     const purchased = Number(resource.purchased_balance || 0);
-    const total = monthly + purchased;
+    const prepaid = resource.prepaid === true || String(resource.model || resource.consumption_model || "") === "prepaid_credits";
+    const total = Number(resource.available_balance ?? (monthly + purchased));
     const status = String(resource.status || payload?.status || "indefinido");
     const plan = String(resource.plan_code || "ml_pro");
     const range = String(resource.order_range_code || "faixa nao definida");
 
     $("credits-total").textContent = unlimited ? "Ilimitado" : `${number(total)} c`;
-    $("credits-monthly").textContent = unlimited ? "Ilimitado" : `${number(monthly)} c`;
+    $("credits-monthly").textContent = unlimited ? "Ilimitado" : prepaid ? "Pré-pago" : `${number(monthly)} c`;
     $("credits-purchased").textContent = unlimited ? "Ilimitado" : `${number(purchased)} c`;
     $("credits-status").textContent = unlimited ? "Uso ilimitado" : status.replaceAll("_", " ");
     $("credits-plan").textContent = `${plan} - ${range}`;
@@ -83,11 +102,13 @@
 
     const starts = dateLabel(resource.period_starts_at);
     const ends = dateLabel(resource.period_ends_at);
-    $("credits-period").textContent = starts && ends
-      ? `Ciclo de ${starts} ate ${ends}.`
-      : unlimited
-        ? "Conta legado, cortesia ou interna sem limite de consumo."
-        : "Ciclo mensal ainda nao definido.";
+    $("credits-period").textContent = unlimited
+      ? "Conta legado, cortesia ou interna sem limite de consumo."
+      : prepaid
+        ? "Sem franquia mensal. O saldo comprado não expira."
+        : starts && ends
+          ? `Ciclo de ${starts} ate ${ends}.`
+          : "Ciclo mensal ainda nao definido.";
   }
 
   function renderPackages(packages = []) {
@@ -150,7 +171,7 @@
     return normalized || "saldo";
   }
 
-  function renderLedger(ledger = []) {
+  function renderLedger(ledger = [], scale = 1) {
     const list = $("credits-ledger");
     if (!list) return;
     if (!ledger.length) {
@@ -159,7 +180,7 @@
     }
 
     list.innerHTML = ledger.map((entry) => {
-      const amount = Number(entry.amount || 0);
+      const amount = visibleCreditUnits(entry.amount, scale);
       const amountClass = amount > 0 ? "is-positive" : amount < 0 ? "is-negative" : "is-neutral";
       const title = ledgerLabels[String(entry.entry_type || "")] || String(entry.entry_type || "Movimentacao");
       const reason = String(entry.reason || entry.reference_type || "").replaceAll("_", " ");
@@ -175,7 +196,7 @@
     }).join("");
   }
 
-  function renderReservations(reservations = []) {
+  function renderReservations(reservations = [], scale = 1) {
     const list = $("credits-reservations");
     if (!list) return;
     if (!reservations.length) {
@@ -187,7 +208,7 @@
       <article class="credits-reservation-row">
         <div class="credits-reservation-main">
           <span class="credits-reservation-title">${String(item.operation_key || "job").replaceAll("_", " ")}</span>
-          <span class="credits-reservation-meta">${number(item.reserved_credits)} c reservados - ${formatDateTime(item.created_at)}</span>
+          <span class="credits-reservation-meta">${number(visibleCreditUnits(item.reserved_credits, item.credit_unit_scale || scale))} c reservados - ${formatDateTime(item.created_at)}</span>
         </div>
         <span class="credits-reservation-status">${String(item.status || "reserved").replaceAll("_", " ")}</span>
       </article>
@@ -211,13 +232,13 @@
     return labels[normalized] || normalized.replaceAll("_", " ").replaceAll(".", " ");
   }
 
-  function renderUsageByOperation(ledger = []) {
+  function renderUsageByOperation(ledger = [], scale = 1) {
     const target = $("credits-usage");
     if (!target) return;
 
     const usage = new Map();
     ledger.forEach((entry) => {
-      const amount = Number(entry.amount || 0);
+      const amount = visibleCreditUnits(entry.amount, scale);
       const type = String(entry.entry_type || "");
       if (amount >= 0) return;
       if (!["reservation", "job_debit"].includes(type)) return;
@@ -272,24 +293,25 @@
   async function loadCredits() {
     showAlert("");
     try {
-      const [wallet, policy] = await Promise.all([
+      const [access, policy, activity] = await Promise.all([
         requestJson("/api/billing/credits"),
         requestJson("/api/billing/credit-policy"),
+        requestJson("/api/billing/credits/activity?limit=50"),
       ]);
-      renderWallet(wallet);
+      const view = {
+        ...access,
+        ...activity,
+        resource: activity?.resource || access?.resource || {},
+        wallet: activity?.wallet || access?.wallet || null,
+        unlimited: Boolean(activity?.unlimited || access?.unlimited),
+      };
+      const scale = creditScale(view);
+      renderWallet(view);
       renderPackages(Array.isArray(policy?.packages) ? policy.packages : []);
-      try {
-        const activity = await requestJson("/api/billing/credits/activity?limit=50");
-        const ledger = Array.isArray(activity?.ledger) ? activity.ledger : [];
-        renderLedger(ledger);
-        renderReservations(Array.isArray(activity?.reservations) ? activity.reservations : []);
-        renderUsageByOperation(ledger);
-      } catch (activityError) {
-        console.warn("[conta-creditos] falha ao carregar extrato:", activityError?.message || activityError);
-        renderLedger([]);
-        renderReservations([]);
-        renderUsageByOperation([]);
-      }
+      const ledger = Array.isArray(activity?.ledger) ? activity.ledger : [];
+      renderLedger(ledger, scale);
+      renderReservations(Array.isArray(activity?.reservations) ? activity.reservations : [], scale);
+      renderUsageByOperation(ledger, scale);
     } catch (error) {
       console.warn("[conta-creditos] falha ao carregar:", error?.message || error);
       showAlert("Nao foi possivel carregar os creditos agora. Verifique se o Hub ja esta migrado e configurado.");
@@ -315,7 +337,7 @@
       window.location.href = checkoutUrl;
     } catch (error) {
       console.error("[conta-creditos] recarga:", error?.message || error);
-      showAlert("Nao foi possivel iniciar a recarga. Confira a configuracao do Mercado Pago no Hub.");
+      showAlert("Nao foi possivel iniciar a recarga. Confira a configuracao do Asaas no Hub.");
     }
   }
 

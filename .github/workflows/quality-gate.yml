@@ -3,6 +3,7 @@ name: Quality Gate
 on:
   pull_request:
     branches:
+      - main
       - dev
       - voltdev
   workflow_dispatch:
@@ -37,6 +38,61 @@ jobs:
         run: npm install --no-save --package-lock=false @rolldown/binding-linux-x64-gnu@1.1.2
       - name: Test
         run: npm test
+
+
+  seller-ml-credits:
+    name: Seller ML credits
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/seller-ml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: apps/seller-ml/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Credit contract tests
+        run: npm run test:credits
+      - name: Queue safety tests
+        run: npm run test:stage3-queues
+      - name: Parse critical billing runtime
+        run: |
+          node --check services/hubCreditsService.js
+          node --check services/promoJobsService.js
+          node --check services/atacadoJobsService.js
+          node --check controllers/AtacadoController.js
+          node --check routes/atacadoRoutes.js
+          node --check public/js/atacado.js
+          node --check services/caracteristicasJobsService.js
+          node --check controllers/CaracteristicasController.js
+          node --check routes/caracteristicasRoutes.js
+          node --check public/js/caracteristicas.js
+          node --check services/prazoProducaoQueueService.js
+          node --check controllers/PrazoProducaoController.js
+          node --check routes/prazoProducaoRoutes.js
+          node --check public/js/prazo.js
+          node --check public/js/prazo-bulk.js
+          node --check services/validarDimensoesJobService.js
+          node --check services/estoqueAlertaQueueService.js
+          node --check services/modeloMassaJobsService.js
+          node --check controllers/ModeloMassaController.js
+          node --check routes/modeloMassaRoutes.js
+          node --check public/js/modelo-massa.js
+          node --check services/bullRetentionService.js
+          node --check worker.js
+          node --check services/mlHeavyOperationGovernor.js
+          node --check routes/billingRoutes.js
+          node --check public/js/conta-creditos.js
+          node --check public/js/promo-http.js
+          node --check public/js/promo-bulk.js
+          node --check public/js/promo-actions.js
 
   runtime-safety:
     name: Runtime safety checks

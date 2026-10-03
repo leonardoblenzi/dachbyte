@@ -308,6 +308,40 @@
     return payload;
   }
 
+  async function fetchMassModelCreditQuote(itemIds, dryRun) {
+    return fetchJson(mlUrl("/api/modelo-massa/credits/quote"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        item_ids: itemIds,
+        dry_run: dryRun === true,
+      }),
+    });
+  }
+
+  function confirmMassModelCreditQuote(quote, { dryRun = false } = {}) {
+    const estimated = Number(quote?.estimated_credits || 0);
+    const quantity = Math.max(0, Number(quote?.quantity || 0));
+    const unlimited = quote?.unlimited === true;
+    if (unlimited || estimated <= 0) return true;
+
+    const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+    const lines = [
+      `${dryRun ? "Simulação" : "Aplicação"} de modelo em massa para aproximadamente ${formatter.format(quantity)} anúncio(s).`,
+      `Custo estimado: ${formatter.format(estimated)} crédito(s).`,
+    ];
+    if (quote?.available_credits != null) {
+      lines.push(
+        `Saldo disponível: ${formatter.format(Number(quote.available_credits || 0))} crédito(s).`,
+      );
+    }
+    if (quote?.sufficient === false) {
+      lines.push("O saldo atual é menor que a estimativa informada.");
+    }
+    lines.push("Deseja continuar?");
+    return window.confirm(lines.join("\n\n"));
+  }
+
   function filteredDefaultModels(searchValue) {
     const term = normalizeDefaultModelKey(searchValue);
     if (!term) return state.defaultModels;
@@ -874,10 +908,30 @@
       return;
     }
 
+    const dryRun = currentDryRun();
+    try {
+      const creditQuote = await fetchMassModelCreditQuote(ids, dryRun);
+      const confirmed = confirmMassModelCreditQuote(creditQuote, { dryRun });
+      if (confirmed === false) {
+        renderSummary(
+          "info",
+          dryRun
+            ? "Simulação cancelada antes de criar o job."
+            : "Aplicação cancelada antes de criar o job.",
+        );
+        return;
+      }
+    } catch (error) {
+      console.warn(
+        "[modelo-massa] prévia de créditos indisponível; seguindo em shadow:",
+        error?.message || error,
+      );
+    }
+
     setLoading(true, "Enfileirando job de modelo em massa...");
     renderSummary(
       "info",
-      currentDryRun()
+      dryRun
         ? "Criando job de simulacao do modelo em massa..."
         : "Criando job de aplicacao do modelo em massa...",
     );
@@ -887,7 +941,7 @@
     const accountLabel = readShellAccountLabel() || account.label || null;
     const localJobId =
       window.JobsPanel?.addLocalJob?.({
-        title: `${currentDryRun() ? "Simular" : "Aplicar"} Modelo • ${ids.length} item(ns)`,
+        title: `${dryRun ? "Simular" : "Aplicar"} Modelo • ${ids.length} item(ns)`,
         accountKey: account.key || null,
         accountLabel,
       }) || null;
@@ -899,7 +953,7 @@
         body: JSON.stringify({
           item_ids: ids,
           target_model: targetModel,
-          dry_run: currentDryRun(),
+          dry_run: dryRun,
         }),
       });
 

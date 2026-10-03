@@ -11,6 +11,7 @@ function resolveJobId(value) {
 }
 const { recordAuthEvent } = require("./authAuditService");
 const { reserveCredits, settleCredits } = require("./hubCreditsService");
+const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 const QUEUE_NAME = "ml-exclusao-lote";
 const SERVICE_LOG_LABEL = "GestaoAnunciosJobService";
@@ -855,9 +856,41 @@ function initWorker() {
 
   workerStarted = true;
   queue.process(WORKER_CONCURRENCY, async (job) => {
+    let heavyLease = null;
+    let heavyRefreshTimer = null;
     try {
+      heavyLease = await waitForHeavyOperationLease({
+        accountKey: job.data?.accountKey,
+        kind: "listing-management",
+        ownerId: `listing:${job.id}`,
+        metadata: {
+          job_id: String(job.id),
+          operation: normalizeOperation(job.data?.operation),
+        },
+        onWait: async (holder) => {
+          await updateMeta(job, {
+            status: "aguardando",
+            queueReason: "heavy_operation_busy",
+            heavyOperationHolder: holder || null,
+            updatedAt: Date.now(),
+          });
+        },
+        shouldCancel: async () => {
+          const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
+          return meta?.cancelRequested === true;
+        },
+      });
+      heavyRefreshTimer = setInterval(() => {
+        heavyLease?.refresh?.().catch(() => {});
+      }, 60_000);
+      heavyRefreshTimer.unref?.();
+
       return await runJob(job);
-    } catch (error) {
+    } catch (rawError) {
+      const error =
+        rawError?.code === "HEAVY_OPERATION_WAIT_CANCELLED"
+          ? new JobCancelledError()
+          : rawError;
       const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
       if (error instanceof JobCancelledError) {
         await auditJobEvent(
@@ -903,15 +936,28 @@ function initWorker() {
         },
       );
       throw error;
+    } finally {
+      if (heavyRefreshTimer) clearInterval(heavyRefreshTimer);
+      await heavyLease?.release?.().catch(() => {});
     }
   });
   queue.on("failed", async (job, err) => {
     console.error(`[${SERVICE_LOG_LABEL}] job failed:`, job?.id, err?.message || err);
-    await settleCredits(job?.data?.creditReservation, { release: true });
+    const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
+    const processed = Math.max(0, Number(meta?.processed || 0));
+    await settleCredits(job?.data?.creditReservation, {
+      release: processed <= 0,
+      consumedUnits: processed > 0 ? processed : null,
+    });
   });
   queue.on("completed", async (job) => {
     console.log(`[${SERVICE_LOG_LABEL}] job completed:`, job?.id);
-    await settleCredits(job?.data?.creditReservation, { release: false });
+    const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
+    const processed = Math.max(0, Number(meta?.processed || 0));
+    await settleCredits(job?.data?.creditReservation, {
+      release: processed <= 0,
+      consumedUnits: processed > 0 ? processed : null,
+    });
   });
 
   console.log(

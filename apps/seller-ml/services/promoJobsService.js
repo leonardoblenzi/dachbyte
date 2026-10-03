@@ -11,6 +11,7 @@
 const Queue = require('bull');
 const crypto = require('crypto');
 const os = require('os');
+const { AsyncLocalStorage } = require('node:async_hooks');
 const fetch = require('node-fetch');
 const ExcelJS = require('exceljs');
 const TokenService = require('./tokenService');
@@ -18,7 +19,11 @@ const { makeBullClient, getSharedRedis } = require('../lib/redisClient');
 const { buildCsv, attachJobReview } = require('./jobReviewHelper');
 const { recordAuthEvent, listAuthEvents } = require('./authAuditService');
 const PromoSelectionStore = require('./promoSelectionStore');
-const { reserveCredits, settleCredits } = require('./hubCreditsService');
+const { quoteCredits, reserveCredits, settleCredits } = require('./hubCreditsService');
+const {
+  acquireHeavyOperationLease,
+  waitForHeavyOperationLease,
+} = require('./mlHeavyOperationGovernor');
 
 // Concurrency do worker (ajustável por env)
 const CONCURRENCY = Number(process.env.PROMO_JOBS_CONCURRENCY || 4);
@@ -165,6 +170,14 @@ const PROMO_CANCEL_TOMBSTONE_MS = Math.max(
   60 * 60 * 1000,
   Number(process.env.PROMO_CANCEL_TOMBSTONE_MS || 7 * 24 * 60 * 60 * 1000),
 );
+const PROMO_REPEAT_COOLDOWN_MS = Math.max(
+  5 * 60 * 1000,
+  Number(process.env.PROMO_REPEAT_COOLDOWN_MS || 6 * 60 * 60 * 1000),
+);
+const PROMO_RECENT_HISTORY_MS = Math.max(
+  PROMO_REPEAT_COOLDOWN_MS,
+  Number(process.env.PROMO_RECENT_HISTORY_MS || 24 * 60 * 60 * 1000),
+);
 
 // === Adapter opcional para remoção em massa (reutiliza seu service atual)
 let RemovalAdapter = null;
@@ -180,6 +193,7 @@ let workerStarted = false;
 let workerHeartbeatTimer = null;
 let workerWatchdogTimer = null;
 const localActivePromoJobs = new Set();
+const promoTelemetryStorage = new AsyncLocalStorage();
 const WORKER_INSTANCE_ID =
   process.env.RENDER_INSTANCE_ID ||
   process.env.HOSTNAME ||
@@ -261,7 +275,11 @@ function ensureQueue() {
       return;
     }
     if (data?.safetyPaused !== true && data?.resumable !== true) {
-      await settleCredits(data?.creditReservation, { release: true });
+      const processed = Math.max(0, Number(data?.counters?.processed || 0));
+      await settleCredits(data?.creditReservation, {
+        release: processed <= 0,
+        consumedUnits: processed > 0 ? processed : null,
+      });
       await releaseCampaignGuard(data, String(job?.id || ''));
     }
   });
@@ -280,7 +298,11 @@ function ensureQueue() {
       }
       return;
     }
-    await settleCredits(data?.creditReservation, { release: false });
+    const processed = Math.max(0, Number(data?.counters?.processed || 0));
+    await settleCredits(data?.creditReservation, {
+      release: processed <= 0,
+      consumedUnits: processed > 0 ? processed : null,
+    });
     if (!jobHasPendingRemediation(data)) {
       await releaseCampaignGuard(data, String(job?.id || ''));
     }
@@ -715,6 +737,7 @@ function updateMlCredsFromToken(mlCreds = {}, tokenData = {}) {
 
 async function authFetch(url, init = {}, mlCreds = {}) {
   const call = async (tkn) => {
+    recordPromoMlApiCall();
     const headers = {
       ...(init.headers || {}),
       Authorization: `Bearer ${tkn}`,
@@ -1172,6 +1195,164 @@ function canAccessJobData(data = {}, accountKey = null) {
 
 function promoOrchestrationRedis() {
   return getSharedRedis('promo:orchestration');
+}
+
+function recentPromotionFingerprintKey(fingerprint) {
+  return `promo:recent-fingerprint:${String(fingerprint || '').trim()}`;
+}
+
+function classifyRecentPromotionExecution(parsed = {}, nowMs = Date.now()) {
+  const finishedAtMs = Number(parsed?.finished_at_ms || 0);
+  const ageMs = finishedAtMs > 0 ? Math.max(0, Number(nowMs || Date.now()) - finishedAtMs) : null;
+  return {
+    ...parsed,
+    age_ms: ageMs,
+    within_cooldown: ageMs != null && ageMs <= PROMO_REPEAT_COOLDOWN_MS,
+    within_history: ageMs != null && ageMs <= PROMO_RECENT_HISTORY_MS,
+  };
+}
+
+async function getRecentPromotionExecution(data = {}) {
+  const fingerprint = String(
+    data?.requestFingerprint || buildPromoRequestFingerprint(data) || '',
+  ).trim();
+  if (!fingerprint) return null;
+  try {
+    const redis = promoOrchestrationRedis();
+    const raw = await redis.get(recentPromotionFingerprintKey(fingerprint));
+    if (!raw) return null;
+    return classifyRecentPromotionExecution(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+async function rememberRecentPromotionExecution(data = {}, summary = {}) {
+  const fingerprint = String(
+    data?.requestFingerprint || buildPromoRequestFingerprint(data) || '',
+  ).trim();
+  if (!fingerprint) return;
+  const processed = Math.max(0, Number(summary?.processed ?? data?.counters?.processed ?? 0));
+  if (processed <= 0) return;
+  const payload = {
+    request_fingerprint: fingerprint,
+    operation_id: data?.operationId || data?.options?.operation_id || null,
+    job_id: summary?.id != null ? String(summary.id) : null,
+    account_key: normalizeAccountKey(data?.accountKey),
+    action: data?.action === 'remove' ? 'remove' : 'apply',
+    promotion_id: data?.promotion?.id || null,
+    promotion_type: data?.promotion?.type || null,
+    processed,
+    success: Math.max(0, Number(summary?.success ?? data?.counters?.success ?? 0)),
+    failed: Math.max(0, Number(summary?.failed ?? data?.counters?.failed ?? 0)),
+    status: summary?.status || data?.operationLifecycle || null,
+    finished_at: new Date().toISOString(),
+    finished_at_ms: Date.now(),
+  };
+  try {
+    const redis = promoOrchestrationRedis();
+    await redis.set(
+      recentPromotionFingerprintKey(fingerprint),
+      JSON.stringify(payload),
+      'PX',
+      PROMO_RECENT_HISTORY_MS,
+    );
+  } catch {}
+}
+
+function currentPromoTelemetryRuntime() {
+  return promoTelemetryStorage.getStore() || null;
+}
+
+function recordPromoMlApiCall() {
+  const runtime = currentPromoTelemetryRuntime();
+  if (!runtime) return;
+  runtime.mlApiCalls = Math.max(0, Number(runtime.mlApiCalls || 0)) + 1;
+}
+
+function promotionSelectedCount(data = {}, fallbackTotal = 0) {
+  const candidates = [
+    Number(data?.options?.selection_count || 0),
+    Number(data?.options?.expected_total || 0),
+    Array.isArray(data?.selectionItems) ? data.selectionItems.length : 0,
+    Array.isArray(data?.filters?.mlbs) ? data.filters.mlbs.length : 0,
+    data?.filters?.mlb ? 1 : 0,
+    Number(fallbackTotal || 0),
+  ].filter((value) => Number.isFinite(value) && value > 0);
+  return candidates.length ? Math.max(...candidates) : 0;
+}
+
+function consumePromoMlApiCalls(previousValue = 0, runtime = null) {
+  const store = runtime || {};
+  const current = Math.max(0, Number(store.mlApiCalls || 0));
+  const reported = Math.max(0, Number(store.reportedMlApiCalls || 0));
+  const delta = Math.max(0, current - reported);
+  store.reportedMlApiCalls = current;
+  return Math.max(0, Number(previousValue || 0)) + delta;
+}
+
+function promotionBillingOperationKey(action, recentRepeat = false) {
+  if (action === 'remove') return 'promotions.remove';
+  return recentRepeat ? 'promotions.reapply_recent' : 'promotions.apply';
+}
+
+function promotionBillingIdempotencyKey(operationId, { validation = false } = {}) {
+  const id = String(operationId || '').trim();
+  if (!id) throw new Error('operation_id_required_for_billing');
+  return validation ? `promotions-validate:${id}` : `promotions:${id}`;
+}
+
+function buildPromotionBillingTelemetry(
+  data = {},
+  { total = 0, processed = 0, success = 0, failed = 0, results = [], finished = false } = {},
+) {
+  const previous = data?.billingTelemetry || {};
+  const runtime = currentPromoTelemetryRuntime() || {};
+  const selected = promotionSelectedCount(data, total);
+  const normalizedResults = Array.isArray(results) ? results : [];
+  const retries = normalizedResults.reduce(
+    (sum, row) => sum + Math.max(0, Number(row?.transient_retries || 0)),
+    0,
+  );
+  const eligible = Math.max(0, Number(total || processed || 0));
+  const ignored = selected > 0 ? Math.max(0, selected - Math.max(eligible, processed)) : 0;
+  const startedAtMs = Number(previous?.started_at_ms || data?.createdAt || Date.now());
+  const reservation = data?.creditReservation || {};
+  const quote = reservation?.quote || {};
+  return {
+    version: 1,
+    billing_mode: reservation?.shadow === true
+      ? 'shadow'
+      : reservation?.bypass === true
+        ? 'bypass'
+        : 'enforce',
+    operation_key:
+      quote?.operation_key ||
+      reservation?.operation_key ||
+      data?.billingOperationKey ||
+      null,
+    operation_id: data?.operationId || data?.options?.operation_id || null,
+    request_fingerprint: data?.requestFingerprint || null,
+    recent_repeat: data?.recentRepeat === true,
+    selected,
+    eligible,
+    processed: Math.max(0, Number(processed || 0)),
+    altered: data?.options?.dryRun === true ? 0 : Math.max(0, Number(success || 0)),
+    validated: data?.options?.dryRun === true ? Math.max(0, Number(success || 0)) : 0,
+    ignored,
+    errors: Math.max(0, Number(failed || 0)),
+    retries,
+    ml_api_calls: consumePromoMlApiCalls(previous?.ml_api_calls || 0, runtime),
+    estimated_credits:
+      quote?.estimated_credits ??
+      reservation?.reserved_credits ??
+      previous?.estimated_credits ??
+      null,
+    started_at_ms: startedAtMs,
+    started_at: previous?.started_at || new Date(startedAtMs).toISOString(),
+    duration_ms: Math.max(0, Date.now() - startedAtMs),
+    finished_at: finished ? new Date().toISOString() : null,
+  };
 }
 
 function stablePromoValue(value) {
@@ -1847,7 +2028,11 @@ async function settleLogicalOperationResources(job, { releaseCredits = false } =
   } else {
     await trackLogicalOperation(job, { open: true });
   }
-  await settleCredits(data?.creditReservation, { release: releaseCredits }).catch(() => {});
+  const processed = Math.max(0, Number(data?.counters?.processed || 0));
+  await settleCredits(data?.creditReservation, {
+    release: Boolean(releaseCredits && processed <= 0),
+    consumedUnits: processed > 0 ? processed : null,
+  }).catch(() => {});
   if (!jobHasPendingRemediation(data) && data?.operationTerminal === true) {
     await releaseCampaignGuard(data, String(job.id)).catch(() => {});
   }
@@ -5361,6 +5546,7 @@ async function removeItem({ mlCreds, promotion_id, promotion_type, item }) {
   }
   const item_id = item.id || item.item_id;
   try {
+    recordPromoMlApiCall();
     const r = await RemovalAdapter.removeOne({ mlCreds, promotion_id, promotion_type, item_id });
     // Normalize resultado
     return {
@@ -5641,6 +5827,23 @@ async function runListValidationJob(job, done) {
       listDiagnostics: diagnostics,
       selectionToken,
       selectionIds: eligibleIds,
+      billingTelemetry: {
+        ...buildPromotionBillingTelemetry(job.data || data, {
+          total,
+          processed: total,
+          success: eligibleIds.length,
+          failed: 0,
+          results: diagnostics,
+          finished: true,
+        }),
+        selected: wantedIds.length,
+        eligible: eligibleIds.length,
+        processed: total,
+        altered: 0,
+        validated: total,
+        ignored: notEligible,
+        errors: 0,
+      },
       stateLabel: `concluido: ${eligibleIds.length} elegiveis, ${notEligible} fora`,
     });
     await job.progress(100).catch(() => {});
@@ -5668,6 +5871,7 @@ async function runListValidationJob(job, done) {
       );
       const cancelCoverage =
         total > 0 ? clampPct((cancelProcessed / total) * 100) : 0;
+      const cancelNotEligible = Math.max(0, cancelProcessed - eligibleIds.length);
       await updateJob({
         counters: {
           processed: cancelProcessed,
@@ -5677,6 +5881,23 @@ async function runListValidationJob(job, done) {
         },
         results: diagnostics,
         listDiagnostics: diagnostics,
+        billingTelemetry: {
+          ...buildPromotionBillingTelemetry(job.data || data, {
+            total,
+            processed: cancelProcessed,
+            success: eligibleIds.length,
+            failed: 0,
+            results: diagnostics,
+            finished: true,
+          }),
+          selected: wantedIds.length,
+          eligible: eligibleIds.length,
+          processed: cancelProcessed,
+          altered: 0,
+          validated: cancelProcessed,
+          ignored: cancelNotEligible,
+          errors: 0,
+        },
         stateLabel: "cancelado",
         cancelRequested: false,
         cancelCompletedAt: Date.now(),
@@ -5727,6 +5948,10 @@ async function scheduleLogicalPromotionOperation(job, done) {
   if (data?.cancelRequested === true || data?.stateLabel === 'cancelado') {
     const operationTotal = inferOperationTotal(data);
     const counters = data?.counters || {};
+    const canceledProcessed = Math.max(0, Number(counters.processed || 0));
+    const canceledSuccess = Math.max(0, Number(counters.success || 0));
+    const canceledFailed = Math.max(0, Number(counters.failed || 0));
+    const canceledResults = Array.isArray(data?.results) ? data.results : [];
     const canceledData = {
       ...data,
       operationTotal,
@@ -5737,11 +5962,31 @@ async function scheduleLogicalPromotionOperation(job, done) {
       queueReason: null,
       cancelRequested: false,
       cancelCompletedAt: Date.now(),
+      billingTelemetry: buildPromotionBillingTelemetry(data, {
+        total: operationTotal,
+        processed: canceledProcessed,
+        success: canceledSuccess,
+        failed: canceledFailed,
+        results: canceledResults,
+        finished: true,
+      }),
       lastUpdate: Date.now(),
     };
     await latest.update(canceledData).catch(() => {});
     await storeCanceledTombstone(latest, canceledData).catch(() => {});
-    await settleCredits(canceledData?.creditReservation, { release: true }).catch(() => {});
+    await settleCredits(canceledData?.creditReservation, {
+      release: canceledProcessed <= 0,
+      consumedUnits: canceledProcessed > 0 ? canceledProcessed : null,
+    }).catch(() => {});
+    if (canceledProcessed > 0) {
+      await rememberRecentPromotionExecution(canceledData, {
+        id: latest.id,
+        status: 'canceled',
+        processed: canceledProcessed,
+        success: canceledSuccess,
+        failed: canceledFailed,
+      }).catch(() => {});
+    }
     await releaseCampaignGuard(canceledData, String(latest.id)).catch(() => {});
     done(null, {
       id: latest.id,
@@ -5853,7 +6098,11 @@ async function runPromotionChunkJob(chunkJob, done) {
         lastUpdate: Date.now(),
       }).catch(() => {});
       await storeCanceledTombstone(parentJob, parentJob.data || freshData).catch(() => {});
-      await settleCredits(freshData?.creditReservation, { release: true }).catch(() => {});
+      const canceledProcessed = Math.max(0, Number(freshData?.counters?.processed || 0));
+      await settleCredits(freshData?.creditReservation, {
+        release: canceledProcessed <= 0,
+        consumedUnits: canceledProcessed > 0 ? canceledProcessed : null,
+      }).catch(() => {});
       await releaseCampaignGuard(freshData, parentJobId).catch(() => {});
       done(null, {
         id: chunkJob.id,
@@ -5890,13 +6139,71 @@ async function runPromotionChunkJob(chunkJob, done) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
   }
 
+  let heavyLease = await acquireHeavyOperationLease({
+    accountKey: parentData?.accountKey,
+    kind: 'promotions',
+    ownerId: `promo:${parentJobId}:chunk:${chunkJob.id}`,
+    metadata: {
+      parent_job_id: parentJobId,
+      chunk_job_id: String(chunkJob.id),
+      promotion_id: parentData?.promotion?.id || null,
+      promotion_type: parentData?.promotion?.type || null,
+    },
+  });
+
+  if (!heavyLease?.acquired) {
+    const holderKind = String(heavyLease?.holder?.kind || 'outra operacao pesada');
+    const reason = `na fila: aguardando ${holderKind} finalizar nesta conta`;
+    await parentJob.update({
+      ...(parentJob.data || parentData),
+      operationLifecycle: 'queued',
+      operationTerminal: false,
+      stateLabel: reason,
+      queueReason: 'heavy_operation_busy',
+      activeChunkJobId: String(chunkJob.id),
+      heavyOperationHolder: heavyLease?.holder || null,
+      lastUpdate: Date.now(),
+    }).catch(() => {});
+
+    if (canCooperativelyYield(chunkJob)) {
+      await lease?.release?.().catch(() => {});
+      done(new PromoFairnessYieldError(`PROMO_YIELD: ${reason}`));
+      return;
+    }
+
+    heavyLease = await waitForHeavyOperationLease({
+      accountKey: parentData?.accountKey,
+      kind: 'promotions',
+      ownerId: `promo:${parentJobId}:chunk:${chunkJob.id}`,
+      metadata: {
+        parent_job_id: parentJobId,
+        chunk_job_id: String(chunkJob.id),
+        promotion_id: parentData?.promotion?.id || null,
+        promotion_type: parentData?.promotion?.type || null,
+      },
+      onWait: async (holder) => {
+        await parentJob.update({
+          ...(parentJob.data || parentData),
+          operationLifecycle: 'queued',
+          operationTerminal: false,
+          stateLabel: reason,
+          queueReason: 'heavy_operation_busy',
+          heavyOperationHolder: holder || null,
+          lastUpdate: Date.now(),
+        }).catch(() => {});
+      },
+    });
+  }
+
   const refreshTimer = setInterval(() => {
     lease?.refresh?.().catch(() => {});
+    heavyLease?.refresh?.().catch(() => {});
   }, Math.max(5000, Math.floor(PROMO_RUNTIME_LEASE_MS / 3)));
   refreshTimer.unref?.();
 
   const finish = async (error, result) => {
     clearInterval(refreshTimer);
+    await heavyLease?.release?.().catch(() => {});
     await lease?.release?.().catch(() => {});
 
     if (error && !isInternalYieldError(error)) {
@@ -5911,10 +6218,31 @@ async function runPromotionChunkJob(chunkJob, done) {
           stateLabel: latestData?.stateLabel || 'falhou',
           queueReason: null,
           failedReason: error?.message || String(error),
+          billingTelemetry: buildPromotionBillingTelemetry(latestData, {
+            total: Number(latestData?.counters?.total || inferOperationTotal(latestData) || 0),
+            processed: Number(latestData?.counters?.processed || 0),
+            success: Number(latestData?.counters?.success || 0),
+            failed: Number(latestData?.counters?.failed || 0),
+            results: Array.isArray(latestData?.results) ? latestData.results : [],
+            finished: true,
+          }),
           lastUpdate: Date.now(),
         };
         await latestParent.update(failedData).catch(() => {});
-        await settleCredits(failedData?.creditReservation, { release: true }).catch(() => {});
+        const failedProcessed = Math.max(0, Number(failedData?.counters?.processed || 0));
+        await settleCredits(failedData?.creditReservation, {
+          release: failedProcessed <= 0,
+          consumedUnits: failedProcessed > 0 ? failedProcessed : null,
+        }).catch(() => {});
+        if (failedProcessed > 0) {
+          await rememberRecentPromotionExecution(failedData, {
+            id: parentJobId,
+            status: 'failed',
+            processed: failedProcessed,
+            success: Number(failedData?.counters?.success || 0),
+            failed: Number(failedData?.counters?.failed || 0),
+          }).catch(() => {});
+        }
         await releaseCampaignGuard(failedData, parentJobId).catch(() => {});
       }
     }
@@ -5927,7 +6255,10 @@ async function runPromotionChunkJob(chunkJob, done) {
   };
 
   try {
-    return runBulkJob(parentJob, finish);
+    return promoTelemetryStorage.run(
+      { mlApiCalls: 0 },
+      () => runBulkJob(parentJob, finish),
+    );
   } catch (error) {
     return finish(error);
   }
@@ -5936,7 +6267,10 @@ async function runPromotionChunkJob(chunkJob, done) {
 async function runPromoJob(job, done) {
   const kind = String(job?.data?.kind || "").toLowerCase();
   if (kind === "list-validation") {
-    return runListValidationJob(job, done);
+    return promoTelemetryStorage.run(
+      { mlApiCalls: 0 },
+      () => runListValidationJob(job, done),
+    );
   }
   if (kind === "promotion-remediation") {
     return runPromotionRemediationJob(job, done);
@@ -6023,7 +6357,10 @@ async function runPromoJob(job, done) {
   };
 
   try {
-    return runBulkJob(job, finish);
+    return promoTelemetryStorage.run(
+      { mlApiCalls: 0 },
+      () => runBulkJob(job, finish),
+    );
   } catch (error) {
     return finish(error);
   }
@@ -6159,6 +6496,14 @@ async function runBulkJob(job, done) {
       safetyPaused: false,
       resumable: false,
       transientRetry: null,
+      billingTelemetry: buildPromotionBillingTelemetry(latestData, {
+        total: finalTotal,
+        processed: finalProcessed,
+        success: finalSuccess,
+        failed: finalFailed,
+        results: finalResults,
+        finished: true,
+      }),
       lastUpdate: Date.now(),
     };
 
@@ -6168,7 +6513,19 @@ async function runBulkJob(job, done) {
     await job.progress(cancellationCoverage).catch(() => {});
     if (logicalOperation) {
       await storeCanceledTombstone(job, cancelledData).catch(() => {});
-      await settleCredits(cancelledData?.creditReservation, { release: true }).catch(() => {});
+      await settleCredits(cancelledData?.creditReservation, {
+        release: finalProcessed <= 0,
+        consumedUnits: finalProcessed > 0 ? finalProcessed : null,
+      }).catch(() => {});
+      if (finalProcessed > 0) {
+        await rememberRecentPromotionExecution(cancelledData, {
+          id: job.id,
+          status: 'canceled',
+          processed: finalProcessed,
+          success: finalSuccess,
+          failed: finalFailed,
+        }).catch(() => {});
+      }
       await releaseCampaignGuard(cancelledData, String(job.id)).catch(() => {});
     }
 
@@ -6325,6 +6682,14 @@ async function runBulkJob(job, done) {
         failedItems,
         itemTraces,
         results,
+        billingTelemetry: buildPromotionBillingTelemetry(latest, {
+          total,
+          processed,
+          success,
+          failed,
+          results,
+          finished: false,
+        }),
         chunkCheckpoint: {
           offset: nextOffset,
           sourceCount,
@@ -7265,6 +7630,14 @@ async function runBulkJob(job, done) {
         lastUpdate: Date.now(),
       }).catch(() => {});
     }
+    const failedBillingTelemetry = buildPromotionBillingTelemetry(job.data || data, {
+      total,
+      processed,
+      success,
+      failed,
+      results,
+      finished: true,
+    });
     await auditPromoJobEvent(job, "promotion_job_failed", "error", {
       total_items: total,
       processed,
@@ -7273,6 +7646,7 @@ async function runBulkJob(job, done) {
       application_source: applicationSource,
       selection_count: selectionCount,
       prevalidated_selection: prevalidatedSelection,
+      billing_telemetry: failedBillingTelemetry,
       safety_circuit_breaker: e instanceof PromotionSafetyCircuitBreakerError,
       safety_details:
         e instanceof PromotionSafetyCircuitBreakerError ? e.details : null,
@@ -7399,6 +7773,14 @@ async function runBulkJob(job, done) {
     operationTerminal: logicalOperation ? logicalFinalTerminal : job.data?.operationTerminal,
     activeChunkJobId: logicalOperation ? null : job.data?.activeChunkJobId,
     queueReason: null,
+    billingTelemetry: buildPromotionBillingTelemetry(job.data || data, {
+      total,
+      processed,
+      success,
+      failed,
+      results,
+      finished: logicalOperation ? logicalFinalTerminal : true,
+    }),
     stateLabel:
       processed === 0 && total === 0
         ? 'concluído: nenhum item elegível'
@@ -7413,8 +7795,12 @@ async function runBulkJob(job, done) {
     await job.progress(100);
     if (logicalOperation) {
       if (logicalFinalTerminal) {
-        await settleCredits(finalData?.creditReservation, { release: false }).catch(() => {});
+        await settleCredits(finalData?.creditReservation, {
+          release: processed <= 0,
+          consumedUnits: processed > 0 ? processed : null,
+        }).catch(() => {});
         await releaseCampaignGuard(finalData, String(job.id)).catch(() => {});
+        await rememberRecentPromotionExecution(finalData, summary).catch(() => {});
       } else {
         await claimCampaignGuard(finalData, String(job.id)).catch(() => {});
       }
@@ -7433,6 +7819,7 @@ async function runBulkJob(job, done) {
     application_source: applicationSource,
     selection_count: selectionCount,
     prevalidated_selection: prevalidatedSelection,
+    billing_telemetry: finalData.billingTelemetry || null,
   });
 
   done(null, summary);
@@ -7513,6 +7900,58 @@ module.exports = {
     return getWorkerHealth();
   },
 
+  async previewBulkApplyCredits(opts) {
+    const accountKey = normalizeAccountKey(opts?.accountKey);
+    if (!accountKey) {
+      throw new Error('Conta obrigatoria para calcular o custo da promocao.');
+    }
+    const action = opts?.action === 'remove' ? 'remove' : 'apply';
+    const previewData = {
+      ...opts,
+      action,
+      accountKey,
+      accountLabel: opts?.accountLabel || accountKey,
+      price_policy: normalizePricePolicy(opts?.price_policy),
+      promotion: {
+        id: String(opts?.promotion?.id || ''),
+        type: String(opts?.promotion?.type || '').toUpperCase(),
+      },
+      options: {
+        ...(opts?.options || {}),
+      },
+    };
+    previewData.requestFingerprint = buildPromoRequestFingerprint(previewData);
+    const recentExecution = await getRecentPromotionExecution(previewData);
+    const recentRepeat = Boolean(recentExecution?.within_cooldown);
+    const operationKey = promotionBillingOperationKey(action, recentRepeat);
+    const units = Math.max(
+      1,
+      Number(opts?.options?.expected_total || 0),
+      Number(opts?.options?.selection_count || 0),
+      Array.isArray(opts?.filters?.mlbs) ? opts.filters.mlbs.length : 0,
+      Array.isArray(opts?.selectionItems) ? opts.selectionItems.length : 0,
+    );
+    const quote = await quoteCredits({
+      mlCreds: opts?.mlCreds || null,
+      account: opts?.account || null,
+      operationKey,
+      units,
+    });
+    return {
+      operation_key: operationKey,
+      quantity: units,
+      request_fingerprint: previewData.requestFingerprint,
+      recent_repeat: recentRepeat,
+      recent_execution: recentExecution || null,
+      estimated_credits: Number(quote?.estimated_credits || 0),
+      available_credits:
+        quote?.available_credits == null ? null : Number(quote.available_credits),
+      sufficient: quote?.sufficient !== false,
+      unlimited: quote?.unlimited === true,
+      quote,
+    };
+  },
+
   /**
    * Cria job de aplicação/remoção em massa.
    * @param {object} opts
@@ -7559,6 +7998,12 @@ module.exports = {
     baseData.operationTotal = inferOperationTotal(baseData);
     baseData.requestFingerprint = buildPromoRequestFingerprint(baseData);
     baseData.campaignGuardKey = campaignGuardKey(baseData);
+    baseData.recentExecution = await getRecentPromotionExecution(baseData);
+    baseData.recentRepeat = Boolean(baseData.recentExecution?.within_cooldown);
+    baseData.billingOperationKey = promotionBillingOperationKey(
+      action,
+      baseData.recentRepeat,
+    );
 
     // Dupla protecao: primeiro detecta jobs ja existentes (inclusive legados);
     // depois reserva atomicamente a campanha no Redis para fechar a janela de
@@ -7621,9 +8066,9 @@ module.exports = {
     try {
       creditReservation = await reserveCredits({
         mlCreds: opts?.mlCreds || null,
-        operationKey: action === 'remove' ? 'promotions.remove' : 'promotions.apply',
+        operationKey: baseData.billingOperationKey,
         units: unitCount,
-        idempotencyKey: `promotions:${baseData.requestFingerprint}`,
+        idempotencyKey: promotionBillingIdempotencyKey(baseData.operationId),
       });
 
       const data = {
@@ -7638,6 +8083,16 @@ module.exports = {
         operationTotal: Number(baseData.operationTotal || 0),
         operationLifecycle: 'queued',
         operationTerminal: false,
+        billingTelemetry: buildPromotionBillingTelemetry(
+          { ...baseData, creditReservation },
+          {
+            total: Number(baseData.operationTotal || unitCount || 0),
+            processed: 0,
+            success: 0,
+            failed: 0,
+            results: [],
+          },
+        ),
         stateLabel: 'na fila: aguardando worker',
         queueReason: 'worker_queue',
       };
@@ -7672,6 +8127,13 @@ module.exports = {
         reused: false,
         reusedReason: null,
         lifecycle_status: 'queued',
+        recent_repeat: baseData.recentRepeat,
+        recent_execution: baseData.recentExecution || null,
+        billing_operation_key: baseData.billingOperationKey,
+        estimated_credits:
+          creditReservation?.quote?.estimated_credits ??
+          creditReservation?.reserved_credits ??
+          null,
       };
     } catch (error) {
       if (creditReservation) {
@@ -7699,10 +8161,15 @@ module.exports = {
     }
 
     const mlbs = normalizeMlbFilterList(opts?.mlbs || opts?.filters?.mlbs || opts?.raw_list || []);
+    const validationOperationId =
+      opts?.operationId ||
+      opts?.options?.operation_id ||
+      `VAL-${crypto.randomUUID()}`;
     const creditReservation = await reserveCredits({
       mlCreds: opts?.mlCreds || null,
       operationKey: 'promotions.validate',
       units: Math.max(1, mlbs.length),
+      idempotencyKey: promotionBillingIdempotencyKey(validationOperationId, { validation: true }),
     });
     const data = {
       ...opts,
@@ -7710,6 +8177,7 @@ module.exports = {
       action: 'validate-list',
       accountKey,
       accountLabel: opts?.accountLabel || accountKey,
+      operationId: validationOperationId,
       promotion: {
         id: String(opts?.promotion?.id || ''),
         type: String(opts?.promotion?.type || '').toUpperCase(),
@@ -7724,6 +8192,26 @@ module.exports = {
       },
       auditContext: opts?.auditContext || null,
       creditReservation,
+      billingOperationKey: 'promotions.validate',
+      billingTelemetry: {
+        ...buildPromotionBillingTelemetry(
+          {
+            ...opts,
+            operationId: validationOperationId,
+            filters: { ...(opts?.filters || {}), mlbs },
+            creditReservation,
+            createdAt: Date.now(),
+          },
+          { total: mlbs.length, processed: 0, success: 0, failed: 0, results: [] },
+        ),
+        selected: mlbs.length,
+        eligible: 0,
+        processed: 0,
+        altered: 0,
+        validated: 0,
+        ignored: 0,
+        errors: 0,
+      },
       createdAt: Date.now(),
     };
 
@@ -7978,6 +8466,19 @@ module.exports = {
               retry_reason: d.transientRetry?.reason || null,
               cancel_requested: d.cancelRequested === true,
               operation_id: d.operationId || d.options?.operation_id || null,
+              billing_telemetry: d.billingTelemetry || null,
+              billing_operation_key:
+                d.billingOperationKey ||
+                d.billingTelemetry?.operation_key ||
+                d.creditReservation?.operation_key ||
+                null,
+              estimated_credits:
+                d.billingTelemetry?.estimated_credits ??
+                d.creditReservation?.quote?.estimated_credits ??
+                d.creditReservation?.reserved_credits ??
+                null,
+              recent_repeat: d.recentRepeat === true,
+              recent_execution: d.recentExecution || null,
               remediation_total: Number(d.quarantineCounters?.total || 0),
               remediation_pending: Number(d.quarantineCounters?.pending || 0),
               remediation_resolved: Number(d.quarantineCounters?.resolved || 0),
@@ -8766,6 +9267,11 @@ module.exports = {
     resolvePendingResumeIds,
     readBullJobProgress,
     buildPromoRequestFingerprint,
+    classifyRecentPromotionExecution,
+    consumePromoMlApiCalls,
+    promotionBillingOperationKey,
+    promotionBillingIdempotencyKey,
+    buildPromotionBillingTelemetry,
     campaignGuardIdentity,
     jobHasPendingRemediation,
     isInternalYieldError,

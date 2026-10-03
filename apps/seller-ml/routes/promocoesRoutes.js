@@ -208,6 +208,13 @@ function normalizePromoEnqueueResult(value) {
       reused: value.reused === true,
       reusedReason: value.reusedReason || value.reused_reason || null,
       lifecycleStatus: value.lifecycle_status || null,
+      recentRepeat: value.recent_repeat === true || value.recentRepeat === true,
+      recentExecution: value.recent_execution || value.recentExecution || null,
+      billingOperationKey: value.billing_operation_key || value.billingOperationKey || null,
+      estimatedCredits:
+        value.estimated_credits == null
+          ? value.estimatedCredits ?? null
+          : value.estimated_credits,
     };
   }
   return {
@@ -215,6 +222,10 @@ function normalizePromoEnqueueResult(value) {
     reused: false,
     reusedReason: null,
     lifecycleStatus: null,
+    recentRepeat: false,
+    recentExecution: null,
+    billingOperationKey: null,
+    estimatedCredits: null,
   };
 }
 
@@ -4711,6 +4722,10 @@ core.post(
         job_id: encodedJobId,
         reused: normalizedEnqueue.reused,
         reused_reason: normalizedEnqueue.reusedReason,
+        recent_repeat: normalizedEnqueue.recentRepeat,
+        recent_execution: normalizedEnqueue.recentExecution,
+        billing_operation_key: normalizedEnqueue.billingOperationKey,
+        estimated_credits: normalizedEnqueue.estimatedCredits,
         ...promotionJobIdentity(encodedJobId, PROMO_JOB_SOURCE_BULL),
         account: {
           key: accountKey,
@@ -6538,6 +6553,161 @@ core.get(
 );
 
 /**
+ * Calcula o custo estimado de uma operacao promocional sem criar job ou reservar saldo.
+ */
+core.post("/api/promocoes/credits/quote", async (req, res) => {
+  try {
+    if (
+      !PromoJobsService ||
+      typeof PromoJobsService.previewBulkApplyCredits !== "function"
+    ) {
+      return res.status(503).json({
+        ok: false,
+        error: "Previa de creditos de promocao indisponivel.",
+      });
+    }
+
+    const accountKey = resolveAccountKeyFromLocals(res);
+    if (!accountKey) {
+      return res.status(400).json({
+        ok: false,
+        error: "Conta selecionada e obrigatoria para calcular o custo.",
+      });
+    }
+
+    const body = req.body || {};
+    const action = String(body.action || "apply").toLowerCase() === "remove"
+      ? "remove"
+      : "apply";
+    const token = String(body.token || "").trim();
+    const storedSelection =
+      token &&
+      PromoSelectionStore &&
+      typeof PromoSelectionStore.getSelection === "function"
+        ? await PromoSelectionStore.getSelection(token, { accountKey })
+        : null;
+    const storedItems = Array.isArray(storedSelection?.items)
+      ? storedSelection.items
+      : [];
+    const storedIds = storedItems
+      .map((item) =>
+        String(
+          item && typeof item === "object"
+            ? item.id || item.item_id || ""
+            : item || ""
+        )
+          .trim()
+          .toUpperCase()
+      )
+      .filter(Boolean);
+    const selectionIds = normalizeMlbList(
+      body.selection_ids ||
+        body.selectionIds ||
+        body.mlbs ||
+        body.ids ||
+        storedIds ||
+        null
+    );
+    const storedFilters = storedSelection?.filters || {};
+    const promotionId = String(
+      body.promotion_id ||
+        body.promotionId ||
+        storedSelection?.promotionId ||
+        ""
+    ).trim();
+    const promotionType = String(
+      body.promotion_type ||
+        body.promotionType ||
+        storedSelection?.promotionType ||
+        ""
+    )
+      .trim()
+      .toUpperCase();
+    const expectedTotal = Math.max(
+      1,
+      Math.trunc(Number(body.expected_total || body.expectedTotal || 0)),
+      Math.trunc(Number(storedSelection?.total || 0)),
+      storedItems.length,
+      selectionIds.length,
+    );
+    if (!promotionId || !promotionType) {
+      return res.status(400).json({
+        ok: false,
+        error: "promotion_id e promotion_type sao obrigatorios.",
+      });
+    }
+
+    const quoteOptions = {
+      ...(body.options || {}),
+      expected_total: expectedTotal,
+      selection_count:
+        body.options?.selection_count ??
+        body.selection_count ??
+        storedSelection?.meta?.selection_count ??
+        (selectionIds.length || expectedTotal),
+      application_source:
+        body.options?.application_source ||
+        storedSelection?.meta?.application_source ||
+        (token ? "selection_token" : "credit_quote"),
+    };
+    if (selectionIds.length) quoteOptions.prevalidated_selection = true;
+
+    const quote = await PromoJobsService.previewBulkApplyCredits({
+      mlCreds: res.locals.mlCreds || {},
+      accountKey,
+      accountLabel: String(res.locals.accountLabel || accountKey),
+      action,
+      promotion: {
+        id: promotionId,
+        type: promotionType,
+        name: String(
+          body.promotion_name ||
+            body.campaign_name ||
+            storedSelection?.promotionName ||
+            storedSelection?.meta?.promotionName ||
+            promotionId
+        ),
+      },
+      filters: {
+        ...storedFilters,
+        ...(body.filters || {}),
+        status:
+          body.status ??
+          body.filters?.status ??
+          storedFilters.status ??
+          null,
+        maxDesc:
+          body.percent_max ??
+          body.discount_max ??
+          body.filters?.maxDesc ??
+          body.filters?.percent_max ??
+          storedFilters.maxDesc ??
+          storedFilters.percent_max ??
+          null,
+        mlbs: selectionIds,
+      },
+      selectionItems:
+        storedItems.length && isOfferBasedPromotionType(promotionType)
+          ? storedItems.map(compactPreparedOfferSelectionItem)
+          : storedItems.length && storedItems.length <= 200
+            ? storedItems
+            : null,
+      price_policy: body.price_policy || "min",
+      options: quoteOptions,
+    });
+
+    return res.json({ ok: true, ...quote });
+  } catch (error) {
+    console.error("[/api/promocoes/credits/quote] erro:", error);
+    return res.status(Number(error?.statusCode || 500)).json({
+      ok: false,
+      error: error?.message || String(error),
+      code: error?.code || null,
+    });
+  }
+});
+
+/**
  * Dispara job de aplicacao em lista validada.
  * Este fluxo nao depende do PromoSelectionStore porque a validacao da lista pode
  * rodar no worker e o store em memoria nao atravessa processos no Render.
@@ -6721,6 +6891,10 @@ core.post(
         job_id: encodedJobId,
         reused: normalizedEnqueue.reused,
         reused_reason: normalizedEnqueue.reusedReason,
+        recent_repeat: normalizedEnqueue.recentRepeat,
+        recent_execution: normalizedEnqueue.recentExecution,
+        billing_operation_key: normalizedEnqueue.billingOperationKey,
+        estimated_credits: normalizedEnqueue.estimatedCredits,
         ...promotionJobIdentity(encodedJobId, PROMO_JOB_SOURCE_BULL),
         total: selectionIds.length,
         account: {

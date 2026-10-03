@@ -614,12 +614,22 @@ function iniciarWorker() {
 
   queue.on("failed", async (job, err) => {
     console.error(`[validar-dimensoes] Job ${job.id} falhou:`, err?.message || err);
-    await settleCredits(job?.data?.creditReservation, { release: true });
+    const meta = (await readMeta(job.id)) || {};
+    const processed = Math.max(0, Number(meta.processed || 0));
+    await settleCredits(job?.data?.creditReservation, {
+      release: processed <= 0,
+      consumedUnits: processed > 0 ? processed : null,
+    });
   });
 
   queue.on("completed", async (job) => {
     console.log(`[validar-dimensoes] Job ${job.id} finalizado`);
-    await settleCredits(job?.data?.creditReservation, { release: false });
+    const meta = (await readMeta(job.id)) || {};
+    const processed = Math.max(0, Number(meta.processed || 0));
+    await settleCredits(job?.data?.creditReservation, {
+      release: processed <= 0,
+      consumedUnits: processed > 0 ? processed : null,
+    });
   });
 
   console.log(
