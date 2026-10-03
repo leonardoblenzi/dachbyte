@@ -1201,6 +1201,17 @@ function recentPromotionFingerprintKey(fingerprint) {
   return `promo:recent-fingerprint:${String(fingerprint || '').trim()}`;
 }
 
+function classifyRecentPromotionExecution(parsed = {}, nowMs = Date.now()) {
+  const finishedAtMs = Number(parsed?.finished_at_ms || 0);
+  const ageMs = finishedAtMs > 0 ? Math.max(0, Number(nowMs || Date.now()) - finishedAtMs) : null;
+  return {
+    ...parsed,
+    age_ms: ageMs,
+    within_cooldown: ageMs != null && ageMs <= PROMO_REPEAT_COOLDOWN_MS,
+    within_history: ageMs != null && ageMs <= PROMO_RECENT_HISTORY_MS,
+  };
+}
+
 async function getRecentPromotionExecution(data = {}) {
   const fingerprint = String(
     data?.requestFingerprint || buildPromoRequestFingerprint(data) || '',
@@ -1210,15 +1221,7 @@ async function getRecentPromotionExecution(data = {}) {
     const redis = promoOrchestrationRedis();
     const raw = await redis.get(recentPromotionFingerprintKey(fingerprint));
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const finishedAtMs = Number(parsed?.finished_at_ms || 0);
-    const ageMs = finishedAtMs > 0 ? Math.max(0, Date.now() - finishedAtMs) : null;
-    return {
-      ...parsed,
-      age_ms: ageMs,
-      within_cooldown: ageMs != null && ageMs <= PROMO_REPEAT_COOLDOWN_MS,
-      within_history: ageMs != null && ageMs <= PROMO_RECENT_HISTORY_MS,
-    };
+    return classifyRecentPromotionExecution(JSON.parse(raw));
   } catch {
     return null;
   }
@@ -1279,6 +1282,26 @@ function promotionSelectedCount(data = {}, fallbackTotal = 0) {
   return candidates.length ? Math.max(...candidates) : 0;
 }
 
+function consumePromoMlApiCalls(previousValue = 0, runtime = null) {
+  const store = runtime || {};
+  const current = Math.max(0, Number(store.mlApiCalls || 0));
+  const reported = Math.max(0, Number(store.reportedMlApiCalls || 0));
+  const delta = Math.max(0, current - reported);
+  store.reportedMlApiCalls = current;
+  return Math.max(0, Number(previousValue || 0)) + delta;
+}
+
+function promotionBillingOperationKey(action, recentRepeat = false) {
+  if (action === 'remove') return 'promotions.remove';
+  return recentRepeat ? 'promotions.reapply_recent' : 'promotions.apply';
+}
+
+function promotionBillingIdempotencyKey(operationId, { validation = false } = {}) {
+  const id = String(operationId || '').trim();
+  if (!id) throw new Error('operation_id_required_for_billing');
+  return validation ? `promotions-validate:${id}` : `promotions:${id}`;
+}
+
 function buildPromotionBillingTelemetry(
   data = {},
   { total = 0, processed = 0, success = 0, failed = 0, results = [], finished = false } = {},
@@ -1319,9 +1342,7 @@ function buildPromotionBillingTelemetry(
     ignored,
     errors: Math.max(0, Number(failed || 0)),
     retries,
-    ml_api_calls:
-      Math.max(0, Number(previous?.ml_api_calls || 0)) +
-      Math.max(0, Number(runtime?.mlApiCalls || 0)),
+    ml_api_calls: consumePromoMlApiCalls(previous?.ml_api_calls || 0, runtime),
     estimated_credits:
       quote?.estimated_credits ??
       reservation?.reserved_credits ??
@@ -7902,12 +7923,7 @@ module.exports = {
     previewData.requestFingerprint = buildPromoRequestFingerprint(previewData);
     const recentExecution = await getRecentPromotionExecution(previewData);
     const recentRepeat = Boolean(recentExecution?.within_cooldown);
-    const operationKey =
-      action === 'apply' && recentRepeat
-        ? 'promotions.reapply_recent'
-        : action === 'remove'
-          ? 'promotions.remove'
-          : 'promotions.apply';
+    const operationKey = promotionBillingOperationKey(action, recentRepeat);
     const units = Math.max(
       1,
       Number(opts?.options?.expected_total || 0),
@@ -7984,12 +8000,10 @@ module.exports = {
     baseData.campaignGuardKey = campaignGuardKey(baseData);
     baseData.recentExecution = await getRecentPromotionExecution(baseData);
     baseData.recentRepeat = Boolean(baseData.recentExecution?.within_cooldown);
-    baseData.billingOperationKey =
-      action === 'apply' && baseData.recentRepeat
-        ? 'promotions.reapply_recent'
-        : action === 'remove'
-          ? 'promotions.remove'
-          : 'promotions.apply';
+    baseData.billingOperationKey = promotionBillingOperationKey(
+      action,
+      baseData.recentRepeat,
+    );
 
     // Dupla protecao: primeiro detecta jobs ja existentes (inclusive legados);
     // depois reserva atomicamente a campanha no Redis para fechar a janela de
@@ -8054,7 +8068,7 @@ module.exports = {
         mlCreds: opts?.mlCreds || null,
         operationKey: baseData.billingOperationKey,
         units: unitCount,
-        idempotencyKey: `promotions:${baseData.operationId}`,
+        idempotencyKey: promotionBillingIdempotencyKey(baseData.operationId),
       });
 
       const data = {
@@ -8155,7 +8169,7 @@ module.exports = {
       mlCreds: opts?.mlCreds || null,
       operationKey: 'promotions.validate',
       units: Math.max(1, mlbs.length),
-      idempotencyKey: `promotions-validate:${validationOperationId}`,
+      idempotencyKey: promotionBillingIdempotencyKey(validationOperationId, { validation: true }),
     });
     const data = {
       ...opts,
@@ -9253,6 +9267,11 @@ module.exports = {
     resolvePendingResumeIds,
     readBullJobProgress,
     buildPromoRequestFingerprint,
+    classifyRecentPromotionExecution,
+    consumePromoMlApiCalls,
+    promotionBillingOperationKey,
+    promotionBillingIdempotencyKey,
+    buildPromotionBillingTelemetry,
     campaignGuardIdentity,
     jobHasPendingRemediation,
     isInternalYieldError,
