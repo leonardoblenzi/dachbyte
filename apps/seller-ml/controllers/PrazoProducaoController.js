@@ -2,7 +2,6 @@
 
 const {
   updatePrazoProducao,
-  consultPrazoProducao,
 } = require("../services/prazoProducaoService");
 const {
   enqueuePrazoJob,
@@ -13,6 +12,7 @@ const {
   getPrazoJobCsv,
   cancelPrazoJob,
   previewPrazoCredits,
+  consultPrazoWithCredits,
 } = require("../services/prazoProducaoQueueService");
 const { attachJobContract } = require("../services/jobContract");
 const {
@@ -106,10 +106,11 @@ async function setPrazoProducaoSingle(req, res) {
 async function consultarPrazoProducao(req, res) {
   try {
     const accessToken = pickAccessToken(req);
-    const payload = await consultPrazoProducao({
+    const payload = await consultPrazoWithCredits({
       accessToken,
       mlCreds: res.locals?.mlCreds || {},
       mlbIds: req.body?.mlb_ids || req.body?.item_ids || [],
+      account: res.locals?.account || null,
     });
 
     res.json(payload);
