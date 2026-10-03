@@ -1,5 +1,6 @@
 "use strict";
 
+const crypto = require("crypto");
 const Bull = require("bull");
 const { makeBullClient, getSharedRedis } = require("../lib/redisClient");
 const {
@@ -14,7 +15,7 @@ const {
 const { buildCsv, attachJobReview } = require("./jobReviewHelper");
 const { attachJobContract, backendJobIdFromUid } = require("./jobContract");
 const { recordAuthEvent } = require("./authAuditService");
-const { reserveCredits, settleCredits } = require("./hubCreditsService");
+const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
 const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 function resolveJobId(value) {
@@ -176,6 +177,51 @@ async function auditPrazoJobEvent(job, evento, status, metadata = {}) {
 function prazoTermDays(term) {
   const value = Number(term?.value_struct?.number);
   return Number.isFinite(value) ? value : null;
+}
+
+function productionTimeBillingOperationKey(type = "apply") {
+  return type === "lookup_active" ? "production-time.lookup" : "production-time.apply";
+}
+
+function productionTimeBillingIdempotencyKey(operationId) {
+  const id = String(operationId || "").trim();
+  if (!id) throw new Error("production_time_operation_id_required");
+  return `production-time:${id}`;
+}
+
+function productionTimeBillableUnits(meta = {}) {
+  return Math.max(0, Number(meta.ok || 0));
+}
+
+function productionTimeBillingTelemetry(job, meta = {}) {
+  const reservation = job?.data?.creditReservation || {};
+  return {
+    billing_mode:
+      reservation?.shadow === true
+        ? "shadow"
+        : reservation?.bypass === true
+          ? "bypass"
+          : "enforce",
+    operation_key:
+      job?.data?.billingOperationKey ||
+      reservation?.quote?.operation_key ||
+      reservation?.operation_key ||
+      productionTimeBillingOperationKey(job?.data?.type),
+    operation_id: job?.data?.operationId || job?.id || null,
+    selected: Math.max(0, Number(meta.total || 0)),
+    processed: Math.max(0, Number(meta.processed || 0)),
+    success: Math.max(0, Number(meta.ok || 0)),
+    failed: Math.max(0, Number(meta.err || 0)),
+    billable_units: productionTimeBillableUnits(meta),
+    estimated_credits:
+      reservation?.quote?.estimated_credits ??
+      reservation?.reserved_credits ??
+      null,
+    duration_ms:
+      meta.startedAt && meta.finishedAt
+        ? Math.max(0, Number(meta.finishedAt) - Number(meta.startedAt))
+        : null,
+  };
 }
 
 function resolvePrazoJobMetrics(job, meta = {}) {
