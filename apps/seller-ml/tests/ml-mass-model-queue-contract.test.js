@@ -19,8 +19,11 @@ test("modelo em massa usa Bull e Redis em vez de Map em memoria", () => {
 test("modelo em massa usa governor e liquida somente unidades faturaveis", () => {
   assert.match(service, /waitForHeavyOperationLease/);
   assert.match(service, /lane:\s*job\.data\?\.dryRun === true \? "read" : "write"/);
-  assert.match(service, /const billableUnits = massModelBillableUnits/);\n  assert.match(service, /consumedUnits:\s*billableUnits > 0 \? billableUnits : null/);
-  assert.match(service, /mass-model\\.validate/);\n  assert.match(service, /mass-model\\.apply/);\n  assert.match(service, /massModelBillingIdempotencyKey/);
+  assert.match(service, /const billableUnits = massModelBillableUnits/);
+  assert.match(service, /consumedUnits:\s*billableUnits > 0 \? billableUnits : null/);
+  assert.ok(service.includes('"mass-model.validate"'));
+  assert.ok(service.includes('"mass-model.apply"'));
+  assert.match(service, /massModelBillingIdempotencyKey/);
 });
 
 test("controller aguarda operacoes persistentes e worker inicia a fila", () => {
