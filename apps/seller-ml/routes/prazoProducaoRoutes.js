@@ -19,6 +19,12 @@ router.post(
 );
 
 router.post(
+  "/anuncios/prazo-producao/credits/quote",
+  express.json({ limit: "1mb" }),
+  PrazoProducaoController.quotePrazoCredits,
+);
+
+router.post(
   "/anuncios/prazo-producao/consultar-ativos-job",
   createAuditAction({
     evento: "production_time_active_lookup_started",
