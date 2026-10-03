@@ -645,18 +645,18 @@ function initWorker() {
   });
   queue.on("failed", async (job, err) => {
     console.error("[prazo-producao] job failed:", job?.id, err?.message || err);
-    const processed = Math.max(0, Number(job?.data?.__meta?.processed || 0));
+    const billableUnits = productionTimeBillableUnits(job?.data?.__meta || {});
     await settleCredits(job?.data?.creditReservation, {
-      release: processed <= 0,
-      consumedUnits: processed > 0 ? processed : null,
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
   });
   queue.on("completed", async (job) => {
     console.log("[prazo-producao] job completed:", job?.id);
-    const processed = Math.max(0, Number(job?.data?.__meta?.processed || 0));
+    const billableUnits = productionTimeBillableUnits(job?.data?.__meta || {});
     await settleCredits(job?.data?.creditReservation, {
-      release: processed <= 0,
-      consumedUnits: processed > 0 ? processed : null,
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
   });
   console.log("[prazo-producao] worker iniciado");
