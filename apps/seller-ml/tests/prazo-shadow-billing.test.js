@@ -155,7 +155,7 @@ test("preview de aplicacao deduplica MLBs e envia quantidade correta ao Hub", as
   try {
     const quote = await PrazoQueue.previewPrazoCredits({
       type: "apply",
-      mlbIds: ["MLB1", "mlb1", "MLB2"],
+      mlbIds: ["MLB100001", "mlb100001", "MLB100002"],
       mlCreds: {
         meli_user_id: "prazo_test",
         tenant_id: "tenant_prazo_test",
