@@ -674,10 +674,21 @@ async function enqueuePrazoJob({
   auditContext = null,
 }) {
   const queue = getQueue();
+  const ids = Array.from(
+    new Set(
+      (Array.isArray(mlb_ids) ? mlb_ids : [])
+        .map(normMlb)
+        .filter(Boolean),
+    ),
+  );
+  if (!ids.length) throw new Error("Nenhum anuncio informado para atualizar prazo.");
+  const operationId = `PRAZO-${crypto.randomUUID()}`;
+  const billingOperationKey = productionTimeBillingOperationKey("apply");
   const creditReservation = await reserveCredits({
     mlCreds,
-    operationKey: "production-time.apply",
-    units: Math.max(1, Array.isArray(mlb_ids) ? mlb_ids.length : 0),
+    operationKey: billingOperationKey,
+    units: ids.length,
+    idempotencyKey: productionTimeBillingIdempotencyKey(operationId),
   });
   let job;
   try {
@@ -685,13 +696,15 @@ async function enqueuePrazoJob({
       {
         accessToken,
         mlCreds: mlCreds || null,
-        mlb_ids,
+        mlb_ids: ids,
         days,
         delayMs,
         accountKey,
         accountLabel,
         auditContext: auditContext && typeof auditContext === "object" ? auditContext : null,
         creditReservation,
+        operationId,
+        billingOperationKey,
       },
       {
         attempts: 1,
@@ -714,11 +727,8 @@ async function enqueuePrazoLookupActiveJob({
   accountLabel = null,
 }) {
   const queue = getQueue();
-  const creditReservation = await reserveCredits({
-    mlCreds,
-    operationKey: "production-time.lookup",
-    units: Math.max(1, Number(maxItems || 1)),
-  });
+  const operationId = `PRAZO-LOOKUP-${crypto.randomUUID()}`;
+  const billingOperationKey = productionTimeBillingOperationKey("lookup_active");
   let job;
   try {
     job = await queue.add(
@@ -729,7 +739,9 @@ async function enqueuePrazoLookupActiveJob({
         maxItems,
         accountKey,
         accountLabel,
-        creditReservation,
+        creditReservation: null,
+        operationId,
+        billingOperationKey,
       },
       {
         attempts: 1,
@@ -738,10 +750,73 @@ async function enqueuePrazoLookupActiveJob({
       }
     );
   } catch (error) {
-    await settleCredits(creditReservation, { release: true });
     throw error;
   }
   return String(job.id);
+}
+
+async function previewPrazoCredits({
+  type = "apply",
+  mlbIds = [],
+  maxItems = null,
+  mlCreds = {},
+  account = null,
+} = {}) {
+  const operationKey = productionTimeBillingOperationKey(type);
+
+  if (type === "lookup_active") {
+    const max = Math.trunc(Number(maxItems || 0));
+    if (!Number.isFinite(max) || max <= 0) {
+      return {
+        operation_key: operationKey,
+        quantity: null,
+        estimated_credits: null,
+        available_credits: null,
+        sufficient: true,
+        unlimited: false,
+        deferred: true,
+      };
+    }
+    const quote = await quoteCredits({
+      mlCreds,
+      account,
+      operationKey,
+      units: max,
+    });
+    return {
+      operation_key: operationKey,
+      quantity: max,
+      estimated_credits: Number(quote?.estimated_credits || 0),
+      available_credits:
+        quote?.available_credits == null ? null : Number(quote.available_credits),
+      sufficient: quote?.sufficient !== false,
+      unlimited: quote?.unlimited === true,
+      deferred: false,
+      quote,
+    };
+  }
+
+  const ids = Array.from(
+    new Set((Array.isArray(mlbIds) ? mlbIds : []).map(normMlb).filter(Boolean)),
+  );
+  if (!ids.length) throw new Error("Nenhum anuncio informado para calcular o custo.");
+  const quote = await quoteCredits({
+    mlCreds,
+    account,
+    operationKey,
+    units: ids.length,
+  });
+  return {
+    operation_key: operationKey,
+    quantity: ids.length,
+    estimated_credits: Number(quote?.estimated_credits || 0),
+    available_credits:
+      quote?.available_credits == null ? null : Number(quote.available_credits),
+    sufficient: quote?.sufficient !== false,
+    unlimited: quote?.unlimited === true,
+    deferred: false,
+    quote,
+  };
 }
 
 async function getPrazoJobStatus(jobId, { accountKey = null } = {}) {
