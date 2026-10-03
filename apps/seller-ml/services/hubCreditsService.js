@@ -524,7 +524,7 @@ async function reserveCredits({
 }
 
 async function settleCredits(reservation, { release = false, consumedUnits = null } = {}) {
-  if (!reservation || reservation.bypass) return reservation || null;
+  if (!reservation || reservation.bypass || reservation.shadow === true) return reservation || null;
   const idempotencyKey = String(reservation.idempotency_key || "").trim();
   if (!idempotencyKey) return null;
   try {
