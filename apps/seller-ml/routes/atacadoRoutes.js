@@ -39,6 +39,13 @@ router.post(
   AtacadoController.listSpecific,
 );
 router.post(
+  "/credits/quote",
+  requireAtacadoAccess,
+  express.json({ limit: "1mb" }),
+  AtacadoController.quoteCredits,
+);
+
+router.post(
   "/aplicar",
   requireAtacadoEdit,
   express.json({ limit: "1mb" }),
