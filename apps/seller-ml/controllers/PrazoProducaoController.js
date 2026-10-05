@@ -15,6 +15,7 @@ const {
   consultPrazoWithCredits,
 } = require("../services/prazoProducaoQueueService");
 const { attachJobContract } = require("../services/jobContract");
+const { recordSuccessfulChange } = require("../services/singleOperationGuardService");
 const {
   getRequestIp,
   getRequestUserAgent,
@@ -80,6 +81,13 @@ async function setPrazoProducaoSingle(req, res) {
       days,
       verify: true,
     });
+
+    if (out?.put_result) {
+      await recordSuccessfulChange({
+        res,
+        operation: "production-time.apply",
+      });
+    }
 
     await auditPrazo(req, res, "production_time_item_processed", "success", {
       mlb_id: out?.mlb_id || mlb_id,
