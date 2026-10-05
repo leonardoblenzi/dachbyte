@@ -1006,8 +1006,35 @@
     }
   }
 
+  function retryableChangesFromCurrentJob() {
+    return (Array.isArray(state.lastJobDetail?.rows) ? state.lastJobDetail.rows : [])
+      .filter((row) => row.retryable === true && row.write_applied !== true)
+      .map((row) => ({
+        mlb: row.mlb,
+        variation_id: row.variation_id || null,
+        expected_current_stock: row.actual_current_stock,
+        new_stock: row.requested_stock,
+      }));
+  }
+
   async function retryCurrentJobErrors() {
     if (!state.currentJobId || state.jobSubmitting) return;
+    const retryChanges = retryableChangesFromCurrentJob();
+    if (retryChanges.length) {
+      try {
+        const quote = await fetchJson("/api/estoque/atualizacao/credits/quote", {
+          method: "POST",
+          body: JSON.stringify({ changes: retryChanges }),
+        });
+        if (!confirmStockApplyQuote(quote)) return;
+      } catch (quoteError) {
+        console.warn(
+          "[estoque] prévia de créditos do retry indisponível; seguindo em shadow:",
+          quoteError?.message || quoteError,
+        );
+      }
+    }
+
     state.jobSubmitting = true;
     updateControls();
     const button = $("btnStockRetryErrors");
