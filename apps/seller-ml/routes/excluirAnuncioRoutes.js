@@ -5,6 +5,10 @@ const router = express.Router();
 const companyAccess = require('../services/companyAccessService');
 const ExcluirAnuncioController = require('../controllers/ExcluirAnuncioController');
 const { createAuditAction } = require('../middleware/auditAction');
+const {
+  guardSingleOperation,
+  requireSingleMlb,
+} = require('../services/singleOperationGuardService');
 
 router.use(companyAccess.requireModuleAccess('ml.operacao.excluir_massa'));
 const requireExcluirEdit = companyAccess.requireModuleAccess('ml.operacao.excluir_massa', { edit: true });
@@ -12,7 +16,13 @@ const requireExcluirEdit = companyAccess.requireModuleAccess('ml.operacao.exclui
 router.post('/credits/quote', requireExcluirEdit, ExcluirAnuncioController.quoteCredits);
 
 // 🔹 Excluir um único anúncio (DELETE /anuncios/excluir/:mlb_id)
-router.delete('/anuncios/excluir/:mlb_id', requireExcluirEdit, ExcluirAnuncioController.excluirUnico);
+router.delete(
+  '/anuncios/excluir/:mlb_id',
+  requireExcluirEdit,
+  requireSingleMlb((req) => req.params?.mlb_id),
+  guardSingleOperation('listing.delete'),
+  ExcluirAnuncioController.excluirUnico,
+);
 
 // 🔹 Exclusão em lote (POST /anuncios/excluir-lote)
 router.post('/anuncios/excluir-lote', requireExcluirEdit, ExcluirAnuncioController.excluirLote);
