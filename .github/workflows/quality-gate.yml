@@ -118,6 +118,10 @@ jobs:
           node --check public/js/promo-http.js
           node --check public/js/promo-bulk.js
           node --check public/js/promo-actions.js
+          node --check services/promoSmartBillingService.js
+          node --check services/promoSmartOptimizerService.js
+          node --check routes/promocoesRoutes.js
+          node --check public/js/promo-intelligence.js
 
   runtime-safety:
     name: Runtime safety checks
