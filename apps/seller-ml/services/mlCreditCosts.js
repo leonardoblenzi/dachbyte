@@ -7,6 +7,7 @@ const OPERATION_COSTS = Object.freeze({
   "promotions.remove": Object.freeze({ base: 0, perUnits: 1, unitBlock: 3000 }),
   "promotions.validate": Object.freeze({ base: 0, perUnits: 1, unitBlock: 15000 }),
   "promotions.reapply_recent": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1500 }),
+  "promotions.smart-optimize": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1000 }),
   "wholesale.apply": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1500 }),
   "wholesale.validate": Object.freeze({ base: 0, perUnits: 1, unitBlock: 15000 }),
   "dimensions.validate": Object.freeze({ base: 0, perUnits: 1, unitBlock: 15000 }),
