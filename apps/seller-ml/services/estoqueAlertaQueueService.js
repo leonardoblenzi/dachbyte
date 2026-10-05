@@ -366,6 +366,7 @@ async function enqueueStockJob({
   periodDays = 30,
   customFrom = null,
   customTo = null,
+  auditContext = null,
 } = {}) {
   const queue = getQueue();
   const existing = await findOpenJob(queue, { accountKey, source });
@@ -396,7 +397,7 @@ async function enqueueStockJob({
         periodDays,
         customFrom,
         customTo,
-        auditContext: arguments[0]?.auditContext || null,
+        auditContext: auditContext && typeof auditContext === "object" ? auditContext : null,
         creditReservation,
         operationId,
       },
