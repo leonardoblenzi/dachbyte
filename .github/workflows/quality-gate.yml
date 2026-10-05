@@ -127,6 +127,15 @@ jobs:
           node --check controllers/FinanceiroMlController.js
           node --check routes/financeiroMlRoutes.js
           node --check public/js/financeiro-ml-custos.js
+          node --check services/singleOperationGuardService.js
+          node --check controllers/ExcluirAnuncioController.js
+          node --check controllers/RemoverPromocaoController.js
+          node --check controllers/PrazoProducaoController.js
+          node --check controllers/ValidarDimensoesController.js
+          node --check routes/excluirAnuncioRoutes.js
+          node --check routes/removerPromocaoRoutes.js
+          node --check routes/prazoProducaoRoutes.js
+          node --check routes/validarDimensoesRoutes.js
 
   runtime-safety:
     name: Runtime safety checks
