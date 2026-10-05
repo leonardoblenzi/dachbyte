@@ -8,7 +8,7 @@ test("stock enqueue rejects a missing real accountKey instead of using credentia
   let enqueued = false;
   const originalLoad = Module._load;
   Module._load = function mockControllerDependencies(request, parent, isMain) {
-    if (request === "../services/estoqueAtualizacaoQueueService") return {
+    if (request === "../services/EstoqueAtualizacaoQueueService") return {
       enqueueStockUpdateJob: async () => { enqueued = true; },
     };
     if (request === "../services/authAuditService") return {
