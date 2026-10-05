@@ -9,6 +9,8 @@ const { createAuditAction } = require('../middleware/auditAction');
 router.use(companyAccess.requireModuleAccess('ml.operacao.excluir_massa'));
 const requireExcluirEdit = companyAccess.requireModuleAccess('ml.operacao.excluir_massa', { edit: true });
 
+router.post('/credits/quote', requireExcluirEdit, ExcluirAnuncioController.quoteCredits);
+
 // 🔹 Excluir um único anúncio (DELETE /anuncios/excluir/:mlb_id)
 router.delete('/anuncios/excluir/:mlb_id', requireExcluirEdit, ExcluirAnuncioController.excluirUnico);
 
