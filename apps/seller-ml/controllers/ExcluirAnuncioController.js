@@ -68,6 +68,36 @@ class ExcluirAnuncioController {
     return 'listing_deleted_bulk_started';
   }
 
+  static async quoteCredits(req, res) {
+    try {
+      const operation = ExcluirAnuncioController.normalizeOperation(req.body?.operation || "DELETE");
+      if (operation !== "DELETE") {
+        return res.json({
+          success: true,
+          operation,
+          operation_key: null,
+          quantity: Array.isArray(req.body?.mlb_ids) ? req.body.mlb_ids.length : 0,
+          estimated_credits: 0,
+          sufficient: true,
+          unlimited: false,
+          not_priced: true,
+        });
+      }
+      const quote = await ExclusaoLoteJobService.previewBulkDeleteCredits({
+        mlCreds: res.locals?.mlCreds || {},
+        account: res.locals?.account || null,
+        mlbIds: req.body?.mlb_ids || [],
+      });
+      return res.json({ success: true, operation, ...quote });
+    } catch (error) {
+      return res.status(error.statusCode || error.status || 400).json({
+        success: false,
+        error: error.message || "Falha ao calcular custo da exclusao em massa.",
+        details: error.details || null,
+      });
+    }
+  }
+
   static async excluirUnico(req, res) {
     try {
       const mlbId = (req.params.mlb_id || req.body.mlb_id || '').trim().toUpperCase();
