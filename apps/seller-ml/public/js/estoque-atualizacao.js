@@ -934,30 +934,33 @@
     }
 
     try {
-      try {
-        const quote = await fetchJson("/api/estoque/atualizacao/credits/quote", {
-          method: "POST",
-          body: JSON.stringify({ changes }),
-        });
-        if (!confirmStockApplyQuote(quote)) return;
-      } catch (quoteError) {
-        console.warn("[estoque] prévia de créditos indisponível; seguindo em shadow:", quoteError?.message || quoteError);
-      }
+      const quote = await fetchJson("/api/estoque/atualizacao/credits/quote", {
+        method: "POST",
+        body: JSON.stringify({ changes }),
+      });
+      if (!confirmStockApplyQuote(quote)) return;
+    } catch (quoteError) {
+      console.warn(
+        "[estoque] prévia de créditos indisponível; seguindo em shadow:",
+        quoteError?.message || quoteError,
+      );
+    }
 
-      state.jobSubmitting = true;
-      updateControls();
-      const confirm = $("btnStockConfirmUpdate");
-      if (confirm) confirm.textContent = "Enviando para a fila...";
-      const account = window.__ACCOUNT__ || {};
-      const accountLabel = document.querySelector("#account-current")?.textContent?.trim() || account.label || null;
-      const localJobId = window.JobsPanel?.addLocalJob?.({
+    state.jobSubmitting = true;
+    updateControls();
+    const confirm = $("btnStockConfirmUpdate");
+    if (confirm) confirm.textContent = "Enviando para a fila...";
+    const account = window.__ACCOUNT__ || {};
+    const accountLabel =
+      document.querySelector("#account-current")?.textContent?.trim() || account.label || null;
+    const localJobId = window.JobsPanel?.addLocalJob?.({
       title: `Estoque - atualizar ${changes.length} ${changes.length === 1 ? "linha" : "linhas"}`,
       accountKey: account.key || null,
       accountLabel,
-      }) || null;
+    }) || null;
 
-      try {
-        const payload = await fetchJson("/api/estoque/atualizacao/aplicar", {
+    try {
+      const payload = await fetchJson("/api/estoque/atualizacao/aplicar", {
         method: "POST",
         body: JSON.stringify({ changes }),
       });
@@ -980,7 +983,10 @@
         `Job ${state.currentJobId} criado para ${fmtNum(changes.length)} ${changes.length === 1 ? "linha" : "linhas"}. Acompanhe o processamento abaixo ou no painel de processos.`,
         "info",
       );
-      setFeedback("Atualização enviada para o worker. Você pode continuar usando o sistema enquanto o lote processa.", "ok");
+      setFeedback(
+        "Atualização enviada para o worker. Você pode continuar usando o sistema enquanto o lote processa.",
+        "ok",
+      );
       startCurrentJobPolling();
     } catch (error) {
       if (localJobId) {
@@ -996,12 +1002,7 @@
     } finally {
       if (!state.currentJobId) state.jobSubmitting = false;
       if (confirm) confirm.textContent = "Confirmar atualização";
-        updateControls();
-      }
-    } catch (error) {
-      state.jobSubmitting = false;
       updateControls();
-      throw error;
     }
   }
 
