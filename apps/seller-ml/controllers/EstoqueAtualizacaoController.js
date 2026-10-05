@@ -130,6 +130,7 @@ async function retryErrors(req, res) {
     const ctx = accountContext(res);
     const result = await queueService.retryFailedStockJob(req.params.id, {
       accountKey: ctx.accountKey,
+      mlCreds: ctx.mlCreds,
       auditContext: auditContext(req, res),
     });
     if (!result) return res.status(404).json({ success: false, error: "Job nao encontrado." });
