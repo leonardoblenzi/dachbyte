@@ -740,9 +740,6 @@ async function processSyncJob(job) {
       status: "failed",
       error: error?.message || String(error),
       finished_at: new Date(),
-      meta: {
-        billing_telemetry: billingTelemetry,
-      },
     });
     throw error;
   }
