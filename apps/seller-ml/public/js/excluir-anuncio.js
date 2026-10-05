@@ -298,7 +298,7 @@
     updateSummary();
   }
 
-  function openConfirmModal(items) {
+  async function openConfirmModal(items) {
     const operation = currentOperation();
     pendingItems = items;
 
@@ -316,6 +316,38 @@
         confirmText.textContent = `Voce esta prestes a encerrar ${countText}. Anuncios encerrados nao voltam para ativo; para vender novamente, e necessario republicar/relistar.`;
       } else {
         confirmText.textContent = `Voce esta prestes a excluir ${countText}. Essa acao e irreversivel e os anuncios nao poderao voltar para ativo.`;
+        try {
+          const response = await fetch(withBase("/api/excluir-anuncio/credits/quote"), {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              operation: "DELETE",
+              mlb_ids: items,
+            }),
+          });
+          const quote = await response.json().catch(() => ({}));
+          if (!response.ok || quote?.success === false) {
+            throw new Error(quote?.error || `HTTP ${response.status}`);
+          }
+          if (quote?.unlimited === true) {
+            confirmText.textContent += " Conta ilimitada/cortesia: sem debito de creditos.";
+          } else if (Number.isFinite(Number(quote?.estimated_credits))) {
+            const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+            confirmText.textContent += ` Custo estimado em shadow: ${fmt.format(Number(quote.estimated_credits || 0))} credito(s).`;
+            if (quote?.available_credits != null) {
+              confirmText.textContent += ` Saldo disponivel: ${fmt.format(Number(quote.available_credits || 0))}.`;
+            }
+          }
+        } catch (quoteError) {
+          console.warn(
+            "[gestao-anuncios] previa de creditos indisponivel; seguindo em shadow:",
+            quoteError?.message || quoteError,
+          );
+        }
       }
     }
 
@@ -391,7 +423,7 @@
 
   listInput?.addEventListener("input", updateSummary);
 
-  btnStart?.addEventListener("click", () => {
+  btnStart?.addEventListener("click", async () => {
     const parsed = parseMlbs(listInput?.value || "");
     if (!parsed.valid.length) {
       showResult({
@@ -401,7 +433,7 @@
       }, "error");
       return;
     }
-    openConfirmModal(parsed.valid);
+    await openConfirmModal(parsed.valid);
   });
 
   btnConfirm?.addEventListener("click", startOperation);
