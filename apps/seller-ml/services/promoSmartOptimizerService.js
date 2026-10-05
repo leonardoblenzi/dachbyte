@@ -7,6 +7,7 @@ const ExcelJS = require("exceljs");
 const TokenService = require("./tokenService");
 const { makeBullClient, getSharedRedis } = require("../lib/redisClient");
 const { recordAuthEvent } = require("./authAuditService");
+const SmartBilling = require("./promoSmartBillingService");
 
 const QUEUE_NAME = "promo-smart-optimizer";
 const ANALYSIS_TTL_MS = Math.max(
@@ -87,6 +88,25 @@ function ensureQueue() {
   });
   queue.on("error", (error) => {
     console.error("[PromoSmartOptimizer] queue error:", error?.message || error);
+  });
+  queue.on("completed", async (job) => {
+    if (job?.data?.kind !== "optimize") return;
+    const metrics = resolveJobMetrics(job, "completed");
+    await SmartBilling.settleOptimizationCredits(job?.data?.creditReservation, {
+      optimized: metrics.success,
+    });
+  });
+  queue.on("failed", async (job, error) => {
+    if (job?.data?.kind !== "optimize") return;
+    const metrics = resolveJobMetrics(job, "failed");
+    await SmartBilling.settleOptimizationCredits(job?.data?.creditReservation, {
+      optimized: metrics.success,
+    });
+    console.error(
+      "[PromoSmartOptimizer] billing settle after failure:",
+      job?.id,
+      error?.message || error,
+    );
   });
   return queue;
 }
@@ -1244,6 +1264,7 @@ async function runOptimizeJob(job) {
   const { mlCreds = {}, opportunities = [] } = job.data || {};
   const total = opportunities.length;
   const operationId = job.data.operationId || `SMART-OPT-${job.id}`;
+  const startedAt = Date.now();
   job.data.operationId = operationId;
   await updateJobMeta(job, {
     stateLabel: "otimizando Smart",
@@ -1252,13 +1273,33 @@ async function runOptimizeJob(job) {
     success: 0,
     failed: 0,
     skipped: 0,
-    startedAt: Date.now(),
+    startedAt,
     results: [],
+    billingTelemetry: SmartBilling.telemetry({
+      reservation: job.data?.creditReservation || null,
+      operationId,
+      selected: total,
+      processed: 0,
+      optimized: 0,
+      failed: 0,
+      skipped: 0,
+      startedAt,
+    }),
   });
   await job.progress(0);
   await auditJob(job, "promotion_smart_optimization_started", "success", {
     total_items: total,
     analysis_id: job.data.analysisId || null,
+    billing_telemetry: SmartBilling.telemetry({
+      reservation: job.data?.creditReservation || null,
+      operationId,
+      selected: total,
+      processed: 0,
+      optimized: 0,
+      failed: 0,
+      skipped: 0,
+      startedAt,
+    }),
   });
 
   const lock = await acquireAccountLock(job.data.accountKey, job);
@@ -1412,6 +1453,18 @@ async function runOptimizeJob(job) {
       );
     }
 
+    const completedAt = Date.now();
+    const billingTelemetry = SmartBilling.telemetry({
+      reservation: job.data?.creditReservation || null,
+      operationId,
+      selected: total,
+      processed: total,
+      optimized: success,
+      failed,
+      skipped,
+      startedAt,
+      finishedAt: completedAt,
+    });
     await updateJobMeta(job, {
       stateLabel: failed > 0 ? "concluído parcialmente" : "concluído",
       processed: total,
@@ -1419,7 +1472,8 @@ async function runOptimizeJob(job) {
       failed,
       skipped,
       results,
-      completedAt: Date.now(),
+      completedAt,
+      billingTelemetry,
     });
     await job.progress(100);
     await auditJob(job, "promotion_smart_optimization_completed", failed > 0 ? "warn" : "success", {
@@ -1427,8 +1481,19 @@ async function runOptimizeJob(job) {
       success,
       failed,
       skipped,
+      billing_telemetry: billingTelemetry,
     });
-    return { ok: failed === 0, total, processed: total, success, failed, skipped, results, operation_id: operationId };
+    return {
+      ok: failed === 0,
+      total,
+      processed: total,
+      success,
+      failed,
+      skipped,
+      results,
+      operation_id: operationId,
+      billing_telemetry: billingTelemetry,
+    };
   } finally {
     await lock.release();
   }
@@ -1442,44 +1507,105 @@ async function processJob(job) {
   } catch (error) {
     if (error instanceof SmartOptimizerCancelledError) {
       const meta = job.data?.__meta || {};
+      const canceledAt = Date.now();
+      const processed = Number(meta.processed || 0);
+      const total = Number(meta.total || job.data?.opportunities?.length || 0);
+      const success = Number(meta.success || 0);
+      const failed = Number(meta.failed || 0);
+      const skipped = Number(meta.skipped || 0);
+      const billingTelemetry = SmartBilling.telemetry({
+        reservation: job.data?.creditReservation || null,
+        operationId: job.data?.operationId || null,
+        selected: total,
+        processed,
+        optimized: success,
+        failed,
+        skipped,
+        cancelled: true,
+        startedAt: meta.startedAt || null,
+        finishedAt: canceledAt,
+      });
       await updateJobMeta(job, {
         stateLabel: "cancelado",
         cancelRequested: true,
-        canceledAt: Date.now(),
+        canceledAt,
+        billingTelemetry,
       });
-      const processed = Number(meta.processed || 0);
-      const total = Number(meta.total || job.data?.opportunities?.length || 0);
       await job.progress(total > 0 ? clampPct((processed / total) * 100) : 0);
-      await auditJob(job, "promotion_smart_optimization_canceled", "warn", { processed, total });
+      await auditJob(job, "promotion_smart_optimization_canceled", "warn", {
+        processed,
+        total,
+        billing_telemetry: billingTelemetry,
+      });
       return {
         ok: false,
         canceled: true,
         total,
         processed,
-        success: Number(meta.success || 0),
-        failed: Number(meta.failed || 0),
-        skipped: Number(meta.skipped || 0),
+        success,
+        failed,
+        skipped,
         results: Array.isArray(meta.results) ? meta.results : [],
+        billing_telemetry: billingTelemetry,
       };
     }
 
     if (error instanceof SmartOptimizerSafetyError) {
+      const meta = job.data?.__meta || {};
+      const failedAt = Date.now();
+      const billingTelemetry = SmartBilling.telemetry({
+        reservation: job.data?.creditReservation || null,
+        operationId: job.data?.operationId || null,
+        selected: Number(meta.total || job.data?.opportunities?.length || 0),
+        processed: Number(meta.processed || 0),
+        optimized: Number(meta.success || 0),
+        failed: Number(meta.failed || 0),
+        skipped: Number(meta.skipped || 0),
+        safetyPaused: true,
+        startedAt: meta.startedAt || null,
+        finishedAt: failedAt,
+        error: error.message,
+      });
       await updateJobMeta(job, {
         stateLabel: "pausado por segurança",
         safetyPaused: true,
         resumable: false,
-        failedAt: Date.now(),
+        failedAt,
+        billingTelemetry,
       });
       await auditJob(job, "promotion_smart_optimization_safety_paused", "warn", {
         reason: error.message,
         details: error.details || null,
+        billing_telemetry: billingTelemetry,
       });
     } else if (job.data?.kind === "analyze") {
       await updateJobMeta(job, { stateLabel: "falha na análise", error: error?.message || String(error) });
       await auditJob(job, "promotion_smart_analysis_failed", "error", { reason: error?.message || String(error) });
     } else {
-      await updateJobMeta(job, { stateLabel: "falhou", error: error?.message || String(error) });
-      await auditJob(job, "promotion_smart_optimization_failed", "error", { reason: error?.message || String(error) });
+      const meta = job.data?.__meta || {};
+      const failedAt = Date.now();
+      const billingTelemetry = SmartBilling.telemetry({
+        reservation: job.data?.creditReservation || null,
+        operationId: job.data?.operationId || null,
+        selected: Number(meta.total || job.data?.opportunities?.length || 0),
+        processed: Number(meta.processed || 0),
+        optimized: Number(meta.success || 0),
+        failed: Number(meta.failed || 0),
+        skipped: Number(meta.skipped || 0),
+        startedAt: meta.startedAt || null,
+        finishedAt: failedAt,
+        error: error?.message || String(error),
+      });
+      await updateJobMeta(job, {
+        stateLabel: "falhou",
+        error: error?.message || String(error),
+        failedAt,
+        billingTelemetry,
+      });
+      await auditJob(job, "promotion_smart_optimization_failed", "error", {
+        reason: error?.message || String(error),
+        billing_telemetry: billingTelemetry,
+      });
     }
     throw error;
   }
@@ -1490,7 +1616,7 @@ function makeJobId(prefix) {
 }
 
 function operationId() {
-  return `SMART-OPT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+  return `SMART-OPT-${crypto.randomUUID()}`;
 }
 
 function resolveJobMetrics(job, state) {
@@ -1503,6 +1629,31 @@ function resolveJobMetrics(job, state) {
   const skipped = Number(meta.skipped ?? ret.skipped ?? 0) || 0;
   const progress = total > 0 ? clampPct((processed / total) * 100) : state === "completed" ? 100 : 0;
   return { total, processed, success, failed, skipped, progress };
+}
+
+function smartBillingTelemetry(job, state = null) {
+  const meta = job?.data?.__meta || {};
+  const metrics = resolveJobMetrics(job, state);
+  return SmartBilling.telemetry({
+    reservation: job?.data?.creditReservation || null,
+    operationId: job?.data?.operationId || null,
+    selected: metrics.total,
+    processed: metrics.processed,
+    optimized: metrics.success,
+    failed: metrics.failed,
+    skipped: metrics.skipped,
+    cancelled:
+      meta.stateLabel === "cancelado" ||
+      job?.returnvalue?.canceled === true,
+    safetyPaused: meta.safetyPaused === true,
+    startedAt: meta.startedAt || null,
+    finishedAt:
+      meta.completedAt ||
+      meta.canceledAt ||
+      meta.failedAt ||
+      null,
+    error: meta.error || job?.failedReason || null,
+  });
 }
 
 async function buildWorkbook(job) {
