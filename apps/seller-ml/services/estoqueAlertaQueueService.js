@@ -331,6 +331,7 @@ async function jobToPayload(job) {
       label: job.data?.accountLabel || null,
     },
     source: job.data?.source || null,
+    billing_telemetry: stockScanTelemetry(job, job.data?.__meta || {}, job.returnvalue || null),
     result: completed ? { total: metrics.total, summary: job.returnvalue?.summary || null } : null,
   };
   return attachJobReview(base, {
@@ -512,6 +513,11 @@ async function analyzeStockWithCredits({
   };
 
   try {
+    await auditStockScan(pseudoJob, "stock_scan_direct_started", "success", {
+      source,
+      max_items: maxItems,
+      period_days: periodDays,
+    });
     const planned = normalizeScanQuantity(maxItems);
     if (planned) {
       reservation = await reserveCredits({
@@ -557,18 +563,31 @@ async function analyzeStockWithCredits({
       release: total <= 0,
       consumedUnits: total > 0 ? total : null,
     });
+    const finalMeta = { total, processed, ok: total, errors: 0, startedAt, finishedAt: Date.now() };
+    const billingTelemetry = stockScanTelemetry(pseudoJob, finalMeta, payload);
+    await auditStockScan(pseudoJob, "stock_scan_direct_completed", "success", {
+      source,
+      total_items: total,
+      orders_scanned: Number(payload?.orders_scanned || 0),
+      billing_telemetry: billingTelemetry,
+    });
     return {
       ...payload,
-      billing_telemetry: stockScanTelemetry(
-        pseudoJob,
-        { total, processed, ok: total, errors: 0, startedAt, finishedAt: Date.now() },
-        payload,
-      ),
+      billing_telemetry: billingTelemetry,
     };
   } catch (error) {
     await settleCredits(reservation, {
       release: processed <= 0,
       consumedUnits: processed > 0 ? processed : null,
+    });
+    await auditStockScan(pseudoJob, "stock_scan_direct_failed", "error", {
+      source,
+      error: error?.message || String(error),
+      billing_telemetry: stockScanTelemetry(
+        pseudoJob,
+        { total, processed, ok: processed, errors: 1, startedAt, failedAt: Date.now() },
+        null,
+      ),
     });
     throw error;
   }
