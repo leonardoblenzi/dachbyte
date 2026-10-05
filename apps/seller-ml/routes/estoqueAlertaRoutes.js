@@ -94,6 +94,11 @@ router.post(
 );
 
 router.post(
+  "/atualizacao/credits/quote",
+  UpdateController.quoteCredits,
+);
+
+router.post(
   "/atualizacao/aplicar",
   createAuditAction({
     evento: "stock_bulk_update_requested",
