@@ -1,10 +1,12 @@
 "use strict";
 
 const Bull = require("bull");
+const crypto = require("crypto");
 const { makeBullClient } = require("../lib/redisClient");
 const { analyzeStock, buildCsvRows, CSV_HEADER } = require("./estoqueAlertaService");
 const { buildCsv, attachJobReview } = require("./jobReviewHelper");
-const { reserveCredits, settleCredits } = require("./hubCreditsService");
+const { recordAuthEvent } = require("./authAuditService");
+const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
 
 const QUEUE_NAME = "estoque-alerta-queue";
 const RECENT_LIMIT = 30;
@@ -60,6 +62,107 @@ function positiveNumber(value) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+function normalizeScanQuantity(value) {
+  const n = Math.trunc(Number(value));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function stockScanIdempotencyKey(operationId) {
+  const id = String(operationId || "").trim();
+  if (!id) throw new Error("stock_scan_operation_id_required");
+  return `stock.scan:${id}`;
+}
+
+function stockScanBillableUnits(job = {}, meta = {}, result = null) {
+  const resolved = result || job?.returnvalue || {};
+  return Math.max(
+    0,
+    Number(meta?.ok ?? resolved?.total ?? resolved?.processed ?? 0) || 0,
+  );
+}
+
+function stockScanTelemetry(job = {}, meta = {}, result = null) {
+  const reservation = job?.data?.creditReservation || {};
+  const billableUnits = stockScanBillableUnits(job, meta, result);
+  return {
+    billing_mode:
+      !reservation || Object.keys(reservation).length === 0
+        ? "pending"
+        : reservation?.shadow === true
+          ? "shadow"
+          : reservation?.bypass === true
+            ? "bypass"
+            : "enforce",
+    operation_key: "stock.scan",
+    operation_id: job?.data?.operationId || null,
+    selected: Math.max(0, Number(meta?.total || result?.total || 0)),
+    processed: Math.max(0, Number(meta?.processed || result?.processed || 0)),
+    successful: Math.max(0, Number(meta?.ok || result?.total || 0)),
+    errors: Math.max(0, Number(meta?.errors || result?.errors || 0)),
+    billable_units: billableUnits,
+    estimated_credits:
+      reservation?.quote?.estimated_credits ??
+      reservation?.reserved_credits ??
+      null,
+    duration_ms:
+      meta?.startedAt && (meta?.finishedAt || meta?.failedAt)
+        ? Math.max(0, Number(meta.finishedAt || meta.failedAt) - Number(meta.startedAt))
+        : null,
+  };
+}
+
+function auditBase(job = {}) {
+  const context = job?.data?.auditContext || {};
+  return {
+    userId: Number(context.userId) || null,
+    email: context.email || null,
+    ip: context.ip || null,
+    userAgent: context.userAgent || null,
+    accountKey: context.accountKey || job?.data?.accountKey || null,
+    accountLabel: context.accountLabel || job?.data?.accountLabel || null,
+    meli_conta_id: context.meli_conta_id || job?.data?.mlCreds?.meli_conta_id || null,
+  };
+}
+
+async function auditStockScan(job, evento, status, metadata = {}) {
+  const actor = auditBase(job);
+  return recordAuthEvent({
+    userId: actor.userId,
+    email: actor.email,
+    evento,
+    status,
+    ip: actor.ip,
+    userAgent: actor.userAgent,
+    metadata: {
+      accountKey: actor.accountKey,
+      accountLabel: actor.accountLabel,
+      meli_conta_id: actor.meli_conta_id,
+      job_id: String(job?.id || ""),
+      operation_id: job?.data?.operationId || null,
+      action: "stock_scan",
+      ...metadata,
+    },
+  }).catch((error) => {
+    console.error("[EstoqueAlertaQueue] audit erro:", error?.message || error);
+  });
+}
+
+async function ensureStockScanReservation(job, units) {
+  const quantity = Math.max(0, Math.trunc(Number(units) || 0));
+  if (!quantity) return job?.data?.creditReservation || null;
+  if (job?.data?.creditReservation) return job.data.creditReservation;
+
+  const reservation = await reserveCredits({
+    mlCreds: job?.data?.mlCreds || {},
+    operationKey: "stock.scan",
+    units: quantity,
+    idempotencyKey: stockScanIdempotencyKey(job?.data?.operationId || String(job?.id || "")),
+  });
+  job.data.creditReservation = reservation;
+  await job.update(job.data);
+  return reservation;
+}
+
 function serializeError(error) {
   return {
     message: error?.message || String(error || "Falha desconhecida."),
@@ -95,6 +198,11 @@ async function processJob(job) {
     await setJobProgress(job, 1);
     job.data.__meta = { total: 0, processed: 0, ok: 0, errors: 0, startedAt, phase: "starting" };
     await job.update(job.data);
+    await auditStockScan(job, "stock_scan_job_started", "success", {
+      source: job?.data?.source || "sold_period",
+      max_items: job?.data?.maxItems ?? null,
+      period_days: job?.data?.periodDays || 30,
+    });
 
     result = await analyzeStock({
       accessToken: job.data.accessToken,
@@ -110,6 +218,9 @@ async function processJob(job) {
       onProgress: async (progress) => {
         const total = Number(progress.total || job.data.__meta?.total || 0);
         const processed = Number(progress.processed || 0);
+        if (progress.phase === "details" && total > 0) {
+          await ensureStockScanReservation(job, total);
+        }
         let pct = Number(job._progress || 1);
         if (progress.phase === "auth") pct = Math.max(pct, 3);
         if (progress.phase === "seller") pct = Math.max(pct, 5);
@@ -141,6 +252,11 @@ async function processJob(job) {
       failedAt: Date.now(),
     };
     await job.update(job.data).catch(() => {});
+    await auditStockScan(job, "stock_scan_job_failed", "error", {
+      source: job?.data?.source || "sold_period",
+      error: serialized.message,
+      billing_telemetry: stockScanTelemetry(job, job.data.__meta || {}, result),
+    });
     console.error("[EstoqueAlertaQueue] job failed with context:", job?.id, {
       phase: job.data.__meta?.phase || null,
       accountKey: job?.data?.accountKey || null,
@@ -164,6 +280,12 @@ async function processJob(job) {
   };
   await job.update(job.data);
   await setJobProgress(job, 100);
+  await auditStockScan(job, "stock_scan_job_completed", "success", {
+    source: job?.data?.source || "sold_period",
+    total_items: Number(result.total || 0),
+    orders_scanned: Number(result.orders_scanned || 0),
+    billing_telemetry: stockScanTelemetry(job, job.data.__meta || {}, result),
+  });
   return { ...result, processed: result.total, errors: 0 };
 }
 
@@ -249,11 +371,16 @@ async function enqueueStockJob({
   const existing = await findOpenJob(queue, { accountKey, source });
   if (existing) return String(existing.id);
 
-  const creditReservation = await reserveCredits({
-    mlCreds,
-    operationKey: "stock.scan",
-    units: Math.max(1, Number(maxItems || 20)),
-  });
+  const operationId = `STOCK-SCAN-${crypto.randomUUID()}`;
+  const plannedQuantity = normalizeScanQuantity(maxItems);
+  const creditReservation = plannedQuantity
+    ? await reserveCredits({
+        mlCreds,
+        operationKey: "stock.scan",
+        units: plannedQuantity,
+        idempotencyKey: stockScanIdempotencyKey(operationId),
+      })
+    : null;
   let job;
   try {
     job = await queue.add(
@@ -269,7 +396,9 @@ async function enqueueStockJob({
         periodDays,
         customFrom,
         customTo,
+        auditContext: arguments[0]?.auditContext || null,
         creditReservation,
+        operationId,
       },
       {
         attempts: 1,
@@ -296,24 +425,152 @@ function initWorker() {
   queue.on("completed", async (job) => {
     console.log("[EstoqueAlertaQueue] job completed:", job?.id);
     const metrics = resolveMetrics(job, "completed");
-    const processed = Math.max(0, Number(metrics.processed || 0));
+    const billableUnits = stockScanBillableUnits(job, job?.data?.__meta || {}, job?.returnvalue || null);
     await settleCredits(job?.data?.creditReservation, {
-      release: processed <= 0,
-      consumedUnits: processed > 0 ? processed : null,
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
   });
   queue.on("failed", async (job, error) => {
     console.error("[EstoqueAlertaQueue] job failed:", job?.id, error?.message || error);
     const metrics = resolveMetrics(job, "failed");
-    const processed = Math.max(0, Number(metrics.processed || 0));
+    const billableUnits = stockScanBillableUnits(job, job?.data?.__meta || {}, job?.returnvalue || null);
     await settleCredits(job?.data?.creditReservation, {
-      release: processed <= 0,
-      consumedUnits: processed > 0 ? processed : null,
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
   });
   queue.on("stalled", (job) => console.warn("[EstoqueAlertaQueue] job stalled:", job?.id));
   console.log("[EstoqueAlertaQueue] worker iniciado");
   return queue;
+}
+
+async function previewStockScanCredits({ mlCreds = {}, account = null, maxItems = null } = {}) {
+  const quantity = normalizeScanQuantity(maxItems);
+  if (!quantity) {
+    return {
+      operation_key: "stock.scan",
+      quantity: null,
+      estimated_credits: null,
+      available_credits: null,
+      sufficient: true,
+      unlimited: false,
+      deferred: true,
+    };
+  }
+  const quote = await quoteCredits({
+    mlCreds,
+    account,
+    operationKey: "stock.scan",
+    units: quantity,
+  });
+  return {
+    operation_key: "stock.scan",
+    quantity,
+    estimated_credits: Number(quote?.estimated_credits || 0),
+    available_credits: quote?.available_credits == null ? null : Number(quote.available_credits),
+    sufficient: quote?.sufficient !== false,
+    unlimited: quote?.unlimited === true,
+    deferred: false,
+    quote,
+  };
+}
+
+async function analyzeStockWithCredits({
+  accessToken,
+  mlCreds = {},
+  accountKey,
+  accountLabel,
+  auditContext = null,
+  source = "manual",
+  query = "",
+  maxItems = null,
+  periodDays = 30,
+  customFrom = null,
+  customTo = null,
+} = {}) {
+  const operationId = `STOCK-SCAN-${crypto.randomUUID()}`;
+  let reservation = null;
+  let total = 0;
+  let processed = 0;
+  const startedAt = Date.now();
+
+  const pseudoJob = {
+    id: operationId,
+    data: {
+      accountKey,
+      accountLabel,
+      mlCreds,
+      auditContext,
+      source,
+      maxItems,
+      periodDays,
+      operationId,
+      creditReservation: null,
+    },
+  };
+
+  try {
+    const planned = normalizeScanQuantity(maxItems);
+    if (planned) {
+      reservation = await reserveCredits({
+        mlCreds,
+        operationKey: "stock.scan",
+        units: planned,
+        idempotencyKey: stockScanIdempotencyKey(operationId),
+      });
+      pseudoJob.data.creditReservation = reservation;
+    }
+
+    const payload = await analyzeStock({
+      accessToken,
+      mlCreds,
+      accountKey,
+      accountLabel,
+      source,
+      query,
+      maxItems,
+      periodDays,
+      customFrom,
+      customTo,
+      onProgress: async (progress = {}) => {
+        total = Math.max(total, Number(progress.total || 0));
+        if (progress.phase === "details" && total > 0 && !reservation) {
+          reservation = await reserveCredits({
+            mlCreds,
+            operationKey: "stock.scan",
+            units: total,
+            idempotencyKey: stockScanIdempotencyKey(operationId),
+          });
+          pseudoJob.data.creditReservation = reservation;
+        }
+        if (progress.phase === "metrics") {
+          processed = Math.max(processed, Number(progress.processed || 0));
+        }
+      },
+    });
+
+    total = Number(payload?.total || total || 0);
+    processed = total;
+    await settleCredits(reservation, {
+      release: total <= 0,
+      consumedUnits: total > 0 ? total : null,
+    });
+    return {
+      ...payload,
+      billing_telemetry: stockScanTelemetry(
+        pseudoJob,
+        { total, processed, ok: total, errors: 0, startedAt, finishedAt: Date.now() },
+        payload,
+      ),
+    };
+  } catch (error) {
+    await settleCredits(reservation, {
+      release: processed <= 0,
+      consumedUnits: processed > 0 ? processed : null,
+    });
+    throw error;
+  }
 }
 
 async function listStockJobs(limit = RECENT_LIMIT, { accountKey } = {}) {
@@ -367,4 +624,12 @@ module.exports = {
   getStockJobDetail,
   getStockJobCsv,
   cancelStockJob,
+  previewStockScanCredits,
+  analyzeStockWithCredits,
+  _test: {
+    normalizeScanQuantity,
+    stockScanIdempotencyKey,
+    stockScanBillableUnits,
+    stockScanTelemetry,
+  },
 };
