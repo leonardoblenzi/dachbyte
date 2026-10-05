@@ -919,6 +919,10 @@ async function cancelJob(jobId, { accountKey = null, auditContext = null } = {})
       {
         previous_status: state,
         canceled_before_processing: true,
+        billing_telemetry: bulkDeleteTelemetry(job, {
+          ...meta,
+          failedAt: Date.now(),
+        }),
       },
     );
     await updateMeta(job, {
@@ -944,6 +948,7 @@ async function cancelJob(jobId, { accountKey = null, auditContext = null } = {})
     normalizeOperation(meta.operation || job.data?.operation),
     {
       previous_status: state,
+      billing_telemetry: bulkDeleteTelemetry(job, meta),
     },
   );
   return { ok: true, status: "cancelando" };
@@ -1102,5 +1107,8 @@ module.exports = {
     isBillableDeleteOperation,
     bulkDeleteBillableUnits,
     bulkDeleteTelemetry,
+    setQueue(queue) {
+      queueInstance = queue;
+    },
   },
 };
