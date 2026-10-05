@@ -203,6 +203,7 @@ async function setPrazoProducaoLote(req, res) {
       delayMs: delayMs ?? 250,
       accountKey: res.locals?.accountKey || null,
       accountLabel: res.locals?.accountLabel || null,
+      auditContext: buildAuditContext(req, res),
     });
     const contracted = attachJobContract({
       id: process_id,
