@@ -42,6 +42,7 @@ test("operacoes em massa usam a escala comercial aprovada", () => {
   assert.equal(calculateOperationCredits("dimensions.apply", { units: 30000 }), 20);
   assert.equal(calculateOperationCredits("stock.scan", { units: 30000 }), 2);
   assert.equal(calculateOperationCredits("stock.apply", { units: 30000 }), 20);
+  assert.equal(calculateOperationCredits("listing.bulk-delete", { units: 30000 }), 30);
 });
 
 test("operacao desconhecida falha explicitamente", () => {
