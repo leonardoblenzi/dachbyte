@@ -60,6 +60,8 @@ jobs:
         run: npm ci
       - name: Credit contract tests
         run: npm run test:credits
+      - name: Stock operation tests
+        run: node --test tests/estoque-atualizacao-controller.test.js tests/estoque-atualizacao-preview.test.js tests/estoque-atualizacao-queue.test.js tests/estoque-atualizacao-service.test.js tests/estoque-atualizacao-worker-credentials.test.js
       - name: Queue safety tests
         run: npm run test:stage3-queues
       - name: Parse critical billing runtime
