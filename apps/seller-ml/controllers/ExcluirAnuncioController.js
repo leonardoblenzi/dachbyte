@@ -71,24 +71,19 @@ class ExcluirAnuncioController {
   static async quoteCredits(req, res) {
     try {
       const operation = ExcluirAnuncioController.normalizeOperation(req.body?.operation || "DELETE");
-      if (operation !== "DELETE") {
-        return res.json({
-          success: true,
-          operation,
-          operation_key: null,
-          quantity: Array.isArray(req.body?.mlb_ids) ? req.body.mlb_ids.length : 0,
-          estimated_credits: 0,
-          sufficient: true,
-          unlimited: false,
-          not_priced: true,
+      if (!operation) {
+        return res.status(400).json({
+          success: false,
+          error: "Operacao invalida para calcular o custo.",
         });
       }
-      const quote = await ExclusaoLoteJobService.previewBulkDeleteCredits({
+      const quote = await ExclusaoLoteJobService.previewListingOperationCredits({
         mlCreds: res.locals?.mlCreds || {},
         account: res.locals?.account || null,
         mlbIds: req.body?.mlb_ids || [],
+        operation,
       });
-      return res.json({ success: true, operation, ...quote });
+      return res.json({ success: true, ...quote });
     } catch (error) {
       return res.status(error.statusCode || error.status || 400).json({
         success: false,
