@@ -45,6 +45,8 @@ test("operacoes em massa usam a escala comercial aprovada", () => {
   assert.equal(calculateOperationCredits("listing.activate", { units: 30000 }), 20);
   assert.equal(calculateOperationCredits("listing.pause", { units: 30000 }), 20);
   assert.equal(calculateOperationCredits("listing.close", { units: 30000 }), 20);
+  assert.equal(calculateOperationCredits("listing.relist", { units: 30000 }), 40);
+  assert.equal(calculateOperationCredits("listing.pause-relist", { units: 30000 }), 50);
   assert.equal(calculateOperationCredits("listing.bulk-delete", { units: 30000 }), 30);
 });
 
