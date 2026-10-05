@@ -5,6 +5,7 @@ const fetch = require("node-fetch");
 const db = require("../db/db");
 const { makeBullClient } = require("../lib/redisClient");
 const TokenService = require("./tokenService");
+const CatalogBilling = require("./financeiroMlCatalogSyncBillingService");
 
 const ML_API_BASE = "https://api.mercadolibre.com";
 const QUEUE_NAME = "financeiro-ml-sku-catalog-sync";
@@ -582,6 +583,10 @@ async function rebuildSkuCatalog({ accountKey, sellerId, runId }) {
 
 async function processSyncJob(job) {
   const accountKey = String(job.data?.accountKey || "default");
+  const trigger = String(job.data?.trigger || "internal").toLowerCase() === "manual"
+    ? "manual"
+    : "internal";
+  const startedAt = Date.now();
   const state = await prepareAuth(job.data || {});
   const seller = await fetchSeller(state);
   if (!seller.id) throw new Error("Nao foi possivel identificar o seller Mercado Livre.");
@@ -605,6 +610,22 @@ async function processSyncJob(job) {
       ...(recentSales.ids || []),
       ...costLinkedIds,
     ].map(normalizeString).filter(Boolean)));
+
+    let creditReservation = null;
+    if (trigger === "manual") {
+      creditReservation = await CatalogBilling.reserveForDiscoveredWork({
+        mlCreds: job.data?.mlCreds || {},
+        account: job.data?.account || null,
+        relevantItems: ids.length,
+        ordersRead: recentSales.orders_read || 0,
+        operationId: job.data?.operationId,
+      });
+      job.data.creditReservation = creditReservation;
+      job.data.billingRelevantItems = ids.length;
+      job.data.billingOrdersRead = recentSales.orders_read || 0;
+      job.data.billingProcessedItems = 0;
+      await job.update(job.data);
+    }
 
     await updateRun(runId, {
       total_items: ids.length,
@@ -632,6 +653,12 @@ async function processSyncJob(job) {
         rows.push(...extracted);
       }
       const processed = Math.min(i + 20, ids.length);
+      if (trigger === "manual") {
+        job.data.billingProcessedItems = processed;
+        if (processed === ids.length || processed % 200 === 0) {
+          await job.update(job.data);
+        }
+      }
       await updateRun(runId, { processed_items: processed, no_sku_items: noSkuItems });
       await setJobProgress(job, ids.length ? Math.min(85, Math.round((processed / ids.length) * 85)) : 85);
     }
@@ -666,10 +693,23 @@ async function processSyncJob(job) {
       finished_at: new Date(),
       meta: finalMeta,
     });
+    const finishedAt = Date.now();
+    const billingTelemetry = CatalogBilling.telemetry({
+      reservation: creditReservation,
+      operationId: job.data?.operationId || null,
+      trigger,
+      relevantItems: ids.length,
+      processedItems: ids.length,
+      ordersRead: recentSales.orders_read || 0,
+      completed: true,
+      startedAt,
+      finishedAt,
+    });
     await setJobProgress(job, 100);
     return {
       success: true,
       runId,
+      billing_telemetry: billingTelemetry,
       total_items: ids.length,
       total_skus: totalSkus,
       active_items: activeIds.length,
@@ -681,10 +721,28 @@ async function processSyncJob(job) {
       price_history_rows: priceHistoryRows,
     };
   } catch (error) {
+    const finishedAt = Date.now();
+    const billingTelemetry = CatalogBilling.telemetry({
+      reservation: job.data?.creditReservation || null,
+      operationId: job.data?.operationId || null,
+      trigger,
+      relevantItems: Number(job.data?.billingRelevantItems || 0),
+      processedItems: Number(job.data?.billingProcessedItems || 0),
+      ordersRead: Number(job.data?.billingOrdersRead || 0),
+      failed: true,
+      startedAt,
+      finishedAt,
+      error: error?.message || String(error),
+    });
+    job.data.billingTelemetry = billingTelemetry;
+    await job.update(job.data).catch(() => {});
     await updateRun(runId, {
       status: "failed",
       error: error?.message || String(error),
       finished_at: new Date(),
+      meta: {
+        billing_telemetry: billingTelemetry,
+      },
     });
     throw error;
   }
@@ -695,23 +753,101 @@ function initWorker() {
   workerStarted = true;
   const queue = getQueue();
   queue.process(async (job) => processSyncJob(job));
-  queue.on("failed", (job, error) => {
+  queue.on("completed", async (job) => {
+    if (String(job?.data?.trigger || "internal").toLowerCase() !== "manual") return;
+    const result = job?.returnvalue || {};
+    await CatalogBilling.settleSyncCredits(job?.data?.creditReservation, {
+      processedItems: Number(result?.total_items || job?.data?.billingProcessedItems || 0),
+      ordersRead: Number(job?.data?.billingOrdersRead || 0),
+    });
+  });
+  queue.on("failed", async (job, error) => {
+    if (String(job?.data?.trigger || "internal").toLowerCase() === "manual") {
+      await CatalogBilling.settleSyncCredits(job?.data?.creditReservation, {
+        processedItems: Number(job?.data?.billingProcessedItems || 0),
+        ordersRead: Number(job?.data?.billingOrdersRead || 0),
+      });
+    }
     console.error(`[financeiro-ml-sync] Job ${job?.id} falhou:`, error?.message || error);
   });
   console.log("Worker financeiro-ml-sku-catalog-sync iniciado");
 }
 
-async function enqueue({ accountKey, mlCreds, userId }) {
+async function findActiveJob(accountKey) {
   const queue = getQueue();
   const existing = await queue.getJobs(["waiting", "active", "delayed"], 0, 50);
-  const same = existing.find((job) => String(job?.data?.accountKey || "") === String(accountKey || ""));
-  if (same) return { success: true, job_id: String(same.id), already_running: true };
+  return existing.find(
+    (job) =>
+      String(job?.data?.accountKey || "") === String(accountKey || ""),
+  ) || null;
+}
 
+async function previewCredits({ accountKey, mlCreds, account = null }) {
+  const same = await findActiveJob(accountKey);
+  return CatalogBilling.previewCredits({
+    mlCreds: mlCreds || {},
+    account,
+    alreadyRunning: !!same,
+  });
+}
+
+async function enqueue({
+  accountKey,
+  mlCreds,
+  account = null,
+  userId,
+  trigger = "internal",
+}) {
+  const queue = getQueue();
+  const normalizedTrigger =
+    String(trigger || "internal").toLowerCase() === "manual"
+      ? "manual"
+      : "internal";
+  const same = await findActiveJob(accountKey);
+  if (same) {
+    return {
+      success: true,
+      job_id: String(same.id),
+      already_running: true,
+      billing_telemetry: CatalogBilling.telemetry({
+        reservation: same?.data?.creditReservation || null,
+        operationId: same?.data?.operationId || null,
+        trigger: same?.data?.trigger || normalizedTrigger,
+        relevantItems: Number(same?.data?.billingRelevantItems || 0),
+        processedItems: Number(same?.data?.billingProcessedItems || 0),
+        ordersRead: Number(same?.data?.billingOrdersRead || 0),
+        reused: true,
+      }),
+    };
+  }
+
+  const opId = normalizedTrigger === "manual"
+    ? CatalogBilling.operationId()
+    : null;
   const job = await queue.add(
-    { accountKey: accountKey || "default", mlCreds: mlCreds || {}, userId: userId || null },
+    {
+      accountKey: accountKey || "default",
+      mlCreds: mlCreds || {},
+      account,
+      userId: userId || null,
+      trigger: normalizedTrigger,
+      operationId: opId,
+      creditReservation: null,
+      billingRelevantItems: 0,
+      billingProcessedItems: 0,
+      billingOrdersRead: 0,
+    },
     { attempts: 1, removeOnComplete: false, removeOnFail: false },
   );
-  return { success: true, job_id: String(job.id), already_running: false };
+  return {
+    success: true,
+    job_id: String(job.id),
+    already_running: false,
+    operation_id: opId,
+    billing_operation_key:
+      normalizedTrigger === "manual" ? CatalogBilling.OPERATION_KEY : null,
+    billing_deferred: normalizedTrigger === "manual",
+  };
 }
 
 async function mapJob(job, state) {
@@ -728,6 +864,20 @@ async function mapJob(job, state) {
     progress: Number.isFinite(progress) ? progress : 0,
     completed: ["concluido", "erro"].includes(status),
     result,
+    operation_id: job?.data?.operationId || null,
+    billing_telemetry:
+      result?.billing_telemetry ||
+      job?.data?.billingTelemetry ||
+      CatalogBilling.telemetry({
+        reservation: job?.data?.creditReservation || null,
+        operationId: job?.data?.operationId || null,
+        trigger: job?.data?.trigger || "internal",
+        relevantItems: Number(job?.data?.billingRelevantItems || 0),
+        processedItems: Number(job?.data?.billingProcessedItems || 0),
+        ordersRead: Number(job?.data?.billingOrdersRead || 0),
+        completed: state === "completed",
+        failed: state === "failed",
+      }),
     failedReason: job.failedReason || null,
   };
 }
@@ -743,6 +893,10 @@ async function status(jobId, { accountKey }) {
 
 module.exports = {
   initWorker,
+  previewCredits,
   enqueue,
   status,
+  _test: {
+    findActiveJob,
+  },
 };
