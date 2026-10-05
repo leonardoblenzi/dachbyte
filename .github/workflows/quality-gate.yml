@@ -84,6 +84,12 @@ jobs:
           node --check routes/validarDimensoesRoutes.js
           node --check public/js/validar-dimensoes.js
           node --check services/estoqueAlertaQueueService.js
+          node --check services/EstoqueAtualizacaoQueueService.js
+          node --check controllers/EstoqueAlertaController.js
+          node --check controllers/EstoqueAtualizacaoController.js
+          node --check routes/estoqueAlertaRoutes.js
+          node --check public/js/estoque-alerta.js
+          node --check public/js/estoque-atualizacao.js
           node --check services/modeloMassaJobsService.js
           node --check controllers/ModeloMassaController.js
           node --check routes/modeloMassaRoutes.js
