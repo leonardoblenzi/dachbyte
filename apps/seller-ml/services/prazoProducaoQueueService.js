@@ -148,6 +148,7 @@ function prazoAuditBase(job = {}) {
     meli_conta_id: context.meli_conta_id || job?.data?.mlCreds?.meli_conta_id || null,
     route: context.route || null,
     method: context.method || null,
+    operationId: job?.data?.operationId || null,
   };
 }
 
@@ -167,6 +168,7 @@ async function auditPrazoJobEvent(job, evento, status, metadata = {}) {
       route: base.route,
       method: base.method,
       job_id: String(job?.id || ""),
+      operation_id: base.operationId,
       action: "update_production_time",
       ...metadata,
     },
@@ -399,6 +401,7 @@ async function processPrazoJob(job) {
     success_count: ok,
     error_count: err,
     requested_days: days,
+    billing_telemetry: productionTimeBillingTelemetry(job, job.data.__meta || {}),
   });
 
   return {
@@ -548,6 +551,14 @@ async function processPrazoLookupActiveJob(job) {
   await writeResults(job.id, rows);
   await job.update(job.data);
   await setJobProgress(job, 100);
+  await auditPrazoJobEvent(job, "production_time_lookup_completed", err > 0 ? "warn" : "success", {
+    total_items: total,
+    processed: total,
+    success_count: ok,
+    error_count: err,
+    source: listing.source || null,
+    billing_telemetry: productionTimeBillingTelemetry(job, job.data.__meta || {}),
+  });
 
   return {
     ...summary,
@@ -640,6 +651,7 @@ function initWorker() {
         success_count: Number(job.data?.__meta?.ok || 0),
         error_count: Number(job.data?.__meta?.err || 0),
         requested_days: Number(job.data?.days || 0),
+        billing_telemetry: productionTimeBillingTelemetry(job, job.data.__meta || {}),
         error: safeText(error?.message || String(error)),
       });
       throw error;
@@ -730,6 +742,7 @@ async function enqueuePrazoLookupActiveJob({
   maxItems = null,
   accountKey = null,
   accountLabel = null,
+  auditContext = null,
 }) {
   const queue = getQueue();
   const operationId = `PRAZO-LOOKUP-${crypto.randomUUID()}`;
@@ -744,6 +757,7 @@ async function enqueuePrazoLookupActiveJob({
         maxItems,
         accountKey,
         accountLabel,
+        auditContext: auditContext && typeof auditContext === "object" ? auditContext : null,
         creditReservation: null,
         operationId,
         billingOperationKey,
@@ -1132,5 +1146,6 @@ module.exports = {
     productionTimeBillingIdempotencyKey,
     productionTimeBillableUnits,
     productionTimeBillingTelemetry,
+    prazoAuditBase,
   },
 };
