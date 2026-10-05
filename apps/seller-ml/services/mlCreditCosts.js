@@ -18,7 +18,7 @@ const OPERATION_COSTS = Object.freeze({
   "production-time.apply": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1500 }),
   "stock.scan": Object.freeze({ base: 0, perUnits: 1, unitBlock: 15000 }),
   "stock.apply": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1500 }),
-  "listing.bulk-delete": Object.freeze({ base: 2, perUnits: 1, unitBlock: 1 }),
+  "listing.bulk-delete": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1000 }),
   "listing.clone": Object.freeze({ base: 0, perUnits: 5, unitBlock: 1 }),
   "listing.ai-analysis": Object.freeze({ base: 0, perUnits: 10, unitBlock: 1 }),
 });
