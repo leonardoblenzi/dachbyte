@@ -316,23 +316,27 @@
         confirmText.textContent = `Voce esta prestes a encerrar ${countText}. Anuncios encerrados nao voltam para ativo; para vender novamente, e necessario republicar/relistar.`;
       } else {
         confirmText.textContent = `Voce esta prestes a excluir ${countText}. Essa acao e irreversivel e os anuncios nao poderao voltar para ativo.`;
-        try {
-          const response = await fetch(withBase("/api/excluir-anuncio/credits/quote"), {
-            method: "POST",
-            credentials: "same-origin",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify({
-              operation: "DELETE",
-              mlb_ids: items,
-            }),
-          });
-          const quote = await response.json().catch(() => ({}));
-          if (!response.ok || quote?.success === false) {
-            throw new Error(quote?.error || `HTTP ${response.status}`);
-          }
+      }
+
+      try {
+        const response = await fetch(withBase("/api/excluir-anuncio/credits/quote"), {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            operation: operation.id,
+            mlb_ids: items,
+          }),
+        });
+        const quote = await response.json().catch(() => ({}));
+        if (!response.ok || quote?.success === false) {
+          throw new Error(quote?.error || `HTTP ${response.status}`);
+        }
+
+        if (quote?.not_priced !== true) {
           if (quote?.unlimited === true) {
             confirmText.textContent += " Conta ilimitada/cortesia: sem debito de creditos.";
           } else if (Number.isFinite(Number(quote?.estimated_credits))) {
@@ -342,12 +346,12 @@
               confirmText.textContent += ` Saldo disponivel: ${fmt.format(Number(quote.available_credits || 0))}.`;
             }
           }
-        } catch (quoteError) {
-          console.warn(
-            "[gestao-anuncios] previa de creditos indisponivel; seguindo em shadow:",
-            quoteError?.message || quoteError,
-          );
         }
+      } catch (quoteError) {
+        console.warn(
+          "[gestao-anuncios] previa de creditos indisponivel; seguindo em shadow:",
+          quoteError?.message || quoteError,
+        );
       }
     }
 
