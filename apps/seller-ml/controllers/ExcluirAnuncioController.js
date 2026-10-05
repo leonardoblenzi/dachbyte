@@ -2,6 +2,7 @@
 const ExclusaoService = require('../services/excluirAnuncioService');
 const ExclusaoLoteJobService = require('../services/exclusaoLoteJobService');
 const { attachJobContract } = require('../services/jobContract');
+const { recordSuccessfulChange } = require('../services/singleOperationGuardService');
 const {
   getRequestIp,
   getRequestUserAgent,
@@ -123,6 +124,13 @@ class ExcluirAnuncioController {
           },
         },
       );
+
+      if (resultado.success) {
+        await recordSuccessfulChange({
+          res,
+          operation: "listing.delete",
+        });
+      }
 
       const statusCode = resultado.success ? 200 : 400;
       return res.status(statusCode).json(resultado);
