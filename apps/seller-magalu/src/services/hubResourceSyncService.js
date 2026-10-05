@@ -40,6 +40,12 @@ async function syncHubResource(account) {
       signal: controller.signal,
     });
     if (!response.ok) throw new Error(`Hub resource sync failed (HTTP ${response.status}).`);
+    const payload = await response.json().catch(() => ({}));
+    if (payload?.access?.allow !== true) {
+      const error = new Error(`Hub não liberou o recurso Magalu após o OAuth: ${String(payload?.access?.reason || "access_unconfirmed").slice(0, 100)}.`);
+      error.code = "MAGALU_HUB_RESOURCE_INACTIVE";
+      throw error;
+    }
     return { resourceKey: localResourceKey(account) };
   } finally {
     clearTimeout(timer);

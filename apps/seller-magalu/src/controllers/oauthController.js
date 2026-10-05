@@ -73,6 +73,8 @@ function safeReason(error) {
     "MAGALU_OAUTH_HUB_ACCESS_REVOKED",
     "MAGALU_MASTER_RECONNECT_SUBJECT_MISMATCH",
     "MAGALU_MASTER_RECONNECT_ACCOUNT_MISMATCH",
+    "MAGALU_RECONNECT_ACCOUNT_MISMATCH",
+    "MAGALU_RECONNECT_ACCOUNT_INACTIVE",
     "access_denied",
   ]);
   return allowed.has(code) ? code.toLowerCase() : "oauth_failed";
@@ -121,7 +123,18 @@ async function revalidateCallbackAccess(req, stateRecord) {
   }
   const hub = await checkHubAccess(session.identity, { force: true, action: "ACCESS magalu" });
   if (!hub.allow) throw oauthError("MAGALU_OAUTH_HUB_ACCESS_REVOKED", "O Hub não confirmou mais acesso ao módulo Magalu.", 403);
-  if (!masterReconnect) return session.identity;
+  if (!masterReconnect) {
+    if (stateRecord.target_account_id) {
+      const account = await accountRepository.findAccountByIdForTenant(stateRecord.target_account_id, stateRecord.dach_tenant_id);
+      if (!account || String(account.magalu_tenant_id) !== String(stateRecord.expected_magalu_tenant_id)) {
+        throw oauthError("MAGALU_RECONNECT_ACCOUNT_MISMATCH", "A conta escolhida para reconexão não corresponde mais ao vínculo salvo.", 409);
+      }
+      if (account.status !== "active") {
+        throw oauthError("MAGALU_RECONNECT_ACCOUNT_INACTIVE", "A conta foi desvinculada durante a autorização. Inicie um novo vínculo.", 409);
+      }
+    }
+    return session.identity;
+  }
   const reason = String(hub?.payload?.reason || hub?.reason || "").toLowerCase();
   if (!["platform_admin","platform_module_master"].includes(reason)) {
     throw oauthError("MAGALU_OAUTH_HUB_ACCESS_REVOKED", "O Hub não confirmou escopo Master para concluir a reconexão OAuth Magalu.", 403);
@@ -154,6 +167,35 @@ async function start(req, res, next) {
   } catch (error) {
     return next(error);
   }
+}
+
+async function reconnectStart(req, res, next) {
+  try {
+    const accountId = Number(req.params.accountId);
+    const account = Number.isSafeInteger(accountId) && accountId > 0
+      ? await accountRepository.findAccountByIdForTenant(accountId, req.magaluIdentity.dachTenantId)
+      : null;
+    if (!account) return res.status(404).json({ ok: false, error: "account_not_found" });
+    if (account.status !== "active") return res.status(409).json({ ok: false, error: "account_inactive", message: "Use Vincular organização para uma conta desvinculada." });
+    const hub = await checkHubAccess(req.magaluIdentity, { force: true, action: "ACCESS magalu" });
+    if (!hub.allow) return res.status(403).json({ ok: false, error: "hub_access_denied" });
+    const flow = await beginAuthorization({
+      identity: req.magaluIdentity,
+      redirectAfter: "/magalu/contas",
+      targetAccountId: account.id,
+      expectedMagaluTenantId: account.magalu_tenant_id,
+    });
+    await recordOAuthLifecycle({
+      eventKey: "oauth_started",
+      identity: req.magaluIdentity,
+      stateRecord: { flow_mode: "tenant", expected_magalu_tenant_id: account.magalu_tenant_id },
+      account,
+      requestedScopeCount: scopeCount(env.MAGALU_OAUTH_SCOPES),
+      req,
+    });
+    res.cookie(STATE_COOKIE, flow.stateHash, stateCookieOptions(Math.max(120, env.MAGALU_OAUTH_STATE_TTL_SECONDS) * 1000));
+    return res.redirect(302, flow.authorizationUrl);
+  } catch (error) { return next(error); }
 }
 
 async function masterReconnectStart(req, res, next) {
@@ -324,4 +366,4 @@ async function refresh(req, res, next) {
   }
 }
 
-module.exports = { start, masterReconnectStart, callback, status, accounts, refresh, _test: { parseCookies, withOAuthResult, safeReason, scopeCount, recordOAuthLifecycle, revalidateCallbackAccess, authorizedAccounts } };
+module.exports = { start, reconnectStart, masterReconnectStart, callback, status, accounts, refresh, _test: { parseCookies, withOAuthResult, safeReason, scopeCount, recordOAuthLifecycle, revalidateCallbackAccess, authorizedAccounts } };

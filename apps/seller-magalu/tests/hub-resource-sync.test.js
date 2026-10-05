@@ -23,7 +23,7 @@ test("Hub resource sync sends only the allowed connected-account payload", async
     const originalFetch = global.fetch;
     global.fetch = async (url, options) => {
       request = { url, options };
-      return new Response(JSON.stringify({ resource_key: "untrusted-hub-value" }), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ resource_key: "untrusted-hub-value", access: { allow: true } }), { status: 200, headers: { "content-type": "application/json" } });
     };
     try {
       const result = await service.syncHubResource({
@@ -44,6 +44,19 @@ test("Hub resource sync sends only the allowed connected-account payload", async
         label: "Loja Magalu",
         metadata: { provider: "magalu", local_account_id: 7, scopes: ["catalog:read"] },
       });
+    } finally { global.fetch = originalFetch; }
+  });
+});
+
+test("Hub resource sync não marca como sincronizado um recurso inativo", async () => {
+  clearModule("../src/services/hubResourceSyncService");
+  await withLoadStubs({
+    "../config/env": { HUB_BASE_URL: "https://hub.example", HUB_INTERNAL_TOKEN: "internal-token", HUB_REQUEST_TIMEOUT_MS: 1000 },
+  }, () => require("../src/services/hubResourceSyncService"), async (service) => {
+    const originalFetch = global.fetch;
+    global.fetch = async () => new Response(JSON.stringify({ ok: true, access: { allow: false, reason: "resource_inactive" } }), { status: 200, headers: { "content-type": "application/json" } });
+    try {
+      await assert.rejects(service.syncHubResource({ id: 7, dach_tenant_id: "dach-a", magalu_tenant_id: "magalu-a" }), (error) => error?.code === "MAGALU_HUB_RESOURCE_INACTIVE");
     } finally { global.fetch = originalFetch; }
   });
 });

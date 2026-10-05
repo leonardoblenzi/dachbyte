@@ -105,7 +105,7 @@
       const id = row.dataset.accountId;
       const reconnect = document.createElement("a");
       reconnect.className = "mg-secondary-btn";
-      reconnect.href = `/magalu/auth/start?return=${encodeURIComponent("/magalu/contas")}`;
+      reconnect.href = `/magalu/auth/accounts/${id}/reconnect`;
       reconnect.textContent = "Reconectar";
       const test = document.createElement("button");
       test.type = "button"; test.className = "mg-secondary-btn"; test.dataset.accountTest = id; test.textContent = "Testar conexão";
