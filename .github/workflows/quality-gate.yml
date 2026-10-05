@@ -97,6 +97,11 @@ jobs:
           node --check routes/excluirAnuncioRoutes.js
           node --check public/js/excluir-anuncio.js
           node --check public/js/exclusao-bulk.js
+          node --check services/clonarAnuncioBillingService.js
+          node --check services/clonarAnuncioService.js
+          node --check controllers/ClonarAnuncioController.js
+          node --check routes/clonarAnuncioRoutes.js
+          node --check public/js/clonar-anuncio.js
           node --check services/modeloMassaJobsService.js
           node --check controllers/ModeloMassaController.js
           node --check routes/modeloMassaRoutes.js
