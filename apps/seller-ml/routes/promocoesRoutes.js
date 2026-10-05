@@ -4941,6 +4941,45 @@ core.get("/api/promocoes/intelligence/smart/analyses/:analysis_id", async (req, 
   }
 });
 
+core.post("/api/promocoes/intelligence/smart/credits/quote", async (req, res) => {
+  try {
+    if (!PromoSmartOptimizerService?.previewOptimizationCredits) {
+      return res.status(503).json({ ok: false, error: "Serviço de inteligência SMART indisponível." });
+    }
+    const accountKey = resolveAccountKeyFromLocals(res);
+    if (!accountKey) {
+      return res.status(400).json({ ok: false, error: "Selecione uma conta Mercado Livre." });
+    }
+
+    const opportunityIds = Array.isArray(req.body?.opportunity_ids)
+      ? [...new Set(
+          req.body.opportunity_ids
+            .map((value) => String(value || "").trim())
+            .filter(Boolean),
+        )]
+      : [];
+    if (!opportunityIds.length) {
+      return res.status(400).json({ ok: false, error: "Selecione ao menos uma oportunidade segura." });
+    }
+
+    const quote = await PromoSmartOptimizerService.previewOptimizationCredits({
+      mlCreds: res.locals.mlCreds || {},
+      account: res.locals?.account || null,
+      selected: opportunityIds.length,
+    });
+    return res.json({ ok: true, ...quote });
+  } catch (error) {
+    console.warn(
+      "[/api/promocoes/intelligence/smart/credits/quote] erro:",
+      error?.message || error,
+    );
+    return res.status(Number(error?.statusCode || 400)).json({
+      ok: false,
+      error: error?.message || "Falha ao calcular custo da otimização Smart.",
+    });
+  }
+});
+
 core.post(
   "/api/promocoes/intelligence/smart/optimize",
   createAuditAction({
@@ -4978,6 +5017,7 @@ core.post(
         accountKey,
         accountLabel,
         mlCreds: res.locals.mlCreds || {},
+        account: res.locals?.account || null,
         auditContext: buildAuditContext(req, res, accountKey, accountLabel),
       });
       const encodedJobId = encodePromotionJobId(PROMO_JOB_SOURCE_SMART, created.id);
@@ -4986,6 +5026,8 @@ core.post(
         job_id: encodedJobId,
         operation_id: created.operationId,
         total: created.total,
+        billing_operation_key: created.billingOperationKey,
+        estimated_credits: created.estimatedCredits,
         ...promotionJobIdentity(encodedJobId, PROMO_JOB_SOURCE_SMART),
         account: { key: accountKey, label: accountLabel },
       });
@@ -5140,6 +5182,7 @@ core.get("/api/promocoes/jobs", async (req, res) => {
         retry_reason: j.retry_reason || null,
         cancel_requested: j.cancel_requested === true,
         operation_id: j.operation_id || null,
+        billing_telemetry: j.billing_telemetry || null,
         remediation_total: Number(j.remediation_total || 0),
         remediation_pending: Number(j.remediation_pending || 0),
         remediation_resolved: Number(j.remediation_resolved || 0),
