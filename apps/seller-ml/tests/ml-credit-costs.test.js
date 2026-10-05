@@ -30,6 +30,8 @@ test("operacoes em massa usam a escala comercial aprovada", () => {
   assert.equal(calculateOperationCredits("promotions.remove", { units: 30000 }), 10);
   assert.equal(calculateOperationCredits("promotions.validate", { units: 30000 }), 2);
   assert.equal(calculateOperationCredits("promotions.reapply_recent", { units: 30000 }), 20);
+  assert.equal(calculateOperationCredits("promotions.smart-optimize", { units: 1 }), 1);
+  assert.equal(calculateOperationCredits("promotions.smart-optimize", { units: 30000 }), 30);
   assert.equal(calculateOperationCredits("wholesale.apply", { units: 30000 }), 20);
   assert.equal(calculateOperationCredits("wholesale.validate", { units: 30000 }), 2);
   assert.equal(calculateOperationCredits("characteristics.apply", { units: 30000 }), 20);
