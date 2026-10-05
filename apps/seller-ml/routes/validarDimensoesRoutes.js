@@ -17,6 +17,12 @@ router.post(
   ValidarDimensoesController.analisarItem,
 );
 router.post(
+  "/credits/quote",
+  express.json({ limit: "1mb" }),
+  ValidarDimensoesController.quoteCredits,
+);
+
+router.post(
   "/jobs",
   createAuditAction({
     evento: "dimensions_validation_bulk_started",
