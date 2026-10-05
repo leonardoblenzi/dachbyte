@@ -4576,6 +4576,10 @@ class FiltroAnunciosQueueService {
       error: meta.error || job?.failedReason || null,
       account: meta.account || job?.data?.account || null,
       seller_id: meta.seller_id || null,
+      billing_telemetry:
+        meta.billing_telemetry ||
+        job?.returnvalue?.billing_telemetry ||
+        null,
       download_csv_url: downloadCsvUrl,
       review_action:
         downloadCsvUrl && status === "concluido"
