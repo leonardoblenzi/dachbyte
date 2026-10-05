@@ -176,22 +176,45 @@ test("telemetria shadow preserva exclusoes faturaveis e falhas", () => {
   assert.equal(telemetry.duration_ms, 60000);
 });
 
-test("operacoes de status nao sao precificadas como exclusao", () => {
-  const telemetry = Service._test.bulkDeleteTelemetry(
-    {
-      data: {
-        operation: "PAUSE",
-        operationId: "LISTING-PAUSE-1",
-        mlbIds: ["MLB123456789"],
-        creditReservation: null,
-      },
-    },
-    { operation: "PAUSE", total: 1, processed: 1, success: 1, failed: 0 },
+test("operacoes de status usam chaves proprias e cobram somente changed=true", () => {
+  assert.equal(Service._test.listingBillingOperationKey("ACTIVATE"), "listing.activate");
+  assert.equal(Service._test.listingBillingOperationKey("PAUSE"), "listing.pause");
+  assert.equal(Service._test.listingBillingOperationKey("CLOSE"), "listing.close");
+
+  assert.equal(
+    Service._test.listingBillableUnits(
+      { data: { operation: "PAUSE" } },
+      { success: 10, changed: 6, failed: 0, processed: 10 },
+    ),
+    6,
+  );
+  assert.equal(
+    Service._test.listingBillableUnits(
+      { data: { operation: "ACTIVATE" } },
+      { success: 10, changed: 0, failed: 0, processed: 10 },
+    ),
+    0,
   );
 
-  assert.equal(telemetry.billing_mode, "not_priced");
-  assert.equal(telemetry.operation_key, null);
-  assert.equal(telemetry.billable_units, 0);
+  const telemetry = Service._test.listingBillingTelemetry(
+    {
+      data: {
+        operation: "CLOSE",
+        operationId: "LISTING-CLOSE-1",
+        mlbIds: new Array(5).fill("MLB123456789"),
+        creditReservation: {
+          shadow: true,
+          quote: { estimated_credits: 1 },
+        },
+      },
+    },
+    { operation: "CLOSE", total: 5, processed: 5, success: 5, changed: 3, failed: 0 },
+  );
+
+  assert.equal(telemetry.billing_mode, "shadow");
+  assert.equal(telemetry.operation_key, "listing.close");
+  assert.equal(telemetry.changed, 3);
+  assert.equal(telemetry.billable_units, 3);
 });
 
 
@@ -227,7 +250,7 @@ test("enqueue de DELETE reserva creditos uma vez com quantidade deduplicada", as
   );
 });
 
-test("enqueue de PAUSE nao usa tarifa de bulk delete", async () => {
+test("enqueue de PAUSE usa tarifa propria e idempotencia propria", async () => {
   hubCalls.length = 0;
   let queued = null;
   Service._test.setQueue({
@@ -246,6 +269,52 @@ test("enqueue de PAUSE nao usa tarifa de bulk delete", async () => {
 
   assert.equal(jobId, "pause-job-1");
   assert.equal(queued.operation, "PAUSE");
+  assert.equal(queued.billingOperationKey, "listing.pause");
+  assert.equal(queued.creditReservation.operation_key, "listing.pause");
+
+  const reserveCalls = hubCalls.filter((entry) => entry.type === "reserve");
+  assert.equal(reserveCalls.length, 1);
+  assert.equal(reserveCalls[0].payload.operationKey, "listing.pause");
+  assert.equal(
+    reserveCalls[0].payload.idempotencyKey,
+    `listing.pause:${queued.operationId}`,
+  );
+});
+
+test("relist continua fora deste ponto de cobranca", async () => {
+  hubCalls.length = 0;
+  let queued = null;
+  Service._test.setQueue({
+    add: async (payload) => {
+      queued = payload;
+      return { id: "relist-job-1" };
+    },
+  });
+
+  await Service.enqueueJob({
+    operation: "CLOSE_RELIST",
+    accountKey: "conta-1",
+    mlCreds: { meli_user_id: "123", tenant_id: "tenant-1" },
+    mlbIds: ["MLB123456789"],
+  });
+
+  assert.equal(queued.billingOperationKey, null);
   assert.equal(queued.creditReservation, null);
   assert.equal(hubCalls.filter((entry) => entry.type === "reserve").length, 0);
+});
+
+test("quote de status usa a chave comercial da operacao", async () => {
+  hubCalls.length = 0;
+
+  const quote = await Service.previewListingOperationCredits({
+    operation: "ACTIVATE",
+    mlCreds: { meli_user_id: "123", tenant_id: "tenant-1" },
+    mlbIds: ["MLB123456789", "MLB987654321"],
+  });
+
+  assert.equal(quote.operation_key, "listing.activate");
+  assert.equal(quote.quantity, 2);
+  const quoteCall = hubCalls.find((entry) => entry.type === "quote");
+  assert.equal(quoteCall.payload.operationKey, "listing.activate");
+  assert.equal(quoteCall.payload.units, 2);
 });
