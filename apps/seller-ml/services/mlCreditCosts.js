@@ -3,6 +3,7 @@
 const OPERATION_COSTS = Object.freeze({
   "ads.filter": Object.freeze({ base: 5, perUnits: 0, unitBlock: 1 }),
   "listing.filter": Object.freeze({ base: 0, perUnits: 1, unitBlock: 15000 }),
+  "finance.catalog-sync": Object.freeze({ base: 0, perUnits: 1, unitBlock: 7500 }),
   "promotions.apply": Object.freeze({ base: 0, perUnits: 1, unitBlock: 3000 }),
   "promotions.remove": Object.freeze({ base: 0, perUnits: 1, unitBlock: 3000 }),
   "promotions.validate": Object.freeze({ base: 0, perUnits: 1, unitBlock: 15000 }),
