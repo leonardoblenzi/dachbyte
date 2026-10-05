@@ -21,6 +21,8 @@ const OPERATION_COSTS = Object.freeze({
   "listing.activate": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1500 }),
   "listing.pause": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1500 }),
   "listing.close": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1500 }),
+  "listing.relist": Object.freeze({ base: 0, perUnits: 1, unitBlock: 750 }),
+  "listing.pause-relist": Object.freeze({ base: 0, perUnits: 1, unitBlock: 600 }),
   "listing.bulk-delete": Object.freeze({ base: 0, perUnits: 1, unitBlock: 1000 }),
   "listing.clone": Object.freeze({ base: 0, perUnits: 5, unitBlock: 1 }),
   "listing.ai-analysis": Object.freeze({ base: 0, perUnits: 10, unitBlock: 1 }),
