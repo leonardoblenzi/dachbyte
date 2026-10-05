@@ -1,6 +1,10 @@
 const express = require("express");
 const ValidarDimensoesController = require("../controllers/ValidarDimensoesController");
 const { createAuditAction } = require("../middleware/auditAction");
+const {
+  guardSingleOperation,
+  requireSingleMlb,
+} = require("../services/singleOperationGuardService");
 
 const router = express.Router();
 
@@ -14,6 +18,16 @@ router.post(
         .toUpperCase() || null,
     }),
   }),
+  requireSingleMlb((req) => req.body?.mlb),
+  (req, res, next) => {
+    const body = req.body || {};
+    const mutates =
+      !!body.fill_dimensions ||
+      body.autofill_from_item === true ||
+      body.force_overwrite === true;
+    if (!mutates) return next();
+    return guardSingleOperation("dimensions.apply")(req, res, next);
+  },
   ValidarDimensoesController.analisarItem,
 );
 router.post(
