@@ -84,6 +84,8 @@ jobs:
           node --check services/validarDimensoesJobService.js
           node --check controllers/ValidarDimensoesController.js
           node --check routes/validarDimensoesRoutes.js
+          node --check public/js/ml-shell.js
+          node --check public/js/ml-base.js
           node --check public/js/validar-dimensoes.js
           node --check services/estoqueAlertaQueueService.js
           node --check services/EstoqueAtualizacaoQueueService.js
