@@ -1778,7 +1778,15 @@ module.exports = {
     };
   },
 
-  async enqueueOptimization({ analysisId, opportunityIds, accountKey, accountLabel, mlCreds, auditContext = null }) {
+  async previewOptimizationCredits({ mlCreds = {}, account = null, selected = 0 }) {
+    return SmartBilling.previewCredits({
+      mlCreds,
+      account,
+      selected,
+    });
+  },
+
+  async enqueueOptimization({ analysisId, opportunityIds, accountKey, accountLabel, mlCreds, account = null, auditContext = null }) {
     const analysis = await loadAnalysisResult(analysisId);
     if (!analysis) throw new Error("A análise expirou ou não foi encontrada. Execute uma nova análise.");
     if (normalizeAccountKey(analysis.accountKey) !== normalizeAccountKey(accountKey)) {
@@ -1793,25 +1801,50 @@ module.exports = {
     const q = ensureQueue();
     const id = makeJobId("opt");
     const opId = operationId();
-    await q.add(
-      {
-        kind: "optimize",
-        analysisId,
-        opportunities,
-        mlCreds: { ...(mlCreds || {}) },
-        accountKey: normalizeAccountKey(accountKey),
-        accountLabel: accountLabel || accountKey || null,
-        auditContext,
-        operationId: opId,
-        createdAt: Date.now(),
-      },
-      {
-        jobId: id,
-        removeOnComplete: 100,
-        removeOnFail: false,
-      },
-    );
-    return { id, operationId: opId, total: opportunities.length };
+    const creditReservation = await SmartBilling.reserveCreditsForOptimization({
+      mlCreds: mlCreds || {},
+      account,
+      selected: opportunities.length,
+      operationId: opId,
+    });
+
+    try {
+      await q.add(
+        {
+          kind: "optimize",
+          analysisId,
+          opportunities,
+          mlCreds: { ...(mlCreds || {}) },
+          accountKey: normalizeAccountKey(accountKey),
+          accountLabel: accountLabel || accountKey || null,
+          auditContext,
+          operationId: opId,
+          creditReservation,
+          createdAt: Date.now(),
+        },
+        {
+          jobId: id,
+          removeOnComplete: 100,
+          removeOnFail: false,
+        },
+      );
+    } catch (error) {
+      await SmartBilling.settleOptimizationCredits(creditReservation, {
+        optimized: 0,
+      });
+      throw error;
+    }
+
+    return {
+      id,
+      operationId: opId,
+      total: opportunities.length,
+      billingOperationKey: SmartBilling.OPERATION_KEY,
+      estimatedCredits:
+        creditReservation?.quote?.estimated_credits ??
+        creditReservation?.reserved_credits ??
+        null,
+    };
   },
 
   async listRecent(limit = 25, { accountKey = null } = {}) {
@@ -1872,6 +1905,7 @@ module.exports = {
           accountKey: job.data?.accountKey || null,
           accountLabel: job.data?.accountLabel || job.data?.accountKey || null,
           operation_id: job.data?.operationId || null,
+          billing_telemetry: smartBillingTelemetry(job, state),
           pending: Math.max(0, metrics.total - metrics.processed),
           updated_at: new Date(
             meta.updatedAt || job.finishedOn || job.processedOn || job.timestamp || Date.now(),
@@ -1904,6 +1938,7 @@ module.exports = {
       accountKey: job.data?.accountKey || null,
       accountLabel: job.data?.accountLabel || job.data?.accountKey || null,
       operation_id: job.data?.operationId || null,
+      billing_telemetry: smartBillingTelemetry(job, state),
       pending: Math.max(0, metrics.total - metrics.processed),
       full_report_url: `/api/promocoes/jobs/${encodeURIComponent(`smart:${job.id}`)}/download.xlsx`,
       updated_at: new Date(meta.updatedAt || job.finishedOn || job.processedOn || job.timestamp || Date.now()).toISOString(),
@@ -1953,5 +1988,7 @@ module.exports = {
     safeReplacementCheck,
     analyzeSmartRecords,
     readBullJobProgress,
+    smartBillingTelemetry,
+    resolveJobMetrics,
   },
 };
