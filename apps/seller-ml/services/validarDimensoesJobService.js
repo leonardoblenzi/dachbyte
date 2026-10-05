@@ -436,7 +436,7 @@ async function processJob(job) {
   }
 
   const total = Array.isArray(targetMlbs) ? targetMlbs.length : 0;
-  if (total > 0 && !job.data?.creditReservation) {
+  if (total > 0 && !cancelled && !job.data?.creditReservation) {
     const creditReservation = await reserveCredits({
       mlCreds,
       operationKey:
@@ -764,6 +764,7 @@ async function criarJob(
   }
   const operationId = `DIMENSIONS-${crypto.randomUUID()}`;
   const billingOperationKey = dimensionsBillingOperationKey(mode);
+  await cancelarJobsAbertosDaConta(accountKey, { reason: "novo_job" });
   const creditReservation =
     normalizedSource === "active_items"
       ? null
@@ -773,7 +774,6 @@ async function criarJob(
           units: ids.length,
           idempotencyKey: dimensionsBillingIdempotencyKey(operationId),
         });
-  await cancelarJobsAbertosDaConta(accountKey, { reason: "novo_job" });
   let job;
   try {
     job = await queue.add(
