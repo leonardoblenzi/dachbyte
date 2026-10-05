@@ -1,6 +1,7 @@
 "use strict";
 
 const Bull = require("bull");
+const crypto = require("crypto");
 const { makeBullClient, getSharedRedis } = require("../lib/redisClient");
 const ExclusaoService = require("./excluirAnuncioService");
 const { attachJobReview } = require("./jobReviewHelper");
@@ -10,7 +11,7 @@ function resolveJobId(value) {
   return backendJobIdFromUid("gestao-anuncios", value);
 }
 const { recordAuthEvent } = require("./authAuditService");
-const { reserveCredits, settleCredits } = require("./hubCreditsService");
+const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
 const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 const QUEUE_NAME = "ml-exclusao-lote";
@@ -225,6 +226,92 @@ function normalizeAccountKey(value) {
   return v || null;
 }
 
+function normalizeMlbIds(values = []) {
+  const seen = new Set();
+  const ids = [];
+  for (const value of Array.isArray(values) ? values : []) {
+    const id = String(value || "").trim().toUpperCase();
+    if (!/^MLB\d{5,}$/.test(id) || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+function bulkDeleteIdempotencyKey(operationId) {
+  const id = String(operationId || "").trim();
+  if (!id) throw new Error("bulk_delete_operation_id_required");
+  return `listing.bulk-delete:${id}`;
+}
+
+function isBillableDeleteOperation(operation) {
+  return normalizeOperation(operation) === "DELETE";
+}
+
+function bulkDeleteBillableUnits(job = {}, meta = {}) {
+  if (!isBillableDeleteOperation(meta.operation || job?.data?.operation)) return 0;
+  return Math.max(0, Number(meta.success || job?.returnvalue?.success || 0));
+}
+
+function bulkDeleteTelemetry(job = {}, meta = {}) {
+  const reservation = job?.data?.creditReservation || {};
+  const operation = normalizeOperation(meta.operation || job?.data?.operation);
+  const billableUnits = bulkDeleteBillableUnits(job, meta);
+  return {
+    billing_mode:
+      !isBillableDeleteOperation(operation)
+        ? "not_priced"
+        : !reservation || Object.keys(reservation).length === 0
+          ? "pending"
+          : reservation?.shadow === true
+            ? "shadow"
+            : reservation?.bypass === true
+              ? "bypass"
+              : "enforce",
+    operation_key: isBillableDeleteOperation(operation) ? "listing.bulk-delete" : null,
+    operation_id: job?.data?.operationId || null,
+    operation,
+    selected: Math.max(0, Number(meta.total || job?.data?.mlbIds?.length || 0)),
+    processed: Math.max(0, Number(meta.processed || 0)),
+    success: Math.max(0, Number(meta.success || 0)),
+    failed: Math.max(0, Number(meta.failed || 0)),
+    billable_units: billableUnits,
+    estimated_credits:
+      reservation?.quote?.estimated_credits ??
+      reservation?.reserved_credits ??
+      null,
+    duration_ms:
+      meta.startedAt && (meta.finishedAt || meta.failedAt)
+        ? Math.max(0, Number(meta.finishedAt || meta.failedAt) - Number(meta.startedAt))
+        : null,
+  };
+}
+
+async function previewBulkDeleteCredits({ mlCreds = {}, account = null, mlbIds = [] } = {}) {
+  const ids = normalizeMlbIds(mlbIds);
+  if (!ids.length) {
+    const error = new Error("Nenhum MLB valido foi informado para calcular o custo.");
+    error.statusCode = 400;
+    throw error;
+  }
+  const quote = await quoteCredits({
+    mlCreds,
+    account,
+    operationKey: "listing.bulk-delete",
+    units: ids.length,
+  });
+  return {
+    operation_key: "listing.bulk-delete",
+    quantity: ids.length,
+    estimated_credits: Number(quote?.estimated_credits || 0),
+    available_credits: quote?.available_credits == null ? null : Number(quote.available_credits),
+    sufficient: quote?.sufficient !== false,
+    unlimited: quote?.unlimited === true,
+    deferred: false,
+    quote,
+  };
+}
+
 function parseMlDetails(value) {
   if (!value) return null;
   if (typeof value === "object") return value;
@@ -298,6 +385,7 @@ function buildAuditBase(job, operation) {
     method: context.method || null,
     operation,
     job_id: job?.id ? String(job.id) : null,
+    operation_id: job?.data?.operationId || null,
   };
 }
 
@@ -318,6 +406,7 @@ async function auditJobEvent(job, evento, status, operation, metadata = {}) {
       method: base.method,
       operation: base.operation,
       job_id: base.job_id,
+      operation_id: base.operation_id,
       ...metadata,
     },
   }).catch((err) => {
@@ -560,12 +649,22 @@ async function runJob(job) {
   });
   await job.progress(100);
 
+  const completedMeta = {
+    ...(job.data?.__meta || {}),
+    operation,
+    total,
+    processed: total,
+    success,
+    failed,
+    finishedAt: Date.now(),
+  };
   await auditJobEvent(job, "listing_management_job_completed", failed > 0 ? "warn" : "success", operation, {
     total_items: total,
     processed: total,
     success,
     failed,
     failed_items: failedItems.slice(0, 50),
+    billing_telemetry: bulkDeleteTelemetry(job, completedMeta),
   });
 
   return {
@@ -638,6 +737,7 @@ async function mapJob(job) {
     result_total: persistedResultTotal,
     operation,
     account: buildAccount(job.data),
+    billing_telemetry: bulkDeleteTelemetry(job, meta),
     result: status === "concluido" ? job.returnvalue || null : null,
     failed_items: failedItems,
   }, {
@@ -711,23 +811,35 @@ async function enqueueJob({
   auditContext = null,
 }) {
   const queue = getQueue();
-  const creditReservation = await reserveCredits({
-    mlCreds,
-    operationKey: "listing.bulk-delete",
-    units: Math.max(1, Array.isArray(mlbIds) ? mlbIds.length : 0),
-  });
+  const normalizedOperation = normalizeOperation(operation);
+  const normalizedMlbIds = normalizeMlbIds(mlbIds);
+  if (!normalizedMlbIds.length) {
+    const error = new Error("Nenhum MLB valido foi informado para a operacao em lote.");
+    error.statusCode = 400;
+    throw error;
+  }
+  const operationId = `LISTING-${normalizedOperation}-${crypto.randomUUID()}`;
+  const creditReservation = isBillableDeleteOperation(normalizedOperation)
+    ? await reserveCredits({
+        mlCreds,
+        operationKey: "listing.bulk-delete",
+        units: normalizedMlbIds.length,
+        idempotencyKey: bulkDeleteIdempotencyKey(operationId),
+      })
+    : null;
   let job;
   try {
     job = await queue.add(
       {
-        mlbIds,
+        mlbIds: normalizedMlbIds,
         delayMs,
-        operation: normalizeOperation(operation),
+        operation: normalizedOperation,
         mlCreds,
         accountKey,
         accountLabel,
         auditContext,
         creditReservation,
+        operationId,
         createdAt: Date.now(),
       },
       {
@@ -903,6 +1015,10 @@ function initWorker() {
             total_items: Number(meta.total ?? job.data?.mlbIds?.length ?? 0),
             success: Number(meta.success ?? 0),
             failed: Number(meta.failed ?? 0),
+            billing_telemetry: bulkDeleteTelemetry(job, {
+              ...meta,
+              failedAt: Date.now(),
+            }),
           },
         );
         await updateMeta(job, {
@@ -933,6 +1049,10 @@ function initWorker() {
           total_items: Number(meta.total ?? job.data?.mlbIds?.length ?? 0),
           success: Number(meta.success ?? 0),
           failed: Number(meta.failed ?? 0),
+          billing_telemetry: bulkDeleteTelemetry(job, {
+            ...meta,
+            failedAt: Date.now(),
+          }),
         },
       );
       throw error;
@@ -944,19 +1064,19 @@ function initWorker() {
   queue.on("failed", async (job, err) => {
     console.error(`[${SERVICE_LOG_LABEL}] job failed:`, job?.id, err?.message || err);
     const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
-    const processed = Math.max(0, Number(meta?.processed || 0));
+    const billableUnits = bulkDeleteBillableUnits(job, meta);
     await settleCredits(job?.data?.creditReservation, {
-      release: processed <= 0,
-      consumedUnits: processed > 0 ? processed : null,
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
   });
   queue.on("completed", async (job) => {
     console.log(`[${SERVICE_LOG_LABEL}] job completed:`, job?.id);
     const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
-    const processed = Math.max(0, Number(meta?.processed || 0));
+    const billableUnits = bulkDeleteBillableUnits(job, meta);
     await settleCredits(job?.data?.creditReservation, {
-      release: processed <= 0,
-      consumedUnits: processed > 0 ? processed : null,
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
   });
 
@@ -975,4 +1095,12 @@ module.exports = {
   cancelJob,
   getJobCsv,
   streamJobCsv,
+  previewBulkDeleteCredits,
+  _test: {
+    normalizeMlbIds,
+    bulkDeleteIdempotencyKey,
+    isBillableDeleteOperation,
+    bulkDeleteBillableUnits,
+    bulkDeleteTelemetry,
+  },
 };
