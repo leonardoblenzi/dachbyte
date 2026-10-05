@@ -122,6 +122,11 @@ jobs:
           node --check services/promoSmartOptimizerService.js
           node --check routes/promocoesRoutes.js
           node --check public/js/promo-intelligence.js
+          node --check services/financeiroMlCatalogSyncBillingService.js
+          node --check services/financeiroMlSkuCatalogSyncService.js
+          node --check controllers/FinanceiroMlController.js
+          node --check routes/financeiroMlRoutes.js
+          node --check public/js/financeiro-ml-custos.js
 
   runtime-safety:
     name: Runtime safety checks
