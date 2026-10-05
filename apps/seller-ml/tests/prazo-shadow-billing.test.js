@@ -259,3 +259,44 @@ test("preview de lookup com limite usa o teto e sem limite fica deferred", async
     global.fetch = previous.fetch;
   }
 });
+
+
+test("prazo preserva contexto de auditoria e operationId nos jobs", () => {
+  const base = PrazoQueue._test.prazoAuditBase({
+    id: "job-prazo-audit",
+    data: {
+      operationId: "PRAZO-AUDIT-1",
+      accountKey: "conta_teste",
+      accountLabel: "Conta Teste",
+      mlCreds: { meli_conta_id: "meli-conta-1" },
+      auditContext: {
+        userId: 42,
+        email: "audit@example.test",
+        ip: "127.0.0.1",
+        userAgent: "test-agent",
+        route: "/anuncios/prazo-producao-lote",
+        method: "POST",
+      },
+    },
+  });
+
+  assert.equal(base.userId, 42);
+  assert.equal(base.accountKey, "conta_teste");
+  assert.equal(base.operationId, "PRAZO-AUDIT-1");
+  assert.equal(base.route, "/anuncios/prazo-producao-lote");
+
+  const lookupSource = PrazoQueue.enqueuePrazoLookupActiveJob.toString();
+  assert.match(lookupSource, /auditContext\s*=\s*null/);
+  assert.match(lookupSource, /auditContext:\s*auditContext/);
+
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const controllerSource = fs.readFileSync(
+    path.join(__dirname, "../controllers/PrazoProducaoController.js"),
+    "utf8",
+  );
+  const propagated = controllerSource.match(
+    /auditContext:\s*buildAuditContext\(req,\s*res\)/g,
+  ) || [];
+  assert.ok(propagated.length >= 2);
+});
