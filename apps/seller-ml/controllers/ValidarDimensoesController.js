@@ -2,6 +2,7 @@ const ValidarDimensoesService = require("../services/validarDimensoesService");
 const ValidarDimensoesJobService = require("../services/validarDimensoesJobService");
 const { attachJobReview } = require("../services/jobReviewHelper");
 const { attachJobContract } = require("../services/jobContract");
+const { recordSuccessfulChange } = require("../services/singleOperationGuardService");
 const {
   getRequestIp,
   getRequestUserAgent,
@@ -85,6 +86,13 @@ class ValidarDimensoesController {
         ...(autoFillFromItem ? { autoFillFromItem: true } : {}),
         ...(forceOverwrite ? { forceOverwrite: true } : {}),
       });
+
+      if (result?.updated === true) {
+        await recordSuccessfulChange({
+          res,
+          operation: "dimensions.apply",
+        });
+      }
 
       await auditDimensoes(
         req,
