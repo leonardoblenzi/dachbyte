@@ -193,3 +193,59 @@ test("operacoes de status nao sao precificadas como exclusao", () => {
   assert.equal(telemetry.operation_key, null);
   assert.equal(telemetry.billable_units, 0);
 });
+
+
+test("enqueue de DELETE reserva creditos uma vez com quantidade deduplicada", async () => {
+  hubCalls.length = 0;
+  let queued = null;
+  Service._test.setQueue({
+    add: async (payload) => {
+      queued = payload;
+      return { id: "delete-job-1" };
+    },
+  });
+
+  const jobId = await Service.enqueueJob({
+    operation: "DELETE",
+    accountKey: "conta-1",
+    mlCreds: { meli_user_id: "123", tenant_id: "tenant-1" },
+    mlbIds: ["MLB123456789", "mlb123456789", "MLB987654321"],
+  });
+
+  assert.equal(jobId, "delete-job-1");
+  assert.deepEqual(queued.mlbIds, ["MLB123456789", "MLB987654321"]);
+  assert.match(queued.operationId, /^LISTING-DELETE-/);
+  assert.equal(queued.creditReservation.operation_key, "listing.bulk-delete");
+
+  const reserveCalls = hubCalls.filter((entry) => entry.type === "reserve");
+  assert.equal(reserveCalls.length, 1);
+  assert.equal(reserveCalls[0].payload.operationKey, "listing.bulk-delete");
+  assert.equal(reserveCalls[0].payload.units, 2);
+  assert.equal(
+    reserveCalls[0].payload.idempotencyKey,
+    `listing.bulk-delete:${queued.operationId}`,
+  );
+});
+
+test("enqueue de PAUSE nao usa tarifa de bulk delete", async () => {
+  hubCalls.length = 0;
+  let queued = null;
+  Service._test.setQueue({
+    add: async (payload) => {
+      queued = payload;
+      return { id: "pause-job-1" };
+    },
+  });
+
+  const jobId = await Service.enqueueJob({
+    operation: "PAUSE",
+    accountKey: "conta-1",
+    mlCreds: { meli_user_id: "123", tenant_id: "tenant-1" },
+    mlbIds: ["MLB123456789"],
+  });
+
+  assert.equal(jobId, "pause-job-1");
+  assert.equal(queued.operation, "PAUSE");
+  assert.equal(queued.creditReservation, null);
+  assert.equal(hubCalls.filter((entry) => entry.type === "reserve").length, 0);
+});
