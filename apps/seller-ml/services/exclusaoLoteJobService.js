@@ -243,6 +243,8 @@ const LISTING_BILLING_OPERATION_KEYS = Object.freeze({
   PAUSE: "listing.pause",
   CLOSE: "listing.close",
   DELETE: "listing.bulk-delete",
+  CLOSE_RELIST: "listing.relist",
+  PAUSE_RELIST: "listing.pause-relist",
 });
 
 function listingBillingOperationKey(operation) {
@@ -272,6 +274,9 @@ function listingBillableUnits(job = {}, meta = {}) {
   }
   if (["ACTIVATE", "PAUSE", "CLOSE"].includes(operation)) {
     return Math.max(0, Number(meta.changed ?? job?.returnvalue?.changed ?? 0));
+  }
+  if (["CLOSE_RELIST", "PAUSE_RELIST"].includes(operation)) {
+    return Math.max(0, Number(meta.relisted ?? job?.returnvalue?.relisted ?? 0));
   }
   return 0;
 }
@@ -305,6 +310,8 @@ function listingBillingTelemetry(job = {}, meta = {}) {
     processed: Math.max(0, Number(meta.processed || 0)),
     success: Math.max(0, Number(meta.success || 0)),
     changed: Math.max(0, Number(meta.changed || 0)),
+    relisted: Math.max(0, Number(meta.relisted || 0)),
+    fallback_relisted: Math.max(0, Number(meta.fallbackRelisted || 0)),
     failed: Math.max(0, Number(meta.failed || 0)),
     billable_units: billableUnits,
     estimated_credits:
@@ -574,6 +581,8 @@ async function runJob(job) {
     processed: 0,
     success: 0,
     changed: 0,
+    relisted: 0,
+    fallbackRelisted: 0,
     failed: 0,
     startedAt: Date.now(),
     updatedAt: Date.now(),
@@ -595,6 +604,8 @@ async function runJob(job) {
   let resultBuffer = [];
   let success = 0;
   let changed = 0;
+  let relisted = 0;
+  let fallbackRelisted = 0;
   let failed = 0;
 
   await initResultsManifest(job.id);
@@ -612,6 +623,8 @@ async function runJob(job) {
         processed: index,
         success,
         changed,
+        relisted,
+        fallbackRelisted,
         failed,
         failedItems,
         updatedAt: Date.now(),
@@ -641,6 +654,13 @@ async function runJob(job) {
       status: result?.success ? "success" : "error",
       success: !!result?.success,
       changed: result?.changed === true || (operation === "DELETE" && result?.success === true),
+      relisted:
+        (operation === "CLOSE_RELIST" || operation === "PAUSE_RELIST") &&
+        result?.success === true,
+      fallback_relisted:
+        operation === "PAUSE_RELIST" &&
+        result?.success === true &&
+        result?.fallback_closed === true,
       message:
         result?.message ||
         result?.error ||
@@ -674,7 +694,15 @@ async function runJob(job) {
 
     if (result?.success) {
       success += 1;
-      if (operation !== "DELETE" && result?.changed === true) changed += 1;
+      if (["ACTIVATE", "PAUSE", "CLOSE"].includes(operation) && result?.changed === true) {
+        changed += 1;
+      }
+      if (operation === "CLOSE_RELIST" || operation === "PAUSE_RELIST") {
+        relisted += 1;
+        if (operation === "PAUSE_RELIST" && result?.fallback_closed === true) {
+          fallbackRelisted += 1;
+        }
+      }
     } else {
       failed += 1;
       if (failedItems.length < 200) {
@@ -701,6 +729,8 @@ async function runJob(job) {
         processed,
         success,
         changed,
+        relisted,
+        fallbackRelisted,
         failed,
         failedItems,
         updatedAt: Date.now(),
@@ -725,6 +755,8 @@ async function runJob(job) {
     processed: total,
     success,
     changed,
+    relisted,
+    fallbackRelisted,
     failed,
     failedItems,
     finishedAt: Date.now(),
@@ -739,6 +771,8 @@ async function runJob(job) {
     processed: total,
     success,
     changed,
+    relisted,
+    fallbackRelisted,
     failed,
     finishedAt: Date.now(),
   };
@@ -747,6 +781,8 @@ async function runJob(job) {
     processed: total,
     success,
     changed,
+    relisted,
+    fallback_relisted: fallbackRelisted,
     failed,
     failed_items: failedItems.slice(0, 50),
     billing_telemetry: listingBillingTelemetry(job, completedMeta),
@@ -758,6 +794,8 @@ async function runJob(job) {
     total,
     success,
     changed,
+    relisted,
+    fallbackRelisted,
     failed,
     failedItems,
     result_total: total,
@@ -1107,6 +1145,9 @@ function initWorker() {
             processed: Number(meta.processed ?? 0),
             total_items: Number(meta.total ?? job.data?.mlbIds?.length ?? 0),
             success: Number(meta.success ?? 0),
+            changed: Number(meta.changed ?? 0),
+            relisted: Number(meta.relisted ?? 0),
+            fallback_relisted: Number(meta.fallbackRelisted ?? 0),
             failed: Number(meta.failed ?? 0),
             billing_telemetry: listingBillingTelemetry(job, {
               ...meta,
@@ -1126,6 +1167,9 @@ function initWorker() {
           cancelled: true,
           total: Number(meta.total ?? job.data?.mlbIds?.length ?? 0),
           success: Number(meta.success ?? 0),
+          changed: Number(meta.changed ?? 0),
+          relisted: Number(meta.relisted ?? 0),
+          fallbackRelisted: Number(meta.fallbackRelisted ?? 0),
           failed: Number(meta.failed ?? 0),
           failedItems: Array.isArray(meta.failedItems) ? meta.failedItems : [],
           result_total: await readPersistedResultTotal(job.id),
@@ -1141,6 +1185,9 @@ function initWorker() {
           processed: Number(meta.processed ?? 0),
           total_items: Number(meta.total ?? job.data?.mlbIds?.length ?? 0),
           success: Number(meta.success ?? 0),
+          changed: Number(meta.changed ?? 0),
+          relisted: Number(meta.relisted ?? 0),
+          fallback_relisted: Number(meta.fallbackRelisted ?? 0),
           failed: Number(meta.failed ?? 0),
           billing_telemetry: listingBillingTelemetry(job, {
             ...meta,
