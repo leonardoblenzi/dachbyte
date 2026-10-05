@@ -80,6 +80,9 @@ jobs:
           node --check public/js/prazo.js
           node --check public/js/prazo-bulk.js
           node --check services/validarDimensoesJobService.js
+          node --check controllers/ValidarDimensoesController.js
+          node --check routes/validarDimensoesRoutes.js
+          node --check public/js/validar-dimensoes.js
           node --check services/estoqueAlertaQueueService.js
           node --check services/modeloMassaJobsService.js
           node --check controllers/ModeloMassaController.js
