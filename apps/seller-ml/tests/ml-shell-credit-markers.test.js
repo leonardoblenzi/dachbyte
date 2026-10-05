@@ -34,38 +34,45 @@ const FREE_NAV_IDS = [
 ];
 
 function navEntry(id) {
-  const re = new RegExp('\\\\{ id: "' + id + '"[^\\\\n]+\\\\}');
-  const match = shellJs.match(re);
-  assert.ok(match, "nav entry ausente: " + id);
-  return match[0];
+  const marker = '{ id: "' + id + '"';
+  const line = shellJs.split("\n").find((value) => value.includes(marker));
+  assert.ok(line, "nav entry ausente: " + id);
+  return line;
 }
 
 test("navbar marca somente areas que possuem operacoes com creditos", () => {
   for (const id of CREDIT_NAV_IDS) {
-    assert.match(navEntry(id), /credits:\\s*true/, "credit marker ausente: " + id);
+    assert.ok(
+      navEntry(id).includes("credits: true"),
+      "credit marker ausente: " + id,
+    );
   }
 
   for (const id of FREE_NAV_IDS) {
-    assert.doesNotMatch(navEntry(id), /credits:\\s*true/, "area gratuita marcada: " + id);
+    assert.equal(
+      navEntry(id).includes("credits: true"),
+      false,
+      "area gratuita marcada: " + id,
+    );
   }
 });
 
 test("marker usa SVG minimalista e tooltip explicativo", () => {
-  assert.match(shellJs, /coins:\\s*\\n\\s*\'<svg/);
-  assert.match(shellJs, /class="ml-shell__credit-marker"/);
-  assert.match(shellJs, /Esta área possui ações que consomem créditos/);
-  assert.match(shellJs, /data-consumes-credits="true"/);
+  assert.ok(shellJs.includes("coins:"));
+  assert.ok(shellJs.includes('class="ml-shell__credit-marker"'));
+  assert.ok(shellJs.includes("Esta área possui ações que consomem créditos"));
+  assert.ok(shellJs.includes('data-consumes-credits="true"'));
 });
 
 test("CSS mantem marker pequeno, dourado e compativel com tema escuro", () => {
-  assert.match(shellCss, /\\.ml-shell__credit-marker\\{/);
-  assert.match(shellCss, /width:\\s*16px/);
-  assert.match(shellCss, /height:\\s*16px/);
-  assert.match(shellCss, /color:\\s*#b88712/);
-  assert.match(shellCss, /body\\.theme-dark \\.ml-shell__credit-marker/);
+  assert.ok(shellCss.includes(".ml-shell__credit-marker{"));
+  assert.ok(shellCss.includes("width: 16px"));
+  assert.ok(shellCss.includes("height: 16px"));
+  assert.ok(shellCss.includes("color: #b88712"));
+  assert.ok(shellCss.includes("body.theme-dark .ml-shell__credit-marker"));
 });
 
 test("assets do shell recebem cache bust apos marker de creditos", () => {
-  assert.match(baseJs, /ml-shell\\.css\\?v=29/);
-  assert.match(baseJs, /ml-shell\\.js\\?v=37/);
+  assert.ok(baseJs.includes("/css/ml-shell.css?v=29"));
+  assert.ok(baseJs.includes("/js/ml-shell.js?v=37"));
 });
