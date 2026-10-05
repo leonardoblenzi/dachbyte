@@ -169,6 +169,10 @@ function normalizeSku(value) {
   return normalizeString(value).toUpperCase();
 }
 
+function normalizeMlb(value) {
+  return normalizeString(value).toUpperCase();
+}
+
 function normalizeStatus(value) {
   const raw = normalizeString(value).toLowerCase();
   return raw || "all";
@@ -319,7 +323,7 @@ function extractReferenceSkuValues(item = {}) {
     );
 
   const itemSku = normalizeString(
-    item.seller_custom_field || item.seller_sku || pickAttrValue(skuAttr),
+    item.seller_custom_field || item.seller_sku || item.sku || pickAttrValue(skuAttr),
   );
   if (itemSku) return [normalizeSku(itemSku)];
 
@@ -332,7 +336,7 @@ function extractReferenceSkuValues(item = {}) {
       String(attr?.name || "").trim().toLowerCase().includes("sku"),
     );
     const variationSku = normalizeString(
-      variation?.seller_custom_field || variation?.seller_sku || pickAttrValue(variationSkuAttr),
+      variation?.seller_custom_field || variation?.seller_sku || variation?.sku || pickAttrValue(variationSkuAttr),
     );
     if (variationSku) variationSkus.push(normalizeSku(variationSku));
   }
@@ -362,7 +366,7 @@ function extractVariationSkuRows(item = {}) {
       String(attr?.name || "").trim().toLowerCase().includes("sku"),
     );
     const sku = normalizeSku(
-      variation?.seller_custom_field || variation?.seller_sku || pickAttrValue(skuAttr),
+      variation?.seller_custom_field || variation?.seller_sku || variation?.sku || pickAttrValue(skuAttr),
     );
     if (!sku) continue;
     rows.push({
@@ -399,7 +403,7 @@ function extractProductIdentifiers(item = {}) {
   return Array.from(ids);
 }
 
-async function fetchItemDetails(state, ids = []) {
+async function fetchItemDetails(state, ids = [], context = {}) {
   const out = [];
   const cleanIds = Array.from(
     new Set(ids.map((id) => normalizeString(id)).filter(Boolean)),
@@ -414,6 +418,8 @@ async function fetchItemDetails(state, ids = []) {
         "thumbnail",
         "secure_thumbnail",
         "seller_custom_field",
+        "seller_sku",
+        "sku",
         "price",
         "original_price",
         "status",
@@ -457,7 +463,7 @@ async function fetchItemDetails(state, ids = []) {
       });
     }
   }
-  return out;
+  return applyManualSkuReferences(out, context?.accountKey);
 }
 
 async function fetchSellerItemIdsByStatus(state, sellerId, status, limit) {
@@ -561,7 +567,7 @@ async function fetchTargetedCostLookupItems(context = {}, query = {}, seller = {
     }
   }
 
-  return fetchItemDetails(state, Array.from(targetIds));
+  return fetchItemDetails(state, Array.from(targetIds), context);
 }
 
 function inventoryCacheKey(accountKey, status, maxItems) {
@@ -601,7 +607,7 @@ async function getInventorySnapshot(context = {}, opts = {}) {
   );
 
   const ids = Array.from(new Set(batches.flat())).slice(0, maxItems);
-  const items = await fetchItemDetails(state, ids);
+  const items = await fetchItemDetails(state, ids, context);
   const payload = {
     seller,
     items,
@@ -632,6 +638,57 @@ async function getSkuCostMap(accountKey, skus = []) {
       },
     ]),
   );
+}
+
+async function getManualSkuReferenceMap(accountKey, mlbs = []) {
+  const normalizedMlbs = Array.from(new Set(mlbs.map(normalizeMlb).filter(Boolean)));
+  if (!accountKey || !normalizedMlbs.length) return new Map();
+
+  const result = await db.query(
+    `select mlb, variation_id, reference_sku
+       from ml.mercadolivre_sku_reference_overrides
+      where account_key = $1
+        and upper(mlb) = any($2::text[])`,
+    [String(accountKey), normalizedMlbs],
+  ).catch((error) => {
+    if (String(error?.message || "").includes("mercadolivre_sku_reference_overrides")) {
+      return { rows: [] };
+    }
+    throw error;
+  });
+
+  return new Map((result.rows || []).map((row) => [
+    `${normalizeMlb(row.mlb)}:${normalizeString(row.variation_id)}`,
+    normalizeSku(row.reference_sku),
+  ]).filter(([, sku]) => Boolean(sku)));
+}
+
+async function applyManualSkuReferences(items = [], accountKey) {
+  if (!accountKey || !Array.isArray(items) || !items.length) return items;
+  const references = await getManualSkuReferenceMap(
+    accountKey,
+    items.map((item) => item?.item_id),
+  );
+  if (!references.size) return items;
+
+  return items.map((item) => {
+    const naturalSkus = Array.from(new Set(
+      (Array.isArray(item.reference_skus) && item.reference_skus.length
+        ? item.reference_skus
+        : [item.reference_sku]
+      ).map(normalizeSku).filter(Boolean),
+    ));
+    if (naturalSkus.length) return item;
+
+    const manualSku = references.get(`${normalizeMlb(item.item_id)}:`);
+    if (!manualSku) return item;
+    return {
+      ...item,
+      reference_sku: manualSku,
+      reference_skus: [manualSku],
+      manual_reference_sku: true,
+    };
+  });
 }
 
 async function getCatalogSkuCandidatesByMlb(accountKey, mlbs = []) {
@@ -776,6 +833,30 @@ async function saveSkuCost({ accountKey, sku, cost, userId, source = "manual", m
 
   INVENTORY_CACHE.clear();
   return saved.rows[0];
+}
+
+async function saveManualSkuReference({ accountKey, mlb, variationId = "", sku, userId }) {
+  const normalizedMlb = normalizeMlb(mlb);
+  const referenceSku = normalizeSku(sku);
+  if (!/^MLB\d{6,}$/i.test(normalizedMlb)) {
+    throw new Error("Informe um MLB válido para vincular o SKU.");
+  }
+  if (!referenceSku) throw new Error("SKU de referência é obrigatório.");
+
+  const result = await db.query(
+    `insert into ml.mercadolivre_sku_reference_overrides
+        (account_key, mlb, variation_id, reference_sku, source, created_by, updated_by)
+     values ($1, $2, $3, $4, 'manual', $5, $5)
+     on conflict (account_key, mlb, variation_id)
+     do update set
+       reference_sku = excluded.reference_sku,
+       source = excluded.source,
+       updated_by = excluded.updated_by,
+       updated_at = now()
+     returning mlb, variation_id, reference_sku, updated_at`,
+    [String(accountKey || "default"), normalizedMlb, normalizeString(variationId), referenceSku, userId || null],
+  );
+  return result.rows[0];
 }
 
 async function getAccountTax(accountKey) {
@@ -2620,7 +2701,7 @@ async function buildOrderFinancials({
 
   const missingDetailIds = Array.from(soldItemIds).filter((id) => !detailMap.has(id));
   if (missingDetailIds.length) {
-    const details = await fetchItemDetails(state, missingDetailIds).catch(() => []);
+    const details = await fetchItemDetails(state, missingDetailIds, context).catch(() => []);
     details.forEach((item) => {
       detailMap.set(normalizeString(item.item_id).toUpperCase(), item);
     });
@@ -3813,6 +3894,42 @@ class FinanceiroMlService {
     };
   }
 
+  static async saveManualCostReference(params = {}, context = {}) {
+    const reference = await saveManualSkuReference({
+      accountKey: context.accountKey,
+      mlb: params.mlb,
+      variationId: params.variation_id,
+      sku: params.sku,
+      userId: params.userId,
+    });
+    const saved = await saveSkuCost({
+      accountKey: context.accountKey,
+      sku: reference.reference_sku,
+      cost: params.cost,
+      userId: params.userId,
+      source: "manual_reference",
+      meta: {
+        mlb: reference.mlb,
+        variation_id: reference.variation_id || null,
+      },
+    });
+    clearQuickMarginCache(context.accountKey);
+    return {
+      success: true,
+      reference: {
+        mlb: reference.mlb,
+        variation_id: reference.variation_id || null,
+        reference_sku: reference.reference_sku,
+        updated_at: reference.updated_at,
+      },
+      cost: {
+        reference_sku: saved.reference_sku,
+        custo_produto_unitario: numberOrZero(saved.custo_produto_unitario),
+        updated_at: saved.updated_at,
+      },
+    };
+  }
+
   static async costTimeline(query = {}, context = {}) {
     return getSkuCostTimeline(query, context);
   }
@@ -4244,6 +4361,7 @@ class FinanceiroMlService {
 }
 
 FinanceiroMlService._test = {
+  extractReferenceSkuValues,
   parseImportRows,
   resolveRealizedGmv,
   orderLifecycleStatus,

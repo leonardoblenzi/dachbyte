@@ -277,6 +277,13 @@ window.FinanceiroMlCosts = (() => {
         ? fmtMoney(row.min_price)
         : `${fmtMoney(row.min_price)} a ${fmtMoney(row.max_price)}`;
       const missing = row.cost_status === "missing";
+      const firstMlb = (row.all_mlbs || row.mlbs || [])[0] || "";
+      const costEditor = row.has_reference_sku
+        ? `<input class="fml-input fml-cost-input ${missing ? "is-missing" : ""}" type="text" inputmode="decimal" value="${Number(row.cost || 0).toFixed(2).replace(".", ",")}" />`
+        : `<div class="fml-manual-sku-editor"><input class="fml-input fml-reference-sku-input" type="text" maxlength="120" placeholder="Definir SKU" aria-label="SKU de referência"><input class="fml-input fml-cost-input is-missing" type="text" inputmode="decimal" value="0,00" aria-label="Custo unitário"></div>`;
+      const actions = row.has_reference_sku
+        ? `<div class="fml-row-actions"><button class="fml-btn fml-btn--ghost fml-save-cost" type="button">Salvar</button><button class="fml-btn fml-btn--ghost fml-history-open" type="button">Historico</button></div>`
+        : `<div class="fml-row-actions"><button class="fml-btn fml-btn--primary fml-save-manual-reference" type="button" data-mlb="${escapeHtml(firstMlb)}" ${firstMlb ? "" : "disabled"}>Vincular e salvar</button><small class="fml-manual-sku-note">O MLB não informou SKU. Defina uma referência interna.</small></div>`;
 
       return `
         <tr data-sku="${escapeHtml(row.reference_sku || "")}">
@@ -295,15 +302,8 @@ window.FinanceiroMlCosts = (() => {
           <td>${statuses || "-"}</td>
           <td>${escapeHtml(price)}</td>
           <td>${renderSignal(row)}</td>
-          <td>
-            <input class="fml-input fml-cost-input ${missing ? "is-missing" : ""}" type="text" inputmode="decimal" value="${Number(row.cost || 0).toFixed(2).replace(".", ",")}" ${row.has_reference_sku ? "" : "disabled"} />
-          </td>
-          <td>
-            <div class="fml-row-actions">
-              <button class="fml-btn fml-btn--ghost fml-save-cost" type="button" ${row.has_reference_sku ? "" : "disabled"}>Salvar</button>
-              <button class="fml-btn fml-btn--ghost fml-history-open" type="button" ${row.has_reference_sku ? "" : "disabled"}>Historico</button>
-            </div>
-          </td>
+          <td>${costEditor}</td>
+          <td>${actions}</td>
         </tr>
       `;
     }).join("");
@@ -437,6 +437,31 @@ window.FinanceiroMlCosts = (() => {
         button.textContent = "Salvar";
       }, 900);
       await loadCosts();
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function saveManualReference(row) {
+    const button = row?.querySelector(".fml-save-manual-reference");
+    const mlb = String(button?.dataset?.mlb || "").trim();
+    const sku = String(row?.querySelector(".fml-reference-sku-input")?.value || "").trim();
+    const cost = parseInputNumber(row?.querySelector(".fml-cost-input")?.value);
+    if (!mlb) throw new Error("Não foi possível identificar o MLB deste anúncio.");
+    if (!sku) throw new Error("Informe o SKU de referência antes de salvar.");
+    button.disabled = true;
+    try {
+      const response = await fetch(mlUrl("/api/financeiro-ml/costs/reference"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ mlb, sku, cost }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) throw new Error(data?.error || "Falha ao vincular SKU.");
+      window.dispatchEvent(new Event("ml:pricing-updated"));
+      setStatus(`SKU ${data.reference?.reference_sku || sku} vinculado ao ${mlb} e custo salvo.`, "ok");
+      await loadCosts({ force: true });
     } finally {
       button.disabled = false;
     }
@@ -597,7 +622,16 @@ window.FinanceiroMlCosts = (() => {
         return;
       }
       const button = event.target.closest(".fml-save-cost");
-      if (!button) return;
+      if (!button) {
+        const manualButton = event.target.closest(".fml-save-manual-reference");
+        if (!manualButton) return;
+        try {
+          await saveManualReference(manualButton.closest("tr"));
+        } catch (error) {
+          setStatus(error.message || "Falha ao vincular SKU.", "error");
+        }
+        return;
+      }
       try {
         await saveRow(button.closest("tr"));
       } catch (error) {
