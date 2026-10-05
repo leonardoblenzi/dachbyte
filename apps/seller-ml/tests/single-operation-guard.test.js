@@ -78,6 +78,29 @@ function resFor(accountId = "77") {
   };
 }
 
+test("politicas unitarias usam os limites aprovados", () => {
+  assert.deepEqual(Guard.POLICIES["listing.delete"], {
+    burstLimit: 15,
+    sustainedLimit: 50,
+    bulkOperation: "listing.bulk-delete",
+  });
+  assert.deepEqual(Guard.POLICIES["promotions.remove"], {
+    burstLimit: 20,
+    sustainedLimit: 100,
+    bulkOperation: "promotions.remove",
+  });
+  assert.deepEqual(Guard.POLICIES["production-time.apply"], {
+    burstLimit: 30,
+    sustainedLimit: 150,
+    bulkOperation: "production-time.apply",
+  });
+  assert.deepEqual(Guard.POLICIES["dimensions.apply"], {
+    burstLimit: 30,
+    sustainedLimit: 150,
+    bulkOperation: "dimensions.apply",
+  });
+});
+
 test("exclusao individual permite 15 por minuto e bloqueia a 16a", async () => {
   fakeRedis.reset();
   const res = resFor("delete-account");
