@@ -92,6 +92,11 @@ jobs:
           node --check routes/estoqueAlertaRoutes.js
           node --check public/js/estoque-alerta.js
           node --check public/js/estoque-atualizacao.js
+          node --check services/exclusaoLoteJobService.js
+          node --check controllers/ExcluirAnuncioController.js
+          node --check routes/excluirAnuncioRoutes.js
+          node --check public/js/excluir-anuncio.js
+          node --check public/js/exclusao-bulk.js
           node --check services/modeloMassaJobsService.js
           node --check controllers/ModeloMassaController.js
           node --check routes/modeloMassaRoutes.js
