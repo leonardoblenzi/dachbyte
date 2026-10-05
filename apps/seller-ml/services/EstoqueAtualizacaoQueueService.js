@@ -573,7 +573,10 @@ async function cancelStockUpdateJob(id, { accountKey } = {}) {
   return { ok: true, status: "cancelando" };
 }
 
-async function retryFailedStockJob(id, { accountKey, auditContext = null } = {}) {
+async function retryFailedStockJob(
+  id,
+  { accountKey, mlCreds = {}, auditContext = null } = {},
+) {
   const queue = getQueue();
   const job = await queue.getJob(id);
   if (!job || !canAccessJob(job, accountKey)) return null;
@@ -601,7 +604,10 @@ async function retryFailedStockJob(id, { accountKey, auditContext = null } = {})
   const newId = await enqueueStockUpdateJob({
     accountKey: job.data.accountKey,
     accountLabel: job.data.accountLabel,
-    mlCreds: job.data.billingCreds || {},
+    mlCreds:
+      mlCreds?.meli_user_id || mlCreds?.tenant_id || mlCreds?.tenant_global_id
+        ? mlCreds
+        : job.data.billingCreds || {},
     changes,
     auditContext: auditContext || job.data.auditContext || null,
     title: `Estoque - nova tentativa de ${retryable.length} ${retryable.length === 1 ? "linha" : "linhas"}`,
