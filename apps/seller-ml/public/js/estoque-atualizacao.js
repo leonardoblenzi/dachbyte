@@ -898,6 +898,22 @@
     state.jobsTimer = setInterval(pollCurrentJob, 2500);
   }
 
+  function confirmStockApplyQuote(quote) {
+    const estimated = Number(quote?.estimated_credits || 0);
+    if (quote?.unlimited === true || estimated <= 0) return true;
+    const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+    const lines = [
+      `Atualização de estoque para ${fmt.format(Number(quote?.quantity || 0))} linha(s) pronta(s).`,
+      `Custo estimado: ${fmt.format(estimated)} crédito(s).`,
+    ];
+    if (quote?.available_credits != null) {
+      lines.push(`Saldo disponível: ${fmt.format(Number(quote.available_credits || 0))} crédito(s).`);
+    }
+    if (quote?.sufficient === false) lines.push("O saldo atual é menor que a estimativa.");
+    lines.push("Deseja enviar o lote para o worker?");
+    return window.confirm(lines.join("\n\n"));
+  }
+
   function readyPreviewChanges() {
     return (Array.isArray(state.lastPreview?.rows) ? state.lastPreview.rows : [])
       .filter((row) => row.status === "ready")
@@ -917,20 +933,31 @@
       return;
     }
 
-    state.jobSubmitting = true;
-    updateControls();
-    const confirm = $("btnStockConfirmUpdate");
-    if (confirm) confirm.textContent = "Enviando para a fila...";
-    const account = window.__ACCOUNT__ || {};
-    const accountLabel = document.querySelector("#account-current")?.textContent?.trim() || account.label || null;
-    const localJobId = window.JobsPanel?.addLocalJob?.({
+    try {
+      try {
+        const quote = await fetchJson("/api/estoque/atualizacao/credits/quote", {
+          method: "POST",
+          body: JSON.stringify({ changes }),
+        });
+        if (!confirmStockApplyQuote(quote)) return;
+      } catch (quoteError) {
+        console.warn("[estoque] prévia de créditos indisponível; seguindo em shadow:", quoteError?.message || quoteError);
+      }
+
+      state.jobSubmitting = true;
+      updateControls();
+      const confirm = $("btnStockConfirmUpdate");
+      if (confirm) confirm.textContent = "Enviando para a fila...";
+      const account = window.__ACCOUNT__ || {};
+      const accountLabel = document.querySelector("#account-current")?.textContent?.trim() || account.label || null;
+      const localJobId = window.JobsPanel?.addLocalJob?.({
       title: `Estoque - atualizar ${changes.length} ${changes.length === 1 ? "linha" : "linhas"}`,
       accountKey: account.key || null,
       accountLabel,
-    }) || null;
+      }) || null;
 
-    try {
-      const payload = await fetchJson("/api/estoque/atualizacao/aplicar", {
+      try {
+        const payload = await fetchJson("/api/estoque/atualizacao/aplicar", {
         method: "POST",
         body: JSON.stringify({ changes }),
       });
@@ -969,7 +996,12 @@
     } finally {
       if (!state.currentJobId) state.jobSubmitting = false;
       if (confirm) confirm.textContent = "Confirmar atualização";
+        updateControls();
+      }
+    } catch (error) {
+      state.jobSubmitting = false;
       updateControls();
+      throw error;
     }
   }
 
