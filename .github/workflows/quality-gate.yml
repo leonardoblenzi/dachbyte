@@ -102,6 +102,10 @@ jobs:
           node --check controllers/ClonarAnuncioController.js
           node --check routes/clonarAnuncioRoutes.js
           node --check public/js/clonar-anuncio.js
+          node --check services/filtroAnunciosBillingService.js
+          node --check services/filtroAnunciosQueueService.js
+          node --check routes/analytics-filtro-anuncios-routes.js
+          node --check public/js/filtro-anuncios.js
           node --check services/modeloMassaJobsService.js
           node --check controllers/ModeloMassaController.js
           node --check routes/modeloMassaRoutes.js
