@@ -238,28 +238,58 @@ function normalizeMlbIds(values = []) {
   return ids;
 }
 
-function bulkDeleteIdempotencyKey(operationId) {
+const LISTING_BILLING_OPERATION_KEYS = Object.freeze({
+  ACTIVATE: "listing.activate",
+  PAUSE: "listing.pause",
+  CLOSE: "listing.close",
+  DELETE: "listing.bulk-delete",
+});
+
+function listingBillingOperationKey(operation) {
+  return LISTING_BILLING_OPERATION_KEYS[normalizeOperation(operation)] || null;
+}
+
+function listingBillingIdempotencyKey(operation, operationId) {
+  const operationKey = listingBillingOperationKey(operation);
   const id = String(operationId || "").trim();
-  if (!id) throw new Error("bulk_delete_operation_id_required");
-  return `listing.bulk-delete:${id}`;
+  if (!operationKey) throw new Error("listing_operation_not_priced");
+  if (!id) throw new Error("listing_operation_id_required");
+  return `${operationKey}:${id}`;
+}
+
+function bulkDeleteIdempotencyKey(operationId) {
+  return listingBillingIdempotencyKey("DELETE", operationId);
 }
 
 function isBillableDeleteOperation(operation) {
   return normalizeOperation(operation) === "DELETE";
 }
 
-function bulkDeleteBillableUnits(job = {}, meta = {}) {
-  if (!isBillableDeleteOperation(meta.operation || job?.data?.operation)) return 0;
-  return Math.max(0, Number(meta.success || job?.returnvalue?.success || 0));
+function listingBillableUnits(job = {}, meta = {}) {
+  const operation = normalizeOperation(meta.operation || job?.data?.operation);
+  if (operation === "DELETE") {
+    return Math.max(0, Number(meta.success ?? job?.returnvalue?.success ?? 0));
+  }
+  if (["ACTIVATE", "PAUSE", "CLOSE"].includes(operation)) {
+    return Math.max(0, Number(meta.changed ?? job?.returnvalue?.changed ?? 0));
+  }
+  return 0;
 }
 
-function bulkDeleteTelemetry(job = {}, meta = {}) {
+function bulkDeleteBillableUnits(job = {}, meta = {}) {
+  return isBillableDeleteOperation(meta.operation || job?.data?.operation)
+    ? listingBillableUnits(job, meta)
+    : 0;
+}
+
+function listingBillingTelemetry(job = {}, meta = {}) {
   const reservation = job?.data?.creditReservation || {};
   const operation = normalizeOperation(meta.operation || job?.data?.operation);
-  const billableUnits = bulkDeleteBillableUnits(job, meta);
+  const operationKey = listingBillingOperationKey(operation);
+  const billableUnits = listingBillableUnits(job, meta);
   return {
     billing_mode:
-      !isBillableDeleteOperation(operation)
+      !operationKey
         ? "not_priced"
         : !reservation || Object.keys(reservation).length === 0
           ? "pending"
@@ -268,12 +298,13 @@ function bulkDeleteTelemetry(job = {}, meta = {}) {
             : reservation?.bypass === true
               ? "bypass"
               : "enforce",
-    operation_key: isBillableDeleteOperation(operation) ? "listing.bulk-delete" : null,
+    operation_key: operationKey,
     operation_id: job?.data?.operationId || null,
     operation,
     selected: Math.max(0, Number(meta.total || job?.data?.mlbIds?.length || 0)),
     processed: Math.max(0, Number(meta.processed || 0)),
     success: Math.max(0, Number(meta.success || 0)),
+    changed: Math.max(0, Number(meta.changed || 0)),
     failed: Math.max(0, Number(meta.failed || 0)),
     billable_units: billableUnits,
     estimated_credits:
@@ -287,29 +318,64 @@ function bulkDeleteTelemetry(job = {}, meta = {}) {
   };
 }
 
-async function previewBulkDeleteCredits({ mlCreds = {}, account = null, mlbIds = [] } = {}) {
+function bulkDeleteTelemetry(job = {}, meta = {}) {
+  return listingBillingTelemetry(job, meta);
+}
+
+async function previewListingOperationCredits({
+  mlCreds = {},
+  account = null,
+  mlbIds = [],
+  operation = "DELETE",
+} = {}) {
+  const normalizedOperation = normalizeOperation(operation);
+  const operationKey = listingBillingOperationKey(normalizedOperation);
   const ids = normalizeMlbIds(mlbIds);
   if (!ids.length) {
     const error = new Error("Nenhum MLB valido foi informado para calcular o custo.");
     error.statusCode = 400;
     throw error;
   }
+  if (!operationKey) {
+    return {
+      operation: normalizedOperation,
+      operation_key: null,
+      quantity: ids.length,
+      estimated_credits: 0,
+      available_credits: null,
+      sufficient: true,
+      unlimited: false,
+      deferred: false,
+      not_priced: true,
+    };
+  }
   const quote = await quoteCredits({
     mlCreds,
     account,
-    operationKey: "listing.bulk-delete",
+    operationKey,
     units: ids.length,
   });
   return {
-    operation_key: "listing.bulk-delete",
+    operation: normalizedOperation,
+    operation_key: operationKey,
     quantity: ids.length,
     estimated_credits: Number(quote?.estimated_credits || 0),
     available_credits: quote?.available_credits == null ? null : Number(quote.available_credits),
     sufficient: quote?.sufficient !== false,
     unlimited: quote?.unlimited === true,
     deferred: false,
+    not_priced: false,
     quote,
   };
+}
+
+async function previewBulkDeleteCredits({ mlCreds = {}, account = null, mlbIds = [] } = {}) {
+  return previewListingOperationCredits({
+    mlCreds,
+    account,
+    mlbIds,
+    operation: "DELETE",
+  });
 }
 
 function parseMlDetails(value) {
@@ -507,6 +573,7 @@ async function runJob(job) {
     total,
     processed: 0,
     success: 0,
+    changed: 0,
     failed: 0,
     startedAt: Date.now(),
     updatedAt: Date.now(),
@@ -527,6 +594,7 @@ async function runJob(job) {
   const failedItems = [];
   let resultBuffer = [];
   let success = 0;
+  let changed = 0;
   let failed = 0;
 
   await initResultsManifest(job.id);
@@ -537,6 +605,17 @@ async function runJob(job) {
     }
     if (job.data.__meta?.cancelRequested) {
       if (resultBuffer.length) await appendResultsChunk(job.id, resultBuffer);
+      await updateMeta(job, {
+        status: "cancelando",
+        operation,
+        total,
+        processed: index,
+        success,
+        changed,
+        failed,
+        failedItems,
+        updatedAt: Date.now(),
+      });
       throw new JobCancelledError();
     }
     const mlbId = mlbIds[index];
@@ -561,6 +640,7 @@ async function runJob(job) {
       status_final: resolveFinalStatus(result, operation),
       status: result?.success ? "success" : "error",
       success: !!result?.success,
+      changed: result?.changed === true || (operation === "DELETE" && result?.success === true),
       message:
         result?.message ||
         result?.error ||
@@ -594,6 +674,7 @@ async function runJob(job) {
 
     if (result?.success) {
       success += 1;
+      if (operation !== "DELETE" && result?.changed === true) changed += 1;
     } else {
       failed += 1;
       if (failedItems.length < 200) {
@@ -619,6 +700,7 @@ async function runJob(job) {
         total,
         processed,
         success,
+        changed,
         failed,
         failedItems,
         updatedAt: Date.now(),
@@ -642,6 +724,7 @@ async function runJob(job) {
     total,
     processed: total,
     success,
+    changed,
     failed,
     failedItems,
     finishedAt: Date.now(),
@@ -655,6 +738,7 @@ async function runJob(job) {
     total,
     processed: total,
     success,
+    changed,
     failed,
     finishedAt: Date.now(),
   };
@@ -662,9 +746,10 @@ async function runJob(job) {
     total_items: total,
     processed: total,
     success,
+    changed,
     failed,
     failed_items: failedItems.slice(0, 50),
-    billing_telemetry: bulkDeleteTelemetry(job, completedMeta),
+    billing_telemetry: listingBillingTelemetry(job, completedMeta),
   });
 
   return {
@@ -672,6 +757,7 @@ async function runJob(job) {
     operation,
     total,
     success,
+    changed,
     failed,
     failedItems,
     result_total: total,
@@ -737,7 +823,7 @@ async function mapJob(job) {
     result_total: persistedResultTotal,
     operation,
     account: buildAccount(job.data),
-    billing_telemetry: bulkDeleteTelemetry(job, meta),
+    billing_telemetry: listingBillingTelemetry(job, meta),
     result: status === "concluido" ? job.returnvalue || null : null,
     failed_items: failedItems,
   }, {
@@ -819,12 +905,13 @@ async function enqueueJob({
     throw error;
   }
   const operationId = `LISTING-${normalizedOperation}-${crypto.randomUUID()}`;
-  const creditReservation = isBillableDeleteOperation(normalizedOperation)
+  const billingOperationKey = listingBillingOperationKey(normalizedOperation);
+  const creditReservation = billingOperationKey
     ? await reserveCredits({
         mlCreds,
-        operationKey: "listing.bulk-delete",
+        operationKey: billingOperationKey,
         units: normalizedMlbIds.length,
-        idempotencyKey: bulkDeleteIdempotencyKey(operationId),
+        idempotencyKey: listingBillingIdempotencyKey(normalizedOperation, operationId),
       })
     : null;
   let job;
@@ -840,6 +927,7 @@ async function enqueueJob({
         auditContext,
         creditReservation,
         operationId,
+        billingOperationKey,
         createdAt: Date.now(),
       },
       {
@@ -919,7 +1007,7 @@ async function cancelJob(jobId, { accountKey = null, auditContext = null } = {})
       {
         previous_status: state,
         canceled_before_processing: true,
-        billing_telemetry: bulkDeleteTelemetry(job, {
+        billing_telemetry: listingBillingTelemetry(job, {
           ...meta,
           failedAt: Date.now(),
         }),
@@ -948,7 +1036,7 @@ async function cancelJob(jobId, { accountKey = null, auditContext = null } = {})
     normalizeOperation(meta.operation || job.data?.operation),
     {
       previous_status: state,
-      billing_telemetry: bulkDeleteTelemetry(job, meta),
+      billing_telemetry: listingBillingTelemetry(job, meta),
     },
   );
   return { ok: true, status: "cancelando" };
@@ -1020,7 +1108,7 @@ function initWorker() {
             total_items: Number(meta.total ?? job.data?.mlbIds?.length ?? 0),
             success: Number(meta.success ?? 0),
             failed: Number(meta.failed ?? 0),
-            billing_telemetry: bulkDeleteTelemetry(job, {
+            billing_telemetry: listingBillingTelemetry(job, {
               ...meta,
               failedAt: Date.now(),
             }),
@@ -1054,7 +1142,7 @@ function initWorker() {
           total_items: Number(meta.total ?? job.data?.mlbIds?.length ?? 0),
           success: Number(meta.success ?? 0),
           failed: Number(meta.failed ?? 0),
-          billing_telemetry: bulkDeleteTelemetry(job, {
+          billing_telemetry: listingBillingTelemetry(job, {
             ...meta,
             failedAt: Date.now(),
           }),
@@ -1069,7 +1157,7 @@ function initWorker() {
   queue.on("failed", async (job, err) => {
     console.error(`[${SERVICE_LOG_LABEL}] job failed:`, job?.id, err?.message || err);
     const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
-    const billableUnits = bulkDeleteBillableUnits(job, meta);
+    const billableUnits = listingBillableUnits(job, meta);
     await settleCredits(job?.data?.creditReservation, {
       release: billableUnits <= 0,
       consumedUnits: billableUnits > 0 ? billableUnits : null,
@@ -1078,7 +1166,7 @@ function initWorker() {
   queue.on("completed", async (job) => {
     console.log(`[${SERVICE_LOG_LABEL}] job completed:`, job?.id);
     const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
-    const billableUnits = bulkDeleteBillableUnits(job, meta);
+    const billableUnits = listingBillableUnits(job, meta);
     await settleCredits(job?.data?.creditReservation, {
       release: billableUnits <= 0,
       consumedUnits: billableUnits > 0 ? billableUnits : null,
@@ -1101,8 +1189,13 @@ module.exports = {
   getJobCsv,
   streamJobCsv,
   previewBulkDeleteCredits,
+  previewListingOperationCredits,
   _test: {
     normalizeMlbIds,
+    listingBillingOperationKey,
+    listingBillingIdempotencyKey,
+    listingBillableUnits,
+    listingBillingTelemetry,
     bulkDeleteIdempotencyKey,
     isBillableDeleteOperation,
     bulkDeleteBillableUnits,
