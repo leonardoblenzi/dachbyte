@@ -281,7 +281,34 @@ test("enqueue de PAUSE usa tarifa propria e idempotencia propria", async () => {
   );
 });
 
-test("relist continua fora deste ponto de cobranca", async () => {
+test("relist usa chaves proprias e cobra somente relistagens concluidas", () => {
+  assert.equal(Service._test.listingBillingOperationKey("CLOSE_RELIST"), "listing.relist");
+  assert.equal(Service._test.listingBillingOperationKey("PAUSE_RELIST"), "listing.pause-relist");
+
+  assert.equal(
+    Service._test.listingBillableUnits(
+      { data: { operation: "CLOSE_RELIST" } },
+      { success: 10, relisted: 7, failed: 3, processed: 10 },
+    ),
+    7,
+  );
+  assert.equal(
+    Service._test.listingBillableUnits(
+      { data: { operation: "PAUSE_RELIST" } },
+      { success: 5, relisted: 4, fallbackRelisted: 2, failed: 1, processed: 5 },
+    ),
+    4,
+  );
+  assert.equal(
+    Service._test.listingBillableUnits(
+      { data: { operation: "PAUSE_RELIST" } },
+      { success: 0, relisted: 0, fallbackRelisted: 0, failed: 5, processed: 5 },
+    ),
+    0,
+  );
+});
+
+test("enqueue de CLOSE_RELIST reserva tarifa propria", async () => {
   hubCalls.length = 0;
   let queued = null;
   Service._test.setQueue({
@@ -291,16 +318,84 @@ test("relist continua fora deste ponto de cobranca", async () => {
     },
   });
 
-  await Service.enqueueJob({
+  const jobId = await Service.enqueueJob({
     operation: "CLOSE_RELIST",
+    accountKey: "conta-1",
+    mlCreds: { meli_user_id: "123", tenant_id: "tenant-1" },
+    mlbIds: ["MLB123456789", "MLB987654321"],
+  });
+
+  assert.equal(jobId, "relist-job-1");
+  assert.equal(queued.billingOperationKey, "listing.relist");
+  assert.equal(queued.creditReservation.operation_key, "listing.relist");
+  const reserveCall = hubCalls.find((entry) => entry.type === "reserve");
+  assert.equal(reserveCall.payload.operationKey, "listing.relist");
+  assert.equal(reserveCall.payload.units, 2);
+  assert.equal(
+    reserveCall.payload.idempotencyKey,
+    `listing.relist:${queued.operationId}`,
+  );
+});
+
+test("enqueue de PAUSE_RELIST reserva tarifa propria", async () => {
+  hubCalls.length = 0;
+  let queued = null;
+  Service._test.setQueue({
+    add: async (payload) => {
+      queued = payload;
+      return { id: "pause-relist-job-1" };
+    },
+  });
+
+  const jobId = await Service.enqueueJob({
+    operation: "PAUSE_RELIST",
     accountKey: "conta-1",
     mlCreds: { meli_user_id: "123", tenant_id: "tenant-1" },
     mlbIds: ["MLB123456789"],
   });
 
-  assert.equal(queued.billingOperationKey, null);
-  assert.equal(queued.creditReservation, null);
-  assert.equal(hubCalls.filter((entry) => entry.type === "reserve").length, 0);
+  assert.equal(jobId, "pause-relist-job-1");
+  assert.equal(queued.billingOperationKey, "listing.pause-relist");
+  assert.equal(queued.creditReservation.operation_key, "listing.pause-relist");
+  const reserveCall = hubCalls.find((entry) => entry.type === "reserve");
+  assert.equal(reserveCall.payload.operationKey, "listing.pause-relist");
+  assert.equal(
+    reserveCall.payload.idempotencyKey,
+    `listing.pause-relist:${queued.operationId}`,
+  );
+});
+
+test("telemetria de PAUSE_RELIST separa fallback sem duplicar unidades faturaveis", () => {
+  const telemetry = Service._test.listingBillingTelemetry(
+    {
+      data: {
+        operation: "PAUSE_RELIST",
+        operationId: "LISTING-PAUSE_RELIST-1",
+        mlbIds: new Array(8).fill("MLB123456789"),
+        creditReservation: {
+          shadow: true,
+          quote: { estimated_credits: 1 },
+        },
+      },
+    },
+    {
+      operation: "PAUSE_RELIST",
+      total: 8,
+      processed: 8,
+      success: 6,
+      relisted: 6,
+      fallbackRelisted: 2,
+      failed: 2,
+      startedAt: 1000,
+      finishedAt: 61000,
+    },
+  );
+
+  assert.equal(telemetry.operation_key, "listing.pause-relist");
+  assert.equal(telemetry.relisted, 6);
+  assert.equal(telemetry.fallback_relisted, 2);
+  assert.equal(telemetry.billable_units, 6);
+  assert.equal(telemetry.duration_ms, 60000);
 });
 
 test("quote de status usa a chave comercial da operacao", async () => {
