@@ -56,7 +56,9 @@
               <div>
                 <strong id="calc-item-title">Produto</strong>
                 <span id="calc-item-meta">MLB · SKU</span>
+                <small id="calc-loaded-category">Categoria: —</small>
                 <small id="calc-item-source">Tarifas carregadas do Mercado Livre</small>
+                <small>Tipo, categoria e comissão vêm do anúncio.</small>
               </div>
             </div>
           </section>
@@ -77,6 +79,10 @@
                 <div class="calc-money-input"><span>R$</span><input id="calc-product-cost" name="product_cost" type="number" min="0" step="0.01" inputmode="decimal" value="0" /></div>
               </label>
             </div>
+
+            <p id="calc-cost-confidence" class="calc-data-alert" data-tone="warning" role="status" hidden>
+              <strong>Custo do produto não informado.</strong> Lucro e margem podem estar superestimados; o ROI fica indisponível.
+            </p>
 
             <section class="calc-subcard calc-subcard--commission">
               <div class="calc-subcard__head">
@@ -211,10 +217,10 @@
               <summary>Detalhamento de custos</summary>
               <div class="calc-breakdown__rows">
                 <div><span>Preço de venda</span><strong id="calc-breakdown-price">R$ 0,00</strong></div>
-                <div><span>Custo do produto</span><strong id="calc-breakdown-product">R$ 0,00</strong></div>
-                <div><span>Comissão ML</span><strong id="calc-breakdown-commission">R$ 0,00</strong></div>
+                <div><span>Custo do produto <small id="calc-breakdown-cost-source" class="calc-source-tag"></small></span><strong id="calc-breakdown-product">R$ 0,00</strong></div>
+                <div><span>Comissão ML <small id="calc-breakdown-commission-source" class="calc-source-tag"></small></span><strong id="calc-breakdown-commission">R$ 0,00</strong></div>
                 <div><span>Impostos</span><strong id="calc-breakdown-tax">R$ 0,00</strong></div>
-                <div><span>Frete / tarifa vendedor</span><strong id="calc-breakdown-shipping">R$ 0,00</strong></div>
+                <div><span>Frete / tarifa vendedor <small id="calc-breakdown-shipping-source" class="calc-source-tag"></small></span><strong id="calc-breakdown-shipping">R$ 0,00</strong></div>
                 <div><span>Embalagem / operação</span><strong id="calc-breakdown-operation">R$ 0,00</strong></div>
                 <div><span>Outros custos</span><strong id="calc-breakdown-other">R$ 0,00</strong></div>
                 <div class="is-total"><span>Total de custos</span><strong id="calc-breakdown-total">R$ 0,00</strong></div>

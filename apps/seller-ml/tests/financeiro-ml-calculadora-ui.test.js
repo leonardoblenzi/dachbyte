@@ -20,6 +20,15 @@ test("calculator keeps listing lookup and uses guided listing and freight contro
   assert.match(html, /id="calc-buyer-shipping-wrap"/);
 });
 
+test("calculator shows the origin and confidence of its inputs", () => {
+  assert.match(html, /id="calc-cost-confidence"/);
+  assert.match(html, /id="calc-loaded-category"/);
+  assert.match(html, /id="calc-breakdown-cost-source"/);
+  assert.match(html, /id="calc-breakdown-commission-source"/);
+  assert.match(html, /id="calc-breakdown-shipping-source"/);
+  assert.match(css, /\.calc-shipping-field\[hidden\]\s*\{\s*display:\s*none\s*!important/);
+});
+
 test("calculator sends only the freight relevant to the selected mode", () => {
   assert.match(script, /shippingMode === "mercado_envios" \? inputValue\("calc-seller-shipping"\) : 0/);
   assert.match(script, /shippingMode === "comprador" \? inputValue\("calc-buyer-shipping"\) : 0/);

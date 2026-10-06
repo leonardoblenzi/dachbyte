@@ -147,6 +147,10 @@ body.calc-app {
 .calc-segmented-control button:disabled { opacity: .58; cursor: not-allowed; }
 .calc-field__hint { margin-top: -1px; color: var(--calc-muted); font-size: .72rem; font-weight: 450; line-height: 1.4; }
 .calc-shipping-field { margin-top: 13px; }
+.calc-shipping-field[hidden] { display: none !important; }
+.calc-data-alert { margin: 0; padding: 10px 12px; border-radius: 12px; font-size: .78rem; line-height: 1.5; }
+.calc-data-alert[data-tone="warning"] { color: var(--fml-warning-text); background: var(--fml-warning-bg); }
+.calc-data-alert[hidden] { display: none !important; }
 
 .calc-loaded-item { display: grid; grid-template-columns: 56px minmax(0,1fr); gap: 12px; align-items: center; margin-top: 14px; padding: 12px; border-radius: 14px; border: 1px solid rgba(52,131,250,.16); background: rgba(52,131,250,.05); }
 .calc-loaded-item img { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; background: #f1f5f9; }
@@ -158,7 +162,7 @@ body.calc-app {
 .calc-form { display: grid; gap: 16px; }
 .calc-grid { display: grid; gap: 12px; }
 .calc-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.calc-subcard { padding: 16px; border: 1px solid rgba(15,23,42,.08); border-radius: var(--calc-radius-lg); background: var(--calc-surface-soft); }
+.calc-subcard { padding: 16px; border: 1px solid rgba(15,23,42,.06); border-radius: var(--calc-radius-lg); background: var(--calc-surface-soft); }
 .calc-subcard__head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .calc-subcard__head strong, .calc-subcard__head small { display: block; }
 .calc-subcard__head strong { font-size: .91rem; }
@@ -207,6 +211,7 @@ body.calc-app {
 .calc-breakdown__rows > div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid rgba(15,23,42,.06); }
 .calc-breakdown__rows > div:last-child { border-bottom: 0; }
 .calc-breakdown__rows span { color: var(--calc-muted); font-size: .78rem; }
+.calc-source-tag { margin-left: 5px; color: var(--calc-muted); font-size: .69rem; font-weight: 700; }
 .calc-breakdown__rows strong { font-size: .82rem; }
 .calc-breakdown__rows .is-total { margin-top: 3px; padding-top: 12px; }
 .calc-breakdown__rows .is-total span, .calc-breakdown__rows .is-total strong { color: var(--calc-text); font-weight: 850; }
