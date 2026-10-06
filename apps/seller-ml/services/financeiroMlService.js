@@ -2701,7 +2701,10 @@ async function buildOrderFinancials({
 
   const missingDetailIds = Array.from(soldItemIds).filter((id) => !detailMap.has(id));
   if (missingDetailIds.length) {
-    const details = await fetchItemDetails(state, missingDetailIds, context).catch(() => []);
+    // buildOrderFinancials recebe somente a chave da conta. Nao ha um contexto
+    // HTTP completo neste nivel, mas ela e suficiente para aplicar referencias
+    // manuais de SKU aos itens trazidos pelos pedidos.
+    const details = await fetchItemDetails(state, missingDetailIds, { accountKey }).catch(() => []);
     details.forEach((item) => {
       detailMap.set(normalizeString(item.item_id).toUpperCase(), item);
     });
