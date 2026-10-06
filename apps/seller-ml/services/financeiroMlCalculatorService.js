@@ -63,6 +63,17 @@ function listingTypeLabel(value) {
   return id || "Não informado";
 }
 
+function categoryLabel(category = {}, fallbackId = "") {
+  return text(category?.name || category?.path_from_root?.at(-1)?.name || fallbackId);
+}
+
+async function fetchCategory(state, categoryId) {
+  const id = text(categoryId);
+  if (!id) return { id: "", name: "" };
+  const category = await mlJson(state, `/categories/${encodeURIComponent(id)}`).catch(() => null);
+  return { id, name: categoryLabel(category, id) };
+}
+
 function extractSku(attributes = [], direct = "") {
   const cleanDirect = text(direct);
   if (cleanDirect) return cleanDirect;
@@ -379,7 +390,7 @@ async function accountTax(context) {
 }
 
 async function pricingForCandidate({ state, candidate, itemBody, seller, context }) {
-  const [cost, taxPct, fee, shipping] = await Promise.all([
+  const [cost, taxPct, fee, shipping, category] = await Promise.all([
     savedCostForSku(context, candidate.reference_sku),
     accountTax(context),
     fetchListingFee(state, {
@@ -392,6 +403,7 @@ async function pricingForCandidate({ state, candidate, itemBody, seller, context
       weight: candidate.shipping_weight,
     }),
     fetchSellerShipping(state, itemBody, seller.id, candidate.price),
+    fetchCategory(state, candidate.category_id),
   ]);
   const decomposition = decomposeMarketplaceFee({
     price: candidate.price,
@@ -413,6 +425,7 @@ async function pricingForCandidate({ state, candidate, itemBody, seller, context
   });
   return {
     ...candidate,
+    category_name: category.name,
     product_cost: round(cost, 2),
     tax_rate_pct: round(taxPct, 4),
     commission: decomposition.commission,
@@ -672,6 +685,7 @@ FinanceiroMlCalculatorService._test = {
   candidatesFromItem,
   extractSku,
   listingTypeLabel,
+  categoryLabel,
   buildCategoryDiscoveryUrl,
   normalizeCategorySuggestions,
   buildListingFeeUrl,

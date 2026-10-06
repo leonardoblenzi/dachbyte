@@ -29,6 +29,11 @@ test("category discovery keeps only usable MLB suggestions", () => {
   }]);
 });
 
+test("loaded category displays its name and falls back to its ID", () => {
+  assert.equal(Calculator._test.categoryLabel({ name: "Sofás" }, "MLB1626"), "Sofás");
+  assert.equal(Calculator._test.categoryLabel(null, "MLB1626"), "MLB1626");
+});
+
 test("category discovery URL follows the MLB predictor contract", () => {
   const url = Calculator._test.buildCategoryDiscoveryUrl("fone bluetooth");
   assert.equal(url.pathname, "/sites/MLB/domain_discovery/search");
