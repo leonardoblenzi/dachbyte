@@ -30,8 +30,9 @@ test("calculator shows the origin and confidence of its inputs", () => {
 });
 
 test("calculator sends only the freight relevant to the selected mode", () => {
-  assert.match(script, /shippingMode === "mercado_envios" \? inputValue\("calc-seller-shipping"\) : 0/);
-  assert.match(script, /shippingMode === "comprador" \? inputValue\("calc-buyer-shipping"\) : 0/);
+  assert.match(script, /rules\.normalizeShippingInputs\(state\.shippingMode/);
+  assert.match(script, /seller_shipping: shipping\.sellerShipping/);
+  assert.match(script, /buyer_shipping_taxable: shipping\.buyerShipping/);
 });
 
 test("calculator removes the redundant result heading and inherits Margin tokens", () => {

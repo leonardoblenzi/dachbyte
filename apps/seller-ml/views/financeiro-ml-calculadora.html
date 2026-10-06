@@ -6,7 +6,7 @@
   <title>Calculadora | DACHBYTE Mercado Livre</title>
   <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
   <link rel="stylesheet" href="/ml/css/financeiro-ml.css?v=2026090401" />
-  <link rel="stylesheet" href="/ml/css/financeiro-ml-calculadora.css?v=2026092402" />
+  <link rel="stylesheet" href="/ml/css/financeiro-ml-calculadora.css?v=2026100601" />
   <script src="/ml/js/ml-base.js?v=12"></script>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
@@ -209,7 +209,9 @@
             </div>
 
             <div id="calc-target-callout" class="calc-target-callout" hidden>
-              <div><span>Diferença para o preço atual</span><strong id="calc-result-target-delta">R$ 0,00</strong></div>
+              <div><span>Preço atual</span><strong id="calc-result-target-current">R$ 0,00</strong></div>
+              <div><span>Preço para a meta</span><strong id="calc-result-target-price">R$ 0,00</strong></div>
+              <div><span>Diferença</span><strong id="calc-result-target-delta">R$ 0,00</strong></div>
               <p id="calc-result-target-text"></p>
             </div>
 
@@ -217,10 +219,10 @@
               <summary>Detalhamento de custos</summary>
               <div class="calc-breakdown__rows">
                 <div><span>Preço de venda</span><strong id="calc-breakdown-price">R$ 0,00</strong></div>
-                <div><span>Custo do produto <small id="calc-breakdown-cost-source" class="calc-source-tag"></small></span><strong id="calc-breakdown-product">R$ 0,00</strong></div>
-                <div><span>Comissão ML <small id="calc-breakdown-commission-source" class="calc-source-tag"></small></span><strong id="calc-breakdown-commission">R$ 0,00</strong></div>
+                <div><span>Custo do produto <small id="calc-breakdown-cost-source" class="calc-source-tag">Não informado</small></span><strong id="calc-breakdown-product">R$ 0,00</strong></div>
+                <div><span>Comissão ML <small id="calc-breakdown-commission-source" class="calc-source-tag">Não informado</small></span><strong id="calc-breakdown-commission">R$ 0,00</strong></div>
                 <div><span>Impostos</span><strong id="calc-breakdown-tax">R$ 0,00</strong></div>
-                <div><span>Frete / tarifa vendedor <small id="calc-breakdown-shipping-source" class="calc-source-tag"></small></span><strong id="calc-breakdown-shipping">R$ 0,00</strong></div>
+                <div><span>Frete / tarifa vendedor <small id="calc-breakdown-shipping-source" class="calc-source-tag">Não informado</small></span><strong id="calc-breakdown-shipping">R$ 0,00</strong></div>
                 <div><span>Embalagem / operação</span><strong id="calc-breakdown-operation">R$ 0,00</strong></div>
                 <div><span>Outros custos</span><strong id="calc-breakdown-other">R$ 0,00</strong></div>
                 <div class="is-total"><span>Total de custos</span><strong id="calc-breakdown-total">R$ 0,00</strong></div>
@@ -234,8 +236,8 @@
     </section>
   </main>
 
-  <script src="/ml/js/financeiro-ml-calculator-rules.js?v=2026092402" defer></script>
-  <script src="/ml/js/financeiro-ml-calculadora.js?v=2026092402" defer></script>
+  <script src="/ml/js/financeiro-ml-calculator-rules.js?v=2026100601" defer></script>
+  <script src="/ml/js/financeiro-ml-calculadora.js?v=2026100601" defer></script>
 </body>
 </html>
 

@@ -22,3 +22,14 @@ test("manual calculator sends an ML quote only from a selected category and pric
   assert.match(source, /use_ml_fee:\s*autoFee/);
   assert.match(source, /option\.textContent\s*=\s*row\.domain_name/);
 });
+
+test("calculator connects exclusive freight and confidence labels to the result", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "public", "js", "financeiro-ml-calculadora.js"), "utf8");
+  assert.match(source, /rules\.normalizeShippingInputs/);
+  assert.match(source, /\$\("calc-seller-shipping"\)\.disabled = !visible\.seller/);
+  assert.match(source, /\$\("calc-buyer-shipping"\)\.disabled = !visible\.buyer/);
+  assert.match(source, /setText\("calc-loaded-category"/);
+  assert.match(source, /setText\("calc-breakdown-cost-source"/);
+  assert.match(source, /Sem tarifa fixa aplicável/);
+  assert.match(source, /calc-cost-confidence/);
+});
