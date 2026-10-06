@@ -27,6 +27,18 @@
       : { seller: true, buyer: false };
   }
 
+  function normalizeShippingInputs(mode, { sellerShipping = 0, buyerShipping = 0 } = {}) {
+    return mode === "comprador"
+      ? { sellerShipping: 0, buyerShipping: Number(buyerShipping) || 0 }
+      : { sellerShipping: Number(sellerShipping) || 0, buyerShipping: 0 };
+  }
+
+  function costConfidence(productCost) {
+    return Number(productCost) > 0
+      ? { state: "ready", roiAvailable: true }
+      : { state: "missing", roiAvailable: false };
+  }
+
   function createCalculationScheduler(callback, delay = 350) {
     let timer = null;
     return {
@@ -44,7 +56,7 @@
     };
   }
 
-  const api = { manualListingFee, canQuoteMarketplaceFee, manualFeeMode, shippingVisibility, createCalculationScheduler };
+  const api = { manualListingFee, canQuoteMarketplaceFee, manualFeeMode, shippingVisibility, normalizeShippingInputs, costConfidence, createCalculationScheduler };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window !== "undefined") window.MLCalculatorRules = api;
 })();

@@ -38,6 +38,20 @@ test("shipping mode reveals exactly one relevant monetary field", () => {
   assert.deepEqual(rules.shippingVisibility("comprador"), { seller: false, buyer: true });
 });
 
+test("shipping inputs keep only the active mode's amount", () => {
+  assert.deepEqual(rules.normalizeShippingInputs("mercado_envios", { sellerShipping: 18, buyerShipping: 42 }), {
+    sellerShipping: 18, buyerShipping: 0,
+  });
+  assert.deepEqual(rules.normalizeShippingInputs("comprador", { sellerShipping: 18, buyerShipping: 42 }), {
+    sellerShipping: 0, buyerShipping: 42,
+  });
+});
+
+test("a missing product cost makes ROI unavailable", () => {
+  assert.deepEqual(rules.costConfidence(0), { state: "missing", roiAvailable: false });
+  assert.deepEqual(rules.costConfidence(27.5), { state: "ready", roiAvailable: true });
+});
+
 test("calculation scheduler consolidates rapid field changes", async () => {
   const calls = [];
   const scheduler = rules.createCalculationScheduler(() => calls.push("calculate"), 15);
