@@ -142,6 +142,7 @@ body.calc-app {
 
 .calc-native-control { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .calc-segmented-control { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border: 1px solid rgba(15,23,42,.08); border-radius: 13px; background: #eef2f7; }
+.calc-segmented-control[hidden] { display: none !important; }
 .calc-segmented-control button { min-height: 38px; padding: 8px 12px; border: 0; border-radius: 9px; background: transparent; color: #667085; font: inherit; font-size: .8rem; font-weight: 650; cursor: pointer; transition: background .15s ease, box-shadow .15s ease, color .15s ease; }
 .calc-segmented-control button.is-active { background: #fff; color: #172033; box-shadow: 0 2px 7px rgba(15,23,42,.10); }
 .calc-segmented-control button:focus-visible { outline: 3px solid rgba(52,131,250,.22); outline-offset: 1px; }

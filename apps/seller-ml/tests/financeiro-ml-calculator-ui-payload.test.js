@@ -33,3 +33,10 @@ test("calculator connects exclusive freight and confidence labels to the result"
   assert.match(source, /Sem tarifa fixa aplicável/);
   assert.match(source, /calc-cost-confidence/);
 });
+
+test("buyer-paid ME2 payload preserves both seller and buyer shipping shares", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "public", "js", "financeiro-ml-calculadora.js"), "utf8");
+  assert.match(source, /split:\s*isSplitShipping\(\)/);
+  assert.match(source, /seller_shipping:\s*shipping\.sellerShipping/);
+  assert.match(source, /buyer_shipping_taxable:\s*shipping\.buyerShipping/);
+});

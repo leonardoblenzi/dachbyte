@@ -47,6 +47,19 @@ test("shipping inputs keep only the active mode's amount", () => {
   });
 });
 
+test("buyer-paid ME2 keeps both shipping shares", () => {
+  const context = rules.listingShippingContext({
+    shipping_mode: "me2", free_shipping: false,
+    shipping_source: "users_shipping_options_free", seller_shipping: 8.4,
+  });
+  assert.equal(context.split, true);
+  assert.equal(context.quoteStatus, "estimated");
+  assert.deepEqual(rules.shippingVisibility("comprador", { split: true }), { seller: true, buyer: true });
+  assert.deepEqual(rules.normalizeShippingInputs("comprador", {
+    sellerShipping: 8.4, buyerShipping: 5,
+  }, { split: true }), { sellerShipping: 8.4, buyerShipping: 5 });
+});
+
 test("listing shipping context separates ME2 logistics from who pays", () => {
   assert.deepEqual(rules.listingShippingContext({
     shipping_mode: "me2",

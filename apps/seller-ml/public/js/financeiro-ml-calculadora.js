@@ -199,6 +199,10 @@
     return state.mode === "listing" && Boolean(state.selected?.item_id);
   }
 
+  function isSplitShipping() {
+    return isLoadedListing() && state.selected?.shipping_mode === "me2" && state.selected?.free_shipping === false;
+  }
+
   function syncListingTypeControl() {
     const value = $("calc-listing-type")?.value || "gold_special";
     const locked = state.mode !== "manual" || isLoadedListing();
@@ -222,13 +226,16 @@
 
   function syncShippingMode(mode = state.shippingMode) {
     state.shippingMode = mode === "comprador" ? "comprador" : "mercado_envios";
-    const visible = rules.shippingVisibility(state.shippingMode);
+    const split = isSplitShipping();
+    const sellerRaw = $("calc-seller-shipping")?.value || "";
+    const visible = rules.shippingVisibility(state.shippingMode, { split });
     const shipping = rules.normalizeShippingInputs(state.shippingMode, {
       sellerShipping: inputValue("calc-seller-shipping"),
       buyerShipping: inputValue("calc-buyer-shipping"),
-    });
-    setInput("calc-seller-shipping", shipping.sellerShipping);
+    }, { split });
+    setInput("calc-seller-shipping", split && sellerRaw === "" ? "" : shipping.sellerShipping);
     setInput("calc-buyer-shipping", shipping.buyerShipping);
+    if ($("calc-shipping-controls")) $("calc-shipping-controls").hidden = split;
     if ($("calc-seller-shipping-wrap")) $("calc-seller-shipping-wrap").hidden = !visible.seller;
     if ($("calc-buyer-shipping-wrap")) $("calc-buyer-shipping-wrap").hidden = !visible.buyer;
     if ($("calc-seller-shipping")) $("calc-seller-shipping").disabled = !visible.seller;
@@ -242,6 +249,7 @@
 
   function clearListingShippingContext() {
     if ($("calc-listing-shipping-context")) $("calc-listing-shipping-context").hidden = true;
+    if ($("calc-shipping-controls")) $("calc-shipping-controls").hidden = false;
     setText("calc-seller-shipping-option", "Mercado Envios");
     setText("calc-seller-shipping-label", "Tarifa Mercado Envios cobrada do vendedor");
     $("calc-shipping-controls")?.setAttribute("aria-label", "Modalidade de frete");
@@ -251,9 +259,9 @@
     setText("calc-listing-shipping-mode", [shippingContext.modeLabel, shippingContext.logisticLabel].filter(Boolean).join(" · "));
     setText("calc-listing-shipping-payment", shippingContext.paymentLabel);
     setText("calc-listing-shipping-quote", shippingContext.quoteStatus === "estimated"
-      ? `Custo estimado do vendedor pelo ML ao carregar: ${fmtMoney(row.seller_shipping)}. Pode variar no pedido.`
+      ? `Custo estimado do vendedor pelo ML (Estimativa do ML): ${fmtMoney(row.seller_shipping)}. Pode variar no pedido.`
       : shippingContext.quoteStatus === "unavailable"
-        ? "Estimativa do ML indisponível. Informe o custo do vendedor para simular."
+        ? "Estimativa do ML indisponível. Informe o custo do vendedor para completar a simulação."
         : "Valor pago pelo comprador é opcional e depende do destino.");
     if ($("calc-listing-shipping-context")) $("calc-listing-shipping-context").hidden = false;
     setText("calc-seller-shipping-option", "Custo do vendedor");
@@ -358,7 +366,7 @@
     setInput("calc-category-id", row.category_id);
     setInput("calc-commission-pct", row.commission_rate_pct);
     setInput("calc-commission-fixed", row.commission_fixed);
-    setInput("calc-seller-shipping", row.seller_shipping);
+    setInput("calc-seller-shipping", row.shipping_mode === "me2" && row.free_shipping === false && row.shipping_source === "unavailable" ? "" : row.seller_shipping);
     setInput("calc-buyer-shipping", 0);
     setInput("calc-tax-pct", row.tax_rate_pct);
     if ($("calc-tax-preset")) $("calc-tax-preset").value = "account";
@@ -424,7 +432,7 @@
     const shipping = rules.normalizeShippingInputs(state.shippingMode, {
       sellerShipping: inputValue("calc-seller-shipping"),
       buyerShipping: inputValue("calc-buyer-shipping"),
-    });
+    }, { split: isSplitShipping() });
     return {
       mode: state.mode,
       item_id: $("calc-item-id")?.value || "",
@@ -524,10 +532,10 @@
       source: payload.fee_mode === "mercado_livre" ? "mercado_livre" : payload.fee_mode,
       value: result.commission,
     }));
-    const loadedShipping = state.selected && state.shippingMode === "mercado_envios" &&
+    const loadedShipping = state.selected && (state.shippingMode === "mercado_envios" || isSplitShipping()) &&
       ["users_shipping_options_free", "items_shipping_options_free"].includes(state.selected.shipping_source) &&
       n(state.selected.seller_shipping) === n(inputs.seller_shipping);
-    setText("calc-breakdown-shipping-source", state.shippingMode === "comprador"
+    setText("calc-breakdown-shipping-source", state.shippingMode === "comprador" && !isSplitShipping()
       ? "Pago pelo comprador"
       : loadedShipping ? "Estimativa ML" : sourceLabel({ source: "manual", value: inputs.seller_shipping }));
     setText("calc-result-note", payload.note || "Simulação concluída. Nenhum preço foi alterado no Mercado Livre.");

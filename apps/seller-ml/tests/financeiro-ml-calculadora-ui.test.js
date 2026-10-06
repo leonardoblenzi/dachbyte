@@ -31,6 +31,13 @@ test("loaded listing shows its shipping mode and estimated seller cost separatel
   assert.match(css, /\.calc-listing-shipping-context\[hidden\]/);
 });
 
+test("buyer-paid ME2 exposes seller and buyer shipping fields together", () => {
+  assert.match(html, /id="calc-split-shipping-alert"[^>]*role="alert"/);
+  assert.match(script, /isSplitShipping\(\)/);
+  assert.match(script, /Estimativa do ML/);
+  assert.match(css, /\.calc-segmented-control\[hidden\]/);
+});
+
 test("calculator shows the origin and confidence of its inputs", () => {
   assert.match(html, /id="calc-cost-confidence"/);
   assert.match(html, /id="calc-loaded-category"/);
