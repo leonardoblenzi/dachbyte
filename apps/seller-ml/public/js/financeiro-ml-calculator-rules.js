@@ -27,6 +27,37 @@
       : { seller: true, buyer: false };
   }
 
+  function listingShippingContext(item = {}) {
+    const mode = String(item.shipping_mode || "").trim().toLowerCase();
+    const logistic = String(item.logistic_type || "").trim().toLowerCase();
+    const agreed = ["me1", "not_specified", "to_be_agreed"].includes(mode);
+    const simulationMode = agreed ? "comprador" : item.free_shipping ? "mercado_envios" : "comprador";
+    const modeLabel = ({
+      me2: "Mercado Envios 2 (ME2)",
+      me1: "ME1 · logística própria",
+      custom: "Envio personalizado",
+      not_specified: "Entrega a combinar",
+      to_be_agreed: "Entrega a combinar",
+    })[mode] || "Modo não informado";
+    const logisticLabel = ({
+      cross_docking: "Coleta",
+      xd_drop_off: "Agência",
+      drop_off: "Ponto de envio",
+      fulfillment: "Full",
+      self_service: "Flex",
+      turbo: "Turbo",
+    })[logistic] || "";
+    const paymentLabel = agreed
+      ? "Frete a definir na simulação"
+      : item.free_shipping ? "Frete grátis para o comprador" : "Comprador paga o frete";
+    const quoteStatus = simulationMode !== "mercado_envios"
+      ? "not_applicable"
+      : ["users_shipping_options_free", "items_shipping_options_free"].includes(item.shipping_source)
+        ? "estimated"
+        : "unavailable";
+    return { modeLabel, logisticLabel, paymentLabel, simulationMode, quoteStatus };
+  }
+
   function normalizeShippingInputs(mode, { sellerShipping = 0, buyerShipping = 0 } = {}) {
     return mode === "comprador"
       ? { sellerShipping: 0, buyerShipping: Number(buyerShipping) || 0 }
@@ -56,7 +87,7 @@
     };
   }
 
-  const api = { manualListingFee, canQuoteMarketplaceFee, manualFeeMode, shippingVisibility, normalizeShippingInputs, costConfidence, createCalculationScheduler };
+  const api = { manualListingFee, canQuoteMarketplaceFee, manualFeeMode, shippingVisibility, listingShippingContext, normalizeShippingInputs, costConfidence, createCalculationScheduler };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window !== "undefined") window.MLCalculatorRules = api;
 })();

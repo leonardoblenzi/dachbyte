@@ -22,3 +22,9 @@ Antes de uma venda, `/users/{seller}/shipping_options/free` fornece uma cotaçã
 - Uma regra pura transforma os atributos de envio do lookup em textos, modalidade de simulação inicial e estado da cotação; a tela usa essa regra ao carregar cada variação.
 - A apresentação do contexto fica oculta na simulação manual e reaparece no modo anúncio com um item carregado.
 - Testes cobrem ME2 com frete grátis, ME2 pago pelo comprador, ME1, entrega a combinar, modalidade desconhecida, estimativa indisponível e troca de variação. Nenhuma fórmula financeira ou endpoint de escrita é alterado.
+
+## Acabamento visual solicitado
+
+- A legenda de apoio sobre o cartão azul de lucro deve ter contraste alto no modo claro.
+- No modo escuro, a coluna do formulário deve usar superfícies e campos azul-marinho coerentes com o painel de resultado. A camada clara global de `container::before` não deve cobrir a calculadora.
+- O seletor de frete/tipo de anúncio não deve permanecer branco no modo escuro; o estado ativo continua distinguível. O painel de resultado, já aprovado, permanece inalterado salvo a legibilidade da legenda.

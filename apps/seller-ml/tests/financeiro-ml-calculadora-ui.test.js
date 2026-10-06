@@ -20,6 +20,17 @@ test("calculator keeps listing lookup and uses guided listing and freight contro
   assert.match(html, /id="calc-buyer-shipping-wrap"/);
 });
 
+test("loaded listing shows its shipping mode and estimated seller cost separately from payment", () => {
+  assert.match(html, /id="calc-listing-shipping-context"[^>]*hidden/);
+  assert.match(html, /id="calc-listing-shipping-mode"/);
+  assert.match(html, /id="calc-listing-shipping-payment"/);
+  assert.match(html, /id="calc-listing-shipping-quote"/);
+  assert.match(script, /rules\.listingShippingContext\(row\)/);
+  assert.match(script, /syncShippingMode\(shippingContext\.simulationMode\)/);
+  assert.match(script, /Custo estimado do vendedor pelo ML/);
+  assert.match(css, /\.calc-listing-shipping-context\[hidden\]/);
+});
+
 test("calculator shows the origin and confidence of its inputs", () => {
   assert.match(html, /id="calc-cost-confidence"/);
   assert.match(html, /id="calc-loaded-category"/);

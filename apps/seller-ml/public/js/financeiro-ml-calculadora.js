@@ -240,6 +240,27 @@
     });
   }
 
+  function clearListingShippingContext() {
+    if ($("calc-listing-shipping-context")) $("calc-listing-shipping-context").hidden = true;
+    setText("calc-seller-shipping-option", "Mercado Envios");
+    setText("calc-seller-shipping-label", "Tarifa Mercado Envios cobrada do vendedor");
+    $("calc-shipping-controls")?.setAttribute("aria-label", "Modalidade de frete");
+  }
+
+  function renderListingShippingContext(row, shippingContext) {
+    setText("calc-listing-shipping-mode", [shippingContext.modeLabel, shippingContext.logisticLabel].filter(Boolean).join(" · "));
+    setText("calc-listing-shipping-payment", shippingContext.paymentLabel);
+    setText("calc-listing-shipping-quote", shippingContext.quoteStatus === "estimated"
+      ? `Custo estimado do vendedor pelo ML ao carregar: ${fmtMoney(row.seller_shipping)}. Pode variar no pedido.`
+      : shippingContext.quoteStatus === "unavailable"
+        ? "Estimativa do ML indisponível. Informe o custo do vendedor para simular."
+        : "Valor pago pelo comprador é opcional e depende do destino.");
+    if ($("calc-listing-shipping-context")) $("calc-listing-shipping-context").hidden = false;
+    setText("calc-seller-shipping-option", "Custo do vendedor");
+    setText("calc-seller-shipping-label", "Custo de envio cobrado do vendedor");
+    $("calc-shipping-controls")?.setAttribute("aria-label", "Valor de frete na simulação");
+  }
+
   function setMode(mode) {
     state.mode = mode === "manual" ? "manual" : "listing";
     document.querySelectorAll("[data-calc-mode]").forEach((button) => {
@@ -252,6 +273,7 @@
     });
     if (state.mode === "manual") {
       state.selected = null;
+      clearListingShippingContext();
       setInput("calc-item-id", "");
       setInput("calc-variation-id", "");
       setInput("calc-reference-sku", "");
@@ -263,6 +285,8 @@
       syncFeeInputs();
     } else if (state.selected) {
       syncFeeInputs();
+    } else {
+      clearListingShippingContext();
     }
     syncListingTypeControl();
     scheduleCalculation();
@@ -342,7 +366,9 @@
 
     syncFeeInputs();
     syncListingTypeControl();
-    syncShippingMode(row.free_shipping ? "mercado_envios" : "comprador");
+    const shippingContext = rules.listingShippingContext(row);
+    syncShippingMode(shippingContext.simulationMode);
+    renderListingShippingContext(row, shippingContext);
 
     const itemBox = $("calc-loaded-item");
     if (itemBox) itemBox.hidden = false;
@@ -354,7 +380,10 @@
     setText("calc-item-title", row.title || row.item_id);
     setText("calc-item-meta", [row.item_id, row.reference_sku || "Sem SKU", row.variation_label || ""].filter(Boolean).join(" · "));
     setText("calc-loaded-category", `Categoria: ${row.category_name || row.category_id || "Não informada"}`);
-    setText("calc-item-source", `${row.listing_type_label || row.listing_type_id || "Anúncio"} · comissão ${fmtMoney(row.commission)} · frete vendedor ${fmtMoney(row.seller_shipping)}`);
+    const shippingSummary = shippingContext.quoteStatus === "estimated"
+      ? `custo de envio estimado ${fmtMoney(row.seller_shipping)}`
+      : shippingContext.quoteStatus === "unavailable" ? "custo de envio não cotado" : "frete opcional na simulação";
+    setText("calc-item-source", `${row.listing_type_label || row.listing_type_id || "Anúncio"} · comissão ${fmtMoney(row.commission)} · ${shippingSummary}`);
     setBadge("calc-lookup-badge", "Carregado", "positive");
     setFeedback(payload.note || "Anúncio carregado. Os resultados serão atualizados automaticamente.", "ok");
     scheduleCalculation();
@@ -496,10 +525,11 @@
       value: result.commission,
     }));
     const loadedShipping = state.selected && state.shippingMode === "mercado_envios" &&
-      state.selected.shipping_source !== "unavailable" && n(state.selected.seller_shipping) === n(inputs.seller_shipping);
+      ["users_shipping_options_free", "items_shipping_options_free"].includes(state.selected.shipping_source) &&
+      n(state.selected.seller_shipping) === n(inputs.seller_shipping);
     setText("calc-breakdown-shipping-source", state.shippingMode === "comprador"
       ? "Pago pelo comprador"
-      : sourceLabel({ source: loadedShipping ? "mercado_livre" : "manual", value: inputs.seller_shipping }));
+      : loadedShipping ? "Estimativa ML" : sourceLabel({ source: "manual", value: inputs.seller_shipping }));
     setText("calc-result-note", payload.note || "Simulação concluída. Nenhum preço foi alterado no Mercado Livre.");
     if (state.mode === "manual") {
       if (payload.fee_mode === "mercado_livre") {
@@ -583,6 +613,7 @@
     applyTaxPreset();
     if ($("calc-loaded-item")) $("calc-loaded-item").hidden = true;
     if ($("calc-variation-wrap")) $("calc-variation-wrap").hidden = true;
+    clearListingShippingContext();
     syncShippingMode("mercado_envios");
     setBadge("calc-lookup-badge", state.mode === "manual" ? "Manual" : "Não carregado", "neutral");
     applyManualListingFee();
