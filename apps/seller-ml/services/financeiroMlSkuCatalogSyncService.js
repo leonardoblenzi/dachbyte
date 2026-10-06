@@ -23,6 +23,10 @@ function normalizeSku(value) {
   return normalizeString(value).toUpperCase();
 }
 
+function normalizeMlb(value) {
+  return normalizeString(value).toUpperCase();
+}
+
 function numberOrZero(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -159,11 +163,12 @@ function extractEans(attrs = []) {
   return Array.from(new Set(values.map(normalizeString).filter(Boolean)));
 }
 
-function extractCatalogRows(item = {}) {
+function extractCatalogRows(item = {}, manualReferences = new Map()) {
   const attrs = Array.isArray(item.attributes) ? item.attributes : [];
   const itemSkuAttr = attrs.find(isSkuAttr);
   const itemSku = normalizeSku(
-    item.seller_custom_field || item.seller_sku || pickAttrValue(itemSkuAttr),
+    item.seller_custom_field || item.seller_sku || item.sku || pickAttrValue(itemSkuAttr) ||
+      manualReferences.get(`${normalizeMlb(item.id)}:`),
   );
   const itemEans = extractEans(attrs);
   const common = {
@@ -185,7 +190,8 @@ function extractCatalogRows(item = {}) {
     const variationAttrs = Array.isArray(variation?.attributes) ? variation.attributes : [];
     const variationSkuAttr = variationAttrs.find(isSkuAttr);
     const variationSku = normalizeSku(
-      variation?.seller_custom_field || variation?.seller_sku || pickAttrValue(variationSkuAttr),
+      variation?.seller_custom_field || variation?.seller_sku || variation?.sku || pickAttrValue(variationSkuAttr) ||
+        manualReferences.get(`${normalizeMlb(item.id)}:${normalizeString(variation?.id)}`),
     );
     if (!variationSku) continue;
     variationRows.push({
@@ -337,6 +343,8 @@ async function fetchItemDetails(state, ids = []) {
         "thumbnail",
         "secure_thumbnail",
         "seller_custom_field",
+        "seller_sku",
+        "sku",
         "price",
         "status",
         "category_id",
@@ -353,6 +361,27 @@ async function fetchItemDetails(state, ids = []) {
     }
   }
   return out;
+}
+
+async function getManualSkuReferenceMap(accountKey, mlbs = []) {
+  const normalizedMlbs = Array.from(new Set(mlbs.map(normalizeMlb).filter(Boolean)));
+  if (!accountKey || !normalizedMlbs.length) return new Map();
+  const result = await db.query(
+    `select mlb, variation_id, reference_sku
+       from ml.mercadolivre_sku_reference_overrides
+      where account_key = $1
+        and upper(mlb) = any($2::text[])`,
+    [String(accountKey), normalizedMlbs],
+  ).catch((error) => {
+    if (String(error?.message || "").includes("mercadolivre_sku_reference_overrides")) {
+      return { rows: [] };
+    }
+    throw error;
+  });
+  return new Map((result.rows || []).map((row) => [
+    `${normalizeMlb(row.mlb)}:${normalizeString(row.variation_id)}`,
+    normalizeSku(row.reference_sku),
+  ]).filter(([, sku]) => Boolean(sku)));
 }
 
 async function createRun({ accountKey, sellerId }) {
@@ -622,12 +651,13 @@ async function processSyncJob(job) {
       },
     });
 
+    const manualReferences = await getManualSkuReferenceMap(accountKey, ids);
     const rows = [];
     let noSkuItems = 0;
     for (let i = 0; i < ids.length; i += 20) {
       const details = await fetchItemDetails(state, ids.slice(i, i + 20));
       for (const item of details) {
-        const extracted = extractCatalogRows(item);
+        const extracted = extractCatalogRows(item, manualReferences);
         if (!extracted.length) noSkuItems += 1;
         rows.push(...extracted);
       }

@@ -85,6 +85,23 @@ module.exports = {
     }
   },
 
+  async saveManualCostReference(req, res) {
+    try {
+      return res.json(await FinanceiroMlService.saveManualCostReference(
+        {
+          mlb: req.body?.mlb,
+          variation_id: req.body?.variation_id,
+          sku: req.body?.sku ?? req.body?.reference_sku,
+          cost: req.body?.cost ?? req.body?.custo_produto_unitario,
+          userId: FinanceiroMlService.getUserId(req.user),
+        },
+        context(req, res),
+      ));
+    } catch (error) {
+      return handleError(res, error, "Falha ao vincular SKU e salvar custo.");
+    }
+  },
+
   async importCosts(req, res) {
     try {
       const result = await FinanceiroMlService.importCosts(

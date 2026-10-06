@@ -13,6 +13,7 @@ router.post("/costs/sync", FinanceiroMlController.syncCostsCatalog);
 router.get("/costs/sync/:jobId", FinanceiroMlController.syncCostsCatalogStatus);
 router.post("/costs/import", FinanceiroMlController.importCosts);
 router.get("/costs/:sku/timeline", FinanceiroMlController.costTimeline);
+router.post("/costs/reference", FinanceiroMlController.saveManualCostReference);
 router.post("/costs/:sku", FinanceiroMlController.saveCost);
 router.get("/settings/tax", FinanceiroMlController.getTax);
 router.post("/settings/tax", FinanceiroMlController.saveTax);
