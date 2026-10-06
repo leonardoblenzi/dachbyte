@@ -67,6 +67,21 @@
       : { sellerShipping: Number(sellerShipping) || 0, buyerShipping: 0 };
   }
 
+  function splitShippingReadiness({ split = false, source = "", loadedPrice, currentPrice, quotedValue, sellerValue, manuallyConfirmedPrice } = {}) {
+    if (!split) return { ready: true, reason: "" };
+    const raw = String(sellerValue ?? "").trim();
+    const value = Number(raw);
+    if (!raw || !Number.isFinite(value) || value < 0) return { ready: false, reason: "missing" };
+    if (manuallyConfirmedPrice != null && Number(manuallyConfirmedPrice) === Number(currentPrice)) {
+      return { ready: true, reason: "" };
+    }
+    const quoted = ["users_shipping_options_free", "items_shipping_options_free"].includes(source);
+    if (quoted && Number(currentPrice) === Number(loadedPrice) && value === Number(quotedValue)) {
+      return { ready: true, reason: "" };
+    }
+    return { ready: false, reason: quoted ? "stale" : "missing" };
+  }
+
   function costConfidence(productCost) {
     return Number(productCost) > 0
       ? { state: "ready", roiAvailable: true }
@@ -90,7 +105,7 @@
     };
   }
 
-  const api = { manualListingFee, canQuoteMarketplaceFee, manualFeeMode, shippingVisibility, listingShippingContext, normalizeShippingInputs, costConfidence, createCalculationScheduler };
+  const api = { manualListingFee, canQuoteMarketplaceFee, manualFeeMode, shippingVisibility, listingShippingContext, normalizeShippingInputs, splitShippingReadiness, costConfidence, createCalculationScheduler };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window !== "undefined") window.MLCalculatorRules = api;
 })();

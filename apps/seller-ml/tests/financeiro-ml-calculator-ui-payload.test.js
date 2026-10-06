@@ -40,3 +40,10 @@ test("buyer-paid ME2 payload preserves both seller and buyer shipping shares", (
   assert.match(source, /seller_shipping:\s*shipping\.sellerShipping/);
   assert.match(source, /buyer_shipping_taxable:\s*shipping\.buyerShipping/);
 });
+
+test("incomplete split shipping is checked before calculation request", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "public", "js", "financeiro-ml-calculadora.js"), "utf8");
+  assert.match(source, /function splitShippingReadiness\(\)/);
+  assert.match(source, /if \(!shippingReadiness\.ready\)\s*\{\s*showPendingShipping\(shippingReadiness\.reason\);\s*return;/);
+  assert.match(source, /manualShippingPrice/);
+});

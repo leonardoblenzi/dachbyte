@@ -158,6 +158,8 @@ body.calc-app {
 .calc-data-alert { margin: 0; padding: 10px 12px; border-radius: 12px; font-size: .78rem; line-height: 1.5; }
 .calc-data-alert[data-tone="warning"] { color: var(--fml-warning-text); background: var(--fml-warning-bg); }
 .calc-data-alert[hidden] { display: none !important; }
+.calc-confirm-shipping { margin: 0 0 12px; }
+.calc-confirm-shipping[hidden] { display: none !important; }
 
 .calc-loaded-item { display: grid; grid-template-columns: 56px minmax(0,1fr); gap: 12px; align-items: center; margin-top: 14px; padding: 12px; border-radius: 14px; border: 1px solid rgba(52,131,250,.16); background: rgba(52,131,250,.05); }
 .calc-loaded-item img { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; background: #f1f5f9; }

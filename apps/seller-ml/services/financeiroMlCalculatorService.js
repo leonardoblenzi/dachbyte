@@ -349,7 +349,7 @@ async function fetchSellerShipping(state, item, sellerId, priceOverride = null) 
     for (const attempt of attempts) {
       const payload = await shippingQuoteRequest(state, attempt.url).catch(() => null);
       const quoted = payload?.coverage?.all_country?.list_cost;
-      if (quoted != null && Number.isFinite(Number(quoted)) && Number(quoted) >= 0) {
+      if (quoted != null && text(quoted) !== "" && Number.isFinite(Number(quoted)) && Number(quoted) >= 0) {
         return { seller_cost: Number(quoted), source: attempt.source };
       }
     }
@@ -514,7 +514,9 @@ class FinanceiroMlCalculatorService {
       },
       note: enriched.shipping_source === "unavailable" && enriched.shipping_mode === "me2"
         ? "O custo de envio do vendedor não pôde ser consultado agora. Informe o valor para completar a simulação."
-        : "Dados carregados da conta ativa. Você pode ajustar os valores antes de calcular.",
+        : enriched.shipping_source === "unavailable" && enriched.free_shipping
+          ? "O anúncio usa frete grátis, mas a tarifa do vendedor não pôde ser consultada agora. Revise o campo de frete antes de simular."
+          : "Dados carregados da conta ativa. Você pode ajustar os valores antes de calcular.",
     };
   }
 

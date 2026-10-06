@@ -60,6 +60,20 @@ test("buyer-paid ME2 keeps both shipping shares", () => {
   }, { split: true }), { sellerShipping: 8.4, buyerShipping: 5 });
 });
 
+test("split-shipping result waits for a known seller share at this price", () => {
+  const base = { split: true, source: "users_shipping_options_free",
+    loadedPrice: 35.9, currentPrice: 35.9, quotedValue: 8.4,
+    sellerValue: "8.4", manuallyConfirmedPrice: null };
+  assert.deepEqual(rules.splitShippingReadiness(base), { ready: true, reason: "" });
+  assert.deepEqual(rules.splitShippingReadiness({ ...base, source: "unavailable", sellerValue: "" }),
+    { ready: false, reason: "missing" });
+  assert.deepEqual(rules.splitShippingReadiness({ ...base, currentPrice: 40 }),
+    { ready: false, reason: "stale" });
+  assert.deepEqual(rules.splitShippingReadiness({ ...base, source: "unavailable", sellerValue: "0", manuallyConfirmedPrice: 35.9 }),
+    { ready: true, reason: "" });
+  assert.deepEqual(rules.splitShippingReadiness({ ...base, split: false }), { ready: true, reason: "" });
+});
+
 test("listing shipping context separates ME2 logistics from who pays", () => {
   assert.deepEqual(rules.listingShippingContext({
     shipping_mode: "me2",

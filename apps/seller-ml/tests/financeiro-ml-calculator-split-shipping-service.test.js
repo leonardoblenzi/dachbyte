@@ -47,6 +47,10 @@ test("ME2 preserves quoted zero and marks absent or failed quote unavailable", a
     assert.deepEqual(await Calculator._test.fetchSellerShipping({ token: "test" }, item, "123"),
       { seller_cost: 0, source: "unavailable" });
 
+    Calculator._test.setShippingQuoteRequest(async () => ({ coverage: { all_country: { list_cost: "" } } }));
+    assert.deepEqual(await Calculator._test.fetchSellerShipping({ token: "test" }, item, "123"),
+      { seller_cost: 0, source: "unavailable" });
+
     Calculator._test.setShippingQuoteRequest(async () => { throw new Error("unavailable"); });
     assert.deepEqual(await Calculator._test.fetchSellerShipping({ token: "test" }, item, "123"),
       { seller_cost: 0, source: "unavailable" });

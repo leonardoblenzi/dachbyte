@@ -13,6 +13,7 @@
     candidates: [],
     selected: null,
     shippingMode: "mercado_envios",
+    manualShippingPrice: null,
     busy: false,
     recalculateAfterBusy: false,
     categorySuggestions: [],
@@ -250,6 +251,8 @@
   function clearListingShippingContext() {
     if ($("calc-listing-shipping-context")) $("calc-listing-shipping-context").hidden = true;
     if ($("calc-shipping-controls")) $("calc-shipping-controls").hidden = false;
+    if ($("calc-split-shipping-alert")) $("calc-split-shipping-alert").hidden = true;
+    if ($("calc-confirm-shipping")) $("calc-confirm-shipping").hidden = true;
     setText("calc-seller-shipping-option", "Mercado Envios");
     setText("calc-seller-shipping-label", "Tarifa Mercado Envios cobrada do vendedor");
     $("calc-shipping-controls")?.setAttribute("aria-label", "Modalidade de frete");
@@ -281,6 +284,7 @@
     });
     if (state.mode === "manual") {
       state.selected = null;
+      state.manualShippingPrice = null;
       clearListingShippingContext();
       setInput("calc-item-id", "");
       setInput("calc-variation-id", "");
@@ -297,6 +301,7 @@
       clearListingShippingContext();
     }
     syncListingTypeControl();
+    syncShippingMode();
     scheduleCalculation();
   }
 
@@ -346,6 +351,7 @@
     const row = payload?.selected;
     if (!row) return;
     state.selected = row;
+    state.manualShippingPrice = null;
     state.accountTaxPct = n(row.tax_rate_pct, state.accountTaxPct);
     renderCandidates(payload.candidates, row);
 
@@ -550,6 +556,37 @@
     }
   }
 
+  function splitShippingReadiness() {
+    return rules.splitShippingReadiness({
+      split: isSplitShipping(),
+      source: state.selected?.shipping_source,
+      loadedPrice: state.selected?.price,
+      currentPrice: inputValue("calc-price"),
+      quotedValue: state.selected?.seller_shipping,
+      sellerValue: $("calc-seller-shipping")?.value,
+      manuallyConfirmedPrice: state.manualShippingPrice,
+    });
+  }
+
+  function showPendingShipping(reason) {
+    calculationScheduler.cancel();
+    const message = reason === "stale"
+      ? "O preço mudou desde a cotação do frete. Confirme o custo para este preço ou recarregue o anúncio."
+      : "Custo de envio do vendedor indisponível. Informe-o, inclusive R$ 0,00 se confirmado, para completar o cálculo.";
+    setText("calc-split-shipping-alert", message);
+    if ($("calc-split-shipping-alert")) $("calc-split-shipping-alert").hidden = false;
+    const canConfirm = reason === "stale" && String($("calc-seller-shipping")?.value || "").trim() !== "";
+    if ($("calc-confirm-shipping")) $("calc-confirm-shipping").hidden = !canConfirm;
+    ["calc-result-profit", "calc-result-margin", "calc-result-roi", "calc-result-equilibrium", "calc-result-target"].forEach((id) => setText(id, "--"));
+    ["calc-breakdown-price", "calc-breakdown-product", "calc-breakdown-commission", "calc-breakdown-tax", "calc-breakdown-shipping", "calc-breakdown-operation", "calc-breakdown-other", "calc-breakdown-total"].forEach((id) => setText(id, "--"));
+    setText("calc-breakdown-shipping-source", "Frete pendente");
+    if ($("calc-target-callout")) $("calc-target-callout").hidden = true;
+    setText("calc-result-caption", "Resultado incompleto: confira o custo de envio do vendedor.");
+    setText("calc-result-note", message);
+    setBadge("calc-result-status", "Frete pendente", "warning");
+    setFeedback(message, "error");
+  }
+
   const calculationScheduler = rules.createCalculationScheduler(() => {
     if (state.busy) {
       state.recalculateAfterBusy = true;
@@ -559,12 +596,24 @@
   });
 
   function scheduleCalculation() {
+    const shippingReadiness = splitShippingReadiness();
+    if (!shippingReadiness.ready) {
+      showPendingShipping(shippingReadiness.reason);
+      return;
+    }
+    if ($("calc-split-shipping-alert")) $("calc-split-shipping-alert").hidden = true;
+    if ($("calc-confirm-shipping")) $("calc-confirm-shipping").hidden = true;
     if (!(inputValue("calc-price") > 0)) return;
     calculationScheduler.schedule();
   }
 
   async function calculate(event, { automatic = false } = {}) {
     event?.preventDefault?.();
+    const shippingReadiness = splitShippingReadiness();
+    if (!shippingReadiness.ready) {
+      showPendingShipping(shippingReadiness.reason);
+      return;
+    }
     if (state.busy) {
       state.recalculateAfterBusy = true;
       return;
@@ -585,6 +634,15 @@
         method: "POST",
         body: JSON.stringify(payload),
       });
+      const latestReadiness = splitShippingReadiness();
+      if (!latestReadiness.ready) {
+        showPendingShipping(latestReadiness.reason);
+        return;
+      }
+      if (JSON.stringify(buildPayload()) !== JSON.stringify(payload)) {
+        scheduleCalculation();
+        return;
+      }
       renderResult(result);
       setFeedback(automatic ? "Resultados atualizados automaticamente." : "Simulação atualizada.", "ok");
     } catch (error) {
@@ -600,6 +658,7 @@
 
   function resetForm() {
     state.selected = null;
+    state.manualShippingPrice = null;
     state.candidates = [];
     state.lookupQuery = "";
     $("calc-form")?.reset();
@@ -689,8 +748,15 @@
         scheduleCalculation();
       });
     });
+    $("calc-confirm-shipping")?.addEventListener("click", () => {
+      state.manualShippingPrice = inputValue("calc-price");
+      scheduleCalculation();
+    });
     $("calc-form")?.addEventListener("submit", calculate);
     $("calc-form")?.addEventListener("input", (event) => {
+      if (event.target.id === "calc-seller-shipping" && isSplitShipping()) {
+        state.manualShippingPrice = String(event.target.value).trim() === "" ? null : inputValue("calc-price");
+      }
       if (event.target.id === "calc-product-cost") syncCostConfidence();
       if (event.target.id === "calc-price" && state.mode === "manual") {
         applyManualListingFee();

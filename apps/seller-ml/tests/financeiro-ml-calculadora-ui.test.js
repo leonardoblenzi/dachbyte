@@ -38,6 +38,18 @@ test("buyer-paid ME2 exposes seller and buyer shipping fields together", () => {
   assert.match(css, /\.calc-segmented-control\[hidden\]/);
 });
 
+test("incomplete ME2 shipping blocks stale profit display", () => {
+  assert.match(html, /id="calc-confirm-shipping"/);
+  assert.match(script, /rules\.splitShippingReadiness/);
+  assert.match(script, /calculationScheduler\.cancel\(\)/);
+  assert.match(script, /Frete pendente/);
+  assert.match(script, /\["calc-breakdown-price",[^\n]+\]\.forEach\(\(id\) => setText\(id, "--"\)\)/);
+});
+
+test("switching away from a split listing restores exclusive manual freight controls", () => {
+  assert.match(script, /function setMode\(mode\)[\s\S]*?syncListingTypeControl\(\);\s*syncShippingMode\(\);\s*scheduleCalculation\(\);/);
+});
+
 test("calculator shows the origin and confidence of its inputs", () => {
   assert.match(html, /id="calc-cost-confidence"/);
   assert.match(html, /id="calc-loaded-category"/);
