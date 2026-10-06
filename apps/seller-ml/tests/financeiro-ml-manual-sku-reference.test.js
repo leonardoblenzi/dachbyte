@@ -16,6 +16,24 @@ test("recognizes the raw SKU returned on Mercado Livre variations", () => {
   assert.deepEqual(skus, ["VAR-AZUL-42"]);
 });
 
+test("uses a single Mercado Livre seller_sku search match only when item details omit SKU", () => {
+  const items = [
+    { item_id: "MLB5352019964", reference_sku: "", reference_skus: [] },
+    { item_id: "MLB100", reference_sku: "ORIGINAL", reference_skus: ["ORIGINAL"] },
+    { item_id: "MLB200", reference_sku: "", reference_skus: [] },
+  ];
+  const matches = new Map([
+    ["MLB5352019964", new Set(["104402"])],
+    ["MLB100", new Set(["SEARCHED"])],
+    ["MLB200", new Set(["A", "B"])],
+  ]);
+  const result = FinanceiroMlService._test.applySkuSearchMatches(items, matches);
+  assert.equal(result[0].reference_sku, "104402");
+  assert.equal(result[0].sku_lookup_inferred, true);
+  assert.equal(result[1].reference_sku, "ORIGINAL");
+  assert.equal(result[2].reference_sku, "");
+});
+
 test("persists a manual MLB-to-SKU reference instead of treating the MLB as a cost SKU", () => {
   const migration = read("db/074_create_mercadolivre_sku_reference_overrides.sql");
   const service = read("services/financeiroMlService.js");

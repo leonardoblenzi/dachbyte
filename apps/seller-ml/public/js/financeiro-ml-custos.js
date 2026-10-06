@@ -265,7 +265,7 @@ window.FinanceiroMlCosts = (() => {
     els.body.innerHTML = items.map((row) => {
       const sku = row.reference_sku || "Sem SKU";
       const skuChip = row.has_reference_sku
-        ? `<span class="fml-chip">${escapeHtml(sku)}</span>`
+        ? `<span class="fml-chip">${escapeHtml(sku)}</span>${row.sku_lookup_inferred ? '<small class="fml-manual-sku-note">SKU localizado pela busca do ML</small>' : ''}`
         : '<span class="fml-chip fml-chip--missing">Sem SKU</span>';
       const eans = (row.eans || []).map((ean) => `<span class="fml-chip">${escapeHtml(ean)}</span>`).join("");
       const mlbs = (row.mlbs || []).map((mlb) => `<span class="fml-chip">${escapeHtml(mlb)}</span>`).join("");
@@ -281,7 +281,9 @@ window.FinanceiroMlCosts = (() => {
       const costEditor = row.has_reference_sku
         ? `<input class="fml-input fml-cost-input ${missing ? "is-missing" : ""}" type="text" inputmode="decimal" value="${Number(row.cost || 0).toFixed(2).replace(".", ",")}" />`
         : `<div class="fml-manual-sku-editor"><input class="fml-input fml-reference-sku-input" type="text" maxlength="120" placeholder="Definir SKU" aria-label="SKU de referência"><input class="fml-input fml-cost-input is-missing" type="text" inputmode="decimal" value="0,00" aria-label="Custo unitário"></div>`;
-      const actions = row.has_reference_sku
+      const actions = row.sku_lookup_inferred
+        ? `<div class="fml-row-actions"><button class="fml-btn fml-btn--primary fml-save-manual-reference" type="button" data-mlbs="${escapeHtml((row.sku_lookup_inferred_mlbs || []).join(","))}">Vincular e salvar</button><small class="fml-manual-sku-note">Confirme o vínculo com ${escapeHtml(sku)} ao salvar o custo.</small></div>`
+        : row.has_reference_sku
         ? `<div class="fml-row-actions"><button class="fml-btn fml-btn--ghost fml-save-cost" type="button">Salvar</button><button class="fml-btn fml-btn--ghost fml-history-open" type="button">Historico</button></div>`
         : `<div class="fml-row-actions"><button class="fml-btn fml-btn--primary fml-save-manual-reference" type="button" data-mlb="${escapeHtml(firstMlb)}" ${firstMlb ? "" : "disabled"}>Vincular e salvar</button><small class="fml-manual-sku-note">O MLB não informou SKU. Defina uma referência interna.</small></div>`;
 
@@ -444,23 +446,25 @@ window.FinanceiroMlCosts = (() => {
 
   async function saveManualReference(row) {
     const button = row?.querySelector(".fml-save-manual-reference");
-    const mlb = String(button?.dataset?.mlb || "").trim();
-    const sku = String(row?.querySelector(".fml-reference-sku-input")?.value || "").trim();
+    const mlbs = String(button?.dataset?.mlbs || button?.dataset?.mlb || "").split(",").map((value) => value.trim()).filter(Boolean);
+    const sku = String(row?.querySelector(".fml-reference-sku-input")?.value || row?.dataset?.sku || "").trim();
     const cost = parseInputNumber(row?.querySelector(".fml-cost-input")?.value);
-    if (!mlb) throw new Error("Não foi possível identificar o MLB deste anúncio.");
+    if (!mlbs.length) throw new Error("Não foi possível identificar o MLB deste anúncio.");
     if (!sku) throw new Error("Informe o SKU de referência antes de salvar.");
     button.disabled = true;
     try {
-      const response = await fetch(mlUrl("/api/financeiro-ml/costs/reference"), {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify({ mlb, sku, cost }),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.success) throw new Error(data?.error || "Falha ao vincular SKU.");
+      for (const mlb of mlbs) {
+        const response = await fetch(mlUrl("/api/financeiro-ml/costs/reference"), {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body: JSON.stringify({ mlb, sku, cost }),
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) throw new Error(data?.error || `Falha ao vincular SKU ao ${mlb}.`);
+      }
       window.dispatchEvent(new Event("ml:pricing-updated"));
-      setStatus(`SKU ${data.reference?.reference_sku || sku} vinculado ao ${mlb} e custo salvo.`, "ok");
+      setStatus(`SKU ${sku} vinculado a ${mlbs.join(", ")} e custo salvo.`, "ok");
       await loadCosts({ force: true });
     } finally {
       button.disabled = false;

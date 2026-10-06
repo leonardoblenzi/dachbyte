@@ -505,6 +505,23 @@ async function fetchSellerItemIdsBySku(state, sellerId, status, sku) {
   return Array.from(new Set(ids));
 }
 
+function applySkuSearchMatches(items = [], matches = new Map()) {
+  return items.map((item) => {
+    const itemId = normalizeString(item?.item_id).toUpperCase();
+    const matchedSkus = matches.get(itemId);
+    const hasSku = Boolean(normalizeSku(item?.reference_sku)) ||
+      (Array.isArray(item?.reference_skus) && item.reference_skus.some((sku) => Boolean(normalizeSku(sku))));
+    if (hasSku || !matchedSkus || matchedSkus.size !== 1) return item;
+    const sku = Array.from(matchedSkus)[0];
+    return {
+      ...item,
+      reference_sku: sku,
+      reference_skus: [sku],
+      sku_lookup_inferred: true,
+    };
+  });
+}
+
 function parseDirectLookupTerms(value) {
   const raw = normalizeString(value);
   if (!raw) return [];
@@ -547,6 +564,7 @@ async function fetchTargetedCostLookupItems(context = {}, query = {}, seller = {
   const statuses = wantedStatus === "all" ? ["active", "paused", "closed"] : [wantedStatus];
   const targetIds = new Set();
   const skuTerms = [];
+  const skuMatches = new Map();
 
   for (const term of terms) {
     const normalized = term.toUpperCase();
@@ -561,13 +579,22 @@ async function fetchTargetedCostLookupItems(context = {}, query = {}, seller = {
     for (const status of statuses) {
       for (const variant of buildSkuLookupVariants(sku)) {
         const ids = await fetchSellerItemIdsBySku(state, seller.id, status, variant);
-        ids.forEach((id) => targetIds.add(String(id).toUpperCase()));
+        ids.forEach((id) => {
+          const itemId = String(id).toUpperCase();
+          targetIds.add(itemId);
+          if (!skuMatches.has(itemId)) skuMatches.set(itemId, new Set());
+          skuMatches.get(itemId).add(normalizeSku(sku));
+        });
         if (ids.length) break;
       }
     }
   }
 
-  return fetchItemDetails(state, Array.from(targetIds), context);
+  const items = await fetchItemDetails(state, Array.from(targetIds), context);
+  // A busca por seller_sku do ML pode localizar um anuncio cujo detalhe omite
+  // o atributo. Mostramos a referencia encontrada, mas exigimos confirmacao
+  // antes de persistir o vinculo MLB -> SKU.
+  return applySkuSearchMatches(items, skuMatches);
 }
 
 function inventoryCacheKey(accountKey, status, maxItems) {
@@ -924,6 +951,8 @@ function groupItemsBySku(items = [], costMap = new Map()) {
         {
           reference_sku: sku,
           has_reference_sku: !!sku,
+          sku_lookup_inferred: false,
+          sku_lookup_inferred_mlbs: [],
           title: item.title,
           thumbnail: item.thumbnail,
           eans: new Set(),
@@ -938,6 +967,10 @@ function groupItemsBySku(items = [], costMap = new Map()) {
           cost_updated_at: sku ? costMap.get(sku)?.updated_at || null : null,
         };
       current.item_count += 1;
+      if (item.sku_lookup_inferred) {
+        current.sku_lookup_inferred = true;
+        current.sku_lookup_inferred_mlbs.push(item.item_id);
+      }
       current.mlbs.push(item.item_id);
       (Array.isArray(item.eans) ? item.eans : []).forEach((ean) => {
         const normalized = normalizeString(ean);
@@ -4365,6 +4398,7 @@ class FinanceiroMlService {
 
 FinanceiroMlService._test = {
   extractReferenceSkuValues,
+  applySkuSearchMatches,
   parseImportRows,
   resolveRealizedGmv,
   orderLifecycleStatus,
