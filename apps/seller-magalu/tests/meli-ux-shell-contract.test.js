@@ -13,7 +13,7 @@ test("Magalu navigation uses the Meli-equivalent vocabulary and every declared r
   const client = read("public/js/magalu-app.js");
 
   assert.match(html, /<strong>Precificação<\/strong>/);
-  for (const pathName of ["/", "/gestao-skus", "/pedidos", "/precos", "/estoque", "/custos", "/margem", "/calculadora", "/contas", "/integracoes"]) {
+  for (const pathName of ["/", "/gestao-skus", "/pedidos", "/precos", "/estoque", "/margem", "/calculadora", "/contas", "/integracoes"]) {
     assert.match(client, new RegExp(`"${pathName}"`));
     const escaped = pathName === "/" ? "\\/" : pathName.replaceAll("/", "\\/");
     assert.match(html, new RegExp(`data-page="${escaped}"`));
