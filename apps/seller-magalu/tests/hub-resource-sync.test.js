@@ -3,6 +3,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
+const fs = require("node:fs");
+const path = require("node:path");
 
 function clearModule(relative) { try { delete require.cache[require.resolve(relative)]; } catch (_error) {} }
 async function withLoadStubs(stubs, load, run) {
@@ -46,6 +48,18 @@ test("Hub resource sync sends only the allowed connected-account payload", async
       });
     } finally { global.fetch = originalFetch; }
   });
+});
+
+test("Magalu marks only a completed OAuth callback for retirement reactivation", async () => {
+  clearModule("../src/services/hubResourceSyncService");
+  await withLoadStubs({ "../config/env": { HUB_BASE_URL: "https://hub.example", HUB_INTERNAL_TOKEN: "internal-token" } },
+    () => require("../src/services/hubResourceSyncService"), async (service) => {
+      const account = { id: 7, dach_tenant_id: "dach-a", magalu_tenant_id: "magalu-a" };
+      assert.equal(service._test.buildHubResourcePayload(account).oauth_confirmed, undefined);
+      assert.equal(service._test.buildHubResourcePayload(account, { oauthConfirmed: true }).oauth_confirmed, true);
+    });
+  const callback = fs.readFileSync(path.join(__dirname, "../src/controllers/oauthController.js"), "utf8");
+  assert.match(callback, /syncHubResource\(hubAccount,\s*\{\s*oauthConfirmed:\s*true\s*\}\)/);
 });
 
 test("Hub resource sync não marca como sincronizado um recurso inativo", async () => {

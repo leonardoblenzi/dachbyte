@@ -12,7 +12,7 @@ function localResourceKey(account) {
   return `magalu:${accountId}`;
 }
 
-function buildHubResourcePayload(account) {
+function buildHubResourcePayload(account, { oauthConfirmed = false } = {}) {
   const tenantId = String(account?.dach_tenant_id || "").trim();
   const accountId = String(account?.magalu_tenant_id || "").trim();
   const localAccountId = Number(account?.id);
@@ -25,10 +25,11 @@ function buildHubResourcePayload(account) {
     account_id: accountId,
     label: String(account?.magalu_tenant_name || accountId).trim() || accountId,
     metadata: { provider: "magalu", local_account_id: localAccountId, scopes: normalizedScopes(account.scopes) },
+    ...(oauthConfirmed ? { oauth_confirmed: true } : {}),
   };
 }
 
-async function syncHubResource(account) {
+async function syncHubResource(account, options = {}) {
   if (!env.HUB_BASE_URL || !env.HUB_INTERNAL_TOKEN) throw new Error("Hub interno não configurado para sincronização de recurso Magalu.");
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.max(1000, env.HUB_REQUEST_TIMEOUT_MS));
@@ -36,7 +37,7 @@ async function syncHubResource(account) {
     const response = await fetch(`${env.HUB_BASE_URL}/v1/internal/resources/sync`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${env.HUB_INTERNAL_TOKEN}` },
-      body: JSON.stringify(buildHubResourcePayload(account)),
+      body: JSON.stringify(buildHubResourcePayload(account, options)),
       signal: controller.signal,
     });
     if (!response.ok) throw new Error(`Hub resource sync failed (HTTP ${response.status}).`);

@@ -6,6 +6,10 @@ const publicRoutes = require("./routes/public.routes");
 const protectedRoutes = require("./routes");
 const { suiteAuth } = require("./middlewares/suiteAuth");
 const { errorHandler } = require("./middlewares/errorHandler");
+const db = require("./config/postgres");
+const { unlinkLocalAccount } = require("./repositories/accountManagementRepository");
+const { createMagaluRetirementService } = require("./services/internalRetirementService");
+const { createMagaluRetirementRouter } = require("./routes/internalRetirement.routes");
 
 async function createApp() {
   const app = express();
@@ -25,6 +29,11 @@ async function createApp() {
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: true }));
   app.use("/assets", express.static(path.resolve(__dirname, "../public"), { maxAge: "1h", etag: true }));
+
+  app.use("/internal/hub/retirement", createMagaluRetirementRouter({
+    secret: process.env.SELLER_RETIREMENT_TOKEN,
+    retire: createMagaluRetirementService({ query: db.query, unlinkLocalAccount }),
+  }));
 
   // Tudo abaixo daqui pertence ao produto autenticado e é fail-closed via Hub.
   app.use(suiteAuth);

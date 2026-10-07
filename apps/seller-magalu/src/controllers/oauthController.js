@@ -7,6 +7,7 @@ const { enqueueTokenRefresh, enqueueCatalogSync, enqueueHubResourceSync } = requ
 const { refreshAccount } = require("../services/magaluTokenService");
 const { checkHubAccess } = require("../services/hubAccessService");
 const { checkAccountAccess } = require("../services/hubResourceAccessService");
+const { syncHubResource } = require("../services/hubResourceSyncService");
 const { readSuiteIdentity } = require("../middlewares/suiteAuth");
 const { recordBestEffort } = require("../services/auditService");
 const {
@@ -273,6 +274,18 @@ async function callback(req, res) {
       account: connected.account,
       grantedScopeCount: scopeCount(connected.scopes),
     });
+    const hubAccount = await accountRepository.findAccountById(connected.account.id).catch(() => null);
+    let hubResourceConfirmed = false;
+    if (hubAccount) {
+      try {
+        await syncHubResource(hubAccount, { oauthConfirmed: true });
+        const resourceKey = `magalu:${hubAccount.magalu_tenant_id}`;
+        await accountRepository.setHubResourceSyncState(connected.account.id, { status: "synced", hubResourceKey: resourceKey, syncedAt: new Date(), error: null });
+        hubResourceConfirmed = true;
+      } catch (syncError) {
+        console.warn("[seller-magalu:oauth] Hub did not confirm account after OAuth", { accountId: connected.account.id, message: syncError?.message || String(syncError) });
+      }
+    }
     // Refresh é feito pelo worker. O enqueue imediato serve apenas para garantir
     // que uma conexão com expiração atípica entre rapidamente no fluxo normal.
     if (connected?.accessExpiresAt && new Date(connected.accessExpiresAt).getTime() <= Date.now() + env.MAGALU_TOKEN_REFRESH_SKEW_SECONDS * 1000) {
@@ -284,8 +297,7 @@ async function callback(req, res) {
     } catch (syncError) {
       console.warn("[seller-magalu:oauth] initial catalog sync was not queued", { accountId: connected.account.id, message: syncError?.message || String(syncError) });
     }
-    const hubAccount = await accountRepository.findAccountById(connected.account.id).catch(() => null);
-    if (hubAccount?.hub_sync_status !== "synced") {
+    if (!hubResourceConfirmed && hubAccount?.hub_sync_status !== "synced") {
       let shouldSchedule = true;
       if (hubAccount?.hub_sync_status === "failed") {
         shouldSchedule = await accountRepository.markHubResourceSyncPendingIfFailed(connected.account.id).catch(() => false);
