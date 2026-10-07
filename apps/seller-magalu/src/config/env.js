@@ -25,6 +25,9 @@ const DEFAULT_WRITE_SCOPES = [
   "open:portfolio-stocks-seller:write",
 ];
 const SKU_WRITE_SCOPE = "open:portfolio-skus-seller:write";
+// O catálogo IDM atual não oferece este scope, apesar da referência sandbox.
+// Mantê-lo na URL faz o consentimento inteiro falhar com invalid_scope.
+const UNAVAILABLE_OAUTH_SCOPES = new Set(["open:order-order-seller:write"]);
 
 const MAGALU_WRITE_ENABLED = bool(process.env.MAGALU_WRITE_ENABLED, false);
 const MAGALU_SKU_WRITE_ENABLED = bool(process.env.MAGALU_SKU_WRITE_ENABLED, false);
@@ -39,7 +42,7 @@ const DEFAULT_OAUTH_SCOPES = Array.from(new Set([
   ...(MAGALU_SKU_WRITE_ENABLED ? [SKU_WRITE_SCOPE] : []),
   ...(MAGALU_INVOICE_WRITE_ENABLED ? INVOICE_WRITE_SCOPES : []),
   ...(MAGALU_DELIVERY_WRITE_ENABLED ? DELIVERY_FINISH_WRITE_SCOPES : []),
-]));
+])).filter((scope) => !UNAVAILABLE_OAUTH_SCOPES.has(scope));
 
 module.exports = {
   NODE_ENV: clean(process.env.NODE_ENV || "development"),
