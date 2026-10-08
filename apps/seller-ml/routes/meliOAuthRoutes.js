@@ -13,8 +13,17 @@ const {
 } = require("../services/defaultMeliAccount");
 const { buildPlanCheckoutUrl } = require("../services/hubCreditsService");
 const { buildAccountBillingPayload } = require("../services/accountBillingStatus");
+const { createMlHubRelink } = require("../services/hubResourceRelinkService");
 
 const router = express.Router();
+
+async function confirmMlHubResourceAfterOAuth(outcome) {
+  const tenant = await db.query("select tenant_global_id from empresas where id=$1", [outcome.empresaId]);
+  const tenantId = String(tenant.rows[0]?.tenant_global_id || "").trim();
+  if (!tenantId) return;
+  const confirm = createMlHubRelink({ baseUrl: process.env.HUB_BASE_URL, token: process.env.HUB_INTERNAL_TOKEN });
+  await confirm({ tenantId, accountId: outcome.meli_user_id, label: `Conta ${outcome.meli_user_id}` });
+}
 
 // ===============================
 // Config do seu App (Mercado Livre)
@@ -1160,6 +1169,9 @@ router.get(
     });
 
     if (outcome?.contaId) {
+      await confirmMlHubResourceAfterOAuth(outcome).catch((error) => {
+        console.warn("[ML][OAuth] Hub did not confirm account relink", { accountId: outcome.contaId, error: error?.message || "hub_unavailable" });
+      });
       await setDefaultIfMissingForMembership(
         outcome.usuarioId,
         outcome.empresaId,

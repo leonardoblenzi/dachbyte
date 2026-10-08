@@ -326,6 +326,7 @@ async function callback(req, res) {
   const hubResourceSync = await ensureShopResourceSynced({
     auth: req.auth,
     shop,
+    oauthConfirmed: authFlow === "shop",
     status: isAdditionalNewShop ? "awaiting_subscription" : isFirstHubShop ? "active" : "legacy_active",
     billingMode: isAdditionalNewShop || isFirstHubShop ? "paid" : "legacy",
     usagePolicy: isAdditionalNewShop || isFirstHubShop ? "metered" : "unlimited",

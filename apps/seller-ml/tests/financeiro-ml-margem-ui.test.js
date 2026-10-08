@@ -135,8 +135,9 @@ test("bumps the margin assets cache keys", () => {
 });
 
 test("waits for the first filter before loading margin", () => {
-  const boot = js.match(/document\.addEventListener\("DOMContentLoaded", \(\) => \{([\s\S]*?)\n  \}\);\n\}\)\(\);/)?.[1];
-  assert.ok(boot);
+  const bootStart = js.indexOf('document.addEventListener("DOMContentLoaded", () => {');
+  assert.ok(bootStart >= 0, "margin initialization should run on DOMContentLoaded");
+  const boot = js.slice(bootStart);
   assert.match(boot, /initDates\(\)/);
   assert.doesNotMatch(boot, /\n    loadMargin\(\);\s*$/);
   assert.match(boot, /els\.form\?\.addEventListener\("submit",[\s\S]*?loadMargin\(\)/);

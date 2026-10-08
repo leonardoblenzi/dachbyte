@@ -1,5 +1,7 @@
 "use strict";
 
+process.env.ML_DATABASE_URL ||= "postgres://test:test@127.0.0.1:1/test";
+
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");

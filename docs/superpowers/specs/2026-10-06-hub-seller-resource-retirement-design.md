@@ -29,7 +29,7 @@ As chamadas internas identificam módulo, tenant DACH, recurso, conta externa e 
 
 ## Créditos e histórico
 
-O Hub reaproveita **Ajustar saldo**, que já exige motivo e hoje altera o saldo de recarga. A UI mostra cada componente de saldo e explica por que a exclusão está bloqueada. Se houver crédito utilizável de franquia ou plano, o administrador precisa resolvê-lo por política/rotina financeira apropriada; o ajuste de recarga não deve fingir que zera esses componentes. Ajuste manual negativo não equivale a estorno financeiro; qualquer obrigação de reembolso ou conciliação continua fora deste fluxo. O ledger de créditos, a política anterior, o ator e os recibos de desativação/exclusão permanecem consultáveis. Nenhum registro financeiro é apagado para liberar a exclusão.
+O Hub estende **Ajustar saldo** para escolher explicitamente créditos de plano (`monthly`) ou recarga (`purchased`), com motivo obrigatório e lançamento separado no ledger. A UI mostra ambos os saldos e explica por que a exclusão está bloqueada. O valor de franquia contratada (`monthly_allowance`) não é um saldo consumível e não precisa ser zerado; ajustar o saldo de plano não altera a franquia nem impede uma futura concessão enquanto o recurso estiver ativo. Após a desativação, concessões automáticas param. Ajuste manual negativo não equivale a estorno financeiro; qualquer obrigação de reembolso ou conciliação continua fora deste fluxo. O ledger de créditos, a política anterior, o ator e os recibos de desativação/exclusão permanecem consultáveis. Nenhum registro financeiro é apagado para liberar a exclusão.
 
 ## Interface administrativa
 
