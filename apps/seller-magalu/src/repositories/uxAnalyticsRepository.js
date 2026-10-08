@@ -135,6 +135,7 @@ function marginOrderCte(){return `with item_costs as (
   select o.id as order_id,
     count(oi.id)::int as synced_item_rows,
     coalesce(sum(case when c.unit_cost is not null then c.unit_cost*coalesce(oi.quantity,0) else 0 end),0)::numeric as product_cost,
+    coalesce(sum(case when c.unit_cost is not null then coalesce(oi.amount_total::numeric,oi.unit_price::numeric*coalesce(oi.quantity,0))/nullif(oi.amount_normalizer,0) else 0 end),0)::numeric as tax_base,
     coalesce(sum(case when c.unit_cost is not null then (coalesce(oi.amount_total::numeric,oi.unit_price::numeric*coalesce(oi.quantity,0))/nullif(oi.amount_normalizer,0))*coalesce(nullif(f.aliquota,0),c.tax_rate,0)/100 else 0 end),0)::numeric as taxes,
     coalesce(sum(case when c.unit_cost is not null then (coalesce(c.packaging_cost,0)+coalesce(c.operational_cost,0)+coalesce(c.other_cost,0))*coalesce(oi.quantity,0) else 0 end),0)::numeric as operating_costs,
     count(*) filter(where oi.id is not null and c.unit_cost is null)::int as missing_cost_rows,
@@ -148,24 +149,40 @@ function marginOrderCte(){return `with item_costs as (
     and lower(coalesce(o.status,'')) not in ('cancelled','canceled')
   group by o.id
 ), prepared as (
-  select o.id,o.code,o.status,o.purchased_at,o.item_count,
+  select o.id,o.code,o.status,o.purchased_at,o.item_count,oi_first.sku as first_sku,oi_first.name as first_product,
     case when o.amount_total is not null and coalesce(o.amount_normalizer,0)>0 then o.amount_total::numeric/o.amount_normalizer else 0 end as gmv,
     coalesce(ic.product_cost,0)::numeric as product_cost,
+    coalesce(ic.tax_base,0)::numeric as tax_base,
     coalesce(ic.taxes,0)::numeric as taxes,
     coalesce(ic.operating_costs,0)::numeric as operating_costs,
+    (fr.order_code is not null and fr.transaction_count>0) as financial_report_present,
+    fr.fetched_at as financial_fetched_at,
+    fr.sale as sale,fr.commission as commission,fr.fees as fees,fr.shipping_net as shipping_net,
+    fr.promotion_net as promotion_net,fr.subsidy as subsidy,fr.discount_net as discount_net,
+    fr.refund_net as refund_net,fr.other_net as other_net,fr.net_receivable as net_receivable,
+    d.shipping_name,d.shipping_type,d.is_fulfillment,
     (coalesce(ic.missing_cost_rows,0)
       + greatest(coalesce(o.item_count,0)-coalesce(ic.synced_item_rows,0),
           case when coalesce(ic.synced_item_rows,0)=0 then 1 else 0 end))::int as missing_cost_items,
     coalesce(ic.units,0)::numeric as units
   from magalu.orders o left join item_costs ic on ic.order_id=o.id
+  left join magalu.order_financial_reports fr on fr.account_id=o.account_id and fr.order_code=o.code
+  left join lateral (select shipping_name,shipping_type,is_fulfillment from magalu.deliveries d
+    where d.account_id=o.account_id and d.order_code=o.code and d.is_present=true
+    order by d.updated_at desc limit 1) d on true
+  left join lateral (select sku,name from magalu.order_items oi where oi.order_id=o.id
+    order by oi.id limit 1) oi_first on true
   where o.account_id=$1 and o.is_present=true
     and o.purchased_at >= $2::date and o.purchased_at < ($3::date + interval '1 day')
     and lower(coalesce(o.status,'')) not in ('cancelled','canceled')
 ), base as (
   select *,
-    case when missing_cost_items=0 then gmv-product_cost-taxes-operating_costs else null end as known_result,
-    case when missing_cost_items=0 and gmv>0 then round(((gmv-product_cost-taxes-operating_costs)/gmv)*100,2) else null end as known_margin_pct,
-    (missing_cost_items=0) as cost_complete
+    case when missing_cost_items=0 and financial_report_present then net_receivable-product_cost-taxes-operating_costs else null end as known_result,
+    case when missing_cost_items=0 and financial_report_present and gmv>0 then round(((net_receivable-product_cost-taxes-operating_costs)/gmv)*100,2) else null end as known_margin_pct,
+    case when missing_cost_items=0 and financial_report_present and units>0 then (gmv-(net_receivable-product_cost-taxes-operating_costs))/units else null end as break_even_per_unit,
+    case when missing_cost_items=0 and financial_report_present and units>0 then (net_receivable-product_cost-taxes-operating_costs)/units else null end as headroom_per_unit,
+    (missing_cost_items=0) as cost_complete,
+    (missing_cost_items=0 and financial_report_present) as result_complete
   from prepared
 )`;}
 
@@ -183,10 +200,10 @@ function marginFilters(options, start, end) {
   ))`);}
   if(costCoverage === "complete") where.push("cost_complete=true");
   if(costCoverage === "incomplete") where.push("cost_complete=false");
-  if(marginState === "negative") where.push("cost_complete=true and known_margin_pct<0");
-  if(marginState === "attention") where.push("cost_complete=true and known_margin_pct>=0 and known_margin_pct<=10");
-  if(marginState === "healthy") where.push("cost_complete=true and known_margin_pct>10");
-  if(marginState === "unknown") where.push("cost_complete=false");
+  if(marginState === "negative") where.push("result_complete=true and known_margin_pct<0");
+  if(marginState === "attention") where.push("result_complete=true and known_margin_pct>=0 and known_margin_pct<=10");
+  if(marginState === "healthy") where.push("result_complete=true and known_margin_pct>10");
+  if(marginState === "unknown") where.push("result_complete=false");
   if(marginMin != null){params.push(marginMin);where.push(`known_margin_pct>=$${params.length}`);}
   if(marginMax != null){params.push(marginMax);where.push(`known_margin_pct<=$${params.length}`);}
   return {params,where};
@@ -200,20 +217,21 @@ async function marginOverview(accountId, options={}){
   const summary=await db.queryOne(`${marginOrderCte()}
     select count(*)::int orders,
       coalesce(sum(gmv),0)::numeric gmv,
-      count(*) filter(where cost_complete)::int complete_orders,
-      count(*) filter(where not cost_complete)::int incomplete_orders,
-      coalesce(sum(gmv) filter(where cost_complete),0)::numeric covered_gmv,
-      coalesce(sum(gmv) filter(where not cost_complete),0)::numeric incomplete_gmv,
-      coalesce(sum(product_cost) filter(where cost_complete),0)::numeric product_cost,
-      coalesce(sum(taxes) filter(where cost_complete),0)::numeric taxes,
-      coalesce(sum(operating_costs) filter(where cost_complete),0)::numeric operating_costs,
-      coalesce(sum(known_result) filter(where cost_complete),0)::numeric known_result,
+      count(*) filter(where result_complete)::int complete_orders,
+      count(*) filter(where not result_complete)::int incomplete_orders,
+      coalesce(sum(gmv) filter(where result_complete),0)::numeric covered_gmv,
+      coalesce(sum(gmv) filter(where not result_complete),0)::numeric incomplete_gmv,
+      coalesce(sum(product_cost) filter(where result_complete),0)::numeric product_cost,
+      coalesce(sum(taxes) filter(where result_complete),0)::numeric taxes,
+      coalesce(sum(operating_costs) filter(where result_complete),0)::numeric operating_costs,
+      coalesce(sum(known_result) filter(where result_complete),0)::numeric known_result,
       coalesce(sum(missing_cost_items),0)::int missing_cost_items,
       count(*) filter(where not cost_complete)::int orders_with_missing_cost,
-      count(*) filter(where cost_complete and known_result<0)::int negative_orders,
-      count(*) filter(where cost_complete and known_margin_pct<=10)::int low_margin_orders,
-      case when coalesce(sum(gmv) filter(where cost_complete),0)>0
-        then round((sum(known_result) filter(where cost_complete)/sum(gmv) filter(where cost_complete))*100,2)
+      count(*) filter(where not financial_report_present)::int orders_without_financial_report,
+      count(*) filter(where result_complete and known_result<0)::int negative_orders,
+      count(*) filter(where result_complete and known_margin_pct<=10)::int low_margin_orders,
+      case when coalesce(sum(gmv) filter(where result_complete),0)>0
+        then round((sum(known_result) filter(where result_complete)/sum(gmv) filter(where result_complete))*100,2)
         else null end as known_margin_pct
     from base ${whereSql}`,filtered.params);
 
@@ -224,13 +242,13 @@ async function marginOverview(accountId, options={}){
     from base ${whereSql}
     order by purchased_at desc nulls last,id desc limit $${li} offset $${oi}`,rowParams);
   const best=await db.queryOne(`${marginOrderCte()}
-    select code,known_result,gmv from base ${whereSql}${whereSql?" and":" where"} cost_complete=true
+    select code,known_result,gmv from base ${whereSql}${whereSql?" and":" where"} result_complete=true
     order by known_result desc nulls last limit 1`,filtered.params);
 
   return {from:start,to:end,summary:summary||{},best:best||null,rows,total:rows.length?Number(rows[0].total_count||0):0,page,limit,
     limitations:{
-      commission:false,platform_fees:false,seller_shipping:false,
-      message:"Resultado conhecido considera somente pedidos com custo completo. Pedidos sem custo são excluídos do resultado/margem e permanecem visíveis como incompletos. Comissão, tarifa de plataforma e frete do vendedor ainda não estão disponíveis na integração atual do Magalu."
+      commission:true,platform_fees:true,seller_shipping:true,
+      message:"Resultado conhecido inclui as transações financeiras recebidas do Magalu e considera somente pedidos com relatório financeiro e custo cadastrado. Pedidos sem qualquer uma dessas fontes permanecem incompletos. O imposto global cadastrado e os custos adicionais informados são abatidos separadamente."
     }};
 }
 

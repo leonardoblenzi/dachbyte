@@ -72,7 +72,8 @@ test("trocar de conta volta ao estado sem resultados até novo filtro", async ()
   await settle();
   assert.equal(page.panels.find((panel) => panel.dataset.marginPanel === "summary").dataset.awaitingFilter, "true");
   assert.equal(page.panels.find((panel) => panel.dataset.marginPanel === "equilibrium").dataset.awaitingFilter, "true");
-  assert.equal(page.requests.length, 2);
+  assert.equal(page.requests.length, 3);
+  assert.equal(page.requests.filter((url) => url.includes("/margins/sync?")).length, 1);
 });
 
 test("Resumo usa a ordem de blocos da referência sem inventar comissão ou marketing", () => {
