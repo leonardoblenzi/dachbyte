@@ -1,0 +1,149 @@
+/* Costs tab follows the ML workspace rhythm using Magalu's own theme tokens. */
+#mg-financial-margin-page [data-margin-panel="costs"] {
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+}
+
+#mg-financial-margin-page [data-margin-panel="costs"] > * { min-width: 0; }
+
+#mg-financial-margin-page [data-margin-panel="costs"] .mg-fin-status-line {
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: var(--mg-surface);
+  box-shadow: var(--mg-shadow-sm);
+}
+
+#mg-financial-margin-page .mg-cost-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px !important;
+  border-radius: 20px !important;
+}
+
+.mg-cost-toolbar__copy { min-width: 0; }
+#mg-financial-margin-page .mg-cost-toolbar .mg-kicker,
+#mg-financial-margin-page .mg-cost-table-card .mg-kicker {
+  margin-bottom: 5px !important;
+  font-size: 10px !important;
+}
+
+.mg-cost-toolbar h2,
+.mg-cost-table-card h2 {
+  margin: 0;
+  color: var(--mg-title);
+  font-size: 17px;
+  line-height: 1.15;
+  letter-spacing: -.03em;
+}
+
+.mg-cost-toolbar p,
+.mg-cost-table-card p {
+  margin: 5px 0 0;
+  color: var(--mg-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.mg-cost-toolbar__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+#mg-financial-margin-page .mg-cost-toolbar__actions button { min-height: 38px; }
+
+#mg-financial-margin-page [data-margin-panel="costs"] .mg-rich-kpis {
+  gap: 12px;
+  margin: 0;
+}
+
+#mg-financial-margin-page [data-margin-panel="costs"] .mg-rich-kpi {
+  min-height: 96px;
+  padding: 16px 18px;
+  border-radius: 20px;
+}
+
+#mg-financial-margin-page [data-margin-panel="costs"] .mg-rich-kpi strong {
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+#mg-financial-margin-page [data-margin-panel="costs"] .mg-fin-two-col {
+  grid-template-columns: minmax(300px, .95fr) minmax(380px, 1.45fr);
+  gap: 16px;
+}
+
+#mg-financial-margin-page [data-margin-panel="costs"] .mg-fin-insights,
+#mg-financial-margin-page [data-margin-panel="costs"] .mg-fin-ranking {
+  padding: 18px;
+  border-radius: 20px;
+  box-shadow: var(--mg-shadow-sm);
+}
+
+#mg-financial-margin-page [data-margin-panel="costs"] .mg-fin-insight,
+#mg-financial-margin-page [data-margin-panel="costs"] .mg-fin-rank-row { border-radius: 14px; }
+
+#mg-financial-margin-page .mg-cost-filter-card.mg-ui-filter-card {
+  padding: 16px 18px;
+  border-radius: 20px;
+}
+
+.mg-cost-filter-card__fields {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.5fr) minmax(180px, 1fr);
+  gap: 10px;
+  max-width: 700px;
+}
+
+.mg-cost-filter-card__fields label { display: grid; gap: 5px; min-width: 0; }
+.mg-cost-filter-card__fields label span {
+  color: var(--mg-muted);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+#mg-financial-margin-page .mg-cost-filter-card input,
+#mg-financial-margin-page .mg-cost-filter-card select {
+  min-height: 38px;
+  font-size: 12px;
+}
+
+.mg-cost-filter-card p { margin: 10px 0 0; color: var(--mg-muted); font-size: 11px; }
+
+#mg-financial-margin-page .mg-cost-table-card.mg-ui-surface {
+  overflow: hidden;
+  padding: 0 !important;
+  border-radius: 20px !important;
+}
+
+.mg-cost-table-card__head { padding: 18px 20px; border-bottom: 1px solid var(--mg-border); }
+#mg-financial-margin-page .mg-cost-table-card .mg-table-wrap { margin: 0; }
+#mg-financial-margin-page .mg-cost-table-card .mg-pagination {
+  margin: 0;
+  padding: 14px 18px;
+  border-top: 1px solid var(--mg-border);
+}
+
+@media (max-width: 1180px) {
+  #mg-financial-margin-page [data-margin-panel="costs"] .mg-fin-two-col { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 760px) {
+  #mg-financial-margin-page .mg-cost-toolbar { align-items: stretch; flex-direction: column; }
+  .mg-cost-toolbar__actions { justify-content: flex-start; }
+  .mg-cost-filter-card__fields { grid-template-columns: 1fr; max-width: none; }
+  #mg-financial-margin-page [data-margin-panel="costs"] .mg-rich-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 480px) {
+  #mg-financial-margin-page [data-margin-panel="costs"] .mg-rich-kpis { grid-template-columns: 1fr; }
+  .mg-cost-toolbar__actions > button { flex: 1 1 130px; }
+}

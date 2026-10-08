@@ -128,8 +128,9 @@ test('pricing and account workspaces use the canonical visual primitives', () =>
 
   assert.doesNotMatch(financialMargin, /id="mg-financial-calculator-page"/, 'financial margin markup must stop at the next page boundary');
   assert.match(financialMargin, /class="mg-margin-filter-card mg-ui-filter-card"/, 'financial margin should use the canonical filter card');
-  assert.match(financialMargin, /data-margin-panel="costs"[\s\S]*class="mg-section-card mg-ui-surface"/, 'financial costs should use the canonical surface inside margin');
-  assert.ok((financialMargin.match(/class="mg-section-card mg-ui-surface"/g) || []).length >= 5, 'financial margin should use canonical surfaces for costs, insights, and results');
+  assert.match(financialMargin, /data-margin-panel="costs"[\s\S]*class="mg-cost-toolbar mg-ui-surface"/, 'financial costs should use the canonical surface inside margin');
+  assert.match(financialMargin, /class="mg-cost-table-card mg-ui-surface"/, 'financial costs table should use the canonical surface');
+  assert.ok((financialMargin.match(/class="[^"]* mg-ui-surface"/g) || []).length >= 5, 'financial margin should use canonical surfaces for costs, insights, and results');
   assert.equal((sync.match(/class="mg-section-card(?: mg-sync-history)? mg-ui-surface"/g) || []).length, 3, 'integrations should use canonical surfaces for connection, diagnostics, and history');
   assert.match(accounts, /class="mg-accounts-list-card mg-ui-surface"/, 'accounts should use the canonical surface');
 
