@@ -8,9 +8,25 @@ Module._load = function mockQueueDependencies(request, parent, isMain) {
   if (request === "node-fetch") return global.fetch;
   if (request === "bull") return class Bull {};
   if (request === "./authAuditService") return { recordAuthEvent: async () => {} };
+  if (request === "./estoqueAtualizacaoWorkerCredentials") {
+    return { loadWorkerCredentials: async () => null };
+  }
+  if (request === "./hubCreditsService") {
+    return {
+      quoteCredits: async () => ({ estimated_credits: 1, sufficient: true }),
+      reserveCredits: async ({ operationKey, idempotencyKey, units }) => ({
+        shadow: true,
+        bypass: true,
+        operation_key: operationKey,
+        idempotency_key: idempotencyKey,
+        operation_quantity: units,
+      }),
+      settleCredits: async (reservation) => reservation || null,
+    };
+  }
   return originalLoad.call(this, request, parent, isMain);
 };
-const queueService = require("../services/estoqueAtualizacaoQueueService");
+const queueService = require("../services/EstoqueAtualizacaoQueueService");
 Module._load = originalLoad;
 
 test("stock queue stores account identity but never caller credentials", async () => {

@@ -12,6 +12,11 @@ router.get("/alerta", Controller.list);
 router.get("/alerta/risk-kpi", Controller.riskKpi);
 
 router.post(
+  "/alerta/credits/quote",
+  Controller.quoteCredits,
+);
+
+router.post(
   "/alerta/analisar",
   createAuditAction({
     evento: "stock_alert_analysis_requested",
@@ -86,6 +91,11 @@ router.post(
     }),
   }),
   UpdatePreviewController.preview,
+);
+
+router.post(
+  "/atualizacao/credits/quote",
+  UpdateController.quoteCredits,
 );
 
 router.post(

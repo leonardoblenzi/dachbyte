@@ -149,6 +149,24 @@ class CaracteristicasController {
     }
   }
 
+  static async quoteExcelCredits(req, res) {
+    try {
+      const quote = await CaracteristicasJobsService.previewCredits({
+        rows: req.body?.rows,
+        dryRun: req.body?.dry_run === true,
+        mlCreds: res.locals?.mlCreds || {},
+        account: res.locals?.account || null,
+      });
+      return res.json({ success: true, ...quote });
+    } catch (error) {
+      return res.status(Number(error?.statusCode || 400)).json({
+        success: false,
+        error: error?.message || "Erro ao calcular o custo da importacao de caracteristicas.",
+        code: error?.code || null,
+      });
+    }
+  }
+
   static async applyExcel(req, res) {
     try {
       const job = await CaracteristicasJobsService.enqueue({

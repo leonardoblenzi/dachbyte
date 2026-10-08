@@ -9,6 +9,7 @@ const router = express.Router();
 
 router.get("/costs", FinanceiroMlController.listCosts);
 router.get("/costs/export", FinanceiroMlController.exportCosts);
+router.post("/costs/sync/credits/quote", FinanceiroMlController.quoteSyncCostsCatalog);
 router.post("/costs/sync", FinanceiroMlController.syncCostsCatalog);
 router.get("/costs/sync/:jobId", FinanceiroMlController.syncCostsCatalogStatus);
 router.post("/costs/import", FinanceiroMlController.importCosts);

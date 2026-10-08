@@ -59,6 +59,24 @@ class AtacadoController {
     }
   }
 
+  static async quoteCredits(req, res) {
+    try {
+      const quote = await AtacadoJobsService.previewCredits({
+        itemIds: req.body?.item_ids,
+        dryRun: req.body?.dry_run === true,
+        mlCreds: res.locals?.mlCreds || {},
+        account: res.locals?.account || null,
+      });
+      return res.json({ success: true, ...quote });
+    } catch (error) {
+      return res.status(Number(error?.statusCode || 400)).json({
+        success: false,
+        error: error?.message || "Erro ao calcular o custo do atacado.",
+        code: error?.code || null,
+      });
+    }
+  }
+
   static async apply(req, res) {
     try {
       const job = await AtacadoJobsService.enqueue({
@@ -95,7 +113,7 @@ class AtacadoController {
     try {
       return res.json({
         success: true,
-        jobs: AtacadoJobsService.listRecent(25, {
+        jobs: await AtacadoJobsService.listRecent(25, {
           accountKey: res.locals?.accountKey || null,
         }),
       });
@@ -109,7 +127,7 @@ class AtacadoController {
 
   static async jobDetail(req, res) {
     try {
-      const job = AtacadoJobsService.jobDetail(req.params?.job_id, {
+      const job = await AtacadoJobsService.jobDetail(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
       });
       if (!job) {
@@ -129,7 +147,7 @@ class AtacadoController {
 
   static async cancelJob(req, res) {
     try {
-      const job = AtacadoJobsService.cancelJob(req.params?.job_id, {
+      const job = await AtacadoJobsService.cancelJob(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
       });
       if (!job) {
@@ -161,7 +179,7 @@ class AtacadoController {
 
   static async downloadCsv(req, res) {
     try {
-      const file = AtacadoJobsService.getJobCsv(req.params?.job_id, {
+      const file = await AtacadoJobsService.getJobCsv(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
       });
       if (!file?.csv) {

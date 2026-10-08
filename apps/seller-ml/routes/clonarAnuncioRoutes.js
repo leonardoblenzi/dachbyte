@@ -17,6 +17,7 @@ router.get("/drafts", ClonarAnuncioController.listDrafts);
 router.get("/drafts/:id", ClonarAnuncioController.getDraft);
 router.put("/drafts/:id", ClonarAnuncioController.updateDraft);
 router.post("/drafts/:id/validate", ClonarAnuncioController.validateDraft);
+router.post("/drafts/:id/credits/quote", ClonarAnuncioController.quotePublishCredits);
 router.post("/drafts/:id/publish", ClonarAnuncioController.publishDraft);
 
 module.exports = router;

@@ -2,6 +2,10 @@
 
 const estoqueService = require("../services/estoqueAlertaService");
 const estoqueQueue = require("../services/estoqueAlertaQueueService");
+const {
+  getRequestIp,
+  getRequestUserAgent,
+} = require("../services/authAuditService");
 
 function pickAccessToken(req) {
   const token = req?.ml?.accessToken;
@@ -21,11 +25,41 @@ function accountContext(res) {
   };
 }
 
+function auditContext(req, res) {
+  return {
+    userId: Number(req.user?.uid || req.user?.id || req.user?.usuario_id || res.locals?.user?.id) || null,
+    email: req.user?.email || res.locals?.user?.email || null,
+    ip: getRequestIp(req),
+    userAgent: getRequestUserAgent(req),
+    accountKey: res.locals?.accountKey || null,
+    accountLabel: res.locals?.accountLabel || null,
+    meli_conta_id: res.locals?.mlCreds?.meli_conta_id || null,
+  };
+}
+
+async function quoteCredits(req, res) {
+  try {
+    const ctx = accountContext(res);
+    const quote = await estoqueQueue.previewStockScanCredits({
+      mlCreds: ctx.mlCreds,
+      account: res.locals?.account || null,
+      maxItems: req.body?.max_items ?? req.body?.maxItems ?? null,
+    });
+    res.json({ success: true, ...quote });
+  } catch (error) {
+    res.status(error.statusCode || error.status || 400).json({
+      success: false,
+      error: error.message || "Falha ao calcular custo da analise de estoque.",
+      details: error.details || null,
+    });
+  }
+}
+
 async function analyze(req, res) {
   try {
     const accessToken = pickAccessToken(req);
     const ctx = accountContext(res);
-    const payload = await estoqueService.analyzeStock({
+    const payload = await estoqueQueue.analyzeStockWithCredits({
       accessToken,
       mlCreds: ctx.mlCreds,
       accountKey: ctx.accountKey,
@@ -36,6 +70,7 @@ async function analyze(req, res) {
       periodDays: req.body?.period_days ?? req.body?.periodDays ?? 30,
       customFrom: req.body?.custom_from ?? req.body?.customFrom ?? null,
       customTo: req.body?.custom_to ?? req.body?.customTo ?? null,
+      auditContext: auditContext(req, res),
     });
     res.json(payload);
   } catch (error) {
@@ -65,6 +100,7 @@ async function enqueue(req, res) {
       periodDays: req.body?.period_days ?? req.body?.periodDays ?? 30,
       customFrom: req.body?.custom_from ?? req.body?.customFrom ?? null,
       customTo: req.body?.custom_to ?? req.body?.customTo ?? null,
+      auditContext: auditContext(req, res),
     });
     res.json({
       success: true,
@@ -187,6 +223,7 @@ async function cancelJob(req, res) {
 }
 
 module.exports = {
+  quoteCredits,
   analyze,
   enqueue,
   list,

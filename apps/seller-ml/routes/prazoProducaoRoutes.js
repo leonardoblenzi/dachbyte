@@ -3,6 +3,10 @@
 const express = require("express");
 const PrazoProducaoController = require("../controllers/PrazoProducaoController");
 const { createAuditAction } = require("../middleware/auditAction");
+const {
+  guardSingleOperation,
+  requireSingleMlb,
+} = require("../services/singleOperationGuardService");
 
 const router = express.Router();
 
@@ -16,6 +20,12 @@ router.post(
     }),
   }),
   PrazoProducaoController.consultarPrazoProducao
+);
+
+router.post(
+  "/anuncios/prazo-producao/credits/quote",
+  express.json({ limit: "1mb" }),
+  PrazoProducaoController.quotePrazoCredits,
 );
 
 router.post(
@@ -42,6 +52,8 @@ router.post(
       days: Number(req.body?.days ?? req.body?.prazo_dias ?? 0) || 0,
     }),
   }),
+  requireSingleMlb((req) => req.body?.mlb_id),
+  guardSingleOperation("production-time.apply"),
   PrazoProducaoController.setPrazoProducaoSingle
 );
 

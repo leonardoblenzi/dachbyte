@@ -1,6 +1,7 @@
 "use strict";
 
 const Bull = require("bull");
+const crypto = require("crypto");
 const { makeBullClient } = require("../lib/redisClient");
 const {
   processStockChanges,
@@ -9,6 +10,7 @@ const {
 } = require("./EstoqueAtualizacaoService");
 const { buildCsv, attachJobReview } = require("./jobReviewHelper");
 const { recordAuthEvent } = require("./authAuditService");
+const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
 const { loadWorkerCredentials } = require("./estoqueAtualizacaoWorkerCredentials");
 
 const QUEUE_NAME = "estoque-atualizacao-queue";
@@ -65,6 +67,87 @@ function safeText(value, max = 700) {
   return text.length > max ? `${text.slice(0, max - 3)}...` : text;
 }
 
+function stockChangeKey(change = {}) {
+  const mlb = String(change?.mlb || change?.item_id || "").trim().toUpperCase();
+  const variation = String(change?.variation_id || "").trim();
+  return mlb ? `${mlb}:${variation || "item"}` : null;
+}
+
+function dedupeStockChanges(changes = []) {
+  const map = new Map();
+  for (const change of Array.isArray(changes) ? changes : []) {
+    const key = stockChangeKey(change);
+    if (!key) continue;
+    map.set(key, change);
+  }
+  return [...map.values()];
+}
+
+function stockApplyIdempotencyKey(operationId) {
+  const id = String(operationId || "").trim();
+  if (!id) throw new Error("stock_apply_operation_id_required");
+  return `stock.apply:${id}`;
+}
+
+function stockApplyBillableUnits(meta = {}, result = null) {
+  const summary = result?.summary || {};
+  const applied = Number(summary.applied ?? meta.applied ?? 0);
+  const divergent = Number(summary.divergent ?? meta.divergent ?? 0);
+  return Math.max(0, applied + divergent);
+}
+
+function stockApplyTelemetry(job = {}, meta = {}, result = null) {
+  const reservation = job?.data?.creditReservation || {};
+  const summary = result?.summary || {};
+  const applied = Math.max(0, Number(summary.applied ?? meta.applied ?? 0));
+  const divergent = Math.max(0, Number(summary.divergent ?? meta.divergent ?? 0));
+  const written = stockApplyBillableUnits(meta, result);
+  return {
+    billing_mode:
+      !reservation || Object.keys(reservation).length === 0
+        ? "pending"
+        : reservation?.shadow === true
+          ? "shadow"
+          : reservation?.bypass === true
+            ? "bypass"
+            : "enforce",
+    operation_key: "stock.apply",
+    operation_id: job?.data?.operationId || null,
+    selected: Math.max(0, Number(summary.total ?? meta.total ?? job?.data?.changes?.length ?? 0)),
+    processed: Math.max(0, Number(summary.processed ?? meta.processed ?? 0)),
+    applied,
+    divergent,
+    written,
+    blocked: Math.max(0, Number(summary.blocked ?? meta.blocked ?? 0)),
+    stale: Math.max(0, Number(summary.stale ?? meta.stale ?? 0)),
+    errors: Math.max(0, Number(summary.errors ?? meta.errors ?? 0)),
+    billable_units: written,
+    estimated_credits:
+      reservation?.quote?.estimated_credits ??
+      reservation?.reserved_credits ??
+      null,
+    duration_ms:
+      meta.startedAt && (meta.finishedAt || meta.failedAt)
+        ? Math.max(0, Number(meta.finishedAt || meta.failedAt) - Number(meta.startedAt))
+        : null,
+  };
+}
+
+function sanitizeBillingCreds(mlCreds = {}) {
+  return {
+    meli_user_id: mlCreds?.meli_user_id || mlCreds?.user_id || null,
+    tenant_id: mlCreds?.tenant_id || mlCreds?.tenant_global_id || null,
+    tenant_global_id: mlCreds?.tenant_global_id || mlCreds?.tenant_id || null,
+    meli_conta_id: mlCreds?.meli_conta_id || null,
+    billing_status: mlCreds?.billing_status || null,
+    billing_mode: mlCreds?.billing_mode || null,
+    usage_policy: mlCreds?.usage_policy || null,
+    billing_plan_code: mlCreds?.billing_plan_code || null,
+    billing_order_range_code: mlCreds?.billing_order_range_code || null,
+    account_label: mlCreds?.account_label || null,
+  };
+}
+
 function actorBase(job = {}) {
   const ctx = job?.data?.auditContext || {};
   return {
@@ -74,7 +157,8 @@ function actorBase(job = {}) {
     userAgent: ctx.userAgent || null,
     accountKey: ctx.accountKey || job?.data?.accountKey || null,
     accountLabel: ctx.accountLabel || job?.data?.accountLabel || null,
-    meli_conta_id: ctx.meli_conta_id || job?.data?.mlCreds?.meli_conta_id || null,
+    meli_conta_id: ctx.meli_conta_id || job?.data?.billingCreds?.meli_conta_id || null,
+    operationId: job?.data?.operationId || null,
   };
 }
 
@@ -92,6 +176,7 @@ async function auditJob(job, evento, status, metadata = {}) {
       accountLabel: actor.accountLabel,
       meli_conta_id: actor.meli_conta_id,
       job_id: String(job?.id || ""),
+      operation_id: actor.operationId,
       action: "bulk_stock_update",
       ...metadata,
     },
@@ -160,6 +245,7 @@ async function processJob(job) {
           blocked: Number(summary.blocked || 0),
           stale: Number(summary.stale || 0),
           divergent: Number(summary.divergent || 0),
+          written: Number(summary.applied || 0) + Number(summary.divergent || 0),
           phase: progress.phase || "updating",
           current_mlb: progress.current_mlb || null,
           updatedAt: Date.now(),
@@ -178,6 +264,7 @@ async function processJob(job) {
       blocked: Number(summary.blocked || 0),
       stale: Number(summary.stale || 0),
       divergent: Number(summary.divergent || 0),
+      written: Number(summary.applied || 0) + Number(summary.divergent || 0),
       canceled: Number(summary.canceled || 0),
       phase: result.canceled ? "canceled" : "finished",
       finishedAt: Date.now(),
@@ -203,6 +290,7 @@ async function processJob(job) {
         canceled: Number(summary.canceled || 0),
         retryable: Number(summary.retryable || 0),
         multi_origin: result.multi_origin === true,
+        billing_telemetry: stockApplyTelemetry(job, job.data.__meta || {}, result),
       },
     );
 
@@ -219,6 +307,7 @@ async function processJob(job) {
     await auditJob(job, "stock_bulk_update_job_failed", "error", {
       total_rows: total,
       processed: Number(job.data.__meta?.processed || 0),
+      billing_telemetry: stockApplyTelemetry(job, job.data.__meta || {}, job?.returnvalue || null),
       error: safeText(error?.message || error),
       status_code: error?.statusCode || error?.status || null,
     });
@@ -268,7 +357,9 @@ async function jobToPayload(job) {
     blocked: Number(summary.blocked ?? meta.blocked ?? 0),
     stale: Number(summary.stale ?? meta.stale ?? 0),
     divergent: Number(summary.divergent ?? meta.divergent ?? 0),
+    written: Number(meta.written ?? (Number(summary.applied || 0) + Number(summary.divergent || 0))),
     retryable: Number(summary.retryable || 0),
+    billing_telemetry: stockApplyTelemetry(job, meta, result),
     cancel_requested: job.data?.cancel_requested === true,
     completed,
     error: meta.error || job.failedReason || null,
@@ -295,11 +386,12 @@ async function jobToPayload(job) {
 async function enqueueStockUpdateJob({
   accountKey,
   accountLabel,
+  mlCreds = {},
   changes = [],
   auditContext = null,
   title = null,
 } = {}) {
-  const rows = Array.isArray(changes) ? changes : [];
+  const rows = dedupeStockChanges(changes);
   if (!rows.length) {
     const error = new Error("Nenhuma alteracao pronta foi enviada para a fila.");
     error.statusCode = 400;
@@ -317,21 +409,39 @@ async function enqueueStockUpdateJob({
   }
 
   const queue = getQueue();
-  const job = await queue.add(
+  const operationId = `STOCK-APPLY-${crypto.randomUUID()}`;
+  const billingCreds = sanitizeBillingCreds(mlCreds);
+  const creditReservation = await reserveCredits({
+    mlCreds,
+    operationKey: "stock.apply",
+    units: rows.length,
+    idempotencyKey: stockApplyIdempotencyKey(operationId),
+  });
+
+  let job;
+  try {
+    job = await queue.add(
     {
       title: title || `Estoque - atualizar ${rows.length} ${rows.length === 1 ? "linha" : "linhas"}`,
       accountKey,
       accountLabel,
+      billingCreds,
       changes: rows,
       auditContext,
       cancel_requested: false,
+      operationId,
+      creditReservation,
     },
     {
       attempts: 1,
       removeOnComplete: { age: 60 * 60 * 24 * 5, count: 100 },
       removeOnFail: { age: 60 * 60 * 24 * 5, count: 100 },
     },
-  );
+    );
+  } catch (error) {
+    await settleCredits(creditReservation, { release: true });
+    throw error;
+  }
   return String(job.id);
 }
 
@@ -344,11 +454,52 @@ function initWorker() {
   });
   queue.process(1, processJob);
   queue.on("active", (job) => console.log("[EstoqueAtualizacaoQueue] job active:", job?.id));
-  queue.on("completed", (job) => console.log("[EstoqueAtualizacaoQueue] job completed:", job?.id));
-  queue.on("failed", (job, error) => console.error("[EstoqueAtualizacaoQueue] job failed:", job?.id, error?.message || error));
+  queue.on("completed", async (job) => {
+    console.log("[EstoqueAtualizacaoQueue] job completed:", job?.id);
+    const meta = job?.data?.__meta || {};
+    const billableUnits = stockApplyBillableUnits(meta, job?.returnvalue || null);
+    await settleCredits(job?.data?.creditReservation, {
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
+    });
+  });
+  queue.on("failed", async (job, error) => {
+    console.error("[EstoqueAtualizacaoQueue] job failed:", job?.id, error?.message || error);
+    const meta = job?.data?.__meta || {};
+    const billableUnits = stockApplyBillableUnits(meta, job?.returnvalue || null);
+    await settleCredits(job?.data?.creditReservation, {
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
+    });
+  });
   queue.on("stalled", (job) => console.warn("[EstoqueAtualizacaoQueue] job stalled:", job?.id));
   console.log("[EstoqueAtualizacaoQueue] worker iniciado");
   return queue;
+}
+
+async function previewStockApplyCredits({ mlCreds = {}, account = null, changes = [] } = {}) {
+  const rows = dedupeStockChanges(changes);
+  if (!rows.length) {
+    const error = new Error("Nenhuma alteracao pronta foi informada para calcular o custo.");
+    error.statusCode = 400;
+    throw error;
+  }
+  const quote = await quoteCredits({
+    mlCreds,
+    account,
+    operationKey: "stock.apply",
+    units: rows.length,
+  });
+  return {
+    operation_key: "stock.apply",
+    quantity: rows.length,
+    estimated_credits: Number(quote?.estimated_credits || 0),
+    available_credits: quote?.available_credits == null ? null : Number(quote.available_credits),
+    sufficient: quote?.sufficient !== false,
+    unlimited: quote?.unlimited === true,
+    deferred: false,
+    quote,
+  };
 }
 
 async function listStockUpdateJobs(limit = RECENT_LIMIT, { accountKey } = {}) {
@@ -405,7 +556,9 @@ async function cancelStockUpdateJob(id, { accountKey } = {}) {
     await auditJob(job, "stock_bulk_update_job_canceled", "warn", {
       total_rows: Number(job.data?.changes?.length || 0),
       before_start: true,
+      billing_telemetry: stockApplyTelemetry(job, job.data?.__meta || {}, null),
     });
+    await settleCredits(job?.data?.creditReservation, { release: true }).catch(() => {});
     await job.remove();
     return { ok: true, status: "cancelado" };
   }
@@ -420,7 +573,10 @@ async function cancelStockUpdateJob(id, { accountKey } = {}) {
   return { ok: true, status: "cancelando" };
 }
 
-async function retryFailedStockJob(id, { accountKey, auditContext = null } = {}) {
+async function retryFailedStockJob(
+  id,
+  { accountKey, mlCreds = {}, auditContext = null } = {},
+) {
   const queue = getQueue();
   const job = await queue.getJob(id);
   if (!job || !canAccessJob(job, accountKey)) return null;
@@ -448,6 +604,10 @@ async function retryFailedStockJob(id, { accountKey, auditContext = null } = {})
   const newId = await enqueueStockUpdateJob({
     accountKey: job.data.accountKey,
     accountLabel: job.data.accountLabel,
+    mlCreds:
+      mlCreds?.meli_user_id || mlCreds?.tenant_id || mlCreds?.tenant_global_id
+        ? mlCreds
+        : job.data.billingCreds || {},
     changes,
     auditContext: auditContext || job.data.auditContext || null,
     title: `Estoque - nova tentativa de ${retryable.length} ${retryable.length === 1 ? "linha" : "linhas"}`,
@@ -468,8 +628,15 @@ module.exports = {
   getStockUpdateJobCsv,
   cancelStockUpdateJob,
   retryFailedStockJob,
+  previewStockApplyCredits,
   _test: {
     normalizeState,
+    stockChangeKey,
+    dedupeStockChanges,
+    stockApplyIdempotencyKey,
+    stockApplyBillableUnits,
+    stockApplyTelemetry,
+    sanitizeBillingCreds,
     countAttention,
     canAccessJob,
     processJob,

@@ -1,6 +1,7 @@
 "use strict";
 
 const Bull = require("bull");
+const crypto = require("crypto");
 const { makeBullClient, getSharedRedis } = require("../lib/redisClient");
 const ExclusaoService = require("./excluirAnuncioService");
 const { attachJobReview } = require("./jobReviewHelper");
@@ -10,7 +11,8 @@ function resolveJobId(value) {
   return backendJobIdFromUid("gestao-anuncios", value);
 }
 const { recordAuthEvent } = require("./authAuditService");
-const { reserveCredits, settleCredits } = require("./hubCreditsService");
+const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
+const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 const QUEUE_NAME = "ml-exclusao-lote";
 const SERVICE_LOG_LABEL = "GestaoAnunciosJobService";
@@ -224,6 +226,165 @@ function normalizeAccountKey(value) {
   return v || null;
 }
 
+function normalizeMlbIds(values = []) {
+  const seen = new Set();
+  const ids = [];
+  for (const value of Array.isArray(values) ? values : []) {
+    const id = String(value || "").trim().toUpperCase();
+    if (!/^MLB\d{5,}$/.test(id) || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+const LISTING_BILLING_OPERATION_KEYS = Object.freeze({
+  ACTIVATE: "listing.activate",
+  PAUSE: "listing.pause",
+  CLOSE: "listing.close",
+  DELETE: "listing.bulk-delete",
+  CLOSE_RELIST: "listing.relist",
+  PAUSE_RELIST: "listing.pause-relist",
+});
+
+function listingBillingOperationKey(operation) {
+  return LISTING_BILLING_OPERATION_KEYS[normalizeOperation(operation)] || null;
+}
+
+function listingBillingIdempotencyKey(operation, operationId) {
+  const operationKey = listingBillingOperationKey(operation);
+  const id = String(operationId || "").trim();
+  if (!operationKey) throw new Error("listing_operation_not_priced");
+  if (!id) throw new Error("listing_operation_id_required");
+  return `${operationKey}:${id}`;
+}
+
+function bulkDeleteIdempotencyKey(operationId) {
+  return listingBillingIdempotencyKey("DELETE", operationId);
+}
+
+function isBillableDeleteOperation(operation) {
+  return normalizeOperation(operation) === "DELETE";
+}
+
+function listingBillableUnits(job = {}, meta = {}) {
+  const operation = normalizeOperation(meta.operation || job?.data?.operation);
+  if (operation === "DELETE") {
+    return Math.max(0, Number(meta.success ?? job?.returnvalue?.success ?? 0));
+  }
+  if (["ACTIVATE", "PAUSE", "CLOSE"].includes(operation)) {
+    return Math.max(0, Number(meta.changed ?? job?.returnvalue?.changed ?? 0));
+  }
+  if (["CLOSE_RELIST", "PAUSE_RELIST"].includes(operation)) {
+    return Math.max(0, Number(meta.relisted ?? job?.returnvalue?.relisted ?? 0));
+  }
+  return 0;
+}
+
+function bulkDeleteBillableUnits(job = {}, meta = {}) {
+  return isBillableDeleteOperation(meta.operation || job?.data?.operation)
+    ? listingBillableUnits(job, meta)
+    : 0;
+}
+
+function listingBillingTelemetry(job = {}, meta = {}) {
+  const reservation = job?.data?.creditReservation || {};
+  const operation = normalizeOperation(meta.operation || job?.data?.operation);
+  const operationKey = listingBillingOperationKey(operation);
+  const billableUnits = listingBillableUnits(job, meta);
+  return {
+    billing_mode:
+      !operationKey
+        ? "not_priced"
+        : !reservation || Object.keys(reservation).length === 0
+          ? "pending"
+          : reservation?.shadow === true
+            ? "shadow"
+            : reservation?.bypass === true
+              ? "bypass"
+              : "enforce",
+    operation_key: operationKey,
+    operation_id: job?.data?.operationId || null,
+    operation,
+    selected: Math.max(0, Number(meta.total || job?.data?.mlbIds?.length || 0)),
+    processed: Math.max(0, Number(meta.processed || 0)),
+    success: Math.max(0, Number(meta.success || 0)),
+    changed: Math.max(0, Number(meta.changed || 0)),
+    relisted: Math.max(0, Number(meta.relisted || 0)),
+    fallback_relisted: Math.max(0, Number(meta.fallbackRelisted || 0)),
+    failed: Math.max(0, Number(meta.failed || 0)),
+    billable_units: billableUnits,
+    estimated_credits:
+      reservation?.quote?.estimated_credits ??
+      reservation?.reserved_credits ??
+      null,
+    duration_ms:
+      meta.startedAt && (meta.finishedAt || meta.failedAt)
+        ? Math.max(0, Number(meta.finishedAt || meta.failedAt) - Number(meta.startedAt))
+        : null,
+  };
+}
+
+function bulkDeleteTelemetry(job = {}, meta = {}) {
+  return listingBillingTelemetry(job, meta);
+}
+
+async function previewListingOperationCredits({
+  mlCreds = {},
+  account = null,
+  mlbIds = [],
+  operation = "DELETE",
+} = {}) {
+  const normalizedOperation = normalizeOperation(operation);
+  const operationKey = listingBillingOperationKey(normalizedOperation);
+  const ids = normalizeMlbIds(mlbIds);
+  if (!ids.length) {
+    const error = new Error("Nenhum MLB valido foi informado para calcular o custo.");
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!operationKey) {
+    return {
+      operation: normalizedOperation,
+      operation_key: null,
+      quantity: ids.length,
+      estimated_credits: 0,
+      available_credits: null,
+      sufficient: true,
+      unlimited: false,
+      deferred: false,
+      not_priced: true,
+    };
+  }
+  const quote = await quoteCredits({
+    mlCreds,
+    account,
+    operationKey,
+    units: ids.length,
+  });
+  return {
+    operation: normalizedOperation,
+    operation_key: operationKey,
+    quantity: ids.length,
+    estimated_credits: Number(quote?.estimated_credits || 0),
+    available_credits: quote?.available_credits == null ? null : Number(quote.available_credits),
+    sufficient: quote?.sufficient !== false,
+    unlimited: quote?.unlimited === true,
+    deferred: false,
+    not_priced: false,
+    quote,
+  };
+}
+
+async function previewBulkDeleteCredits({ mlCreds = {}, account = null, mlbIds = [] } = {}) {
+  return previewListingOperationCredits({
+    mlCreds,
+    account,
+    mlbIds,
+    operation: "DELETE",
+  });
+}
+
 function parseMlDetails(value) {
   if (!value) return null;
   if (typeof value === "object") return value;
@@ -297,6 +458,7 @@ function buildAuditBase(job, operation) {
     method: context.method || null,
     operation,
     job_id: job?.id ? String(job.id) : null,
+    operation_id: job?.data?.operationId || null,
   };
 }
 
@@ -317,6 +479,7 @@ async function auditJobEvent(job, evento, status, operation, metadata = {}) {
       method: base.method,
       operation: base.operation,
       job_id: base.job_id,
+      operation_id: base.operation_id,
       ...metadata,
     },
   }).catch((err) => {
@@ -417,6 +580,9 @@ async function runJob(job) {
     total,
     processed: 0,
     success: 0,
+    changed: 0,
+    relisted: 0,
+    fallbackRelisted: 0,
     failed: 0,
     startedAt: Date.now(),
     updatedAt: Date.now(),
@@ -437,6 +603,9 @@ async function runJob(job) {
   const failedItems = [];
   let resultBuffer = [];
   let success = 0;
+  let changed = 0;
+  let relisted = 0;
+  let fallbackRelisted = 0;
   let failed = 0;
 
   await initResultsManifest(job.id);
@@ -447,6 +616,19 @@ async function runJob(job) {
     }
     if (job.data.__meta?.cancelRequested) {
       if (resultBuffer.length) await appendResultsChunk(job.id, resultBuffer);
+      await updateMeta(job, {
+        status: "cancelando",
+        operation,
+        total,
+        processed: index,
+        success,
+        changed,
+        relisted,
+        fallbackRelisted,
+        failed,
+        failedItems,
+        updatedAt: Date.now(),
+      });
       throw new JobCancelledError();
     }
     const mlbId = mlbIds[index];
@@ -471,6 +653,14 @@ async function runJob(job) {
       status_final: resolveFinalStatus(result, operation),
       status: result?.success ? "success" : "error",
       success: !!result?.success,
+      changed: result?.changed === true || (operation === "DELETE" && result?.success === true),
+      relisted:
+        (operation === "CLOSE_RELIST" || operation === "PAUSE_RELIST") &&
+        result?.success === true,
+      fallback_relisted:
+        operation === "PAUSE_RELIST" &&
+        result?.success === true &&
+        result?.fallback_closed === true,
       message:
         result?.message ||
         result?.error ||
@@ -504,6 +694,15 @@ async function runJob(job) {
 
     if (result?.success) {
       success += 1;
+      if (["ACTIVATE", "PAUSE", "CLOSE"].includes(operation) && result?.changed === true) {
+        changed += 1;
+      }
+      if (operation === "CLOSE_RELIST" || operation === "PAUSE_RELIST") {
+        relisted += 1;
+        if (operation === "PAUSE_RELIST" && result?.fallback_closed === true) {
+          fallbackRelisted += 1;
+        }
+      }
     } else {
       failed += 1;
       if (failedItems.length < 200) {
@@ -529,6 +728,9 @@ async function runJob(job) {
         total,
         processed,
         success,
+        changed,
+        relisted,
+        fallbackRelisted,
         failed,
         failedItems,
         updatedAt: Date.now(),
@@ -552,6 +754,9 @@ async function runJob(job) {
     total,
     processed: total,
     success,
+    changed,
+    relisted,
+    fallbackRelisted,
     failed,
     failedItems,
     finishedAt: Date.now(),
@@ -559,12 +764,28 @@ async function runJob(job) {
   });
   await job.progress(100);
 
+  const completedMeta = {
+    ...(job.data?.__meta || {}),
+    operation,
+    total,
+    processed: total,
+    success,
+    changed,
+    relisted,
+    fallbackRelisted,
+    failed,
+    finishedAt: Date.now(),
+  };
   await auditJobEvent(job, "listing_management_job_completed", failed > 0 ? "warn" : "success", operation, {
     total_items: total,
     processed: total,
     success,
+    changed,
+    relisted,
+    fallback_relisted: fallbackRelisted,
     failed,
     failed_items: failedItems.slice(0, 50),
+    billing_telemetry: listingBillingTelemetry(job, completedMeta),
   });
 
   return {
@@ -572,6 +793,9 @@ async function runJob(job) {
     operation,
     total,
     success,
+    changed,
+    relisted,
+    fallbackRelisted,
     failed,
     failedItems,
     result_total: total,
@@ -637,6 +861,7 @@ async function mapJob(job) {
     result_total: persistedResultTotal,
     operation,
     account: buildAccount(job.data),
+    billing_telemetry: listingBillingTelemetry(job, meta),
     result: status === "concluido" ? job.returnvalue || null : null,
     failed_items: failedItems,
   }, {
@@ -710,23 +935,37 @@ async function enqueueJob({
   auditContext = null,
 }) {
   const queue = getQueue();
-  const creditReservation = await reserveCredits({
-    mlCreds,
-    operationKey: "listing.bulk-delete",
-    units: Math.max(1, Array.isArray(mlbIds) ? mlbIds.length : 0),
-  });
+  const normalizedOperation = normalizeOperation(operation);
+  const normalizedMlbIds = normalizeMlbIds(mlbIds);
+  if (!normalizedMlbIds.length) {
+    const error = new Error("Nenhum MLB valido foi informado para a operacao em lote.");
+    error.statusCode = 400;
+    throw error;
+  }
+  const operationId = `LISTING-${normalizedOperation}-${crypto.randomUUID()}`;
+  const billingOperationKey = listingBillingOperationKey(normalizedOperation);
+  const creditReservation = billingOperationKey
+    ? await reserveCredits({
+        mlCreds,
+        operationKey: billingOperationKey,
+        units: normalizedMlbIds.length,
+        idempotencyKey: listingBillingIdempotencyKey(normalizedOperation, operationId),
+      })
+    : null;
   let job;
   try {
     job = await queue.add(
       {
-        mlbIds,
+        mlbIds: normalizedMlbIds,
         delayMs,
-        operation: normalizeOperation(operation),
+        operation: normalizedOperation,
         mlCreds,
         accountKey,
         accountLabel,
         auditContext,
         creditReservation,
+        operationId,
+        billingOperationKey,
         createdAt: Date.now(),
       },
       {
@@ -806,6 +1045,10 @@ async function cancelJob(jobId, { accountKey = null, auditContext = null } = {})
       {
         previous_status: state,
         canceled_before_processing: true,
+        billing_telemetry: listingBillingTelemetry(job, {
+          ...meta,
+          failedAt: Date.now(),
+        }),
       },
     );
     await updateMeta(job, {
@@ -831,6 +1074,7 @@ async function cancelJob(jobId, { accountKey = null, auditContext = null } = {})
     normalizeOperation(meta.operation || job.data?.operation),
     {
       previous_status: state,
+      billing_telemetry: listingBillingTelemetry(job, meta),
     },
   );
   return { ok: true, status: "cancelando" };
@@ -855,9 +1099,41 @@ function initWorker() {
 
   workerStarted = true;
   queue.process(WORKER_CONCURRENCY, async (job) => {
+    let heavyLease = null;
+    let heavyRefreshTimer = null;
     try {
+      heavyLease = await waitForHeavyOperationLease({
+        accountKey: job.data?.accountKey,
+        kind: "listing-management",
+        ownerId: `listing:${job.id}`,
+        metadata: {
+          job_id: String(job.id),
+          operation: normalizeOperation(job.data?.operation),
+        },
+        onWait: async (holder) => {
+          await updateMeta(job, {
+            status: "aguardando",
+            queueReason: "heavy_operation_busy",
+            heavyOperationHolder: holder || null,
+            updatedAt: Date.now(),
+          });
+        },
+        shouldCancel: async () => {
+          const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
+          return meta?.cancelRequested === true;
+        },
+      });
+      heavyRefreshTimer = setInterval(() => {
+        heavyLease?.refresh?.().catch(() => {});
+      }, 60_000);
+      heavyRefreshTimer.unref?.();
+
       return await runJob(job);
-    } catch (error) {
+    } catch (rawError) {
+      const error =
+        rawError?.code === "HEAVY_OPERATION_WAIT_CANCELLED"
+          ? new JobCancelledError()
+          : rawError;
       const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
       if (error instanceof JobCancelledError) {
         await auditJobEvent(
@@ -869,7 +1145,14 @@ function initWorker() {
             processed: Number(meta.processed ?? 0),
             total_items: Number(meta.total ?? job.data?.mlbIds?.length ?? 0),
             success: Number(meta.success ?? 0),
+            changed: Number(meta.changed ?? 0),
+            relisted: Number(meta.relisted ?? 0),
+            fallback_relisted: Number(meta.fallbackRelisted ?? 0),
             failed: Number(meta.failed ?? 0),
+            billing_telemetry: listingBillingTelemetry(job, {
+              ...meta,
+              failedAt: Date.now(),
+            }),
           },
         );
         await updateMeta(job, {
@@ -884,6 +1167,9 @@ function initWorker() {
           cancelled: true,
           total: Number(meta.total ?? job.data?.mlbIds?.length ?? 0),
           success: Number(meta.success ?? 0),
+          changed: Number(meta.changed ?? 0),
+          relisted: Number(meta.relisted ?? 0),
+          fallbackRelisted: Number(meta.fallbackRelisted ?? 0),
           failed: Number(meta.failed ?? 0),
           failedItems: Array.isArray(meta.failedItems) ? meta.failedItems : [],
           result_total: await readPersistedResultTotal(job.id),
@@ -899,19 +1185,39 @@ function initWorker() {
           processed: Number(meta.processed ?? 0),
           total_items: Number(meta.total ?? job.data?.mlbIds?.length ?? 0),
           success: Number(meta.success ?? 0),
+          changed: Number(meta.changed ?? 0),
+          relisted: Number(meta.relisted ?? 0),
+          fallback_relisted: Number(meta.fallbackRelisted ?? 0),
           failed: Number(meta.failed ?? 0),
+          billing_telemetry: listingBillingTelemetry(job, {
+            ...meta,
+            failedAt: Date.now(),
+          }),
         },
       );
       throw error;
+    } finally {
+      if (heavyRefreshTimer) clearInterval(heavyRefreshTimer);
+      await heavyLease?.release?.().catch(() => {});
     }
   });
   queue.on("failed", async (job, err) => {
     console.error(`[${SERVICE_LOG_LABEL}] job failed:`, job?.id, err?.message || err);
-    await settleCredits(job?.data?.creditReservation, { release: true });
+    const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
+    const billableUnits = listingBillableUnits(job, meta);
+    await settleCredits(job?.data?.creditReservation, {
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
+    });
   });
   queue.on("completed", async (job) => {
     console.log(`[${SERVICE_LOG_LABEL}] job completed:`, job?.id);
-    await settleCredits(job?.data?.creditReservation, { release: false });
+    const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
+    const billableUnits = listingBillableUnits(job, meta);
+    await settleCredits(job?.data?.creditReservation, {
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
+    });
   });
 
   console.log(
@@ -929,4 +1235,20 @@ module.exports = {
   cancelJob,
   getJobCsv,
   streamJobCsv,
+  previewBulkDeleteCredits,
+  previewListingOperationCredits,
+  _test: {
+    normalizeMlbIds,
+    listingBillingOperationKey,
+    listingBillingIdempotencyKey,
+    listingBillableUnits,
+    listingBillingTelemetry,
+    bulkDeleteIdempotencyKey,
+    isBillableDeleteOperation,
+    bulkDeleteBillableUnits,
+    bulkDeleteTelemetry,
+    setQueue(queue) {
+      queueInstance = queue;
+    },
+  },
 };

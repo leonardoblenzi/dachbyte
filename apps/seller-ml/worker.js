@@ -26,6 +26,7 @@ const PromoJobsService = require("./services/promoJobsService");
 const PromoSmartOptimizerService = require("./services/promoSmartOptimizerService");
 const PromoBulkRemove = require("./services/promoBulkRemoveAdapter");
 const ExclusaoLoteJobService = require("./services/exclusaoLoteJobService");
+const AtacadoJobsService = require("./services/atacadoJobsService");
 const filtroAnunciosQueueService = require("./services/filtroAnunciosQueueService");
 const FinanceiroMlSkuCatalogSyncService = require("./services/financeiroMlSkuCatalogSyncService");
 const prazoProducaoQueueService = require("./services/prazoProducaoQueueService");
@@ -33,6 +34,7 @@ const validarDimensoesJobService = require("./services/validarDimensoesJobServic
 const estoqueAlertaQueueService = require("./services/estoqueAlertaQueueService");
 const estoqueAtualizacaoQueueService = require("./services/EstoqueAtualizacaoQueueService");
 const CaracteristicasJobsService = require("./services/caracteristicasJobsService");
+const ModeloMassaJobsService = require("./services/modeloMassaJobsService");
 const MeliWebhookQueueService = require("./services/meliWebhookQueueService");
 const {
   startBullRetentionScheduler,
@@ -48,6 +50,7 @@ function boot() {
   PromoSmartOptimizerService.initWorker();
   PromoBulkRemove.initWorker();
   ExclusaoLoteJobService.initWorker();
+  AtacadoJobsService.initWorker();
   filtroAnunciosQueueService.initWorker();
   FinanceiroMlSkuCatalogSyncService.initWorker();
   prazoProducaoQueueService.initWorker();
@@ -55,6 +58,7 @@ function boot() {
   estoqueAtualizacaoQueueService.initWorker();
   validarDimensoesJobService.iniciarWorker();
   CaracteristicasJobsService.initWorker();
+  ModeloMassaJobsService.initWorker();
   MeliWebhookQueueService.initWorker();
   startBullRetentionScheduler();
   startDataRetentionScheduler();

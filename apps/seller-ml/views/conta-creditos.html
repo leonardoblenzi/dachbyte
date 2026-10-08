@@ -17,8 +17,8 @@
         <span class="credits-kicker">Conta / Plano e creditos</span>
         <h1>Controle de creditos da conta ML.</h1>
         <p>
-          Acompanhe o saldo mensal, creditos comprados e recargas avulsas para
-          operacoes pesadas como consultas, promocoes, atacado e jobs em lote.
+          Acompanhe o saldo pre-pago e as recargas avulsas usadas em operacoes pesadas
+          como consultas, promocoes, atacado e jobs em lote.
         </p>
       </div>
       <button class="credits-btn credits-btn-ghost" id="btn-refresh-credits" type="button">Atualizar</button>
@@ -30,17 +30,17 @@
       <article class="credits-card credits-card-total">
         <span>Saldo disponivel</span>
         <strong id="credits-total">--</strong>
-        <p>Mensal + recargas compradas.</p>
+        <p>Saldo pre-pago disponivel para operacoes.</p>
       </article>
       <article class="credits-card">
-        <span>Credito mensal</span>
+        <span>Modelo de consumo</span>
         <strong id="credits-monthly">--</strong>
-        <p id="credits-period">Ciclo atual nao carregado.</p>
+        <p id="credits-period">Modelo ainda nao carregado.</p>
       </article>
       <article class="credits-card">
-        <span>Credito comprado</span>
+        <span>Saldo pre-pago</span>
         <strong id="credits-purchased">--</strong>
-        <p>Nao expira e entra depois do mensal.</p>
+        <p>Nao expira e so e consumido pelas operacoes tarifadas.</p>
       </article>
       <article class="credits-card">
         <span>Status da conta</span>
@@ -67,9 +67,9 @@
         <span class="credits-kicker">Como funciona</span>
         <h2>Regra de consumo</h2>
         <ol class="credits-flow">
-          <li>Primeiro usamos os creditos mensais da conta.</li>
-          <li>Depois usamos creditos comprados por recarga.</li>
-          <li>Contas legado, cortesia ou internas podem ficar ilimitadas.</li>
+          <li>Contas pagas usam saldo pre-pago, sem franquia mensal.</li>
+          <li>O custo e calculado pela operacao e pela quantidade processada.</li>
+          <li>Contas legado, cortesia ou internas continuam ilimitadas.</li>
         </ol>
       </aside>
     </section>
@@ -80,7 +80,7 @@
           <div>
             <span class="credits-kicker">Extrato</span>
             <h2>Ultimas movimentacoes</h2>
-            <p>Concessoes, recargas, reservas, consumo e estornos da conta selecionada.</p>
+            <p>Recargas, reservas, consumo, liberacoes e ajustes da conta selecionada.</p>
           </div>
         </div>
         <div class="credits-ledger" id="credits-ledger">

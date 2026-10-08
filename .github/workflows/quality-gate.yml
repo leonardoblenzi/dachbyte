@@ -3,6 +3,7 @@ name: Quality Gate
 on:
   pull_request:
     branches:
+      - main
       - dev
       - voltdev
   workflow_dispatch:
@@ -37,6 +38,106 @@ jobs:
         run: npm install --no-save --package-lock=false @rolldown/binding-linux-x64-gnu@1.1.2
       - name: Test
         run: npm test
+
+
+  seller-ml-credits:
+    name: Seller ML credits
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/seller-ml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: apps/seller-ml/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Credit contract tests
+        run: npm run test:credits
+      - name: Stock operation tests
+        run: node --test tests/estoque-atualizacao-controller.test.js tests/estoque-atualizacao-preview.test.js tests/estoque-atualizacao-queue.test.js tests/estoque-atualizacao-service.test.js tests/estoque-atualizacao-worker-credentials.test.js
+      - name: Queue safety tests
+        run: npm run test:stage3-queues
+      - name: Parse critical billing runtime
+        run: |
+          node --check services/hubCreditsService.js
+          node --check services/promoJobsService.js
+          node --check services/atacadoJobsService.js
+          node --check controllers/AtacadoController.js
+          node --check routes/atacadoRoutes.js
+          node --check public/js/atacado.js
+          node --check services/caracteristicasJobsService.js
+          node --check controllers/CaracteristicasController.js
+          node --check routes/caracteristicasRoutes.js
+          node --check public/js/caracteristicas.js
+          node --check services/prazoProducaoQueueService.js
+          node --check controllers/PrazoProducaoController.js
+          node --check routes/prazoProducaoRoutes.js
+          node --check public/js/prazo.js
+          node --check public/js/prazo-bulk.js
+          node --check services/validarDimensoesJobService.js
+          node --check controllers/ValidarDimensoesController.js
+          node --check routes/validarDimensoesRoutes.js
+          node --check public/js/ml-shell.js
+          node --check public/js/ml-base.js
+          node --check public/js/validar-dimensoes.js
+          node --check services/estoqueAlertaQueueService.js
+          node --check services/EstoqueAtualizacaoQueueService.js
+          node --check controllers/EstoqueAlertaController.js
+          node --check controllers/EstoqueAtualizacaoController.js
+          node --check routes/estoqueAlertaRoutes.js
+          node --check public/js/estoque-alerta.js
+          node --check public/js/estoque-atualizacao.js
+          node --check services/exclusaoLoteJobService.js
+          node --check controllers/ExcluirAnuncioController.js
+          node --check routes/excluirAnuncioRoutes.js
+          node --check public/js/excluir-anuncio.js
+          node --check public/js/exclusao-bulk.js
+          node --check services/clonarAnuncioBillingService.js
+          node --check services/clonarAnuncioService.js
+          node --check controllers/ClonarAnuncioController.js
+          node --check routes/clonarAnuncioRoutes.js
+          node --check public/js/clonar-anuncio.js
+          node --check services/filtroAnunciosBillingService.js
+          node --check services/filtroAnunciosQueueService.js
+          node --check routes/analytics-filtro-anuncios-routes.js
+          node --check public/js/filtro-anuncios.js
+          node --check services/modeloMassaJobsService.js
+          node --check controllers/ModeloMassaController.js
+          node --check routes/modeloMassaRoutes.js
+          node --check public/js/modelo-massa.js
+          node --check services/bullRetentionService.js
+          node --check worker.js
+          node --check services/mlHeavyOperationGovernor.js
+          node --check routes/billingRoutes.js
+          node --check public/js/conta-creditos.js
+          node --check public/js/promo-http.js
+          node --check public/js/promo-bulk.js
+          node --check public/js/promo-actions.js
+          node --check services/promoSmartBillingService.js
+          node --check services/promoSmartOptimizerService.js
+          node --check routes/promocoesRoutes.js
+          node --check public/js/promo-intelligence.js
+          node --check services/financeiroMlCatalogSyncBillingService.js
+          node --check services/financeiroMlSkuCatalogSyncService.js
+          node --check controllers/FinanceiroMlController.js
+          node --check routes/financeiroMlRoutes.js
+          node --check public/js/financeiro-ml-custos.js
+          node --check services/singleOperationGuardService.js
+          node --check controllers/ExcluirAnuncioController.js
+          node --check controllers/RemoverPromocaoController.js
+          node --check controllers/PrazoProducaoController.js
+          node --check controllers/ValidarDimensoesController.js
+          node --check routes/excluirAnuncioRoutes.js
+          node --check routes/removerPromocaoRoutes.js
+          node --check routes/prazoProducaoRoutes.js
+          node --check routes/validarDimensoesRoutes.js
 
   runtime-safety:
     name: Runtime safety checks

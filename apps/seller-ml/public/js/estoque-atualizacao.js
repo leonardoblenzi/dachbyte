@@ -898,6 +898,22 @@
     state.jobsTimer = setInterval(pollCurrentJob, 2500);
   }
 
+  function confirmStockApplyQuote(quote) {
+    const estimated = Number(quote?.estimated_credits || 0);
+    if (quote?.unlimited === true || estimated <= 0) return true;
+    const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+    const lines = [
+      `Atualização de estoque para ${fmt.format(Number(quote?.quantity || 0))} linha(s) pronta(s).`,
+      `Custo estimado: ${fmt.format(estimated)} crédito(s).`,
+    ];
+    if (quote?.available_credits != null) {
+      lines.push(`Saldo disponível: ${fmt.format(Number(quote.available_credits || 0))} crédito(s).`);
+    }
+    if (quote?.sufficient === false) lines.push("O saldo atual é menor que a estimativa.");
+    lines.push("Deseja enviar o lote para o worker?");
+    return window.confirm(lines.join("\n\n"));
+  }
+
   function readyPreviewChanges() {
     return (Array.isArray(state.lastPreview?.rows) ? state.lastPreview.rows : [])
       .filter((row) => row.status === "ready")
@@ -917,12 +933,26 @@
       return;
     }
 
+    try {
+      const quote = await fetchJson("/api/estoque/atualizacao/credits/quote", {
+        method: "POST",
+        body: JSON.stringify({ changes }),
+      });
+      if (!confirmStockApplyQuote(quote)) return;
+    } catch (quoteError) {
+      console.warn(
+        "[estoque] prévia de créditos indisponível; seguindo em shadow:",
+        quoteError?.message || quoteError,
+      );
+    }
+
     state.jobSubmitting = true;
     updateControls();
     const confirm = $("btnStockConfirmUpdate");
     if (confirm) confirm.textContent = "Enviando para a fila...";
     const account = window.__ACCOUNT__ || {};
-    const accountLabel = document.querySelector("#account-current")?.textContent?.trim() || account.label || null;
+    const accountLabel =
+      document.querySelector("#account-current")?.textContent?.trim() || account.label || null;
     const localJobId = window.JobsPanel?.addLocalJob?.({
       title: `Estoque - atualizar ${changes.length} ${changes.length === 1 ? "linha" : "linhas"}`,
       accountKey: account.key || null,
@@ -953,7 +983,10 @@
         `Job ${state.currentJobId} criado para ${fmtNum(changes.length)} ${changes.length === 1 ? "linha" : "linhas"}. Acompanhe o processamento abaixo ou no painel de processos.`,
         "info",
       );
-      setFeedback("Atualização enviada para o worker. Você pode continuar usando o sistema enquanto o lote processa.", "ok");
+      setFeedback(
+        "Atualização enviada para o worker. Você pode continuar usando o sistema enquanto o lote processa.",
+        "ok",
+      );
       startCurrentJobPolling();
     } catch (error) {
       if (localJobId) {
@@ -973,8 +1006,35 @@
     }
   }
 
+  function retryableChangesFromCurrentJob() {
+    return (Array.isArray(state.lastJobDetail?.rows) ? state.lastJobDetail.rows : [])
+      .filter((row) => row.retryable === true && row.write_applied !== true)
+      .map((row) => ({
+        mlb: row.mlb,
+        variation_id: row.variation_id || null,
+        expected_current_stock: row.actual_current_stock,
+        new_stock: row.requested_stock,
+      }));
+  }
+
   async function retryCurrentJobErrors() {
     if (!state.currentJobId || state.jobSubmitting) return;
+    const retryChanges = retryableChangesFromCurrentJob();
+    if (retryChanges.length) {
+      try {
+        const quote = await fetchJson("/api/estoque/atualizacao/credits/quote", {
+          method: "POST",
+          body: JSON.stringify({ changes: retryChanges }),
+        });
+        if (!confirmStockApplyQuote(quote)) return;
+      } catch (quoteError) {
+        console.warn(
+          "[estoque] prévia de créditos do retry indisponível; seguindo em shadow:",
+          quoteError?.message || quoteError,
+        );
+      }
+    }
+
     state.jobSubmitting = true;
     updateControls();
     const button = $("btnStockRetryErrors");

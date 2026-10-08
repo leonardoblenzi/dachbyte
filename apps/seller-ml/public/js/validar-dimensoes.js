@@ -23,6 +23,7 @@ function withBase(path) {
   const qsa = (selector, el = document) => Array.from(el.querySelectorAll(selector));
 
   const API_CREATE_JOB = () => withBase("/api/validar-dimensoes/jobs");
+  const API_CREDIT_QUOTE = () => withBase("/api/validar-dimensoes/credits/quote");
   const API_JOB = (id) => withBase(`/api/validar-dimensoes/jobs/${encodeURIComponent(id)}`);
   const API_JOB_ITEMS = (id) =>
     withBase(`/api/validar-dimensoes/jobs/${encodeURIComponent(id)}/items`);
@@ -322,6 +323,38 @@ function withBase(path) {
       throw new Error(payload?.error || `HTTP ${response.status}`);
     }
     return payload;
+  }
+
+  function confirmDimensionsCreditQuote(quote, { mode = "analyze", source = "manual_list" } = {}) {
+    if (quote?.deferred === true) {
+      return window.confirm(
+        "A quantidade total de anúncios será conhecida após listar os ativos. " +
+        "O custo será calculado antes da validação individual. Deseja continuar?",
+      );
+    }
+
+    const estimated = Number(quote?.estimated_credits || 0);
+    if (quote?.unlimited === true || estimated <= 0) return true;
+
+    const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+    const action = mode === "analyze" ? "Validação" : "Correção";
+    const lines = [
+      `${action} de dimensões para aproximadamente ${formatter.format(Number(quote?.quantity || 0))} anúncio(s).`,
+      `Custo estimado: ${formatter.format(estimated)} crédito(s).`,
+    ];
+    if (quote?.available_credits != null) {
+      lines.push(
+        `Saldo disponível: ${formatter.format(Number(quote.available_credits || 0))} crédito(s).`,
+      );
+    }
+    if (quote?.sufficient === false) {
+      lines.push("O saldo atual é menor que a estimativa informada.");
+    }
+    if (source === "active_items") {
+      lines.push("A quantidade real será confirmada após a listagem dos anúncios ativos.");
+    }
+    lines.push("Deseja continuar?");
+    return window.confirm(lines.join("\n\n"));
   }
 
   async function carregarContaAtual() {
@@ -754,6 +787,24 @@ function withBase(path) {
       const accountKey = currentAccountKey || account.key || account.accountKey || null;
       const accountLabel = readShellAccountLabel() || currentAccountLabel || account.label || null;
       jobsPanel = await waitForJobsPanel();
+
+      try {
+        const quote = await fetchJson(API_CREDIT_QUOTE(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mlbs,
+            mode,
+            source,
+          }),
+        });
+        if (!confirmDimensionsCreditQuote(quote, { mode, source })) return;
+      } catch (quoteError) {
+        console.warn(
+          "[validar-dimensoes] prévia de créditos indisponível; seguindo em shadow:",
+          quoteError?.message || quoteError,
+        );
+      }
 
       notify("Criando job...", "info");
       atualizarProgresso(0, totalHint, modeLabel(mode, source));

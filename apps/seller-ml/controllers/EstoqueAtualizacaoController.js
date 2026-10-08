@@ -26,6 +26,24 @@ function auditContext(req, res) {
   };
 }
 
+async function quoteCredits(req, res) {
+  try {
+    const ctx = accountContext(res);
+    const quote = await queueService.previewStockApplyCredits({
+      mlCreds: ctx.mlCreds,
+      account: res.locals?.account || null,
+      changes: Array.isArray(req.body?.changes) ? req.body.changes : [],
+    });
+    res.json({ success: true, ...quote });
+  } catch (error) {
+    res.status(error.statusCode || error.status || 400).json({
+      success: false,
+      error: error.message || "Falha ao calcular custo da atualizacao de estoque.",
+      details: error.details || null,
+    });
+  }
+}
+
 async function enqueue(req, res) {
   try {
     const ctx = accountContext(res);
@@ -41,6 +59,7 @@ async function enqueue(req, res) {
     const jobId = await queueService.enqueueStockUpdateJob({
       accountKey: ctx.accountKey,
       accountLabel: ctx.accountLabel,
+      mlCreds: ctx.mlCreds,
       changes,
       auditContext: auditContext(req, res),
     });
@@ -111,6 +130,7 @@ async function retryErrors(req, res) {
     const ctx = accountContext(res);
     const result = await queueService.retryFailedStockJob(req.params.id, {
       accountKey: ctx.accountKey,
+      mlCreds: ctx.mlCreds,
       auditContext: auditContext(req, res),
     });
     if (!result) return res.status(404).json({ success: false, error: "Job nao encontrado." });
@@ -130,6 +150,7 @@ async function retryErrors(req, res) {
 }
 
 module.exports = {
+  quoteCredits,
   enqueue,
   listJobs,
   detailJob,

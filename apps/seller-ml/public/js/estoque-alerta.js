@@ -617,6 +617,28 @@
     if (strip) strip.hidden = true;
   }
 
+  function confirmStockScanQuote(quote) {
+    if (quote?.deferred === true) {
+      return window.confirm(
+        "A quantidade de anúncios será conhecida durante a análise. " +
+        "O custo será calculado com a quantidade real antes da etapa de leitura detalhada. Deseja continuar?",
+      );
+    }
+    const estimated = Number(quote?.estimated_credits || 0);
+    if (quote?.unlimited === true || estimated <= 0) return true;
+    const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+    const lines = [
+      `Análise estimada para ${fmt.format(Number(quote?.quantity || 0))} anúncio(s).`,
+      `Custo estimado: ${fmt.format(estimated)} crédito(s).`,
+    ];
+    if (quote?.available_credits != null) {
+      lines.push(`Saldo disponível: ${fmt.format(Number(quote.available_credits || 0))} crédito(s).`);
+    }
+    if (quote?.sufficient === false) lines.push("O saldo atual é menor que a estimativa.");
+    lines.push("Deseja continuar?");
+    return window.confirm(lines.join("\n\n"));
+  }
+
   async function loadStored({ scrollToWatchlist = false } = {}) {
     setBusy(true);
     setFeedback("Carregando produtos monitorados...");
@@ -686,6 +708,19 @@
     showJob("Analise em andamento", `Enviando vendidos dos ultimos ${state.periodDays} dias para processamento.`);
     setFeedback("");
     try {
+      try {
+        const quote = await fetchJson("/api/estoque/alerta/credits/quote", {
+          method: "POST",
+          body: JSON.stringify({ source: "sold_period" }),
+        });
+        if (!confirmStockScanQuote(quote)) {
+          hideJob();
+          return;
+        }
+      } catch (quoteError) {
+        console.warn("[estoque] prévia de créditos indisponível; seguindo em shadow:", quoteError?.message || quoteError);
+      }
+
       const data = await fetchJson("/api/estoque/alerta/analisar-job", {
         method: "POST",
         body: JSON.stringify({ source: "sold_period", period_days: state.periodDays }),

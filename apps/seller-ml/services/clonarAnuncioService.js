@@ -5330,12 +5330,23 @@ class ClonarAnuncioService {
       updatedRow = result.rows[0];
     } catch (error) {
       if (error?.code === "42703") {
-        throw new CloneDraftError(
+        const wrapped = new CloneDraftError(
           "Colunas de publicacao nao encontradas na tabela de rascunhos. Rode npm run migrate no ml/ para aplicar as migracoes mais recentes.",
           500,
           "publish_columns_missing",
+          {
+            published_item_id: publishedItemId,
+            published_permalink: publishedPermalink,
+            publish_attempts: publishAttempts.length,
+            validation_attempts: validation?.validation?.attempts?.length || 0,
+          },
         );
+        wrapped.publishedItemId = publishedItemId;
+        throw wrapped;
       }
+      error.publishedItemId = publishedItemId;
+      error.publishAttempts = publishAttempts.length;
+      error.validationAttempts = validation?.validation?.attempts?.length || 0;
       throw error;
     }
 
@@ -5347,6 +5358,8 @@ class ClonarAnuncioService {
         permalink: publishedPermalink,
         published_at: publishResult.published_at,
         response: responseData,
+        publish_attempts: publishAttempts.length,
+        validation_attempts: validation?.validation?.attempts?.length || 0,
       },
     };
   }
