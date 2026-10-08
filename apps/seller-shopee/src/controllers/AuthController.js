@@ -323,6 +323,7 @@ async function callback(req, res) {
 
   const isAdditionalNewShop = !existingShop && Number(currentShopCount || 0) >= 1;
   const isFirstHubShop = !existingShop && Number(currentShopCount || 0) === 0 && Boolean(req.auth?.tenantGlobalId);
+  let hubSyncError = null;
   const hubResourceSync = await ensureShopResourceSynced({
     auth: req.auth,
     shop,
@@ -338,6 +339,7 @@ async function callback(req, res) {
       tenantGlobalId: req.auth?.tenantGlobalId || null,
     },
   }).catch((error) => {
+    hubSyncError = error;
     console.warn("[shopee.auth] Falha ao sincronizar billing resource no Hub:", error?.message || error);
     return null;
   });
@@ -354,6 +356,11 @@ async function callback(req, res) {
     shopId: String(shopId),
   });
   clearAuthFlowCookie(res);
+  if (authFlow === "shop" && (hubSyncError || (hubResourceSync?.bypass && hubResourceSync.reason !== "billing_off"))) {
+    return res.status(502).send(
+      "Loja autorizada na Shopee e salva localmente, mas o Hub nao confirmou a reativacao. Tente Reconectar novamente ou contate o suporte.",
+    );
+  }
   return res.redirect(authFlow === "ads" ? "/shopee/?tab=ads" : "/shopee/?tab=auth");
 }
 

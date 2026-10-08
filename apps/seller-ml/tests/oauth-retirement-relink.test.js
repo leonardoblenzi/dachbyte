@@ -7,6 +7,8 @@ const test = require("node:test");
 test("ML confirms Hub reactivation only after a provider OAuth callback", async () => {
   const source = fs.readFileSync(path.join(__dirname, "../routes/meliOAuthRoutes.js"), "utf8");
   assert.match(source, /confirmMlHubResourceAfterOAuth\(/);
+  assert.match(source, /hubRelinkError[\s\S]*?res\.status\(502\)/,
+    "a falha de reativacao precisa ser exibida ao usuario apos salvar a conta local");
   const { createMlHubRelink } = require("../services/hubResourceRelinkService");
   let request;
   const confirm = createMlHubRelink({

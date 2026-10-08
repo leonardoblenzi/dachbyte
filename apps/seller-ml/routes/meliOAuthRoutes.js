@@ -1169,7 +1169,9 @@ router.get(
     });
 
     if (outcome?.contaId) {
+      let hubRelinkError = null;
       await confirmMlHubResourceAfterOAuth(outcome).catch((error) => {
+        hubRelinkError = error;
         console.warn("[ML][OAuth] Hub did not confirm account relink", { accountId: outcome.contaId, error: error?.message || "hub_unavailable" });
       });
       await setDefaultIfMissingForMembership(
@@ -1178,6 +1180,11 @@ router.get(
         outcome.contaId,
       ).catch(() => null);
       res.cookie(COOKIE_MELI_CONTA, String(outcome.contaId), cookieOptions());
+      if (hubRelinkError) {
+        return res.status(502).send(
+          "Conta autorizada no Mercado Livre e salva localmente, mas o Hub nao confirmou a reativacao. Tente Reconectar novamente ou contate o suporte.",
+        );
+      }
     }
 
     const go = withBase(

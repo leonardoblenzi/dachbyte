@@ -17,4 +17,6 @@ test("Shopee marks only the verified shop OAuth callback for Hub reactivation", 
 test("Shopee shop callback sends the confirmation but Ads callback does not", () => {
   const source = fs.readFileSync(path.join(__dirname, "../src/controllers/AuthController.js"), "utf8");
   assert.match(source, /oauthConfirmed:\s*authFlow\s*===\s*"shop"/);
+  assert.match(source, /hubSyncError[\s\S]*?res\.status\(502\)/,
+    "a falha de reativacao precisa ser exibida ao usuario apos salvar a loja local");
 });
