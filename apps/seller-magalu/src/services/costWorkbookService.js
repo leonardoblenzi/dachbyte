@@ -3,12 +3,9 @@ const ExcelJS = require("exceljs");
 
 const COLUMNS = [
   ["SKU", "sku"], ["Produto", "title"], ["Preço atual", "price"],
-  ["Custo unitário", "unit_cost"], ["Imposto legado %", "tax_rate"],
-  ["Embalagem", "packaging_cost"], ["Operacional", "operational_cost"],
-  ["Outros", "other_cost"], ["Observações", "notes"],
-  ["Alíquota global (informativa)", "global_tax"]
+  ["Custo produto", "unit_cost"]
 ];
-const EDITABLE = ["unit_cost", "tax_rate", "packaging_cost", "operational_cost", "other_cost"];
+const EDITABLE = ["unit_cost"];
 function invalid(message, status = 422, errors = []) {
   const error = new Error(message); error.status = status; error.details = errors; return error;
 }
@@ -26,14 +23,14 @@ function parseAmount(value, { percentage = false } = {}) {
   return parsed;
 }
 
-async function buildCostWorkbook(rows, { globalTax = 0 } = {}) {
+async function buildCostWorkbook(rows) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Custos por SKU");
   sheet.columns = COLUMNS.map(([header, key]) => ({ header, key, width: key === "title" ? 48 : 20 }));
-  for (const row of rows) sheet.addRow({ ...row, global_tax: globalTax });
+  for (const row of rows) sheet.addRow(row);
   sheet.getRow(1).font = { bold: true };
   sheet.views = [{ state: "frozen", ySplit: 1 }];
-  sheet.autoFilter = { from: "A1", to: "J1" };
+  sheet.autoFilter = { from: "A1", to: "D1" };
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
@@ -45,7 +42,11 @@ async function parseCostWorkbook({ filename, buffer }) {
   const sheet = workbook.getWorksheet("Custos por SKU") || workbook.worksheets[0];
   if (!sheet) throw invalid("Planilha de custos ausente.", 400);
   const headers = COLUMNS.map(([header]) => header);
-  if (headers.some((header, index) => String(sheet.getRow(1).getCell(index + 1).value || "").trim() !== header)) {
+  const actualHeaders = sheet.getRow(1).values.slice(1).map((value) => String(value || "").trim());
+  if (actualHeaders.includes("Imposto legado %") || actualHeaders.includes("Alíquota global (informativa)")) {
+    throw invalid("Modelo de custos desatualizado. Baixe uma nova planilha XLSX.", 400);
+  }
+  if (actualHeaders.length !== headers.length || headers.some((header, index) => actualHeaders[index] !== header)) {
     throw invalid("Cabeçalhos diferentes do modelo. Baixe uma nova planilha XLSX.", 400);
   }
   if (sheet.rowCount > 50001) throw invalid("A planilha excede 50.000 SKUs.", 413);
@@ -61,12 +62,10 @@ async function parseCostWorkbook({ filename, buffer }) {
     for (const key of EDITABLE) {
       const index = COLUMNS.findIndex(([, column]) => column === key) + 1;
       try {
-        const value = parseAmount(cells.getCell(index).value, { percentage: key === "tax_rate" });
+        const value = parseAmount(cells.getCell(index).value);
         if (value !== undefined) next[key] = value;
       } catch (_error) { errors.push({ line: number, sku, reason: `${COLUMNS[index - 1][0]} inválido.` }); }
     }
-    const notes = cells.getCell(9).value;
-    if (notes != null && String(notes).trim() !== "") next.notes = String(notes).trim().slice(0, 2000);
     if (Object.keys(next).length > 1) rows.push(next);
   }
   if (errors.length) throw invalid(`Planilha contém ${errors.length} erro(s). Nenhum custo foi alterado.`, 422, errors);
