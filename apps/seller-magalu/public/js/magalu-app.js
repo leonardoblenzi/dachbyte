@@ -786,6 +786,7 @@
           else if (status === "partial") showAlert(copy, "warning", { sticky: true });
           else if (status === "failed") showAlert(copy, "danger", { sticky: true });
           await Promise.all([loadCatalog(), route() === "/sincronizacao" ? loadSyncCenter() : Promise.resolve()]);
+          window.dispatchEvent(new CustomEvent("magalu:catalogsynced", { detail: { accountId, status } }));
           return;
         }
         await new Promise((resolve) => setTimeout(resolve, 1500));

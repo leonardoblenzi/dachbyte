@@ -10,7 +10,7 @@ const read = (name) => fs.readFileSync(path.join(root, name), "utf8");
 test("Custos por SKU segue a hierarquia operacional do ML sem duplicar controles", () => {
   const html = read("views/app.html");
   const panel = html.split('data-margin-panel="costs"')[1].split('data-margin-panel="summary"')[0];
-  const sections = ["mg-fin-status-line", "mg-cost-toolbar", "mg-rich-kpis", "mg-fin-two-col", "mg-cost-filter-card", "mg-cost-table-card"];
+  const sections = ["mg-cost-status", "mg-cost-toolbar", "mg-rich-kpis", "mg-cost-monitor", "mg-fin-two-col", "mg-cost-filter-card", "mg-cost-table-card"];
   let cursor = -1;
   for (const section of sections) {
     const next = panel.indexOf(section);
@@ -21,7 +21,7 @@ test("Custos por SKU segue a hierarquia operacional do ML sem duplicar controles
     assert.equal((panel.match(new RegExp(`id="${id}"`, "g")) || []).length, 1, `${id} deve aparecer uma vez`);
   }
   assert.match(panel, /<label[^>]*>\s*<span>Buscar SKU ou produto<\/span>\s*<input id="mg-financial-cost-search"/);
-  assert.match(panel, /<label[^>]*>\s*<span>Situação do custo<\/span>\s*<select id="mg-cost-state"/);
+  assert.match(panel, /<label[^>]*>\s*<span>Status do custo<\/span>\s*<select id="mg-cost-state"/);
 });
 
 test("estilos de custos são específicos da aba e precedem o CSS canônico", () => {

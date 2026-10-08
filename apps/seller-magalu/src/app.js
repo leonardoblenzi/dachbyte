@@ -26,6 +26,8 @@ async function createApp() {
   // Webhook v1 precisa receber os bytes exatos antes de express.json().
   app.use(publicRoutes);
 
+  app.use("/api/financial/costs/import", suiteAuth,
+    express.raw({ type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", limit: "25mb" }));
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: true }));
   app.use("/assets", express.static(path.resolve(__dirname, "../public"), { maxAge: "1h", etag: true }));

@@ -93,16 +93,21 @@ async function stockAnalysis(accountId, options = {}) {
 }
 
 function costBaseCte(){return `with base as (
-  select s.sku,s.title,p.price,c.unit_cost,c.tax_rate,c.packaging_cost,c.operational_cost,c.other_cost,c.notes,c.updated_at,
+  select s.sku,s.title,p.price,c.unit_cost,coalesce(nullif(f.aliquota,0),c.tax_rate,0) as tax_rate,c.packaging_cost,c.operational_cost,c.other_cost,c.notes,c.updated_at,
+    coalesce(h.previous_cost>0 and h.new_cost>h.previous_cost*1.05,false) as cost_up,
     case when p.price is not null and p.price>0 and c.unit_cost is not null then
-      p.price - c.unit_cost - (p.price*coalesce(c.tax_rate,0)/100) - coalesce(c.packaging_cost,0) - coalesce(c.operational_cost,0) - coalesce(c.other_cost,0)
+      p.price - c.unit_cost - (p.price*coalesce(nullif(f.aliquota,0),c.tax_rate,0)/100) - coalesce(c.packaging_cost,0) - coalesce(c.operational_cost,0) - coalesce(c.other_cost,0)
     else null end as known_result,
     case when p.price is not null and p.price>0 and c.unit_cost is not null then
-      ((p.price - c.unit_cost - (p.price*coalesce(c.tax_rate,0)/100) - coalesce(c.packaging_cost,0) - coalesce(c.operational_cost,0) - coalesce(c.other_cost,0))/p.price)*100
+      ((p.price - c.unit_cost - (p.price*coalesce(nullif(f.aliquota,0),c.tax_rate,0)/100) - coalesce(c.packaging_cost,0) - coalesce(c.operational_cost,0) - coalesce(c.other_cost,0))/p.price)*100
     else null end as known_margin_pct
   from magalu.skus s
   left join magalu.prices p on p.account_id=s.account_id and p.sku=s.sku and p.is_present=true
   left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku
+  left join magalu.finance_settings f on f.account_id=s.account_id
+  left join lateral (select previous_cost,new_cost from magalu.sku_cost_history
+    where account_id=s.account_id and sku=s.sku and created_at>=now()-interval '30 days'
+    order by created_at desc,id desc limit 1) h on true
   where s.account_id=$1 and s.is_present=true
 )`;}
 
@@ -112,14 +117,16 @@ async function costOverview(accountId){
       count(*) filter(where price is not null)::int priced_skus,
       count(*) filter(where unit_cost is not null)::int costed_skus,
       count(*) filter(where unit_cost is null)::int missing_cost,
+      count(*) filter(where unit_cost is null or known_margin_pct<=10 or cost_up)::int attention_count,
+      count(*) filter(where cost_up)::int cost_up,
       count(*) filter(where price is not null and unit_cost is not null and unit_cost>=price)::int cost_at_or_above_price,
       count(*) filter(where known_margin_pct is not null and known_margin_pct<=10)::int known_margin_attention,
-      round(case when count(*) filter(where price is not null)>0 then
-        100.0*count(*) filter(where price is not null and unit_cost is not null)/count(*) filter(where price is not null) else 0 end,2) as coverage_pct
+      round(case when count(*)>0 then
+        100.0*count(*) filter(where unit_cost is not null)/count(*) else 0 end,2) as coverage_pct
     from base`,[Number(accountId)]);
   const {rows}=await db.query(`${costBaseCte()}
     select * from base where price is not null
-    order by case when unit_cost is null then 0 when known_margin_pct<0 then 1 when known_margin_pct<=10 then 2 else 3 end,
+    order by case when cost_up then 0 when unit_cost is null then 1 when known_margin_pct<0 then 2 when known_margin_pct<=10 then 3 else 4 end,
       known_margin_pct asc nulls first, sku asc limit 12`,[Number(accountId)]);
   return {summary:summary||{},ranking:rows};
 }
@@ -128,13 +135,14 @@ function marginOrderCte(){return `with item_costs as (
   select o.id as order_id,
     count(oi.id)::int as synced_item_rows,
     coalesce(sum(case when c.unit_cost is not null then c.unit_cost*coalesce(oi.quantity,0) else 0 end),0)::numeric as product_cost,
-    coalesce(sum(case when c.unit_cost is not null then (coalesce(oi.amount_total::numeric,oi.unit_price::numeric*coalesce(oi.quantity,0))/nullif(oi.amount_normalizer,0))*coalesce(c.tax_rate,0)/100 else 0 end),0)::numeric as taxes,
+    coalesce(sum(case when c.unit_cost is not null then (coalesce(oi.amount_total::numeric,oi.unit_price::numeric*coalesce(oi.quantity,0))/nullif(oi.amount_normalizer,0))*coalesce(nullif(f.aliquota,0),c.tax_rate,0)/100 else 0 end),0)::numeric as taxes,
     coalesce(sum(case when c.unit_cost is not null then (coalesce(c.packaging_cost,0)+coalesce(c.operational_cost,0)+coalesce(c.other_cost,0))*coalesce(oi.quantity,0) else 0 end),0)::numeric as operating_costs,
     count(*) filter(where oi.id is not null and c.unit_cost is null)::int as missing_cost_rows,
     coalesce(sum(oi.quantity),0)::numeric as units
   from magalu.orders o
   left join magalu.order_items oi on oi.order_id=o.id and oi.account_id=o.account_id
   left join magalu.sku_costs c on c.account_id=oi.account_id and c.sku=oi.sku
+  left join magalu.finance_settings f on f.account_id=o.account_id
   where o.account_id=$1 and o.is_present=true
     and o.purchased_at >= $2::date and o.purchased_at < ($3::date + interval '1 day')
     and lower(coalesce(o.status,'')) not in ('cancelled','canceled')
@@ -236,16 +244,17 @@ async function equilibrium(accountId,options={}){
   if(state === "healthy") where.push("unit_cost is not null and known_margin_pct>10");
   if(state === "missing") where.push("unit_cost is null");
   const limit=int(options.limit,1,100,50),offset=int(options.offset,0,1000000,0);params.push(limit,offset);const li=params.length-1,oi=params.length;
-  const {rows}=await db.query(`with base as (select s.account_id,s.is_present,s.sku,s.title,p.price,c.unit_cost,c.tax_rate,c.packaging_cost,c.operational_cost,c.other_cost,
-    case when c.unit_cost is not null and (1-coalesce(c.tax_rate,0)/100)>0 then
-      (c.unit_cost+coalesce(c.packaging_cost,0)+coalesce(c.operational_cost,0)+coalesce(c.other_cost,0))/(1-coalesce(c.tax_rate,0)/100)
+  const {rows}=await db.query(`with base as (select s.account_id,s.is_present,s.sku,s.title,p.price,c.unit_cost,coalesce(nullif(f.aliquota,0),c.tax_rate,0) as tax_rate,c.packaging_cost,c.operational_cost,c.other_cost,
+    case when c.unit_cost is not null and (1-coalesce(nullif(f.aliquota,0),c.tax_rate,0)/100)>0 then
+      (c.unit_cost+coalesce(c.packaging_cost,0)+coalesce(c.operational_cost,0)+coalesce(c.other_cost,0))/(1-coalesce(nullif(f.aliquota,0),c.tax_rate,0)/100)
     else null end as known_break_even,
     case when p.price is not null and p.price>0 and c.unit_cost is not null then
-      ((p.price-c.unit_cost-(p.price*coalesce(c.tax_rate,0)/100)-coalesce(c.packaging_cost,0)-coalesce(c.operational_cost,0)-coalesce(c.other_cost,0))/p.price)*100
+      ((p.price-c.unit_cost-(p.price*coalesce(nullif(f.aliquota,0),c.tax_rate,0)/100)-coalesce(c.packaging_cost,0)-coalesce(c.operational_cost,0)-coalesce(c.other_cost,0))/p.price)*100
     else null end as known_margin_pct,
     count(*) over()::int as unfiltered_total_count
     from magalu.skus s left join magalu.prices p on p.account_id=s.account_id and p.sku=s.sku and p.is_present=true
     left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku
+    left join magalu.finance_settings f on f.account_id=s.account_id
   ) select *,count(*) over()::int as total_count from base
     where ${where.join(" and ")} order by known_margin_pct asc nulls first,sku asc limit $${li} offset $${oi}`,params);
   return {rows,total:rows.length?Number(rows[0].total_count||0):0,limit,offset,
