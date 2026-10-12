@@ -6,6 +6,7 @@ const TokenService = require("./tokenService");
 const { decryptToken } = require("./tokenCrypto");
 const { withPgAdvisoryLock } = require("./pgAdvisoryLock");
 const { prepareAuthState, listActiveSellerItemIds, consultPrazoItemRow } = require("./prazoProducaoService");
+const { itemsBulkPath } = require("./meliBulk");
 const AdsService = require("./adsService");
 const CompanyAccessService = require("./companyAccessService");
 const CompanyIntegrationsService = require("./companyIntegrationsService");
@@ -321,7 +322,7 @@ async function fetchItemDetails(state, ids = []) {
   ].join(",");
   for (let i = 0; i < uniqueIds.length; i += 20) {
     const chunk = uniqueIds.slice(i, i + 20);
-    const data = await mlJson(state, `/items?ids=${encodeURIComponent(chunk.join(","))}&attributes=${encodeURIComponent(attrs)}`, {}, 3);
+    const data = await mlJson(state, itemsBulkPath(chunk, attrs), {}, 3);
     for (const entry of Array.isArray(data) ? data : []) {
       const body = entry?.body || entry;
       if (body?.id) result.push(body);

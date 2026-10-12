@@ -1,6 +1,7 @@
 "use strict";
 
 const db = require("../db/db");
+const { itemsBulkPath, normalizeBulkResponse } = require("./meliBulk");
 
 const ML_BASE = "https://api.mercadolibre.com";
 
@@ -277,8 +278,8 @@ async function enrichItems(token, ids) {
 
   for (let index = 0; index < ids.length; index += 20) {
     const chunk = ids.slice(index, index + 20);
-    const payload = await mlGet(`/items?ids=${encodeURIComponent(chunk.join(","))}&attributes=${encodeURIComponent(attrs)}`, token);
-    for (const row of Array.isArray(payload) ? payload : []) {
+    const payload = await mlGet(itemsBulkPath(chunk, attrs), token);
+    for (const row of normalizeBulkResponse(payload)) {
       if (row?.code && row.code >= 400) continue;
       const item = row?.body || row;
       if (item?.id) out.push(item);

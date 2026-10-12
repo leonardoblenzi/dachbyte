@@ -2,6 +2,7 @@
 const fetch = require('node-fetch');
 const TokenService = require('./tokenService');
 const config = require('../config/config');
+const { itemsBulkPath } = require('./meliBulk');
 
 const U = {
   users_me: (config?.urls?.users_me) || 'https://api.mercadolibre.com/users/me',
@@ -125,10 +126,10 @@ async function pageItemsFallback(state, userId, promotionId, limit = 50, searchA
 /* =============== Detalhes dos itens =============== */
 async function fetchItemsDetails(state, ids = []) {
   const out = {};
-  const chunk = 50;
+  const chunk = 20;
   for (let i = 0; i < ids.length; i += chunk) {
     const part = ids.slice(i, i + chunk);
-    const url = `${U.items}?ids=${part.join(',')}&attributes=id,title,available_quantity,seller_custom_field,price`;
+    const url = `${U.items.replace(/\/items\/?$/, '')}${itemsBulkPath(part, 'id,title,available_quantity,seller_custom_field,price')}`;
     const got = await getJSON(url, state, null, { tryCallerHeader: false });
     if (!got.ok) continue;
     const arr = Array.isArray(got.json) ? got.json : [];

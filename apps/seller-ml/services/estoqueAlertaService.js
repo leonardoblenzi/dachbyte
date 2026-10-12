@@ -2,6 +2,7 @@
 
 const db = require("../db/db");
 const { prepareAuthState, listActiveSellerItemIds } = require("./prazoProducaoService");
+const { itemsBulkPath } = require("./meliBulk");
 
 const _fetch = typeof fetch !== "undefined" ? fetch : require("node-fetch");
 const fetchRef = (...args) => _fetch(...args);
@@ -185,7 +186,7 @@ async function fetchItemDetails(state, ids = []) {
     ].join(",");
     const data = await mlJson(
       state,
-      `/items?ids=${encodeURIComponent(chunk.join(","))}&attributes=${encodeURIComponent(attrs)}`,
+      itemsBulkPath(chunk, attrs),
     );
     const rows = Array.isArray(data) ? data : [];
     rows.forEach((entry) => {

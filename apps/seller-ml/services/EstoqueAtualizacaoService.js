@@ -2,6 +2,7 @@
 
 const _fetch = typeof fetch !== "undefined" ? fetch : require("node-fetch");
 const fetchRef = (...args) => _fetch(...args);
+const { itemsBulkPath } = require("./meliBulk");
 const ML_API = "https://api.mercadolibre.com";
 const MAX_CHANGES = 5000;
 const VERIFY_ATTEMPTS = 4;
@@ -264,7 +265,7 @@ async function fetchItemsByIds(state, ids = []) {
     const chunk = unique.slice(index, index + 20);
     const response = await requestJson(
       state,
-      `/items?ids=${encodeURIComponent(chunk.join(","))}&attributes=${encodeURIComponent(attrs)}`,
+      itemsBulkPath(chunk, attrs),
       { method: "GET" },
     );
     for (const entry of Array.isArray(response.data) ? response.data : []) {

@@ -528,7 +528,7 @@ function installFamilyApiMocks({ multipleActive = false, secondConditionStatus =
       if (up === "MLBU1" && multipleActive) return { results: ["MLB1100001", "MLB1100002"] };
       return { results: [up === "MLBU1" ? "MLB1100001" : "MLB1200001"] };
     }
-    if (path.startsWith("/items?ids=")) {
+    if (path.startsWith("/items/bulk?ids=")) {
       const decoded = decodeURIComponent(path.split("ids=")[1] || "");
       return decoded.split(",").filter(Boolean).map((id, index) => ({ body: {
         id, seller_id: 123, status: index === 1 ? secondConditionStatus : "active", title: `Item ${id}`, category_id: "MLB1", price: 100 + index,

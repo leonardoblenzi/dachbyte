@@ -1,6 +1,7 @@
 const fetch = require('node-fetch');
 const TokenService = require('./tokenService');
 const config = require('../config/config');
+const { itemsBulkPath, normalizeBulkResponse } = require('./meliBulk');
 
 const PACKAGE_ATTR_IDS = {
   height: 'SELLER_PACKAGE_HEIGHT',
@@ -537,13 +538,14 @@ class ValidarDimensoesService {
     const results = [];
 
     for (const batch of chunk(ids, 20)) {
-      const url = new URL(U.items_base);
-      url.searchParams.set("ids", batch.join(","));
-      url.searchParams.set("attributes", attributes.join(","));
+      const url = `${U.items_base.replace(/\/items\/?$/, '')}${itemsBulkPath(
+        batch,
+        attributes,
+      )}`;
 
       let payload = null;
       try {
-        payload = await authFetchJson(url.toString(), { method: "GET" }, state);
+        payload = await authFetchJson(url, { method: "GET" }, state);
       } catch (err) {
         results.push(
           ...batch.map((id) =>
@@ -560,7 +562,7 @@ class ValidarDimensoesService {
         );
         continue;
       }
-      const rows = Array.isArray(payload) ? payload : [];
+      const rows = normalizeBulkResponse(payload);
       const byId = new Map(
         rows
           .filter((row) => row && Number(row.code) === 200 && row.body?.id)

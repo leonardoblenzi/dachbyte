@@ -2,6 +2,7 @@
 
 const TokenService = require("./tokenService");
 const { prepareAuthState } = require("./prazoProducaoService");
+const { itemsBulkPath } = require("./meliBulk");
 const {
   calculatePricingSnapshot,
   decomposeMarketplaceFee,
@@ -159,7 +160,7 @@ async function fetchItemBodies(state, ids = []) {
     ].join(",");
     const rows = await mlJson(
       state,
-      `/items?ids=${encodeURIComponent(chunk.join(","))}&attributes=${encodeURIComponent(attrs)}`,
+      itemsBulkPath(chunk, attrs),
     );
     for (const entry of Array.isArray(rows) ? rows : []) {
       const body = entry?.body || entry;

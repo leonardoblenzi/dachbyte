@@ -6,6 +6,7 @@ const db = require("../db/db");
 const TokenService = require("./tokenService");
 const MarketingMlService = require("./marketingMlService");
 const { parseXlsxRows } = require("./safeWorkbookParser");
+const { normalizeAttributes, normalizeBulkResponse } = require("./meliBulk");
 
 const ML_API_BASE = "https://api.mercadolibre.com";
 const INVENTORY_CACHE = new Map();
@@ -410,9 +411,9 @@ async function fetchItemDetails(state, ids = [], context = {}) {
   );
   for (let i = 0; i < cleanIds.length; i += 20) {
     const slice = cleanIds.slice(i, i + 20);
-    const rows = await mlRequest(state, "/items", {
+    const rows = await mlRequest(state, "/items/bulk", {
       ids: slice.join(","),
-      attributes: [
+      attributes: normalizeAttributes([
         "id",
         "title",
         "thumbnail",
@@ -433,10 +434,10 @@ async function fetchItemDetails(state, ids = [], context = {}) {
         "permalink",
         "attributes",
         "variations",
-      ].join(","),
+      ]),
     }).catch(() => []);
 
-    for (const row of Array.isArray(rows) ? rows : []) {
+    for (const row of normalizeBulkResponse(rows)) {
       if (row?.code !== 200 || !row?.body?.id) continue;
       const body = row.body;
       out.push({

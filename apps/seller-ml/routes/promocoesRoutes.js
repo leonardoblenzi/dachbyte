@@ -3,6 +3,7 @@ const express = require("express");
 const crypto = require("crypto");
 const fetch = require("node-fetch");
 const TokenService = require("../services/tokenService");
+const { itemsBulkPath } = require("../services/meliBulk");
 const { getSharedRedis } = require("../lib/redisClient");
 const multer = require("multer");
 const { createAuditAction } = require("../middleware/auditAction");
@@ -989,10 +990,9 @@ function buildExportFilename(name) {
 async function fetchItemsDetailsMap(req, creds, itemIds) {
   const details = {};
   for (const group of chunk(itemIds, 20)) {
-    const urlItems = `https://api.mercadolibre.com/items?ids=${encodeURIComponent(
-      group.join(",")
-    )}&attributes=${encodeURIComponent(
-      "id,title,seller_custom_field,price"
+    const urlItems = `https://api.mercadolibre.com${itemsBulkPath(
+      group,
+      "id,title,seller_custom_field,price",
     )}`;
     const ir = await authFetch(req, urlItems, {}, creds);
     if (!ir.ok) continue;
@@ -1013,9 +1013,10 @@ async function fetchItemsDetailsMap(req, creds, itemIds) {
 async function fetchItemsAvailableQuantityMap(req, creds, itemIds) {
   const quantities = {};
   for (const group of chunk(itemIds, 20)) {
-    const urlItems = `https://api.mercadolibre.com/items?ids=${encodeURIComponent(
-      group.join(",")
-    )}&attributes=${encodeURIComponent("id,available_quantity")}`;
+    const urlItems = `https://api.mercadolibre.com${itemsBulkPath(
+      group,
+      "id,available_quantity",
+    )}`;
     const response = await authFetchWithRetryOn429(req, urlItems, {}, creds, {
       retries: 3,
       baseDelayMs: 500,
@@ -3155,9 +3156,10 @@ core.get("/api/promocoes/debug/items/:itemId", async (req, res) => {
       promotionType
     );
 
-    const itemDetailsUrl = `https://api.mercadolibre.com/items?ids=${encodeURIComponent(
-      itemId
-    )}&attributes=${encodeURIComponent("id,title,available_quantity,seller_custom_field,price")}`;
+    const itemDetailsUrl = `https://api.mercadolibre.com${itemsBulkPath(
+      [itemId],
+      "id,title,available_quantity,seller_custom_field,price",
+    )}`;
     const itemDetailsResp = await authFetch(req, itemDetailsUrl, {}, creds);
     const itemDetailsText = await itemDetailsResp.text().catch(() => "");
     let itemDetailsJson;
@@ -3597,10 +3599,9 @@ core.get("/api/promocoes/promotions/:promotionId/items", async (req, res) => {
     const fallbackSnapshotsByItem = Object.create(null);
 
     for (const group of pack(ids, 20)) {
-      const urlItems = `https://api.mercadolibre.com/items?ids=${encodeURIComponent(
-        group.join(",")
-      )}&attributes=${encodeURIComponent(
-        "id,title,available_quantity,seller_custom_field,price"
+      const urlItems = `https://api.mercadolibre.com${itemsBulkPath(
+        group,
+        "id,title,available_quantity,seller_custom_field,price",
       )}`;
       const ir = await authFetch(req, urlItems, {}, creds);
       if (!ir.ok) continue;

@@ -4,6 +4,7 @@ const fetch = require("node-fetch");
 const ExcelJS = require("exceljs");
 const TokenService = require("./tokenService");
 const { parseXlsxRows } = require("./safeWorkbookParser");
+const { itemsBulkPath, normalizeBulkResponse } = require("./meliBulk");
 
 const API_BASE = "https://api.mercadolibre.com";
 const CATEGORY_CACHE = new Map();
@@ -507,10 +508,11 @@ class CaracteristicasService {
     const all = [];
     for (let index = 0; index < ids.length; index += 20) {
       const slice = ids.slice(index, index + 20);
-      const url =
-        `${API_BASE}/items?ids=${slice.join(",")}` +
-        "&attributes=id,title,status,permalink,category_id,catalog_listing,catalog_product_id,attributes,seller_custom_field" +
-        "&include_internal_attributes=true";
+      const url = `${API_BASE}${itemsBulkPath(
+        slice,
+        "id,title,status,permalink,category_id,catalog_listing,catalog_product_id,attributes,seller_custom_field",
+        { include_internal_attributes: true },
+      )}`;
 
       const response = await this.authFetch(state, url);
       const bodyText = await response.text().catch(() => "");
@@ -519,7 +521,7 @@ class CaracteristicasService {
       }
 
       const payload = parseJsonSafe(bodyText);
-      const rows = Array.isArray(payload) ? payload : [];
+      const rows = normalizeBulkResponse(payload);
       for (const row of rows) {
         all.push({
           id: normalizeItemId(row?.body?.id || row?.id),

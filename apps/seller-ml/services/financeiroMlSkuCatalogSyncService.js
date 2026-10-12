@@ -5,6 +5,7 @@ const fetch = require("node-fetch");
 const db = require("../db/db");
 const { makeBullClient } = require("../lib/redisClient");
 const TokenService = require("./tokenService");
+const { normalizeAttributes, normalizeBulkResponse } = require("./meliBulk");
 
 const ML_API_BASE = "https://api.mercadolibre.com";
 const QUEUE_NAME = "financeiro-ml-sku-catalog-sync";
@@ -335,9 +336,9 @@ async function fetchItemDetails(state, ids = []) {
   const cleanIds = Array.from(new Set(ids.map(normalizeString).filter(Boolean)));
   for (let i = 0; i < cleanIds.length; i += 20) {
     const slice = cleanIds.slice(i, i + 20);
-    const rows = await mlRequest(state, "/items", {
+    const rows = await mlRequest(state, "/items/bulk", {
       ids: slice.join(","),
-      attributes: [
+      attributes: normalizeAttributes([
         "id",
         "title",
         "thumbnail",
@@ -353,10 +354,10 @@ async function fetchItemDetails(state, ids = []) {
         "permalink",
         "attributes",
         "variations",
-      ].join(","),
+      ]),
     }).catch(() => []);
 
-    for (const row of Array.isArray(rows) ? rows : []) {
+    for (const row of normalizeBulkResponse(rows)) {
       if (row?.code === 200 && row?.body?.id) out.push(row.body);
     }
   }
