@@ -152,11 +152,11 @@ test("phase E HTTP and UI contracts keep activation with Master and requests wit
   const fiscalRoutes = fs.readFileSync(path.join(__dirname, "..", "..", "extensions", "fiscal", "backend", "routes.js"), "utf8");
   assert.doesNotMatch(routes, /service\.fiscal\.active/);
   assert.match(fiscalRoutes, /service\.fiscal\.active/);
-  assert.match(client, /Servicos Volt/);
+  assert.match(client, /Servicos/);
   assert.match(client, /Verticais/);
   assert.match(client, /Canais/);
   assert.match(modal, /Solicitar ativacao/);
-  assert.match(modal, /Gerenciar produto Volt/);
+  assert.match(modal, /Gerenciar produto/);
 });
 
 test("phase E general Core products omit empty extension payloads and protect real optional data", () => {

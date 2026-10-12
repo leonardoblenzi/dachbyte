@@ -36,7 +36,7 @@ function FiscalServiceOverview({ fiscal, ui }) {
   const usage = fiscal?.usage;
   return (
     <div className="screen-grid">
-      <FeaturePanel title="Plano do Volt Fiscal" icon={BadgeDollarSign} description="Franquia mensal vinculada ao servico fiscal contratado.">
+      <FeaturePanel title="Plano do DACHBYTE Fiscal" icon={BadgeDollarSign} description="Franquia mensal vinculada ao servico fiscal contratado.">
         <SummaryLine label="Status" value={commercialStatusLabel(fiscal?.status)} />
         <SummaryLine label="Plano" value={fiscal?.selectedPlan?.name || "Nao definido"} />
         <SummaryLine label="Mensalidade" value={fiscal?.selectedPlan ? commercialPlanPrice(fiscal.selectedPlan) : "-"} />

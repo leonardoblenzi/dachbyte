@@ -100,10 +100,12 @@ import {
   SaleTotalSummary,
 } from "./modals/ActionModalSections";
 import { DUE_DATE_SALE_PAYMENTS, INSTALLMENT_SALE_PAYMENTS, paymentMethodLabel, SALE_PAYMENT_METHODS, saleDefaultDueDate } from "./core/sales";
+import { identifyOrderPeriod, ORDER_PERIOD_OPTIONS, orderPeriodRange } from "./sales/orderDateRanges.mjs";
 import "./styles.css";
 import { submitAction } from "./actions/submitAction";
 import { applyWorkspaceSnapshot, fetchCompanyWorkspace } from "./runtime/workspaceState";
 import { fetchRuntimeCollection, fetchRuntimeReports } from "./runtime/runtimeData";
+import { fetchAllPages } from "./runtime/fetchAllPages.mjs";
 import { markRuntimeResourceFailed } from "./runtime/runtimeListState.mjs";
 import { mapWorkspaceToAppData } from "./workspace/mapWorkspaceToAppData";
 import {
@@ -150,10 +152,10 @@ const navGroups = [
   },
   {
     label: "Servicos",
-    hint: "Add-ons e produtos do ecossistema Volt",
+    hint: "Add-ons e produtos do ecossistema DACHBYTE",
     icon: BriefcaseBusiness,
     items: [
-      { id: "services", name: "Servicos Volt", icon: BriefcaseBusiness, minRole: "manager" },
+      { id: "services", name: "Servicos", icon: BriefcaseBusiness, minRole: "manager" },
     ],
   },
   {
@@ -180,7 +182,7 @@ const navGroups = [
 
 const extensionNavGroups = Object.freeze({
   vertical: Object.freeze({ label: "Vertical", hint: "Recursos do nicho contratado", icon: PanelsTopLeft }),
-  services: Object.freeze({ label: "Servicos", hint: "Add-ons e produtos do ecossistema Volt", icon: BriefcaseBusiness }),
+  services: Object.freeze({ label: "Servicos", hint: "Add-ons e produtos do ecossistema DACHBYTE", icon: BriefcaseBusiness }),
   channels: Object.freeze({ label: "Canais", hint: "Marketplaces e canais conectados", icon: Store }),
 });
 
@@ -204,9 +206,11 @@ function composeCompanyNavigation(configuration) {
 function companyVerticalLabel(configuration) {
   const activeVerticals = (configuration?.commercial?.products || [])
     .filter((product) => product.kind === "vertical" && product.status === "active")
-    .map((product) => product.name)
+    .map((product) => product.key === "vertical.optical"
+      ? "Ótica"
+      : String(product.shortName || product.name || "").replace(/^Volt\s+/i, ""))
     .filter(Boolean);
-  return activeVerticals.length ? activeVerticals.join(" + ") : "Core padrao";
+  return activeVerticals.length ? activeVerticals.join(" + ") : "Padrão";
 }
 
 const masterNavGroups = [
@@ -272,7 +276,7 @@ const pageMeta = {
   receipts: ["Recibos", "Emissao, modelo, reimpressao e envio ao cliente."],
   finance: ["Financeiro", "Contas, fluxo de caixa, despesas e previsao."],
   service_orders: ["Ordens de servico", "OS, producao, prazos e entrega."],
-  services: ["Servicos Volt", "Verticais, servicos e canais disponiveis para compor sua operacao."],
+  services: ["Servicos", "Verticais, servicos e canais disponiveis para compor sua operacao."],
   reports: ["Relatorios", "Indicadores, exportacoes e leitura gerencial."],
   settings: ["Configuracoes", "Regras operacionais, empresa e implantacao avancada."],
   users: ["Usuarios", "Equipe, perfis, permissoes e acesso por empresa."],
@@ -303,9 +307,30 @@ function runtimeOperationalListProps(runtimeData, resource, extraQuery = {}) {
   if (!runtimeData?.loadResource || !state?.pagination) return {};
   return {
     serverLoading: Boolean(state.loading),
+    serverError: state.error || "",
     serverPagination: state.pagination,
     onServerQueryChange: (query) => runtimeData.loadResource(resource, { ...query, ...extraQuery }, { silent: true }),
   };
+}
+
+async function completeExportRows(runtimeData, resource, localRows, extraQuery = {}) {
+  const companyId = runtimeData?.draftScope?.companyId;
+  if (!companyId) return localRows;
+  try {
+    const query = { ...(runtimeData.lists?.[resource]?.query || {}), ...extraQuery };
+    const rows = await fetchAllPages(
+      (pageQuery) => fetchRuntimeCollection(companyId, resource, pageQuery, runtimeData.configuration),
+      query,
+      resource,
+    );
+    const mapped = mapWorkspaceToAppData({ configuration: runtimeData.configuration, [resource]: rows }, {});
+    const appKey = { inventoryMovements: "movements", auditLogs: "auditEvents" }[resource] || resource;
+    if (!Array.isArray(mapped[appKey])) throw new Error("Nao foi possivel preparar os dados da exportacao.");
+    return mapped[appKey];
+  } catch (error) {
+    runtimeData.notify?.(`Exportacao cancelada: ${error.message || "falha ao buscar todos os registros"}`);
+    return null;
+  }
 }
 
 const emptyDashboardMetrics = [
@@ -531,6 +556,9 @@ function AppShell({ user, onLogout }) {
   const [runtimeLists, setRuntimeLists] = useState({});
   const [reportData, setReportData] = useState(null);
   const runtimeRequestSequence = useRef({});
+  const reportRequestSequence = useRef(0);
+  const reportCompanyRef = useRef(selectedCompanyId);
+  reportCompanyRef.current = selectedCompanyId;
 
   const isMasterContext = isMasterUser && contextMode === "master";
   const extensionPageMeta = resolveExtensionPage(activePage, workspace?.configuration || {});
@@ -694,14 +722,19 @@ function AppShell({ user, onLogout }) {
 
   const loadServerReports = useCallback(async (filters = {}) => {
     if (!selectedCompanyId || contextMode !== "company") return null;
+    const requestId = ++reportRequestSequence.current;
+    const companyId = selectedCompanyId;
+    setReportData(null);
     setRuntimeLists((current) => ({ ...current, reports: { ...(current.reports || {}), loading: true, error: "" } }));
     try {
-      const report = await fetchRuntimeReports(selectedCompanyId, filters);
+      const report = await fetchRuntimeReports(companyId, filters);
+      if (requestId !== reportRequestSequence.current || reportCompanyRef.current !== companyId) return null;
       const mapped = mapWorkspaceToAppData(report.data || {}, {
         sales: [], movements: [], stockReservations: [], expenses: [], receivables: [], products: [],
       });
       const nextReport = {
         ...mapped,
+        companyId,
         lowStock: mapped.products || [],
         summary: report.summary || {},
         detailPagination: report.detailPagination || {},
@@ -711,6 +744,7 @@ function AppShell({ user, onLogout }) {
       setRuntimeLists((current) => ({ ...current, reports: { loading: false, loaded: true, error: "" } }));
       return nextReport;
     } catch (error) {
+      if (requestId !== reportRequestSequence.current || reportCompanyRef.current !== companyId) return null;
       setRuntimeLists((current) => ({ ...current, reports: { loading: false, error: error.message || "Falha ao carregar relatorios." } }));
       throw error;
     }
@@ -892,6 +926,10 @@ function AppShell({ user, onLogout }) {
   }, [activePage, navigationIntent?.key]);
 
   function openActionModal(type, payload = {}) {
+    if (type === "genericConfig") {
+      notify("Funcionalidade ainda nao disponivel. Nenhuma alteracao foi realizada.");
+      return;
+    }
     setModal({ type, payload });
   }
 
@@ -961,11 +999,13 @@ function AppShell({ user, onLogout }) {
       operatorId: user?.uid || user?.id || user?.email || "current",
     },
     lists: runtimeLists,
+    configuration: workspace?.configuration,
+    notify,
     loadResource: loadRuntimeResource,
     loadReports: loadServerReports,
     reportData,
     reportsLoading: Boolean(runtimeLists.reports?.loading),
-  }), [loadRuntimeResource, loadServerReports, reportData, runtimeLists, selectedCompanyId, user?.email, user?.id, user?.uid]);
+  }), [loadRuntimeResource, loadServerReports, reportData, runtimeLists, selectedCompanyId, user?.email, user?.id, user?.uid, workspace?.configuration]);
 
   return (
     <div className="app-shell min-h-screen">
@@ -1064,8 +1104,8 @@ function AppShell({ user, onLogout }) {
                 </label>
                 <span className="badge topbar-sector">
                   {sectorConfirmed
-                    ? `Setor: ${companyVerticalLabel(workspace?.configuration)}`
-                    : "Setor pendente"}
+                    ? companyVerticalLabel(workspace?.configuration)
+                    : "Pendente"}
                 </span>
               </>
             ) : null}
@@ -1075,18 +1115,9 @@ function AppShell({ user, onLogout }) {
                 Painel master
               </button>
             ) : null}
-            <button
-              className="button-secondary"
-              type="button"
-              onClick={() => openActionModal("genericConfig", {
-                title: "Perfil do usuario",
-                label: "Operador",
-                defaultName: user.fullName || user.username,
-                feedback: "Perfil atualizado.",
-              })}
-            >
+            <span className="button-secondary">
               {runtimeLoading ? "Carregando..." : user.fullName || user.name || user.email || "Usuario"}
-            </button>
+            </span>
           </div>
         </header>
 
@@ -1214,7 +1245,7 @@ function PageContent({ activePage, appData, onAction, onDirectSubmit, setActiveP
     receipts: <ReceiptsPage data={appData} runtimeData={runtimeData} />,
     finance: <FinancePage data={appData} onAction={onAction} runtimeData={runtimeData} />,
     service_orders: <ServiceOrdersPage data={appData} onAction={onAction} runtimeData={runtimeData} workspace={workspace} />,
-    services: <VoltServicesPage workspace={workspace} onAction={onAction} isMasterUser={isMasterUser} canManageServices={canManageServices} />,
+    services: <CoreServicesPage workspace={workspace} onAction={onAction} isMasterUser={isMasterUser} canManageServices={canManageServices} />,
     reports: <ReportsPage data={appData} onAction={onAction} runtimeData={runtimeData} />,
     settings: <SettingsPage data={appData} onAction={onAction} />,
     users: <UsersPage data={appData} onAction={onAction} isMaster={isMasterContext} canManage={canManageUsers} runtimeData={runtimeData} />,
@@ -1541,7 +1572,7 @@ function MasterSystem({ overview }) {
   return (
     <div className="master-workspace">
       <section className="report-grid">
-        <ReportCard icon={ShieldCheck} title="Banco de dados" value={system.database === "connected" ? "Conectado" : "Desenvolvimento"} detail="Schema isolado volt_core" />
+        <ReportCard icon={ShieldCheck} title="Banco de dados" value={system.database === "connected" ? "Conectado" : "Desenvolvimento"} detail="Dados isolados por empresa" />
         <ReportCard icon={ClipboardCheck} title="Migrations" value={String(system.migrations ?? 0)} detail={system.latestMigration || "Nenhuma migration registrada"} />
         <ReportCard icon={CalendarClock} title="Processos pendentes" value={String(system.pendingJobs ?? 0)} detail="Importacoes e exportacoes" />
         <ReportCard icon={Lock} title="Acesso" value="Master" detail="Area restrita e autenticada" />
@@ -2004,9 +2035,28 @@ function saleMatchesDateRange(sale, dateRange) {
 }
 
 function SalesDateRangeFilter({ dateRange, onChange }) {
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = localDateKey();
+  const selectedPeriod = identifyOrderPeriod(dateRange, todayKey);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [draftRange, setDraftRange] = useState({ start: "", end: "" });
   const [visibleMonth, setVisibleMonth] = useState(() => dateKeyToLocalDate(dateRange.start || todayKey));
   const [hoveredDay, setHoveredDay] = useState("");
+  const filterRef = useRef(null);
+  useEffect(() => {
+    if (!customOpen) return undefined;
+    function closeOnOutsideClick(event) {
+      if (!filterRef.current?.contains(event.target)) setCustomOpen(false);
+    }
+    function closeOnEscape(event) {
+      if (event.key === "Escape") setCustomOpen(false);
+    }
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [customOpen]);
   const monthStart = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
   const firstGridDate = new Date(monthStart);
   firstGridDate.setDate(firstGridDate.getDate() - monthStart.getDay());
@@ -2015,20 +2065,23 @@ function SalesDateRangeFilter({ dateRange, onChange }) {
     date.setDate(firstGridDate.getDate() + index);
     return date;
   });
-  const hasOpenRange = Boolean(dateRange.start && !dateRange.end);
-  const previewRange = hasOpenRange && hoveredDay ? normalizeDateRange(dateRange.start, hoveredDay) : normalizeDateRange(dateRange.start, dateRange.end);
-  const label = dateRange.start
-    ? dateRange.end && dateRange.end !== dateRange.start
-      ? `${formatShortDate(dateRange.start)} ate ${formatShortDate(dateRange.end)}`
-      : formatShortDate(dateRange.start)
-    : "Todos os dias";
+  const hasOpenRange = Boolean(draftRange.start && !draftRange.end);
+  const previewRange = hasOpenRange && hoveredDay ? normalizeDateRange(draftRange.start, hoveredDay) : normalizeDateRange(draftRange.start, draftRange.end);
+
+  function openCustomRange() {
+    const initial = selectedPeriod === "custom" ? dateRange : { start: "", end: "" };
+    setDraftRange(initial);
+    setVisibleMonth(dateKeyToLocalDate(initial.start || todayKey));
+    setHoveredDay("");
+    setCustomOpen(true);
+  }
 
   function selectDay(dayKey) {
-    if (!dateRange.start || dateRange.end) {
-      onChange({ start: dayKey, end: "" });
+    if (!draftRange.start || draftRange.end) {
+      setDraftRange({ start: dayKey, end: "" });
       return;
     }
-    onChange(normalizeDateRange(dateRange.start, dayKey));
+    setDraftRange(normalizeDateRange(draftRange.start, dayKey));
   }
 
   function shiftMonth(delta) {
@@ -2036,56 +2089,40 @@ function SalesDateRangeFilter({ dateRange, onChange }) {
     setHoveredDay("");
   }
 
-  function applyQuickRange(kind) {
-    const today = localDateKey();
-    if (kind === "today") return onChange({ start: today, end: today });
-    if (kind === "yesterday") {
-      const yesterday = addDaysKey(today, -1);
-      return onChange({ start: yesterday, end: yesterday });
+  function changePeriod(period) {
+    if (period === "custom") {
+      openCustomRange();
+      return;
     }
-    if (kind === "week") return onChange({ start: addDaysKey(today, -6), end: today });
-    if (kind === "month") {
-      const date = dateKeyToLocalDate(today);
-      const start = localDateKey(new Date(date.getFullYear(), date.getMonth(), 1));
-      const end = localDateKey(new Date(date.getFullYear(), date.getMonth() + 1, 0));
-      return onChange({ start, end });
-    }
-    return onChange({ start: "", end: "" });
+    setCustomOpen(false);
+    onChange(orderPeriodRange(period, todayKey));
   }
 
   return (
-    <div className="sales-date-filter">
-      <div className="sales-date-filter__head">
-        <div>
-          <strong>Periodo</strong>
-          <span>{label}</span>
-        </div>
-        <button className="button-secondary" type="button" disabled={!dateRange.start} onClick={() => onChange({ start: "", end: "" })}>Limpar</button>
-      </div>
-      <div className="sales-date-filter__manual">
-        <label>
-          De
-          <input type="date" value={dateRange.start || ""} onChange={(event) => onChange(normalizeDateRange(event.target.value, dateRange.end || event.target.value))} />
-        </label>
-        <label>
-          Ate
-          <input type="date" value={dateRange.end || dateRange.start || ""} onChange={(event) => onChange(normalizeDateRange(dateRange.start || event.target.value, event.target.value))} />
-        </label>
-      </div>
-      <div className="sales-date-filter__quick">
-        <button type="button" onClick={() => applyQuickRange("today")}>Hoje</button>
-        <button type="button" onClick={() => applyQuickRange("yesterday")}>Ontem</button>
-        <button type="button" onClick={() => applyQuickRange("week")}>7 dias</button>
-        <button type="button" onClick={() => applyQuickRange("month")}>Mes</button>
-      </div>
-      <div className="sales-calendar">
+    <div className="sales-date-filter" ref={filterRef}>
+      <label className="sales-date-filter__control">
+        Periodo
+        <select value={customOpen ? "custom" : selectedPeriod} onChange={(event) => changePeriod(event.target.value)}>
+          {ORDER_PERIOD_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.value === "custom" && selectedPeriod === "custom" && dateRange.start
+                ? `${formatShortDate(dateRange.start)} a ${formatShortDate(dateRange.end || dateRange.start)}`
+                : option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button className="sales-date-filter__custom-trigger" type="button" onClick={openCustomRange} aria-label="Escolher intervalo personalizado" title="Escolher intervalo personalizado">
+        <CalendarDays size={16} />
+      </button>
+      {customOpen ? <div className="sales-date-filter__popover" role="dialog" aria-label="Selecionar intervalo de datas">
         <div className="sales-calendar__nav">
-          <button type="button" onClick={() => shiftMonth(-1)}>Anterior</button>
+          <button type="button" onClick={() => shiftMonth(-1)} aria-label="Mes anterior">‹</button>
           <strong>{visibleMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</strong>
-          <button type="button" onClick={() => shiftMonth(1)}>Proximo</button>
+          <button type="button" onClick={() => shiftMonth(1)} aria-label="Proximo mes">›</button>
         </div>
         <div className="sales-calendar__week">
-          {["D", "S", "T", "Q", "Q", "S", "S"].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}
+          {["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SAB"].map((day) => <span key={day}>{day}</span>)}
         </div>
         <div className="sales-calendar__grid" onMouseLeave={() => setHoveredDay("")}>
           {days.map((date) => {
@@ -2103,6 +2140,7 @@ function SalesDateRangeFilter({ dateRange, onChange }) {
                 ].filter(Boolean).join(" ")}
                 key={key}
                 type="button"
+                aria-label={formatShortDate(key)}
                 onClick={() => selectDay(key)}
                 onMouseEnter={() => setHoveredDay(key)}
               >
@@ -2111,7 +2149,15 @@ function SalesDateRangeFilter({ dateRange, onChange }) {
             );
           })}
         </div>
-      </div>
+        <div className="sales-date-filter__manual">
+          <label>De<input type="date" value={draftRange.start} onChange={(event) => setDraftRange((current) => ({ ...current, start: event.target.value }))} /></label>
+          <label>Ate<input type="date" value={draftRange.end} onChange={(event) => setDraftRange((current) => ({ ...current, end: event.target.value }))} /></label>
+        </div>
+        <button className="button-primary sales-date-filter__apply" type="button" disabled={!draftRange.start || !draftRange.end} onClick={() => {
+          onChange(normalizeDateRange(draftRange.start, draftRange.end));
+          setCustomOpen(false);
+        }}>Aplicar</button>
+      </div> : null}
     </div>
   );
 }
@@ -2454,7 +2500,9 @@ function DeliverySettlementModal({ sale, onClose, onSubmit }) {
 }
 
 function SalesOrders({ sales, receivables = [], onAction, onDirectSubmit, onNavigate, runtimeData, initialFilter, initialDateRange }) {
-  const [dateRange, setDateRange] = useState(initialDateRange?.start ? initialDateRange : { start: "", end: "" });
+  const [dateRange, setDateRange] = useState(() => initialDateRange?.start
+    ? normalizeDateRange(initialDateRange.start, initialDateRange.end || initialDateRange.start)
+    : orderPeriodRange("last7", localDateKey()));
   useEffect(() => {
     if (initialDateRange?.start) setDateRange(initialDateRange);
   }, [initialDateRange?.start, initialDateRange?.end]);
@@ -2750,7 +2798,10 @@ function CustomerList({ customers, onAction, onOpenHistory, runtimeData }) {
         secondaryActions={(
           <MoreOptionsMenu
             items={[
-              { label: "Exportar clientes", onClick: () => exportCustomerRows(customers) },
+              { label: "Exportar clientes", onClick: async () => {
+                const rows = await completeExportRows(runtimeData, "customers", customers);
+                if (rows) exportCustomerRows(rows);
+              } },
               { label: "Baixar modelo de importacao", onClick: downloadCustomerTemplateXlsx },
               { label: "Importar clientes", onClick: () => onAction("spreadsheetImport", { entity: "customers" }) },
             ]}
@@ -3279,7 +3330,7 @@ function HistoryRow({ title, detail, meta, status }) {
 }
 
 function exportCustomerRows(customers) {
-  downloadRowsXlsx("clientes-volt-core.xlsx", customers, [
+  downloadRowsXlsx("clientes-dachbyte-core.xlsx", customers, [
     { key: "name", label: "nome" },
     { key: "document", label: "documento" },
     { key: "phone", label: "telefone" },
@@ -3341,7 +3392,10 @@ function ProductCatalog({ categories, products, onAction, runtimeData, configura
         secondaryActions={(
           <MoreOptionsMenu
             items={[
-              { label: "Exportar produtos", onClick: () => exportProductRows(products) },
+              { label: "Exportar produtos", onClick: async () => {
+                const rows = await completeExportRows(runtimeData, "products", products);
+                if (rows) exportProductRows(rows);
+              } },
               { label: "Baixar modelo de importacao", onClick: () => downloadProductImportTemplate(categories, configuration) },
               { label: "Importar produtos", onClick: () => onAction("spreadsheetImport", { entity: "products", extensionSchema: extensionProductImportSchema(configuration) }) },
             ]}
@@ -3424,7 +3478,7 @@ function ProductCatalog({ categories, products, onAction, runtimeData, configura
 }
 
 function exportProductRows(products) {
-  downloadRowsXlsx("produtos-volt-core.xlsx", products, [
+  downloadRowsXlsx("produtos-dachbyte-core.xlsx", products, [
     { key: "name", label: "name" },
     { key: "sku", label: "sku" },
     { key: "ean", label: "ean" },
@@ -3788,7 +3842,18 @@ function InventoryAlerts({ products, onAction, runtimeData }) {
         description="Itens abaixo do minimo, com sugestao de compra e acao direta."
         icon={CalendarClock}
         action={replenishmentRows.length ? "Exportar lista" : undefined}
-        onAction={replenishmentRows.length ? () => exportInventoryReplenishmentRows(replenishmentRows) : undefined}
+        onAction={replenishmentRows.length ? async () => {
+          const allProducts = await completeExportRows(runtimeData, "products", products, { scope: "low_stock", filter: "Todos" });
+          if (!allProducts) return;
+          const rows = allProducts.filter((product) => productControlsStock(product) && Number(product.stock || 0) < Number(product.min || 0))
+            .map((product) => {
+              const stock = Number(product.stock || 0);
+              const min = Number(product.min || 0);
+              const suggestedQuantity = Math.max(1, min - stock);
+              return { ...product, suggestedQuantity, estimatedCost: suggestedQuantity * parseMoney(product.cost) };
+            });
+          exportInventoryReplenishmentRows(rows);
+        } : undefined}
       />
       <OperationalList
         {...runtimeOperationalListProps(runtimeData, "products", { scope: "low_stock" })}
@@ -3971,9 +4036,10 @@ function PaymentReconcile() {
 }
 
 function ReceivablesPage({ data, onAction, runtimeData, navigationIntent }) {
-  const [activeTab, setActiveTab] = useState(navigationIntent?.tab || "agenda");
+  const visibleTab = (tab) => tab === "actions" ? "actions" : "agenda";
+  const [activeTab, setActiveTab] = useState(visibleTab(navigationIntent?.tab));
   useEffect(() => {
-    if (navigationIntent?.tab) setActiveTab(navigationIntent.tab);
+    if (navigationIntent?.tab) setActiveTab(visibleTab(navigationIntent.tab));
   }, [navigationIntent?.key, navigationIntent?.tab]);
   const overviewReceivables = runtimeData?.lists?.receivables?.summary?.queueRows || data.receivables;
   return (
@@ -3982,7 +4048,6 @@ function ReceivablesPage({ data, onAction, runtimeData, navigationIntent }) {
       onTabChange={setActiveTab}
       tabs={[
         { id: "agenda", label: "Agenda", icon: WalletCards, content: <ReceivablesAgenda receivables={overviewReceivables} tableReceivables={data.receivables} onAction={onAction} runtimeData={runtimeData} initialFilter={navigationIntent?.filter} initialSearch={navigationIntent?.search} /> },
-        { id: "checks", label: "Cheques", icon: FileText, content: <ReceivablesChecks receivables={overviewReceivables} onAction={onAction} /> },
         { id: "actions", label: "Cobranca", icon: CalendarClock, content: <ReceivablesActions receivables={overviewReceivables} onAction={onAction} /> },
       ]}
     />
@@ -4183,13 +4248,12 @@ function ReceivableWorkColumn({ queue, onAction }) {
         <div className="receivable-work-card" key={item.id || `${item.customer}-${item.origin}-${item.due}`}>
           <div>
             <strong>{item.customer}</strong>
-            <small>{item.origin} | {item.due || "Sem vencimento"} | {item.value}</small>
+            <small>{item.origin}{item.installment && item.installment !== "-" ? ` · Parcela ${item.installment}` : ""}</small>
+            <small>Vencimento: {item.due || "nao informado"} · Saldo: {item.value}</small>
           </div>
           <StatusPill status={item.status} />
           <div className="row-actions">
             <button className="table-action" type="button" onClick={() => onAction("receivableReceive", item)}>Receber</button>
-            <button className="table-action" type="button" onClick={() => onAction("genericConfig", { title: "Contato de cobranca", label: "Retorno", defaultName: item.customer, feedback: "Contato registrado." })}>Contato</button>
-            <button className="table-action table-action--warning" type="button" onClick={() => onAction("genericConfig", { title: "Renegociacao", label: "Nova condicao", defaultName: item.value, feedback: "Renegociacao registrada." })}>Renegociar</button>
           </div>
         </div>
       ))}
@@ -4263,7 +4327,6 @@ function CashSession({ cashRows, cashSummary = {}, cashSessions = [], onAction }
         <div className="quick-actions">
           <button className="button-secondary" type="button" title="Adicionar dinheiro fisico ao caixa" disabled={!openSession} onClick={() => onAction("cashMovement", { type: "entry", sessionId: openSession?.id })}>Reforco</button>
           <button className="button-secondary" type="button" title="Retirar dinheiro fisico do caixa" disabled={!openSession} onClick={() => onAction("cashMovement", { type: "exit", sessionId: openSession?.id })}>Sangria</button>
-          <button className="button-secondary" type="button" title="Contar o dinheiro e comparar com o sistema" disabled={!openSession} onClick={() => onAction("genericConfig", { title: "Conferencia de caixa", label: "Valor contado", feedback: "Conferencia registrada." })}>Conferir</button>
         </div>
         <div className="cash-latest-list">
           <strong>Ultimos movimentos</strong>
@@ -4598,7 +4661,7 @@ function FinanceForecast({ data, onAction, runtimeData }) {
         <SummaryLine label="Lancamentos considerados" value={String(openCount)} />
         <SummaryLine label="Periodo" value="Conforme vencimentos cadastrados" />
       </FeaturePanel>
-      <FeaturePanel title="Categorias" icon={SlidersHorizontal} action="Gerenciar" onAction={() => onAction("genericConfig", { title: "Categoria financeira", label: "Categoria", feedback: "Categoria financeira salva." })}>
+      <FeaturePanel title="Categorias" icon={SlidersHorizontal}>
         <TagList items={["Mercadoria", "Operacional", "Pessoas", "Impostos", "Marketing"]} />
       </FeaturePanel>
     </div>
@@ -4715,8 +4778,6 @@ function ServiceProduction({ serviceOrders, onAction }) {
         title="Fila de execucao"
         description="Ordens de servico organizadas pelo proximo passo operacional."
         icon={CalendarClock}
-        action="Atualizar etapa"
-        onAction={() => onAction("genericConfig", { title: "Atualizar execucao", label: "Etapa", defaultName: "Em producao", feedback: "Etapa atualizada." })}
       />
       <div className="production-queue-grid">
         {queues.map((queue) => (
@@ -4879,7 +4940,7 @@ function CommercialProductCard({ product, onAction, isMasterUser, canManageServi
       ) : null}
 
       <footer className="commercial-product-card__footer">
-        {product.comingSoon ? <span>Disponibilidade futura no ecossistema Volt.</span> : null}
+        {product.comingSoon ? <span>Disponibilidade futura no ecossistema DACHBYTE.</span> : null}
         {product.status === "contracted" && !isMasterUser ? <span>Solicitacao recebida. Aguardando configuracao.</span> : null}
         {product.status === "configuring" && !isMasterUser ? <span>Configuracao em andamento.</span> : null}
         {actionLabel ? (
@@ -4909,7 +4970,7 @@ function CommercialCatalogSection({ products, emptyText, onAction, isMasterUser,
   );
 }
 
-function VoltServicesPage({ workspace, onAction, isMasterUser, canManageServices }) {
+function CoreServicesPage({ workspace, onAction, isMasterUser, canManageServices }) {
   const commercial = workspace?.configuration?.commercial || { products: [], summary: {} };
   const products = commercial.products || [];
   const core = products.find((product) => product.key === "core");
@@ -4922,8 +4983,8 @@ function VoltServicesPage({ workspace, onAction, isMasterUser, canManageServices
     <div className="services-store-page">
       <section className="panel services-store-hero">
         <div>
-          <span className="services-store-hero__eyebrow">Ecossistema Volt</span>
-          <h2>Monte o Volt conforme a sua operacao</h2>
+          <span className="services-store-hero__eyebrow">Ecossistema DACHBYTE</span>
+          <h2>Monte sua operacao</h2>
           <p>O DACHBYTE Core e a base. Verticais, servicos e canais sao adicionados conforme a necessidade de cada empresa.</p>
         </div>
         <div className="services-store-hero__core">
@@ -4968,7 +5029,10 @@ function ReportsPage({ data, onAction, runtimeData }) {
   const [filters, setFilters] = useState({ search: "", status: "", dateFrom: "", dateTo: "" });
   const hasServerReports = Boolean(runtimeData?.loadReports);
   const fallbackReportData = useMemo(() => buildClientReports(data, filters), [data, filters]);
-  const reportData = runtimeData?.reportData
+  const reportMatchesFilters = runtimeData?.reportData?.filters
+    && String(runtimeData.reportData.companyId) === String(runtimeData?.draftScope?.companyId)
+    && ["search", "status", "dateFrom", "dateTo"].every((key) => (runtimeData.reportData.filters[key] || "") === (filters[key] || ""));
+  const reportData = reportMatchesFilters
     ? normalizeServerReports(runtimeData.reportData)
     : (hasServerReports ? null : fallbackReportData);
   const reportError = runtimeData?.lists?.reports?.error || "";
@@ -4998,9 +5062,9 @@ function ReportsPage({ data, onAction, runtimeData }) {
       tabs={[
         { id: "overview", label: "Visao geral", icon: BarChart3, content: <ReportsOverview reports={reportData} filters={filters} setFilters={setFilters} /> },
         { id: "sales", label: "Vendas", icon: ShoppingCart, content: <ReportsSales reports={reportData} filters={filters} setFilters={setFilters} /> },
-        { id: "inventory", label: "Estoque", icon: Boxes, content: <ReportsInventory reports={reportData} filters={filters} setFilters={setFilters} /> },
+        { id: "inventory", label: "Estoque", icon: Boxes, content: <ReportsInventory reports={reportData} filters={filters} setFilters={setFilters} runtimeData={runtimeData} /> },
         { id: "finance", label: "Financeiro", icon: Landmark, content: <ReportsFinance reports={reportData} filters={filters} setFilters={setFilters} /> },
-        { id: "exports", label: "Exportar", icon: Download, content: <ReportsExports reports={reportData} onAction={onAction} /> },
+        { id: "exports", label: "Exportar", icon: Download, content: <ReportsExports reports={reportData} runtimeData={runtimeData} filters={filters} /> },
       ]}
     />
   );
@@ -5058,9 +5122,11 @@ function buildClientReports(data, filters) {
     if (filters.status && receivable.status !== filters.status) return false;
     return matchesReportDate(receivable.due, filters);
   });
-  const revenue = filteredSales.reduce((sum, sale) => sum + parseMoney(sale.total), 0);
+  const activeSales = filteredSales.filter((sale) => !["Cancelada", "Cancelado", "canceled"].includes(sale.status));
+  const activeExpenses = filteredExpenses.filter((expense) => !["Cancelada", "Cancelado", "canceled"].includes(expense.status));
+  const revenue = activeSales.reduce((sum, sale) => sum + parseMoney(sale.total), 0);
   const openReceivables = filteredReceivables.filter((row) => !["Pago", "Cancelado"].includes(row.status));
-  const expensesTotal = filteredExpenses.reduce((sum, expense) => sum + parseMoney(expense.value), 0);
+  const expensesTotal = activeExpenses.reduce((sum, expense) => sum + parseMoney(expense.value), 0);
   const lowStock = data.products.filter((product) => product.category !== "Servico" && Number(product.stock || 0) <= Number(product.min || 0));
 
   return {
@@ -5071,8 +5137,8 @@ function buildClientReports(data, filters) {
     products: data.products,
     lowStock,
     counts: {
-      sales: filteredSales.length,
-      expenses: filteredExpenses.length,
+      sales: activeSales.length,
+      expenses: activeExpenses.length,
       receivables: filteredReceivables.length,
       products: data.products.length,
       lowStock: lowStock.length,
@@ -5080,7 +5146,7 @@ function buildClientReports(data, filters) {
     },
     totals: {
       revenue,
-      ticket: filteredSales.length ? revenue / filteredSales.length : 0,
+      ticket: activeSales.length ? revenue / activeSales.length : 0,
       expenses: expensesTotal,
       receivables: openReceivables.reduce((sum, row) => sum + parseMoney(row.value), 0),
       net: revenue - expensesTotal,
@@ -5093,8 +5159,8 @@ function ReportsOverview({ reports, filters, setFilters }) {
     <>
       <ReportFilters filters={filters} setFilters={setFilters} />
       <div className="report-grid">
-        <ReportCard icon={TrendingUp} title="Vendas filtradas" value={formatCurrency(reports.totals.revenue)} detail={`${reports.counts?.sales ?? reports.sales.length} vendas - ticket ${formatCurrency(reports.totals.ticket)}`} />
-        <ReportCard icon={Landmark} title="Resultado previsto" value={formatCurrency(reports.totals.net)} detail={`${formatCurrency(reports.totals.expenses)} em despesas`} />
+        <ReportCard icon={TrendingUp} title="Vendas nao canceladas" value={formatCurrency(reports.totals.revenue)} detail={`${reports.counts?.sales ?? reports.sales.length} vendas - ticket ${formatCurrency(reports.totals.ticket)}`} />
+        <ReportCard icon={Landmark} title="Diferenca indicativa" value={formatCurrency(reports.totals.net)} detail={`Vendas menos ${formatCurrency(reports.totals.expenses)} em despesas; nao e lucro nem saldo em caixa`} />
         <ReportCard icon={WalletCards} title="Recebiveis abertos" value={formatCurrency(reports.totals.receivables)} detail={`${reports.counts?.receivables ?? reports.receivables.length} lancamentos filtrados`} />
         <ReportCard icon={Boxes} title="Estoque critico" value={String(reports.counts?.lowStock ?? reports.lowStock.length)} detail={`${reports.counts?.products ?? reports.products.length} itens no catalogo`} />
       </div>
@@ -5134,7 +5200,7 @@ function ReportsSales({ reports, filters, setFilters }) {
   );
 }
 
-function ReportsInventory({ reports, filters, setFilters }) {
+function ReportsInventory({ reports, filters, setFilters, runtimeData }) {
   return (
     <>
       <ReportFilters filters={filters} setFilters={setFilters} />
@@ -5163,7 +5229,10 @@ function ReportsInventory({ reports, filters, setFilters }) {
             searchText={(movement) => [movement.type, movement.product, movement.quantity, movement.reason, movement.user, movement.date].join(" ")}
           />
         </div>
-        <FeaturePanel title="Alertas de estoque" icon={CalendarClock} action="Exportar" onAction={() => exportReportRows("estoque-critico.csv", reports.lowStock, "inventory")}>
+        <FeaturePanel title="Alertas de estoque" icon={CalendarClock} action="Exportar" onAction={async () => {
+          const rows = await completeExportRows(runtimeData, "products", reports.lowStock, { filter: "estoque baixo", search: "" });
+          if (rows) exportReportRows("estoque-critico.csv", rows, "inventory");
+        }}>
           {reports.lowStock.length ? reports.lowStock.map((product) => (
             <AlertRow key={product.sku} title={product.name} detail={`${product.stock} em estoque - minimo ${product.min}`} severity="warning" />
           )) : <AlertRow title="Sem itens criticos" detail="Nenhum produto abaixo do minimo no filtro atual." severity="success" />}
@@ -5174,8 +5243,8 @@ function ReportsInventory({ reports, filters, setFilters }) {
 }
 
 function ReportsFinance({ reports, filters, setFilters }) {
-  const cashIn = Number(reports.totals?.revenue ?? reports.sales.reduce((sum, sale) => sum + parseMoney(sale.total), 0));
-  const cashOut = Number(reports.totals?.expenses ?? reports.expenses.reduce((sum, expense) => sum + parseMoney(expense.value), 0));
+  const salesTotal = Number(reports.totals?.revenue ?? reports.sales.filter((sale) => sale.status !== "Cancelada").reduce((sum, sale) => sum + parseMoney(sale.total), 0));
+  const expenseTotal = Number(reports.totals?.expenses ?? reports.expenses.filter((expense) => expense.status !== "Cancelada").reduce((sum, expense) => sum + parseMoney(expense.value), 0));
   const pending = reports.receivables.filter((row) => row.status !== "Pago");
   const pendingTotal = Number(reports.totals?.receivables ?? pending.reduce((sum, row) => sum + parseMoney(row.value), 0));
 
@@ -5183,10 +5252,10 @@ function ReportsFinance({ reports, filters, setFilters }) {
     <>
       <ReportFilters filters={filters} setFilters={setFilters} />
       <div className="report-grid">
-        <ReportCard icon={TrendingUp} title="Entradas no filtro" value={formatCurrency(cashIn)} detail={`${reports.counts?.sales ?? reports.sales.length} vendas consideradas`} />
-        <ReportCard icon={FileText} title="Saidas no filtro" value={formatCurrency(cashOut)} detail={`${reports.counts?.expenses ?? reports.expenses.length} despesas consideradas`} />
+        <ReportCard icon={TrendingUp} title="Vendas nao canceladas" value={formatCurrency(salesTotal)} detail={`${reports.counts?.sales ?? reports.sales.length} vendas pela data da venda; nao indica recebimento`} />
+        <ReportCard icon={FileText} title="Despesas nao canceladas" value={formatCurrency(expenseTotal)} detail={`${reports.counts?.expenses ?? reports.expenses.length} despesas pelo vencimento; nao indica pagamento`} />
         <ReportCard icon={WalletCards} title="Recebiveis pendentes" value={formatCurrency(pendingTotal)} detail={`${reports.counts?.receivables ?? pending.length} titulos considerados`} />
-        <ReportCard icon={Landmark} title="Resultado" value={formatCurrency(cashIn - cashOut)} detail="Vendas menos despesas filtradas" />
+        <ReportCard icon={Landmark} title="Diferenca indicativa" value={formatCurrency(salesTotal - expenseTotal)} detail="Comparativo entre vendas e despesas; nao e lucro nem saldo em caixa" />
       </div>
       <div className="panel panel-section">
         <Toolbar title="Financeiro detalhado" description="Despesas e recebiveis filtrados em uma lista unica." icon={Landmark} />
@@ -5217,16 +5286,37 @@ function ReportsFinance({ reports, filters, setFilters }) {
   );
 }
 
-function ReportsExports({ reports, onAction }) {
+function ReportsExports({ reports, runtimeData, filters }) {
+  function reportQuery(resource) {
+    const accepted = {
+      sales: ["Finalizada", "Cancelada"],
+      expenses: ["Aberto", "Pago", "Cancelado"],
+      receivables: ["Aberto", "Pago", "Parcial", "Compensar", "Vencidos"],
+    };
+    const status = filters.status || "";
+    const filter = accepted[resource] && !accepted[resource].some((item) => item.toLowerCase() === status.toLowerCase()) ? "" : status;
+    return { search: filters.search, filter, dateFrom: filters.dateFrom, dateTo: filters.dateTo };
+  }
+  async function exportSales() {
+    const rows = await completeExportRows(runtimeData, "sales", reports.sales, reportQuery("sales"));
+    if (rows) exportReportRows("vendas.csv", rows, "sales");
+  }
+  async function exportMovements() {
+    const rows = await completeExportRows(runtimeData, "inventoryMovements", reports.movements, reportQuery("inventoryMovements"));
+    if (rows) exportReportRows("estoque.csv", rows, "movements");
+  }
+  async function exportFinance() {
+    const expenses = await completeExportRows(runtimeData, "expenses", reports.expenses, reportQuery("expenses"));
+    if (!expenses) return;
+    const receivables = await completeExportRows(runtimeData, "receivables", reports.receivables, reportQuery("receivables"));
+    if (receivables) exportReportRows("financeiro.csv", [...expenses, ...receivables], "finance");
+  }
   return (
     <div className="screen-grid">
-      <FeaturePanel title="Exportacoes" icon={Download} action="Baixar CSV" onAction={() => exportReportRows("vendas.csv", reports.sales, "sales")}>
-        <QuickRow title="Vendas detalhadas" subtitle={`${reports.counts?.sales ?? reports.sales.length} vendas filtradas`} action="CSV" icon={FileText} onClick={() => exportReportRows("vendas.csv", reports.sales, "sales")} />
-        <QuickRow title="Movimento de estoque" subtitle={`${reports.counts?.movements ?? reports.movements.length} movimentacoes`} action="CSV" icon={Boxes} onClick={() => exportReportRows("estoque.csv", reports.movements, "movements")} />
-        <QuickRow title="Financeiro" subtitle={`${reports.counts?.expenses ?? reports.expenses.length} despesas e ${reports.counts?.receivables ?? reports.receivables.length} recebiveis`} action="CSV" icon={Landmark} onClick={() => exportReportRows("financeiro.csv", [...reports.expenses, ...reports.receivables], "finance")} />
-      </FeaturePanel>
-      <FeaturePanel title="Agendamento" icon={CalendarClock} action="Criar" onAction={() => onAction("genericConfig", { title: "Agendamento de relatorio", label: "Nome", defaultName: "Resumo diario", feedback: "Agendamento preparado." })}>
-        <ToggleList items={["Enviar resumo diario", "Enviar fechamento semanal", "Enviar estoque baixo", "Enviar recebiveis vencidos"]} />
+      <FeaturePanel title="Exportacoes" icon={Download} action="Baixar CSV" onAction={exportSales}>
+        <QuickRow title="Vendas detalhadas" subtitle={`${reports.counts?.sales ?? reports.sales.length} vendas filtradas`} action="CSV" icon={FileText} onClick={exportSales} />
+        <QuickRow title="Movimento de estoque" subtitle={`${reports.counts?.movements ?? reports.movements.length} movimentacoes`} action="CSV" icon={Boxes} onClick={exportMovements} />
+        <QuickRow title="Financeiro" subtitle={`${reports.counts?.expenses ?? reports.expenses.length} despesas e ${reports.counts?.receivables ?? reports.receivables.length} recebiveis`} action="CSV" icon={Landmark} onClick={exportFinance} />
       </FeaturePanel>
     </div>
   );
@@ -5339,7 +5429,7 @@ function CompanySettings({ settings, onAction }) {
         <SummaryLine label="CNPJ" value={settings.document || "Nao informado"} />
         <SummaryLine label="Contato" value={[settings.phone, settings.email].filter(Boolean).join(" / ") || "Nao informado"} />
       </FeaturePanel>
-      <FeaturePanel title="Implantacao setorial" icon={PanelsTopLeft} action="Aplicar template" onAction={() => onAction("genericConfig", { title: "Aplicar template", label: "Template", defaultName: "Core padrao", feedback: "Template preparado para aplicacao." })}>
+      <FeaturePanel title="Implantacao setorial" icon={PanelsTopLeft}>
         <TagList items={["Empresa padrao", "Otica", "Loja comum", "Assistencia tecnica"]} />
       </FeaturePanel>
     </div>
@@ -5409,7 +5499,7 @@ function RulesSettings({ settings, onAction }) {
         <SummaryLine label="Caixa aberto" value={settings.requireOpenCashSession ? "Obrigatorio" : "Opcional"} />
         <SummaryLine label="Motivo em ajuste" value={settings.requireInventoryAdjustmentReason ? "Obrigatorio" : "Opcional"} />
       </FeaturePanel>
-      <FeaturePanel title="Numeracao" icon={FileText} action="Atualizar" onAction={() => onAction("genericConfig", { title: "Numeracao", label: "Serie", feedback: "Numeracao atualizada." })}>
+      <FeaturePanel title="Numeracao" icon={FileText}>
         <SummaryLine label="Vendas" value="Sequencial automatico" />
         <SummaryLine label="Ordens de servico" value="Sequencial automatico" />
         <SummaryLine label="Recibos" value="Sequencial automatico" />
@@ -5421,10 +5511,10 @@ function RulesSettings({ settings, onAction }) {
 function BrandingSettings({ onAction }) {
   return (
     <div className="screen-grid">
-      <FeaturePanel title="Identidade da empresa" icon={PanelsTopLeft} action="Salvar" onAction={() => onAction("genericConfig", { title: "Identidade visual", label: "Cor principal", defaultName: "#2478f2", feedback: "Identidade salva." })}>
+      <FeaturePanel title="Identidade da empresa" icon={PanelsTopLeft}>
         <FormGrid fields={["Logo", "Cor principal", "Mensagem do recibo", "Rodape impresso"]} />
       </FeaturePanel>
-      <FeaturePanel title="Preferencias de interface" icon={Eye} action="Preview" onAction={() => onAction("genericConfig", { title: "Preview da experiencia", label: "Modo", defaultName: "Compacto", feedback: "Preview preparado." })}>
+      <FeaturePanel title="Preferencias de interface" icon={Eye}>
         <ToggleList items={["Exibir atalhos no dashboard", "Exibir atalhos contratados", "Mostrar modulos opcionais", "Modo compacto"]} />
       </FeaturePanel>
     </div>
@@ -5523,17 +5613,16 @@ function UsersRoles({ onAction }) {
 
   return (
     <div className="screen-grid">
-      <DataPanel title="Perfis e permissoes" icon={ShieldCheck} columns={["Perfil", "Descricao", "Permissoes", "Acao"]} onAction={() => onAction("genericConfig", { title: "Perfil de acesso", label: "Perfil", defaultName: "Operador", feedback: "Perfil salvo." })}>
+      <DataPanel title="Perfis e permissoes" icon={ShieldCheck} columns={["Perfil", "Descricao", "Permissoes"]}>
         {roleMatrix.map((role) => (
           <tr key={role.role}>
             <td>{role.role}</td>
             <td>{role.description}</td>
             <td><TagList items={role.permissions} /></td>
-            <td><button className="table-action" type="button" onClick={() => onAction("genericConfig", { title: `Perfil ${role.role}`, label: "Permissao", defaultName: role.permissions[0], feedback: "Permissoes salvas." })}>Ajustar</button></td>
           </tr>
         ))}
       </DataPanel>
-      <FeaturePanel title="Como a regra funciona" icon={PanelsTopLeft} action="Salvar excecao" onAction={() => onAction("genericConfig", { title: "Excecao de permissao", label: "Permissao", feedback: "Excecao salva." })}>
+      <FeaturePanel title="Como a regra funciona" icon={PanelsTopLeft}>
         <StepList items={["Master Davantti ignora bloqueios", "Usuario comum precisa estar vinculado a empresa", "Perfil define permissoes base", "Excecao por usuario pode permitir ou bloquear uma acao"]} />
       </FeaturePanel>
     </div>
@@ -5579,10 +5668,10 @@ function UsersAudit({ auditEvents = [], onAction, runtimeData }) {
           searchText={(event) => [event.actor, event.title, event.entityType, event.entityId, event.description, JSON.stringify(event.metadata || {})].join(" ")}
         />
       </div>
-      <FeaturePanel title="Seguranca" icon={Lock} action="Configurar" onAction={() => onAction("genericConfig", { title: "Seguranca", label: "Regra", feedback: "Seguranca configurada." })}>
+      <FeaturePanel title="Seguranca" icon={Lock}>
         <ToggleList items={["Sessao expira automaticamente", "Exigir senha para desconto", "Registrar IP de acesso", "Bloquear usuario inativo"]} />
       </FeaturePanel>
-      <FeaturePanel title="Retencao" icon={CalendarClock} action="Salvar regra" onAction={() => onAction("genericConfig", { title: "Retencao da auditoria", label: "Dias", defaultName: "365", feedback: "Retencao configurada." })}>
+      <FeaturePanel title="Retencao" icon={CalendarClock}>
         <SummaryLine label="Padrao recomendado" value="365 dias" />
         <SummaryLine label="Eventos sensiveis" value="730 dias" />
       </FeaturePanel>
@@ -5688,7 +5777,7 @@ function CompaniesSetup({ onAction }) {
           <button className="button-secondary" type="button" onClick={() => onAction("importData")}>Importar CSV</button>
         </div>
       </FeaturePanel>
-      <FeaturePanel title="Checklist de implantacao" icon={ShieldCheck} action="Atualizar" onAction={() => onAction("genericConfig", { title: "Checklist de implantacao", label: "Item", feedback: "Checklist atualizado." })}>
+      <FeaturePanel title="Checklist de implantacao" icon={ShieldCheck}>
         <ToggleList items={["Dados fiscais conferidos", "Modulos ativos conferidos", "Permissoes de equipe revisadas", "Estoque inicial importado", "Venda teste validada"]} />
       </FeaturePanel>
       <FeaturePanel title="Proximo passo recomendado" icon={ArrowRight} action="Configurar empresa" onAction={() => onAction("settings")}>
@@ -5739,7 +5828,7 @@ function ModulesActive({ onAction, workspace, isMasterUser }) {
       <FeaturePanel title="Composicao comercial" icon={Store} description="Verticais, servicos e canais nao sao habilitados manualmente como modulos.">
         <TagList items={[
           "DACHBYTE Core sempre ativo",
-          "Verticais via Servicos Volt",
+          "Verticais via Servicos",
           "Servicos via contratacao",
           "Canais via conexao",
         ]} />
@@ -5944,7 +6033,7 @@ function SpreadsheetImportModal({ data, modal, onClose, onSubmit }) {
 
   async function downloadErrors() {
     if (!result?.errorRows?.length) return;
-    await downloadErrorRowsXlsx(`erros-${entity}-volt-core.xlsx`, result.errorRows, columns);
+    await downloadErrorRowsXlsx(`erros-${entity}-dachbyte-core.xlsx`, result.errorRows, columns);
   }
 
   return (
@@ -6241,7 +6330,7 @@ function FormGrid({ fields }) {
             <CheckCircle2 size={16} />
             <span>
               <strong>{field}</strong>
-            <small>Editado pela acao principal desta tela</small>
+            <small>Configuracao ainda nao disponivel nesta tela</small>
             </span>
           </div>
       ))}
@@ -6337,10 +6426,9 @@ function ToggleList({ items }) {
   return (
     <div className="toggle-list">
       {items.map((item) => (
-        <label className="toggle-row" key={item}>
+        <div className="toggle-row" key={item}>
           <span>{item}</span>
-          <input type="checkbox" defaultChecked />
-        </label>
+        </div>
       ))}
     </div>
   );

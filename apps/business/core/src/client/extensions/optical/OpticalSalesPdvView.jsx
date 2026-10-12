@@ -147,7 +147,7 @@ function InlinePrescription({ values, onChange }) {
     ["Cylindrical", "Cilindrico", "0.25"],
     ["Axis", "Eixo", "1"],
   ];
-  const addition = values.addition || values.rightAddition || values.leftAddition || "";
+  const addition = values.addition ?? values.rightAddition ?? values.leftAddition ?? "";
   return (
     <div className="optical-step-content">
       <div className="optical-fields-grid">
@@ -186,7 +186,7 @@ function InlinePrescription({ values, onChange }) {
                       min={suffix === "Axis" ? "0" : undefined}
                       max={suffix === "Axis" ? "180" : undefined}
                       step={step}
-                      value={values[name] || ""}
+                      value={values[name] ?? ""}
                       onChange={(event) => onChange(name, event.target.value)}
                     />;
                   })}
@@ -195,7 +195,7 @@ function InlinePrescription({ values, onChange }) {
                     type="number"
                     min="0"
                     step="0.5"
-                    value={values[row.dnp] || ""}
+                    value={values[row.dnp] ?? ""}
                     onChange={(event) => onChange(row.dnp, event.target.value)}
                   /> : <span className="prescription-clinical-grid__empty">-</span>}
                 </div>
@@ -809,4 +809,4 @@ function OpticalSalesPdvView({
   );
 }
 
-export { OpticalSalesPdvView };
+export { InlinePrescription, OpticalSalesPdvView };

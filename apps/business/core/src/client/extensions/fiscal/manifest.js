@@ -21,7 +21,7 @@ const fiscalManifest = Object.freeze({
       capability: "service.fiscal",
       readPermission: "fiscal:read",
       title: "Emissor Fiscal",
-      description: "Documentos fiscais e configuracao do Volt Fiscal.",
+      description: "Documentos fiscais e configuracao do DACHBYTE Fiscal.",
       load: () => import("./FiscalPage.jsx"),
     }),
   }),

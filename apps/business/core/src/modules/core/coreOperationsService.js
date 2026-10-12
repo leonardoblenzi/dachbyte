@@ -1737,7 +1737,7 @@ function renderReceiptHtml(company, receipt) {
 <body>
   <main class="receipt">
     <button onclick="window.print()">Imprimir</button>
-    <h1>${escapeHtml(company.name || "Volt Core")}</h1>
+    <h1>${escapeHtml(company.name || "DACHBYTE Core")}</h1>
     <div class="muted">${escapeHtml(company.document || "")}</div>
     <div class="muted">${escapeHtml(company.phone || "")}</div>
     <p><strong>Venda:</strong> ${receipt.saleNumber}</p>

@@ -33,7 +33,7 @@ async function downloadImportTemplate(req, res) {
   const buffer = isProducts
     ? await buildProductImportTemplateBuffer(categories)
     : await buildCustomerImportTemplateBuffer();
-  const filename = isProducts ? "modelo-produtos-volt-core.xlsx" : "modelo-clientes-volt-core.xlsx";
+  const filename = isProducts ? "modelo-produtos-dachbyte-core.xlsx" : "modelo-clientes-dachbyte-core.xlsx";
 
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);

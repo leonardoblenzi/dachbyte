@@ -39,7 +39,8 @@ async function getReportSummary(companyId, input = {}) {
 
   const [salesAgg, expensesAgg, receivablesAgg, stockAgg, sales, movements, expenses, receivables, lowStock] = await Promise.all([
     db.query(`
-      select count(*)::int as count, coalesce(sum(s.total),0)::numeric as total
+      select count(*) filter(where s.status <> 'canceled')::int as count,
+        coalesce(sum(s.total) filter(where s.status <> 'canceled'),0)::numeric as total
       from volt_core.sales s
       left join volt_core.customers c on c.id=s.customer_id and c.company_id=s.company_id
       where s.company_id=$1
@@ -50,7 +51,8 @@ async function getReportSummary(companyId, input = {}) {
         and ($4='' or s.sold_at::date <= $4::date)
         and ($5='' or ($5='finalizada' and s.status='finalized') or ($5='cancelada' and s.status='canceled'))`, [...params, String(salesStatus).toLowerCase()]),
     db.query(`
-      select count(*)::int as count, coalesce(sum(e.remaining_amount),0)::numeric as total
+      select count(*) filter(where e.status <> 'canceled')::int as count,
+        coalesce(sum(e.amount) filter(where e.status <> 'canceled'),0)::numeric as total
       from volt_core.expenses e
       where e.company_id=$1
         and ($2='' or lower(concat_ws(' ',e.name,e.category,e.supplier,e.status)) like '%'||lower($2)||'%')

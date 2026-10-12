@@ -1,5 +1,6 @@
 import React from "react";
 import { Plus, X } from "lucide-react";
+import { InlinePrescription } from "../extensions/optical/OpticalSalesPdvView";
 import { formatCurrency, parseMoney } from "../core/formatters";
 import {
   DUE_DATE_SALE_PAYMENTS,
@@ -23,7 +24,7 @@ function normalizeLookupText(value) {
 }
 
 function ActionModalField({ field, modalType, values, onValueChange, onAccessChange, onLookup, AccessMatrixComponent }) {
-  const FieldWrapper = ["access_matrix", "checkbox_group", "segmented", "nature_summary"].includes(field.type) ? "div" : "label";
+  const FieldWrapper = ["access_matrix", "checkbox_group", "segmented", "nature_summary", "record_summary"].includes(field.type) ? "div" : "label";
   const listId = "modal-options-" + modalType + "-" + field.name;
   const [lookupQuery, setLookupQuery] = React.useState(values[field.name] || "");
   const [lookupOpen, setLookupOpen] = React.useState(false);
@@ -83,7 +84,12 @@ function ActionModalField({ field, modalType, values, onValueChange, onAccessCha
   return (
     <FieldWrapper className={"field-label " + (field.wide ? "field-label--wide" : "")}>
       {field.label}
-      {field.type === "nature_summary" ? (
+      {field.type === "record_summary" ? (
+        <div className="modal-record-summary">
+          <strong>{field.summary}</strong>
+          {field.detail ? <small>{field.detail}</small> : null}
+        </div>
+      ) : field.type === "nature_summary" ? (
         <div className="nature-summary">
           <div>
             <strong>{values.type === "Servico" ? "Servico sem estoque" : "Produto com estoque"}</strong>
@@ -308,6 +314,34 @@ function ActionModalField({ field, modalType, values, onValueChange, onAccessCha
 }
 
 function ActionModalFields({ modalType, fields, values, saleCartItems, onValueChange, onAccessChange, onLookup, AccessMatrixComponent }) {
+  if (modalType === "prescription") {
+    const customerField = fields.find((field) => field.name === "customer");
+    const customFields = fields.filter((field) => field.name.startsWith("custom__"));
+    return (
+      <div className="prescription-modal-fields">
+        {customerField ? <div className="form-grid"><ActionModalField
+          AccessMatrixComponent={AccessMatrixComponent}
+          field={customerField}
+          modalType={modalType}
+          onAccessChange={onAccessChange}
+          onLookup={onLookup}
+          onValueChange={onValueChange}
+          values={values}
+        /></div> : null}
+        <InlinePrescription values={values} onChange={onValueChange} />
+        {customFields.length ? <div className="form-grid">{customFields.map((field) => <ActionModalField
+          AccessMatrixComponent={AccessMatrixComponent}
+          field={field}
+          key={field.name}
+          modalType={modalType}
+          onAccessChange={onAccessChange}
+          onLookup={onLookup}
+          onValueChange={onValueChange}
+          values={values}
+        />)}</div> : null}
+      </div>
+    );
+  }
   return (
     <div className="form-grid">
       {fields.map((field) => {

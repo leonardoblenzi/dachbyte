@@ -1,6 +1,7 @@
 import { apiFetch } from "../../core/api";
 import { updateByKey } from "../../core/records";
 import { addAuditEvent, buildCompanyPath } from "../../actions/utils";
+import { buildPrescriptionPayload } from "./opticalSaleState";
 
 function collectDynamicCustomFields(values = {}) {
   return Object.fromEntries(Object.entries(values).filter(([key]) => key.startsWith("custom__")).map(([key, value]) => [key.slice("custom__".length), value]));
@@ -15,7 +16,7 @@ export function createOpticalSubmitHandlers(context) {
       const prescription = { customer: values.customer, doctor: values.doctor || "-", prescription: `OD ${values.od || "-"} / OE ${values.oe || "-"}`, validUntil: values.validUntil || "12 meses", status: "Ativo" };
       if (runtimeMode === "database") {
         const url = isEditing ? buildCompanyPath(selectedCompanyId, `/prescriptions/${editKey}`) : buildCompanyPath(selectedCompanyId, "/prescriptions");
-        await apiFetch(url, { method: isEditing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...values, customFields: collectDynamicCustomFields(values) }) });
+        await apiFetch(url, { method: isEditing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...buildPrescriptionPayload(values), customFields: collectDynamicCustomFields(values) }) });
         await refreshRuntimeWorkspace(); notify(isEditing ? "Receita optica atualizada." : "Receita optica salva."); return;
       }
       setAppData((current) => addAuditEvent({ ...current, prescriptions: isEditing ? updateByKey(current.prescriptions, editKey, prescription) : [prescription, ...current.prescriptions] }, isEditing ? "Receita editada" : "Receita salva", `${prescription.customer} - validade ${prescription.validUntil}`));

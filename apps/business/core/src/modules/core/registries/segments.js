@@ -9,7 +9,7 @@ const segments = [
     key: "optical",
     name: "Otica",
     status: "available",
-    description: "Primeiro segmento do Volt Core, com OS e receita optica.",
+    description: "Segmento optico do DACHBYTE Core, com OS e receita optica.",
   },
   {
     key: "retail",

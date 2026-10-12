@@ -39,7 +39,7 @@ async function health(_req, res) {
 
   res.status(statusCode).json({
     ok: statusCode === 200,
-    name: "Volt Core API",
+    name: "DACHBYTE Core API",
     status: statusCode === 200 ? "ok" : "degraded",
     database,
     worker: {
