@@ -198,6 +198,43 @@ function textIncludes(value, term) {
   return String(value || "").toLowerCase().includes(term);
 }
 
+function classifyMarginSearch(value) {
+  const term = normalizeString(value);
+  if (!term) return "none";
+  if (/^MLB\d{6,}$/i.test(term)) return "mlb";
+  return /\s/.test(term) ? "text" : "sku_or_text";
+}
+
+function itemHasExactSku(item = {}, value = "") {
+  const sku = normalizeSku(value);
+  return Boolean(sku) && [item.reference_sku, ...(item.reference_skus || []),
+    ...(item.variation_skus || []).map((row) => row.reference_sku)]
+    .some((candidate) => normalizeSku(candidate) === sku);
+}
+
+function selectMarginCandidates({ query = "", sellerId = null, status = "all", snapshotItems = [], targetedItems = [] } = {}) {
+  const term = normalizeString(query);
+  const kind = classifyMarginSearch(term);
+  const wantedStatus = normalizeStatus(status);
+  const statusMatches = (item) => wantedStatus === "all" || normalizeStatus(item?.status) === wantedStatus;
+  const snapshot = snapshotItems.filter((item) => statusMatches(item) &&
+    (!sellerId || item?.seller_id == null || String(item.seller_id) === String(sellerId)));
+  const targeted = targetedItems.filter((item) => statusMatches(item) &&
+    (!sellerId || String(item?.seller_id) === String(sellerId)));
+  const unique = (items) => Array.from(new Map(items.map((item) => [normalizeMlb(item.item_id), item])).values());
+  if (kind === "none") return unique(snapshot);
+  if (kind === "mlb") return unique([...snapshot, ...targeted].filter((item) => normalizeMlb(item.item_id) === normalizeMlb(term)));
+  if (kind === "sku_or_text") {
+    const matches = unique([...snapshot, ...targeted].filter((item) => itemHasExactSku(item, term)));
+    if (matches.length) return matches;
+  }
+  const q = term.toLowerCase();
+  return unique(snapshot.filter((item) => textIncludes(item.item_id, q) ||
+    textIncludes(item.reference_sku, q) ||
+    (item.reference_skus || []).some((value) => textIncludes(value, q)) ||
+    textIncludes(item.title, q) || textIncludes(item.category_id, q)));
+}
+
 function parseDateOnly(value) {
   const raw = normalizeString(value);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
@@ -404,14 +441,14 @@ function extractProductIdentifiers(item = {}) {
   return Array.from(ids);
 }
 
-async function fetchItemDetails(state, ids = [], context = {}) {
+async function fetchItemDetails(state, ids = [], context = {}, { strict = false } = {}) {
   const out = [];
   const cleanIds = Array.from(
     new Set(ids.map((id) => normalizeString(id)).filter(Boolean)),
   );
   for (let i = 0; i < cleanIds.length; i += 20) {
     const slice = cleanIds.slice(i, i + 20);
-    const rows = await mlRequest(state, "/items/bulk", {
+    const request = mlRequest(state, "/items/bulk", {
       ids: slice.join(","),
       attributes: normalizeAttributes([
         "id",
@@ -435,7 +472,8 @@ async function fetchItemDetails(state, ids = [], context = {}) {
         "attributes",
         "variations",
       ]),
-    }).catch(() => []);
+    });
+    const rows = strict ? await request : await request.catch(() => []);
 
     for (const row of normalizeBulkResponse(rows)) {
       if (row?.code !== 200 || !row?.body?.id) continue;
@@ -485,18 +523,19 @@ async function fetchSellerItemIdsByStatus(state, sellerId, status, limit) {
   return ids.slice(0, limit);
 }
 
-async function fetchSellerItemIdsBySku(state, sellerId, status, sku) {
+async function fetchSellerItemIdsBySku(state, sellerId, status, sku, { strict = false } = {}) {
   const term = normalizeString(sku);
   if (!term) return [];
   const ids = [];
   const pageSize = 50;
   for (let offset = 0; offset <= 5000; offset += pageSize) {
-    const payload = await mlRequest(state, `/users/${encodeURIComponent(String(sellerId))}/items/search`, {
+    const request = mlRequest(state, `/users/${encodeURIComponent(String(sellerId))}/items/search`, {
       seller_sku: term,
       status: status && status !== "all" ? status : "",
       limit: pageSize,
       offset,
-    }).catch(() => null);
+    });
+    const payload = strict ? await request : await request.catch(() => null);
     const rows = Array.isArray(payload?.results) ? payload.results : [];
     ids.push(...rows.map((id) => String(id)).filter(Boolean));
     const total = numberOrZero(payload?.paging?.total);
@@ -553,7 +592,7 @@ function normalizeCostLookupType(value) {
   return "sku";
 }
 
-async function fetchTargetedCostLookupItems(context = {}, query = {}, seller = {}) {
+async function fetchTargetedCostLookupItems(context = {}, query = {}, seller = {}, { strict = false } = {}) {
   const terms = parseDirectLookupTerms(query.q);
   if (!terms.length || !seller?.id) return [];
 
@@ -579,7 +618,7 @@ async function fetchTargetedCostLookupItems(context = {}, query = {}, seller = {
   for (const sku of skuTerms) {
     for (const status of statuses) {
       for (const variant of buildSkuLookupVariants(sku)) {
-        const ids = await fetchSellerItemIdsBySku(state, seller.id, status, variant);
+        const ids = await fetchSellerItemIdsBySku(state, seller.id, status, variant, { strict });
         ids.forEach((id) => {
           const itemId = String(id).toUpperCase();
           targetIds.add(itemId);
@@ -591,11 +630,31 @@ async function fetchTargetedCostLookupItems(context = {}, query = {}, seller = {
     }
   }
 
-  const items = await fetchItemDetails(state, Array.from(targetIds), context);
+  const items = await fetchItemDetails(state, Array.from(targetIds), context, { strict });
   // A busca por seller_sku do ML pode localizar um anuncio cujo detalhe omite
   // o atributo. Mostramos a referencia encontrada, mas exigimos confirmacao
   // antes de persistir o vinculo MLB -> SKU.
   return applySkuSearchMatches(items, skuMatches);
+}
+
+async function resolveMarginCandidates({
+  query = {}, snapshot = {}, context = {}, targetedLookup = fetchTargetedCostLookupItems,
+} = {}) {
+  const kind = classifyMarginSearch(query.q);
+  const targetedItems = kind === "mlb" || kind === "sku_or_text"
+    ? await targetedLookup(context, {
+      q: query.q,
+      lookup_type: kind === "mlb" ? "mlb" : "sku",
+      status: query.status || "all",
+    }, snapshot.seller, { strict: true })
+    : [];
+  return selectMarginCandidates({
+    query: query.q,
+    sellerId: snapshot.seller?.id,
+    status: query.status,
+    snapshotItems: snapshot.items || [],
+    targetedItems,
+  });
 }
 
 function inventoryCacheKey(accountKey, status, maxItems) {
@@ -2543,25 +2602,37 @@ async function fetchOrdersByStatuses(state, sellerId, range, limit, dateField, s
   return output;
 }
 
-function summarizeOrderRevenue(orders = []) {
+function summarizeOrderRevenue(orders = [], {
+  itemIds = [], itemFilterActive = false, skuFilter = "", itemsById = new Map(),
+} = {}) {
   const orderIds = new Set();
+  const idSet = new Set(itemIds.map(normalizeMlb));
+  const hasItemFilter = itemFilterActive || idSet.size > 0;
+  let matchedOrders = 0;
   let revenue = 0;
   let units = 0;
   for (const order of orders) {
+    const items = extractOrderItems(order).filter((row) => {
+      if (hasItemFilter && !idSet.has(row.item_id)) return false;
+      if (!skuFilter) return true;
+      return resolveOrderItemSkuCandidates(row, itemsById.get(row.item_id))
+        .includes(normalizeSku(skuFilter));
+    });
+    if (!items.length) continue;
+    matchedOrders += 1;
     if (order?.id) orderIds.add(String(order.id));
-    const items = extractOrderItems(order);
     revenue += items.reduce((sum, row) => sum + numberOrZero(row.revenue), 0);
     units += items.reduce((sum, row) => sum + numberOrZero(row.quantity), 0);
   }
   return {
     revenue: Number(revenue.toFixed(2)),
-    orders: orderIds.size || orders.length,
+    orders: orderIds.size || matchedOrders,
     units: Number(units.toFixed(0)),
-    available: numberOrZero(orders.total_available) || orders.length,
+    available: hasItemFilter ? orderIds.size || matchedOrders : numberOrZero(orders.total_available) || orders.length,
   };
 }
 
-async function fetchGrossAdjustmentSummary(state, sellerId, range, limit, dateField = "closed") {
+async function fetchGrossAdjustmentSummary(state, sellerId, range, limit, dateField = "closed", itemFilter = {}) {
   const [cancelledOrders, returnedOrders] = await Promise.all([
     fetchOrdersByStatuses(state, sellerId, range, limit, dateField, ["cancelled", "canceled"]),
     fetchOrdersByStatuses(state, sellerId, range, limit, dateField, [
@@ -2570,8 +2641,8 @@ async function fetchGrossAdjustmentSummary(state, sellerId, range, limit, dateFi
       "returned",
     ]),
   ]);
-  const cancelled = summarizeOrderRevenue(cancelledOrders);
-  const returned = summarizeOrderRevenue(returnedOrders);
+  const cancelled = summarizeOrderRevenue(cancelledOrders, itemFilter);
+  const returned = summarizeOrderRevenue(returnedOrders, itemFilter);
   return {
     cancelled_revenue: cancelled.revenue,
     cancelled_orders: cancelled.orders,
@@ -2652,6 +2723,7 @@ async function buildOrderFinancials({
   range,
   itemIds,
   itemFilterActive = false,
+  skuFilter = "",
   limit,
   itemsById,
   costMap,
@@ -2715,7 +2787,9 @@ async function buildOrderFinancials({
       ? Promise.resolve(ordersOverride.slice(0, limit))
       : fetchPaidOrders(state, seller.id, range, limit, dateField),
     includeGrossAdjustments
-      ? fetchGrossAdjustmentSummary(state, seller.id, range, limit, dateField).catch(() => emptyAdjustments)
+      ? fetchGrossAdjustmentSummary(state, seller.id, range, limit, dateField, {
+        itemIds, itemFilterActive, skuFilter, itemsById: detailMap,
+      }).catch(() => emptyAdjustments)
       : Promise.resolve(emptyAdjustments),
   ]);
   Object.assign(summary, grossAdjustments);
@@ -2726,9 +2800,12 @@ async function buildOrderFinancials({
 
   for (const order of orders) {
     const allItems = extractOrderItems(order);
-    const items = allItems.filter((row) =>
-      hasItemFilter ? idSet.has(row.item_id) : true,
-    );
+    const items = allItems.filter((row) => {
+      if (hasItemFilter && !idSet.has(row.item_id)) return false;
+      if (!skuFilter) return true;
+      return resolveOrderItemSkuCandidates(row, detailMap.get(row.item_id))
+        .includes(normalizeSku(skuFilter));
+    });
     if (!items.length) continue;
     items.forEach((row) => soldItemIds.add(row.item_id));
     preparedOrders.push({ order, items, allItems });
@@ -3103,6 +3180,14 @@ function expandItemsForPricing(items = []) {
     }
   }
   return rows;
+}
+
+function selectMarginPricingCandidates(candidates = [], query = "") {
+  const exactSkuSearch = classifyMarginSearch(query) === "sku_or_text" &&
+    candidates.some((item) => itemHasExactSku(item, query));
+  const rows = expandItemsForPricing(candidates)
+    .filter((item) => !exactSkuSearch || normalizeSku(item.reference_sku) === normalizeSku(query));
+  return { rows, exactSkuSearch };
 }
 
 async function mapMarginRow({ item, costMap, taxPct, state, seller, orderMetrics }) {
@@ -4193,23 +4278,14 @@ class FinanceiroMlService {
       max_items: query.max_items,
     });
     const q = normalizeString(query.q).toLowerCase();
-    let candidates = snapshot.items.filter((item) => {
-      if (!q) return true;
-      return (
-        textIncludes(item.item_id, q) ||
-        textIncludes(item.reference_sku, q) ||
-        (Array.isArray(item.reference_skus) && item.reference_skus.some((sku) => textIncludes(sku, q))) ||
-        textIncludes(item.title, q) ||
-        textIncludes(item.category_id, q)
-      );
-    });
+    let candidates = await resolveMarginCandidates({ query, snapshot, context });
     if (query.only_full === "true") candidates = candidates.filter((item) => item.full);
     if (query.catalog === "with_catalog") candidates = candidates.filter((item) => item.catalog);
     if (query.catalog === "without_catalog") candidates = candidates.filter((item) => !item.catalog);
 
     const scopeTruncated = candidates.length > scopeLimit;
     candidates = candidates.slice(0, scopeLimit);
-    const pricingCandidates = expandItemsForPricing(candidates);
+    const { rows: pricingCandidates, exactSkuSearch } = selectMarginPricingCandidates(candidates, q);
     const costMap = await getSkuCostMap(
       context.accountKey,
       pricingCandidates.map((item) => item.reference_sku),
@@ -4225,6 +4301,7 @@ class FinanceiroMlService {
       range,
       itemIds: q ? candidates.map((item) => item.item_id) : [],
       itemFilterActive: Boolean(q),
+      skuFilter: exactSkuSearch ? q : "",
       limit: ordersLimit,
       itemsById: itemById,
       costMap,
@@ -4274,6 +4351,7 @@ class FinanceiroMlService {
       range,
       itemIds: q ? candidates.map((item) => item.item_id) : [],
       itemFilterActive: Boolean(q),
+      skuFilter: exactSkuSearch ? q : "",
       limit: ordersLimit,
       itemsById: itemById,
       costMap,
@@ -4402,6 +4480,12 @@ class FinanceiroMlService {
 
 FinanceiroMlService._test = {
   buildOrderFinancials,
+  summarizeOrderRevenue,
+  classifyMarginSearch,
+  selectMarginCandidates,
+  resolveMarginCandidates,
+  selectMarginPricingCandidates,
+  fetchTargetedCostLookupItems,
   extractReferenceSkuValues,
   applySkuSearchMatches,
   parseImportRows,
