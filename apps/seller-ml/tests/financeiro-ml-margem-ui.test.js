@@ -18,6 +18,11 @@ const css = fs.readFileSync(
   "utf8",
 );
 
+test("margin search reports no results instead of a generic loaded status", () => {
+  assert.match(js, /Nenhum resultado para a busca e os filtros selecionados\./);
+  assert.match(js, /Anuncio encontrado, mas sem pedidos no periodo selecionado\./);
+});
+
 test("shows product price between GMV and CMV and the order status at the end of the period table", () => {
   const periodTable = html.match(
     /<table class="fml-table fml-table--margin">([\s\S]*?)<\/table>/,
@@ -130,7 +135,7 @@ test("keeps nowrap styles aligned with period result columns", () => {
 });
 
 test("bumps the margin assets cache keys", () => {
-  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=19/);
+  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=20/);
   assert.match(html, /\/ml\/css\/financeiro-ml\.css\?v=2026100103/);
 });
 
