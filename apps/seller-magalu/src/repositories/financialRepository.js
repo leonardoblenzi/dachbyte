@@ -40,7 +40,7 @@ async function saveAccountTax(accountId, value, changedBy = null) {
   });
 }
 
-async function listCosts(accountId, { q = "", search_type = "sku", state = "", status = "", category = "", offset = 0, limit = 50 } = {}) {
+function costFilter(accountId, { q = "", search_type = "sku", state = "", status = "", category = "" } = {}) {
   const params = [Number(accountId)], where = ["s.account_id=$1", "s.is_present=true"];
   const tax = "coalesce(nullif(f.aliquota,0),c.tax_rate,0)";
   const query = text(q, 3000).toLowerCase();
@@ -61,6 +61,12 @@ async function listCosts(accountId, { q = "", search_type = "sku", state = "", s
   )`);
   if(costState==="healthy") where.push(`c.unit_cost is not null and p.price is not null and c.unit_cost<p.price and
     ((p.price-c.unit_cost-(p.price*${tax}/100)-coalesce(c.packaging_cost,0)-coalesce(c.operational_cost,0)-coalesce(c.other_cost,0))/nullif(p.price,0))*100>10`);
+  return { params, where, costState, tax };
+}
+
+async function listCosts(accountId, options = {}) {
+  const { offset = 0, limit = 50 } = options;
+  const { params, where, costState, tax } = costFilter(accountId, options);
   const safeLimit = Math.min(100, Math.max(1, Number(limit) || 50)), safeOffset = Math.max(0, Number(offset) || 0);
   params.push(safeLimit, safeOffset);
   const { rows } = await db.query(`select s.sku,s.title,s.status,s.active,s.category_id,p.price,c.unit_cost,c.tax_rate as legacy_tax_rate,
@@ -74,12 +80,14 @@ async function listCosts(accountId, { q = "", search_type = "sku", state = "", s
   return { rows, total: rows.length ? Number(rows[0].total_count) : 0, offset: safeOffset, limit: safeLimit, state:costState };
 }
 
-async function exportCosts(accountId) {
+async function exportCosts(accountId, options = {}) {
+  const { params, where } = costFilter(accountId, options);
   const {rows}=await db.query(`select s.sku,s.title,p.price,c.unit_cost,c.tax_rate,c.packaging_cost,c.operational_cost,c.other_cost,c.notes,c.updated_at
     from magalu.skus s
     left join magalu.prices p on p.account_id=s.account_id and p.sku=s.sku and p.is_present=true
     left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku
-    where s.account_id=$1 and s.is_present=true order by s.sku asc limit 50001`,[Number(accountId)]);
+    left join magalu.finance_settings f on f.account_id=s.account_id
+    where ${where.join(" and ")} order by s.sku asc limit 50001`,params);
   if (rows.length > 50000) {
     const error = new Error("A exportação excede 50.000 SKUs. Entre em contato com o suporte para exportar uma conta maior.");
     error.status = 413;
