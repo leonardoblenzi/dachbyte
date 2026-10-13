@@ -2651,6 +2651,7 @@ async function buildOrderFinancials({
   seller,
   range,
   itemIds,
+  itemFilterActive = false,
   limit,
   itemsById,
   costMap,
@@ -2664,7 +2665,7 @@ async function buildOrderFinancials({
   batchSize = 4,
 }) {
   const idSet = new Set(Array.from(itemIds || []).map((id) => normalizeString(id).toUpperCase()));
-  const hasItemFilter = idSet.size > 0;
+  const hasItemFilter = Boolean(itemFilterActive) || idSet.size > 0;
   const detailMap = new Map(itemsById || []);
   const byItem = new Map();
   const ordersRows = [];
@@ -4223,6 +4224,7 @@ class FinanceiroMlService {
       seller: snapshot.seller,
       range,
       itemIds: q ? candidates.map((item) => item.item_id) : [],
+      itemFilterActive: Boolean(q),
       limit: ordersLimit,
       itemsById: itemById,
       costMap,
@@ -4271,6 +4273,7 @@ class FinanceiroMlService {
       seller: snapshot.seller,
       range,
       itemIds: q ? candidates.map((item) => item.item_id) : [],
+      itemFilterActive: Boolean(q),
       limit: ordersLimit,
       itemsById: itemById,
       costMap,
@@ -4398,6 +4401,7 @@ class FinanceiroMlService {
 }
 
 FinanceiroMlService._test = {
+  buildOrderFinancials,
   extractReferenceSkuValues,
   applySkuSearchMatches,
   parseImportRows,
