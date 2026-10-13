@@ -111,7 +111,7 @@
     const data = await api(`/batches?${query({ account_id:state.accountId, page:1, limit:20 })}`);
     const rows = data.rows || [];
     host.innerHTML = rows.length ? rows.map((b) => `<article class="mg-sku-batch-card">
-      <div class="mg-sku-batch-card__main"><div><strong>${esc(b.action === "activate" ? "Ativação" : "Desativação")}</strong><small>${esc(String(b.id))}</small></div>${badge(b.status, batchTone(b.status))}</div>
+      <div class="mg-sku-batch-card__main"><div><strong>${esc(b.action === "activate" ? "Ativação" : "Despublicação")}</strong><small>${esc(String(b.id))}</small></div>${badge(b.status, batchTone(b.status))}</div>
       <div class="mg-sku-batch-metrics"><span><b>${fmt(b.total_count)}</b>Total</span><span><b>${fmt(b.success_count)}</b>OK</span><span><b>${fmt(b.failed_count)}</b>Falhas</span><span><b>${fmt(b.stale_count)}</b>Stale</span><span><b>${fmt(b.uncertain_count)}</b>Uncertain</span><span><b>${fmt(b.divergent_count)}</b>Divergent</span></div>
       <div class="mg-sku-batch-card__foot"><small>${esc(dt(b.created_at))}</small><button class="mg-secondary-btn" data-sku-batch="${esc(b.id)}" type="button">Abrir lote</button></div>
     </article>`).join("") : '<div class="mg-empty-state"><strong>Nenhum lote recente</strong><p>As operações massivas aparecerão aqui após a confirmação de um preview.</p></div>';
@@ -123,7 +123,7 @@
     try {
       const data = await api("/preview", { method:"POST", body:JSON.stringify({ account_id:state.accountId, action, selection:selection() }) });
       state.preview = data.preview; const p = data.preview, rows = (p.rows || []).slice(0, 50);
-      $("mg-sku-preview-title").textContent = action === "activate" ? "Ativar SKUs" : "Desativar SKUs";
+      $("mg-sku-preview-title").textContent = action === "activate" ? "Ativar SKUs" : "Despublicar SKUs";
       $("mg-sku-preview-summary").textContent = `${fmt(p.selected_count)} selecionados · ${fmt(p.change_count)} com alteração`;
       $("mg-sku-preview-expiry").textContent = `Expira em ${dt(p.expires_at)}`;
       $("mg-sku-preview-body").innerHTML = rows.map((r) => `<tr><td><code>${esc(r.sku)}</code></td><td>${r.before?.active ? "Ativo" : "Inativo"}</td><td>${r.requested?.active ? "Ativo" : "Inativo"}</td><td>${r.changed ? badge("Aplicar","warn") : badge("Sem mudança","ok")}</td></tr>`).join("");
