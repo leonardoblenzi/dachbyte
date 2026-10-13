@@ -5,6 +5,8 @@ const accountRepository = require("../repositories/accountRepository");
 const catalogRepository = require("../repositories/catalogRepository");
 const syncRunRepository = require("../repositories/syncRunRepository");
 const portfolioReadService = require("./portfolioReadService");
+const MAX_SKU_LIST_OFFSET = 20_000;
+const CATALOG_SYNC_STATUSES = ["PUBLISHED", "UNPUBLISHED", "BLOCKED"];
 
 function text(value) {
   return String(value == null ? "" : value).trim();
@@ -190,7 +192,6 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
   let created = 0;
   let updated = 0;
   let failed = 0;
-  let offset = 0;
   let pages = 0;
   let lastCursor = "0";
   let currentStage = "sku_list";
@@ -224,51 +225,60 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
       });
     }
 
-    while (true) {
-      currentStage = "sku_list";
-      currentEndpoint = `/seller/v1/portfolios/skus?_offset=${offset}&_limit=${env.MAGALU_SYNC_PAGE_SIZE}`;
-      const page = await portfolioReadService.listSkus(account.id, account.dach_tenant_id, {
-        offset,
-        limit: env.MAGALU_SYNC_PAGE_SIZE,
-      });
-      const payload = page.data && typeof page.data === "object" ? page.data : {};
-      const rows = Array.isArray(payload.results) ? payload.results : [];
-      pages += 1;
-
-      currentStage = "sku_persist";
-      for (const skuPayload of rows) {
-        const saved = await catalogRepository.upsertSku(account.id, skuPayload, {
-          seenAt: startedAt,
-          httpStatus: page.status,
+    for (const statusFilter of CATALOG_SYNC_STATUSES) {
+      let offset = 0;
+      while (true) {
+        currentStage = "sku_list";
+        currentEndpoint = `/seller/v1/portfolios/skus?_offset=${offset}&_limit=${env.MAGALU_SYNC_PAGE_SIZE}&status=${statusFilter}`;
+        const page = await portfolioReadService.listSkus(account.id, account.dach_tenant_id, {
+          offset,
+          limit: env.MAGALU_SYNC_PAGE_SIZE,
+          status: statusFilter,
         });
-        scanned += 1;
-        if (saved?.inserted === true) created += 1;
-        else updated += 1;
-      }
+        const payload = page.data && typeof page.data === "object" ? page.data : {};
+        const rows = Array.isArray(payload.results) ? payload.results : [];
+        pages += 1;
 
-      currentStage = "price_stock_details";
-      currentEndpoint = "/seller/v1/portfolios/prices/:sku + /seller/v1/portfolios/stocks/:sku";
-      await mapWithConcurrency(rows, env.MAGALU_SYNC_DETAIL_CONCURRENCY, async (skuPayload) => {
-        const sku = text(skuPayload?.sku);
-        if (!sku) {
-          failed += 1;
-          return;
+        currentStage = "sku_persist";
+        for (const skuPayload of rows) {
+          const saved = await catalogRepository.upsertSku(account.id, skuPayload, {
+            seenAt: startedAt,
+            httpStatus: page.status,
+          });
+          scanned += 1;
+          if (saved?.inserted === true) created += 1;
+          else updated += 1;
         }
-        const [price, stock] = await Promise.all([syncPrice(account, sku), syncStock(account, sku)]);
-        if (!price.ok) failed += 1;
-        if (!stock.ok) failed += 1;
-      });
 
-      const fallbackNext = offset + rows.length;
-      const nextOffset = nextOffsetFromLink(payload?.meta?.links?.next, fallbackNext);
-      lastCursor = String(fallbackNext);
-      if (nextOffset === null || rows.length === 0) break;
-      offset = nextOffset;
+        currentStage = "price_stock_details";
+        currentEndpoint = "/seller/v1/portfolios/prices/:sku + /seller/v1/portfolios/stocks/:sku";
+        await mapWithConcurrency(rows, env.MAGALU_SYNC_DETAIL_CONCURRENCY, async (skuPayload) => {
+          const sku = text(skuPayload?.sku);
+          if (!sku) {
+            failed += 1;
+            return;
+          }
+          const [price, stock] = await Promise.all([syncPrice(account, sku), syncStock(account, sku)]);
+          if (!price.ok) failed += 1;
+          if (!stock.ok) failed += 1;
+        });
+
+        const fallbackNext = offset + rows.length;
+        const nextOffset = nextOffsetFromLink(payload?.meta?.links?.next, fallbackNext);
+        lastCursor = `${statusFilter}:${fallbackNext}`;
+        if (nextOffset === null || rows.length === 0) break;
+        if (nextOffset > MAX_SKU_LIST_OFFSET) {
+          const error = new Error(`O status ${statusFilter} ultrapassou o limite de 20.000 SKUs por paginação Magalu. A sincronização parcial não removeu SKUs.`);
+          error.code = "MAGALU_CATALOG_PAGE_LIMIT";
+          throw error;
+        }
+        offset = nextOffset;
+      }
     }
 
     currentStage = "finalize";
     currentEndpoint = null;
-    const missing = await catalogRepository.markUnseenSkusMissing(account.id, startedAt);
+    const missing = await catalogRepository.markUnseenSkusMissing(account.id, startedAt, CATALOG_SYNC_STATUSES);
     const status = failed > 0 ? "partial" : "success";
     const finishedAt = new Date();
 
