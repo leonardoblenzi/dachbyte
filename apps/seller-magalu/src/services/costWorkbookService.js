@@ -2,7 +2,7 @@
 const ExcelJS = require("exceljs");
 
 const COLUMNS = [
-  ["SKU", "sku"], ["Produto", "title"], ["Preço atual", "price"],
+  ["SKU", "sku"], ["EAN", "ean"], ["Família", "group_id"], ["Produto", "title"], ["Preço atual", "price"],
   ["Custo produto", "unit_cost"]
 ];
 const EDITABLE = ["unit_cost"];
@@ -30,7 +30,7 @@ async function buildCostWorkbook(rows) {
   for (const row of rows) sheet.addRow(row);
   sheet.getRow(1).font = { bold: true };
   sheet.views = [{ state: "frozen", ySplit: 1 }];
-  sheet.autoFilter = { from: "A1", to: "D1" };
+  sheet.autoFilter = { from: "A1", to: "F1" };
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
@@ -42,13 +42,17 @@ async function parseCostWorkbook({ filename, buffer }) {
   const sheet = workbook.getWorksheet("Custos por SKU") || workbook.worksheets[0];
   if (!sheet) throw invalid("Planilha de custos ausente.", 400);
   const headers = COLUMNS.map(([header]) => header);
+  const legacyHeaders = ["SKU", "Produto", "Preço atual", "Custo produto"];
   const actualHeaders = sheet.getRow(1).values.slice(1).map((value) => String(value || "").trim());
   if (actualHeaders.includes("Imposto legado %") || actualHeaders.includes("Alíquota global (informativa)")) {
     throw invalid("Modelo de custos desatualizado. Baixe uma nova planilha XLSX.", 400);
   }
-  if (actualHeaders.length !== headers.length || headers.some((header, index) => actualHeaders[index] !== header)) {
+  const currentModel = actualHeaders.length === headers.length && headers.every((header, index) => actualHeaders[index] === header);
+  const legacyModel = actualHeaders.length === legacyHeaders.length && legacyHeaders.every((header, index) => actualHeaders[index] === header);
+  if (!currentModel && !legacyModel) {
     throw invalid("Cabeçalhos diferentes do modelo. Baixe uma nova planilha XLSX.", 400);
   }
+  const modelColumns = currentModel ? COLUMNS : [["SKU", "sku"], ["Produto", "title"], ["Preço atual", "price"], ["Custo produto", "unit_cost"]];
   if (sheet.rowCount > 50001) throw invalid("A planilha excede 50.000 SKUs.", 413);
   const rows = [], errors = [], seen = new Set();
   for (let number = 2; number <= sheet.rowCount; number++) {
@@ -60,11 +64,11 @@ async function parseCostWorkbook({ filename, buffer }) {
     seen.add(sku);
     const next = { sku };
     for (const key of EDITABLE) {
-      const index = COLUMNS.findIndex(([, column]) => column === key) + 1;
+      const index = modelColumns.findIndex(([, column]) => column === key) + 1;
       try {
         const value = parseAmount(cells.getCell(index).value);
         if (value !== undefined) next[key] = value;
-      } catch (_error) { errors.push({ line: number, sku, reason: `${COLUMNS[index - 1][0]} inválido.` }); }
+      } catch (_error) { errors.push({ line: number, sku, reason: `${modelColumns[index - 1][0]} inválido.` }); }
     }
     if (Object.keys(next).length > 1) rows.push(next);
   }

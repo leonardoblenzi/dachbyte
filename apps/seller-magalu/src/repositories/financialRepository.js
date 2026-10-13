@@ -46,6 +46,8 @@ function costFilter(accountId, { q = "", search_type = "sku", state = "", status
   const query = text(q, 3000).toLowerCase();
   if (query) {
     if (search_type === "product") { params.push(`%${query}%`); where.push(`lower(coalesce(s.title,'')) like $${params.length}`); }
+    else if (search_type === "group") { params.push(query); where.push(`lower(coalesce(s.group_id,''))=$${params.length}`); }
+    else if (search_type === "ean") { params.push(query); where.push(`exists (select 1 from jsonb_array_elements(coalesce(s.payload->'identifiers','[]'::jsonb)) identifier where lower(identifier->>'type')='ean' and lower(identifier->>'value')=$${params.length})`); }
     else if (/[\n,;]+/.test(query)) {
       const values = [...new Set(query.split(/[\n,;]+/).map((value) => value.trim()).filter(Boolean))].slice(0, 100);
       params.push(values); where.push(`lower(s.sku)=any($${params.length}::text[])`);
@@ -69,7 +71,9 @@ async function listCosts(accountId, options = {}) {
   const { params, where, costState, tax } = costFilter(accountId, options);
   const safeLimit = Math.min(100, Math.max(1, Number(limit) || 50)), safeOffset = Math.max(0, Number(offset) || 0);
   params.push(safeLimit, safeOffset);
-  const { rows } = await db.query(`select s.sku,s.title,s.status,s.active,s.category_id,p.price,c.unit_cost,c.tax_rate as legacy_tax_rate,
+  const { rows } = await db.query(`select s.sku,s.title,s.status,s.active,s.category_id,s.group_id,
+    (select identifier->>'value' from jsonb_array_elements(coalesce(s.payload->'identifiers','[]'::jsonb)) identifier where lower(identifier->>'type')='ean' and nullif(identifier->>'value','') is not null limit 1) as ean,
+    p.price,c.unit_cost,c.tax_rate as legacy_tax_rate,
     ${tax} as tax_rate,c.packaging_cost,c.operational_cost,c.other_cost,c.notes,c.updated_at,count(*) over()::int total_count
     from magalu.skus s
     left join magalu.prices p on p.account_id=s.account_id and p.sku=s.sku and p.is_present=true
@@ -82,7 +86,9 @@ async function listCosts(accountId, options = {}) {
 
 async function exportCosts(accountId, options = {}) {
   const { params, where } = costFilter(accountId, options);
-  const {rows}=await db.query(`select s.sku,s.title,p.price,c.unit_cost,c.tax_rate,c.packaging_cost,c.operational_cost,c.other_cost,c.notes,c.updated_at
+  const {rows}=await db.query(`select s.sku,s.title,s.group_id,
+    (select identifier->>'value' from jsonb_array_elements(coalesce(s.payload->'identifiers','[]'::jsonb)) identifier where lower(identifier->>'type')='ean' and nullif(identifier->>'value','') is not null limit 1) as ean,
+    p.price,c.unit_cost,c.tax_rate,c.packaging_cost,c.operational_cost,c.other_cost,c.notes,c.updated_at
     from magalu.skus s
     left join magalu.prices p on p.account_id=s.account_id and p.sku=s.sku and p.is_present=true
     left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku

@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const row = { sku: "SKU-1", title: "Sofá Azul", price: 150, unit_cost: 60, tax_rate: 6, packaging_cost: 2, operational_cost: 3, other_cost: 1, notes: "teste" };
+const row = { sku: "SKU-1", ean: "7891234567890", group_id: "FAMILIA-1", title: "Sofá Azul", price: 150, unit_cost: 60, tax_rate: 6, packaging_cost: 2, operational_cost: 3, other_cost: 1, notes: "teste" };
 
 test("planilha exportada pode ser reimportada com decimais e caracteres", async () => {
   const { buildCostWorkbook, parseCostWorkbook } = require("../src/services/costWorkbookService");
@@ -13,9 +13,22 @@ test("planilha exportada pode ser reimportada com decimais e caracteres", async 
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
   const sheet = workbook.getWorksheet("Custos por SKU");
-  assert.deepEqual(sheet.getRow(1).values.slice(1), ["SKU", "Produto", "Preço atual", "Custo produto"]);
+  assert.deepEqual(sheet.getRow(1).values.slice(1), ["SKU", "EAN", "Família", "Produto", "Preço atual", "Custo produto"]);
+  assert.equal(sheet.getCell("B2").value, row.ean);
+  assert.equal(sheet.getCell("C2").value, row.group_id);
   const parsed = await parseCostWorkbook({ filename: "custos-magalu.xlsx", buffer });
   assert.deepEqual(parsed, [{ sku: "SKU-1", unit_cost: 60 }]);
+});
+
+test("planilha anterior de quatro colunas continua importável por SKU", async () => {
+  const ExcelJS = require("exceljs");
+  const { parseCostWorkbook } = require("../src/services/costWorkbookService");
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Custos por SKU");
+  sheet.addRow(["SKU", "Produto", "Preço atual", "Custo produto"]);
+  sheet.addRow(["SKU-1", "Sofá Azul", 150, 60]);
+  const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+  assert.deepEqual(await parseCostWorkbook({ filename: "custos-antigos.xlsx", buffer }), [{ sku: "SKU-1", unit_cost: 60 }]);
 });
 
 test("importação rejeita arquivos inválidos e valores negativos", async () => {
@@ -38,7 +51,7 @@ test("modelo antigo é recusado com orientação para baixar nova planilha", asy
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await buildCostWorkbook([row]));
   const sheet = workbook.getWorksheet("Custos por SKU");
-  sheet.getCell("D1").value = "Custo unitário";
+  sheet.getCell("F1").value = "Custo unitário";
   sheet.getCell("E1").value = "Imposto legado %";
   sheet.getCell("J1").value = "Alíquota global (informativa)";
   const oldBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
@@ -48,12 +61,12 @@ test("modelo antigo é recusado com orientação para baixar nova planilha", asy
   );
 });
 
-test("importação recusa colunas extras fora do modelo de quatro colunas", async () => {
+test("importação recusa colunas extras fora do modelo atual", async () => {
   const ExcelJS = require("exceljs");
   const { buildCostWorkbook, parseCostWorkbook } = require("../src/services/costWorkbookService");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await buildCostWorkbook([row]));
-  workbook.getWorksheet("Custos por SKU").getCell("E1").value = "Taxa";
+  workbook.getWorksheet("Custos por SKU").getCell("G1").value = "Taxa";
   const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
   await assert.rejects(() => parseCostWorkbook({ filename: "extra.xlsx", buffer }), { status: 400 });
 });

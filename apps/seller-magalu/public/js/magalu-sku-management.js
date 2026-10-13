@@ -25,7 +25,7 @@
     return data;
   }
   function query(params) { const p = new URLSearchParams(); Object.entries(params).forEach(([k,v]) => { if (v !== "" && v != null) p.set(k, String(v)); }); return p.toString(); }
-  function filters() { return { q: $("mg-sku-search")?.value?.trim() || "", status: $("mg-sku-status")?.value || "", active: $("mg-sku-active")?.value || "" }; }
+  function filters() { return { q: $("mg-sku-search")?.value?.trim() || "", search_type: $("mg-sku-search-type")?.value || "sku", status: $("mg-sku-status")?.value || "", active: $("mg-sku-active")?.value || "" }; }
   function selection() { return state.allFiltered ? { mode:"all_filtered", filters:filters() } : { mode:"explicit", skus:[...state.selected] }; }
   function badge(text, kind = "muted") { return `<span class="mg-sku-badge" data-tone="${esc(kind)}">${esc(text || "—")}</span>`; }
 
@@ -91,7 +91,7 @@
     state.rows = data.rows || []; state.total = Number(data.total || 0);
     if (body) body.innerHTML = state.rows.map((r) => `<tr>
       <td><input class="mg-sku-row-check" type="checkbox" data-sku="${esc(r.sku)}" ${state.allFiltered || state.selected.has(r.sku) ? "checked" : ""} ${state.allFiltered ? "disabled" : ""}></td>
-      <td><code>${esc(r.sku)}</code><span class="mg-sku-row-sub">${esc(r.title || "Sem título")}</span></td>
+      <td><code>${esc(r.sku)}</code><span class="mg-sku-row-sub">${esc(r.title || "Sem título")}</span>${r.ean||r.group_id?`<span class="mg-sku-row-sub">${r.ean?`EAN ${esc(r.ean)}`:""}${r.ean&&r.group_id?" · ":""}${r.group_id?`Família ${esc(r.group_id)}`:""}</span>`:""}</td>
       <td>${badge(r.status, r.status === "PUBLISHED" ? "ok" : ["BLOCKED","DELETED"].includes(r.status) ? "bad" : "warn")}</td>
       <td>${badge(r.active ? "Ativo" : "Inativo", r.active ? "ok" : "muted")}</td>
       <td>${esc(r.price ?? "—")}</td><td>${esc(r.quantity ?? "—")}</td><td>${esc(dt(r.last_synced_at || r.updated_at))}</td>
@@ -164,6 +164,7 @@
   }
   function bind() {
     if (state.bound) return; state.bound = true;
+    $("mg-sku-search-type")?.addEventListener("change", (event) => { const input=$("mg-sku-search"); if(input) input.placeholder=({sku:"Buscar SKU",product:"Buscar produto",ean:"Informe o EAN",group:"Informe o ID da família"})[event.target.value]||"Buscar SKU"; });
     $("mg-sku-filter")?.addEventListener("click", () => { state.page = 1; setInputMode("filters"); void loadSkus().catch((e) => alert(e.message)); });
     $("mg-sku-refresh")?.addEventListener("click", () => void Promise.all([loadStatus(), loadSkus(), loadBatches()]).catch((e) => alert(e.message)));
     $("mg-sku-prev")?.addEventListener("click", () => { if (state.page > 1) { state.page -= 1; void loadSkus(); } });

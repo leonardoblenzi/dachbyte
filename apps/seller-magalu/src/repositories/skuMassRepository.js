@@ -24,8 +24,14 @@ function normalizeExplicitSkus(values){
 
 function catalogWhere(filters={}, alias="s") {
   const where=[`${alias}.account_id=$1`,`${alias}.is_present=true`], params=[Number(filters.accountId)];
-  const q=clean(filters.q,200),status=clean(filters.status,80).toUpperCase(),active=boolFilter(filters.active);
-  if(q){params.push(`%${q.toLowerCase()}%`);where.push(`(lower(${alias}.sku) like $${params.length} or lower(coalesce(${alias}.title,'')) like $${params.length})`);}
+  const q=clean(filters.q,200),searchType=clean(filters.search_type,20),status=clean(filters.status,80).toUpperCase(),active=boolFilter(filters.active);
+  if(q){
+    if(searchType==="group"){params.push(q.toLowerCase());where.push(`lower(coalesce(${alias}.group_id,''))=$${params.length}`);}
+    else if(searchType==="ean"){params.push(q.toLowerCase());where.push(`exists (select 1 from jsonb_array_elements(coalesce(${alias}.payload->'identifiers','[]'::jsonb)) identifier where lower(identifier->>'type')='ean' and lower(identifier->>'value')=$${params.length})`);}
+    else if(searchType==="sku"){params.push(`%${q.toLowerCase()}%`);where.push(`lower(${alias}.sku) like $${params.length}`);}
+    else if(searchType==="product"){params.push(`%${q.toLowerCase()}%`);where.push(`lower(coalesce(${alias}.title,'')) like $${params.length}`);}
+    else {params.push(`%${q.toLowerCase()}%`);where.push(`(lower(${alias}.sku) like $${params.length} or lower(coalesce(${alias}.title,'')) like $${params.length})`);}
+  }
   if(status){params.push(status);where.push(`${alias}.status=$${params.length}`);}
   if(active!==null){params.push(active);where.push(`${alias}.active=$${params.length}`);}
   return{where,params};
@@ -34,7 +40,8 @@ async function listSkus(accountId,filters={}){
   const page=int(filters.page,1,100000,1),limit=int(filters.limit,1,100,50),offset=(page-1)*limit;
   const f=catalogWhere({...filters,accountId});
   const total=await db.queryOne(`select count(*)::int total from magalu.skus s where ${f.where.join(" and ")}`,f.params);
-  const {rows}=await db.query(`select s.sku,s.title,s.status,s.active,s.brand,s.group_id,s.category_id,s.fulfillment,s.last_synced_at,s.updated_at
+  const {rows}=await db.query(`select s.sku,s.title,s.status,s.active,s.brand,s.group_id,s.category_id,s.fulfillment,s.last_synced_at,s.updated_at,
+    (select identifier->>'value' from jsonb_array_elements(coalesce(s.payload->'identifiers','[]'::jsonb)) identifier where lower(identifier->>'type')='ean' and nullif(identifier->>'value','') is not null limit 1) as ean
     from magalu.skus s where ${f.where.join(" and ")} order by s.updated_at desc,s.sku asc limit $${f.params.length+1} offset $${f.params.length+2}`,[...f.params,limit,offset]);
   return{rows,total:Number(total?.total||0),page,limit};
 }
