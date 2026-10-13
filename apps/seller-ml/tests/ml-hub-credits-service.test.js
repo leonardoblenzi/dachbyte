@@ -3,10 +3,34 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
+  createCreditTopupCheckout,
   hasUnlimitedAccess,
   reserveCredits,
   settleCredits,
 } = require("../services/hubCreditsService");
+
+test("conta ilimitada nao pode abrir checkout de recarga", async () => {
+  const previousFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async () => { calls += 1; throw new Error("unexpected_hub_call"); };
+  try {
+    await assert.rejects(
+      () => createCreditTopupCheckout({
+        mlCreds: {
+          meli_user_id: "unlimited_test",
+          tenant_id: "tenant_test",
+          billing_status: "courtesy_unlimited",
+          usage_policy: "unlimited",
+        },
+        packageCode: "any_package",
+      }),
+      (error) => error.code === "credit_topup_unavailable_for_unlimited" && error.statusCode === 409,
+    );
+    assert.equal(calls, 0);
+  } finally {
+    global.fetch = previousFetch;
+  }
+});
 
 test("identifica contas ilimitadas migradas ou de cortesia", () => {
   assert.equal(

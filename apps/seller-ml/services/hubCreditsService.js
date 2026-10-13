@@ -354,6 +354,12 @@ async function createCreditTopupCheckout({
   successUrl = null,
 } = {}) {
   const context = billingContext({ mlCreds, account });
+  if (hasUnlimitedAccess(context)) {
+    throw new HubCreditError("Contas ilimitadas nao precisam comprar creditos.", {
+      statusCode: 409,
+      code: "credit_topup_unavailable_for_unlimited",
+    });
+  }
   await ensureAccountSynced(context);
   const response = await postHub("/v1/internal/resources/credits/topup/checkout", {
     module_slug: "ml",

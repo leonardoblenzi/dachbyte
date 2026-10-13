@@ -75,6 +75,8 @@
     return Boolean(
       payload?.unlimited ||
         resource.unlimited ||
+        resource.consumption_model === "unlimited" ||
+        resource.access_policy === "unlimited" ||
         usagePolicy === "unlimited" ||
         ["internal_unlimited", "courtesy_unlimited"].includes(status) ||
         (status === "legacy_active" && billingMode === "legacy"),
@@ -85,6 +87,8 @@
     const resource = resourceFrom(payload);
     const unlimited = isUnlimited(payload);
     document.body?.classList.toggle("credits-app--unlimited", unlimited);
+    const topupPanel = $("credits-topup-panel");
+    if (topupPanel) topupPanel.hidden = unlimited;
     const monthly = Number(resource.monthly_balance || 0);
     const purchased = Number(resource.purchased_balance || 0);
     const prepaid = resource.prepaid === true || String(resource.model || resource.consumption_model || "") === "prepaid_credits";

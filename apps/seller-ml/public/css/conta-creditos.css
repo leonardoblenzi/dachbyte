@@ -163,6 +163,10 @@ body.credits-app{
   margin-bottom:18px;
 }
 
+#credits-topup-panel[hidden]{
+  display:none;
+}
+
 .credits-panel h2{
   margin:8px 0 6px;
   font-size:1.45rem;
