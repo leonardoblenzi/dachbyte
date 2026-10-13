@@ -7,6 +7,8 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
 const db = require("./db/db");
+const { createMlRetirementService } = require("./services/internalRetirementService");
+const { createMlRetirementRouter } = require("./routes/internalRetirementRoutes");
 const { syncHubIdentity } = require("../../lib/hubIdentitySync");
 const {
   corsOptionsDelegate,
@@ -133,6 +135,10 @@ module.exports = function createMlApp() {
 
   app.use(cors(corsOptionsDelegate));
   app.use(cookieParser());
+  app.use("/internal/hub/retirement", createMlRetirementRouter({
+    secret: process.env.SELLER_RETIREMENT_TOKEN,
+    retire: createMlRetirementService({ withClient: db.withClient }),
+  }));
   app.use(
     createOriginGuard({
       allowPrefixes: [

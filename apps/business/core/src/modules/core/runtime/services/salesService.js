@@ -679,6 +679,7 @@ async function createSale(companyId, input = {}) {
       const artifacts = collectHookArtifacts(hookResults);
 
       const receipt = deliveryPayment ? null : await createReceiptWithClient(client, companyId, saleResult.rows[0], {
+        companyName: companyConfiguration.name,
         customer,
         items: preparedItems,
         payments: normalizedPayments,
@@ -807,6 +808,7 @@ async function completeSaleDelivery(companyId, saleId, input = {}) {
       );
       await createSaleFinancialRecords(client, companyId, updatedSale, customer, normalizedPayments, deliveryAt, input.actorUserId);
       const receipt = await createReceiptWithClient(client, companyId, updatedSale, {
+        companyName: companyConfiguration.name,
         customer,
         items: receiptItems,
         payments: normalizedPayments,
@@ -958,6 +960,7 @@ async function updateSale(companyId, saleId, input = {}) {
         "sale_edit",
       );
       const receipt = await createReceiptWithClient(client, companyId, updatedSale, {
+        companyName: companyConfiguration.name,
         customer,
         items: receiptItems,
         payments: normalizedPayments,
@@ -1159,6 +1162,7 @@ async function createReceiptWithClient(client, companyId, sale, context) {
   const payload = {
     saleId: sale.id,
     saleNumber: sale.number,
+    companyName: context.companyName || "",
     customer: context.customer?.name || "Cliente avulso",
     items: context.items.map((item) => ({
       productId: item.product.id,
@@ -1221,8 +1225,9 @@ async function createReceiptWithClient(client, companyId, sale, context) {
   }).join("");
   const html = [
     "<!doctype html>",
-    "<html><head><meta charset=\"utf-8\"><title>Recibo Volt Core</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:28px}h1{margin:0 0 4px}h2{font-size:16px;margin-top:24px}.muted{color:#64748b}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border-bottom:1px solid #dbe5f0;padding:9px 6px;text-align:left}th{font-size:12px;color:#52657f;text-transform:uppercase}.total{font-size:20px;text-align:right;margin-top:18px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}</style></head>",
+    `<html><head><meta charset="utf-8"><title>Recibo #${receiptNumber} - ${escapeHtml(payload.companyName)}</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:28px}.company-name{font-size:18px;font-weight:700;margin:0 0 18px}h1{margin:0 0 4px}h2{font-size:16px;margin-top:24px}.muted{color:#64748b}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border-bottom:1px solid #dbe5f0;padding:9px 6px;text-align:left}th{font-size:12px;color:#52657f;text-transform:uppercase}.total{font-size:20px;text-align:right;margin-top:18px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}</style></head>`,
     "<body>",
+    `<p class="company-name">${escapeHtml(payload.companyName)}</p>`,
     `<h1>Recibo #${receiptNumber}</h1>`,
     `<p class="muted">Venda #${sale.number} | Emitido em ${formatDateTime(sale.createdAt || new Date())}</p>`,
     `<div class="meta"><p><strong>Cliente</strong><br>${escapeHtml(payload.customer)}</p><p><strong>Data da venda</strong><br>${formatDateTime(sale.soldAt || sale.createdAt)}</p></div>`,
@@ -1255,6 +1260,7 @@ module.exports = {
   __test: {
     addMonthsToDate,
     assertPositive,
+    createReceiptWithClient,
     defaultReceivableDueDate,
     isImmediatePayment,
     isDeliveryPayment,

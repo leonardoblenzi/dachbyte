@@ -243,7 +243,7 @@ function buildPrescriptionPayload(prescription = {}) {
     nearLeftDnp,
     ...distancePrescription
   } = prescription;
-  const sharedAddition = addition || rightAddition || leftAddition || null;
+  const sharedAddition = addition ?? rightAddition ?? leftAddition ?? null;
 
   return {
     ...distancePrescription,

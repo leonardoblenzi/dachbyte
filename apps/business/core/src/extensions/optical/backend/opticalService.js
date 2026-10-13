@@ -264,6 +264,48 @@ async function saveOpticalLaboratory(companyId, input = {}) {
   return result.rows[0];
 }
 
+async function listOpticalLaboratoryOrders(companyId, laboratoryId) {
+  await assertCompanyCapability(companyId, "optical.laboratories");
+  const result = await db.query(`select o.id, o.number, o.status, o.created_at as "createdAt",
+      s.number as "saleNumber", so.number as "serviceOrderNumber", c.name as "customerName"
+    from volt_core.optical_orders o
+    join volt_core.sales s on s.id=o.sale_id and s.company_id=o.company_id
+    join volt_core.customers c on c.id=o.customer_id and c.company_id=o.company_id
+    left join volt_core.service_orders so on so.id=o.service_order_id and so.company_id=o.company_id
+    where o.company_id=$1 and o.laboratory_id=$2
+    order by o.created_at desc limit 100`, [companyId, laboratoryId]);
+  return result.rows;
+}
+
+async function removeOpticalLaboratory(companyId, laboratoryId) {
+  await assertCompanyCapability(companyId, "optical.laboratories");
+  const laboratory = await db.withClient(async (client) => {
+    await client.query("begin");
+    try {
+      const current = await client.query(
+        "select id, name from volt_core.optical_laboratories where company_id=$1 and id=$2 for update",
+        [companyId, laboratoryId],
+      );
+      if (!current.rowCount) throw Object.assign(new Error("Laboratorio nao encontrado"), { statusCode: 404, code: "OPTICAL_LAB_NOT_FOUND" });
+      const linked = await client.query(`select
+        (select count(*) from volt_core.optical_orders where company_id=$1 and laboratory_id=$2)
+        + (select count(*) from volt_core.service_orders where company_id=$1 and laboratory_id=$2) as total`,
+      [companyId, laboratoryId]);
+      if (Number(linked.rows[0]?.total || 0) > 0) {
+        throw Object.assign(new Error("Laboratorio vinculado a pedidos ou OS. Nao pode ser removido."), { statusCode: 409, code: "OPTICAL_LAB_IN_USE" });
+      }
+      await client.query("delete from volt_core.optical_laboratories where company_id=$1 and id=$2", [companyId, laboratoryId]);
+      await client.query("commit");
+      return current.rows[0];
+    } catch (error) {
+      await client.query("rollback").catch(() => {});
+      throw error;
+    }
+  });
+  await recordEvent(companyId, "optical_laboratory.removed", { laboratoryId, name: laboratory.name });
+  return laboratory;
+}
+
 async function listOpticalOrders(companyId) {
   const result = await db.query(`select o.id, o.number, o.sale_id as "saleId", s.number as "saleNumber",
       o.customer_id as "customerId", c.name as "customerName", o.prescription_id as "prescriptionId",
@@ -447,10 +489,12 @@ module.exports = {
   createPrescription,
   insertPrescriptionWithClient,
   listOpticalLaboratories,
+  listOpticalLaboratoryOrders,
   listOpticalOrders,
   listPrescriptions,
   markOpticalOrderReady,
   saveOpticalLaboratory,
+  removeOpticalLaboratory,
   normalizeDateInput,
   updateOpticalOrderStatus,
   updatePrescription,

@@ -5,6 +5,7 @@ const db = require("../db/db");
 const TokenService = require("../services/tokenService");
 const { decryptToken } = require("../services/tokenCrypto");
 const { withPgAdvisoryLock } = require("../services/pgAdvisoryLock");
+const { itemsBulkPath } = require("../services/meliBulk");
 const {
   getUserId,
   isAdminUserFresh,
@@ -374,7 +375,7 @@ async function enrichItems(token, rows) {
 
   for (let index = 0; index < ids.length; index += 20) {
     const chunk = ids.slice(index, index + 20);
-    const url = `${ML_API}/items?ids=${encodeURIComponent(chunk.join(","))}&attributes=${encodeURIComponent(attrs)}`;
+    const url = `${ML_API}${itemsBulkPath(chunk, attrs)}`;
     try {
       const payload = await fetchJson(url, headers, 2);
       for (const item of Array.isArray(payload) ? payload : []) {

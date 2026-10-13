@@ -7,4 +7,9 @@ function formatPrescriptionMeasures(prescription = {}) {
   return `DNP OD ${prescription.rightDnp ?? "-"} / OE ${prescription.leftDnp ?? "-"} / DP ${prescription.pupillaryDistance ?? "-"}`;
 }
 
-export { formatEyePrescription, formatPrescriptionMeasures };
+function prescriptionTypeLabel(value) {
+  const labels = { distance: "Longe", near: "Perto", multifocal: "Multifocal" };
+  return labels[String(value || "").toLowerCase()] || value || "Receita óptica";
+}
+
+export { formatEyePrescription, formatPrescriptionMeasures, prescriptionTypeLabel };

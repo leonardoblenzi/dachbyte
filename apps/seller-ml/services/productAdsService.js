@@ -3,6 +3,7 @@ const fetch = require("node-fetch");
 const TokenService = require("./tokenService");
 const config = require("../config/config");
 const simpleCache = require("./simpleCache");
+const { itemsBulkPath, normalizeBulkResponse } = require("./meliBulk");
 
 const SITE_ID = "MLB";
 const ITEMS_URL = "https://api.mercadolibre.com/items";
@@ -338,11 +339,10 @@ async function buscarThumbnailsParaItens(itemIds = [], state) {
   for (let i = 0; i < uniqueIds.length; i += chunkSize) {
     const slice = uniqueIds.slice(i, i + chunkSize);
 
-    const params = new URLSearchParams();
-    params.set("ids", slice.join(","));
-    params.set("attributes", "id,thumbnail,secure_thumbnail");
-
-    const url = `${ITEMS_URL}?${params.toString()}`;
+    const url = `${ITEMS_URL.replace(/\/items\/?$/, "")}${itemsBulkPath(
+      slice,
+      "id,thumbnail,secure_thumbnail",
+    )}`;
 
     try {
       const r = await withAuth(
@@ -377,7 +377,7 @@ async function buscarThumbnailsParaItens(itemIds = [], state) {
         continue;
       }
 
-      for (const row of data) {
+      for (const row of normalizeBulkResponse(data)) {
         if (!row || row.code !== 200 || !row.body) continue;
         const body = row.body;
         if (!body.id) continue;
@@ -1008,14 +1008,10 @@ async function buscarDetalhesItens(itemIds = [], state) {
 
   for (let i = 0; i < uniqueIds.length; i += chunkSize) {
     const slice = uniqueIds.slice(i, i + chunkSize);
-    const params = new URLSearchParams();
-    params.set("ids", slice.join(","));
-    params.set(
-      "attributes",
-      "id,title,status,thumbnail,secure_thumbnail,seller_custom_field,seller_id"
-    );
-
-    const url = `${ITEMS_URL}?${params.toString()}`;
+    const url = `${ITEMS_URL.replace(/\/items\/?$/, "")}${itemsBulkPath(
+      slice,
+      "id,title,status,thumbnail,secure_thumbnail,seller_custom_field,seller_id",
+    )}`;
 
     const r = await withAuth(
       url,
@@ -1037,7 +1033,7 @@ async function buscarDetalhesItens(itemIds = [], state) {
       continue;
     }
 
-    for (const row of rows) {
+    for (const row of normalizeBulkResponse(rows)) {
       if (!row || row.code !== 200 || !row.body?.id) continue;
       const body = row.body;
 
@@ -1681,12 +1677,7 @@ class ProductAdsService {
         for (let i = 0; i < uniqueIds.length; i += chunkSize) {
           const slice = uniqueIds.slice(i, i + chunkSize);
 
-          const params = new URLSearchParams();
-          params.set("ids", slice.join(","));
-          // pede o que precisamos
-          params.set(
-            "attributes",
-            [
+          const attributes = [
               "id",
               "title",
               "thumbnail",
@@ -1694,10 +1685,12 @@ class ProductAdsService {
               "seller_custom_field",
               "attributes",
               "health",
-            ].join(",")
-          );
+            ].join(",");
 
-          const url = `${ITEMS_URL}?${params.toString()}`;
+          const url = `${ITEMS_URL.replace(/\/items\/?$/, "")}${itemsBulkPath(
+            slice,
+            attributes,
+          )}`;
 
           const r = await withAuth(
             url,
@@ -1723,7 +1716,7 @@ class ProductAdsService {
           }
 
           // formato típico: [{ code:200, body:{...}}, ...]
-          for (const row of rows) {
+          for (const row of normalizeBulkResponse(rows)) {
             if (!row || row.code !== 200 || !row.body?.id) continue;
             const body = row.body;
 

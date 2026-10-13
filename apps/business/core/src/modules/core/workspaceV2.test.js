@@ -53,8 +53,8 @@ test("workspace mapper patches only collections returned by lazy endpoints", () 
 
 test("server-side reports aggregate totals in postgres instead of browser subsets", () => {
   const reports = source("modules/core/runtime/services/reportService.js");
-  assert.match(reports, /coalesce\(sum\(s\.total\),0\)/i);
-  assert.match(reports, /coalesce\(sum\(e\.remaining_amount\),0\)/i);
+  assert.match(reports, /sum\(s\.total\) filter\(where s\.status <> 'canceled'\)/i);
+  assert.match(reports, /sum\(e\.amount\) filter\(where e\.status <> 'canceled'\)/i);
   assert.match(reports, /coalesce\(sum\(case when r\.status/i);
   assert.match(reports, /lowStockCount/);
   const main = source("client/main.jsx");
@@ -102,6 +102,7 @@ test("workspace v2 sale submission preserves cart item snapshots across lazy cat
 test("workspace v2 operational pager keeps the requested local page until the server responds", () => {
   const list = source("client/components/OperationalList.jsx");
   assert.match(list, /const safePage = Math\.min\(Math\.max\(1, page\), totalPages\)/);
+  assert.match(list, /waitingForPage[\s\S]*serverLoading \|\| serverError \|\| waitingForPage \? \[\] : filteredItems/);
   assert.doesNotMatch(list, /backendPage !== page/);
   assert.match(list, /if \(page > totalPages\) setPage\(totalPages\)/);
 });

@@ -4,6 +4,7 @@ const db = require("../../../../../db/db");
 const { normalizePageQuery, pageMeta } = require("./paging");
 const { getCashSummary } = require("./cashService");
 const { getCompanyConfiguration } = require("./configurationService");
+const { receiptHtmlWithCompany } = require("./receiptPresentation");
 const { extensionRegistry } = require("../../../../platform/extensions/extensionRegistry");
 
 function normalizedFilter(value) {
@@ -388,12 +389,15 @@ async function listReceiptsPage(companyId, input = {}) {
   const params = [companyId, query.search];
   const where = `r.company_id=$1 and ($2='' or lower(concat_ws(' ',r.number::text,s.number::text,c.name,r.payload::text)) like '%'||lower($2)||'%')`;
   const result = await rowsAndCount(
-    `select r.id,r.number,r.sale_id as "saleId",r.html,r.payload,r.created_at as "createdAt",s.total,c.id as "customerId",c.name as "customerName" from volt_core.receipts r left join volt_core.sales s on s.id=r.sale_id and s.company_id=r.company_id left join volt_core.customers c on c.id=s.customer_id and c.company_id=s.company_id where ${where} order by r.created_at desc limit $3 offset $4`,
+    `select r.id,r.number,r.sale_id as "saleId",r.html,r.payload,r.created_at as "createdAt",s.total,c.id as "customerId",c.name as "customerName",co.name as "companyName" from volt_core.receipts r left join volt_core.sales s on s.id=r.sale_id and s.company_id=r.company_id left join volt_core.customers c on c.id=s.customer_id and c.company_id=s.company_id join volt_core.companies co on co.id=r.company_id where ${where} order by r.created_at desc limit $3 offset $4`,
     `select count(*)::int as total from volt_core.receipts r left join volt_core.sales s on s.id=r.sale_id and s.company_id=r.company_id left join volt_core.customers c on c.id=s.customer_id and c.company_id=s.company_id where ${where}`,
     params,
     query,
   );
-  return { data: { receipts: result.rows }, pagination: result.pagination };
+  return { data: { receipts: result.rows.map((row) => ({
+    ...row,
+    html: receiptHtmlWithCompany(row.html, row.companyName),
+  })) }, pagination: result.pagination };
 }
 
 async function listExpensesPage(companyId, input = {}) {

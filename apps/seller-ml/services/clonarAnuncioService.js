@@ -3,6 +3,7 @@
 const fetch = require("node-fetch");
 const db = require("../db/db");
 const TokenService = require("./tokenService");
+const { itemsBulkPath, normalizeBulkResponse } = require("./meliBulk");
 
 const ML_API_BASE = "https://api.mercadolibre.com";
 const SHOPEE_IMAGE_CDN = "https://down-br.img.susercontent.com/file/";
@@ -2459,7 +2460,7 @@ class ClonarAnuncioService {
 
   static parseMultigetItemPayload(payload, itemId, sourcePath) {
     const normalized = String(itemId || "").trim().toUpperCase();
-    const rows = Array.isArray(payload) ? payload : [];
+    const rows = normalizeBulkResponse(payload);
     const match = rows.find((entry) => {
       const bodyId = String(entry?.body?.id || entry?.id || "").trim().toUpperCase();
       return bodyId === normalized;
@@ -2496,9 +2497,11 @@ class ClonarAnuncioService {
       directError = error;
     }
 
-    const multigetPath =
-      `/items?ids=${encodeURIComponent(normalized)}` +
-      "&include_internal_attributes=true";
+    const multigetPath = itemsBulkPath(
+      [normalized],
+      "",
+      { include_internal_attributes: true },
+    );
     try {
       const payload = await this.mlGetJsonPreferPublic(multigetPath, {
         mlCreds,

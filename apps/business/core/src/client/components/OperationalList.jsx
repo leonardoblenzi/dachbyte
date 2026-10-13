@@ -22,6 +22,7 @@ function OperationalList({
   searchPlaceholder,
   searchText = defaultSearchText,
   serverLoading = false,
+  serverError = "",
   serverPagination = null,
   onServerQueryChange = null,
 }) {
@@ -63,8 +64,9 @@ function OperationalList({
   const clientTotalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const totalPages = serverMode ? Math.max(1, Number(serverPagination?.totalPages || 1)) : clientTotalPages;
   const safePage = Math.min(Math.max(1, page), totalPages);
+  const waitingForPage = serverMode && Number(serverPagination?.page || 1) !== safePage;
   const visibleItems = serverMode
-    ? filteredItems
+    ? (serverLoading || serverError || waitingForPage ? [] : filteredItems)
     : filteredItems.slice((safePage - 1) * pageSize, safePage * pageSize);
   const totalItems = serverMode ? Number(serverPagination?.total || 0) : filteredItems.length;
   const effectivePageSize = serverMode ? Number(serverPagination?.pageSize || pageSize) : pageSize;
@@ -106,8 +108,12 @@ function OperationalList({
     setPage(1);
   }
 
-  const startItem = totalItems ? (safePage - 1) * effectivePageSize + 1 : 0;
-  const endItem = totalItems ? Math.min((safePage - 1) * effectivePageSize + visibleItems.length, totalItems) : 0;
+  const startItem = totalItems && visibleItems.length ? (safePage - 1) * effectivePageSize + 1 : 0;
+  const endItem = totalItems && visibleItems.length ? Math.min((safePage - 1) * effectivePageSize + visibleItems.length, totalItems) : 0;
+
+  function retryServerQuery() {
+    onServerQueryChangeRef.current?.({ search, filter: activeFilter, page, pageSize });
+  }
 
   return (
     <>
@@ -160,8 +166,9 @@ function OperationalList({
                 <td colSpan={columns.length}>
                   <div className="empty-state compact">
                     <Search size={28} />
-                    <strong>{serverLoading ? "Carregando dados" : emptyTitle}</strong>
-                    <span>{serverLoading ? "Consultando o servidor..." : emptyDescription}</span>
+                    <strong>{serverLoading || waitingForPage && !serverError ? "Carregando dados" : serverError ? "Nao foi possivel carregar esta pagina" : emptyTitle}</strong>
+                    <span>{serverLoading || waitingForPage && !serverError ? "Consultando o servidor..." : serverError || emptyDescription}</span>
+                    {serverError && serverMode ? <button className="button-secondary" type="button" onClick={retryServerQuery}>Tentar novamente</button> : null}
                   </div>
                 </td>
               </tr>
@@ -170,7 +177,7 @@ function OperationalList({
         </table>
       </div>
       <div className="table-footer">
-        <span>{totalItems ? `Mostrando ${startItem}-${endItem} de ${totalItems}` : "Nenhum item para exibir"}</span>
+        <span>{serverLoading || waitingForPage && !serverError ? "Carregando pagina..." : serverError ? "Falha ao carregar pagina" : totalItems ? `Mostrando ${startItem}-${endItem} de ${totalItems}` : "Nenhum item para exibir"}</span>
         <div className="pager">
           <button className="button-secondary" type="button" disabled={safePage <= 1 || serverLoading} onClick={() => setPage((current) => Math.max(1, current - 1))}>Anterior</button>
           <strong>{safePage} / {totalPages}</strong>

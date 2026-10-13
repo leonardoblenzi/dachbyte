@@ -70,8 +70,11 @@ async function finishAuthorization({ stateRecord, code } = {}) {
   const tokenSet = protocol.normalizeTokenSet(response);
   const expectedTenant = text(stateRecord.expected_magalu_tenant_id);
   if (expectedTenant && String(tokenSet.subject) !== expectedTenant) {
-    const error = new Error("A organização Magalu autorizada não corresponde à conta escolhida no Painel Master.");
-    error.code = "MAGALU_MASTER_RECONNECT_SUBJECT_MISMATCH";
+    const master = stateRecord.flow_mode === "master_reconnect";
+    const error = new Error(master
+      ? "A organização Magalu autorizada não corresponde à conta escolhida no Painel Master."
+      : "A organização Magalu autorizada não corresponde à conta escolhida para reconexão.");
+    error.code = master ? "MAGALU_MASTER_RECONNECT_SUBJECT_MISMATCH" : "MAGALU_RECONNECT_ACCOUNT_MISMATCH";
     error.status = 409;
     throw error;
   }
@@ -95,8 +98,11 @@ async function finishAuthorization({ stateRecord, code } = {}) {
         },
       });
       if (stateRecord.target_account_id && Number(account.id) !== Number(stateRecord.target_account_id)) {
-        const error = new Error("A conta OAuth resultante não corresponde ao alvo do Painel Master.");
-        error.code = "MAGALU_MASTER_RECONNECT_ACCOUNT_MISMATCH";
+        const master = stateRecord.flow_mode === "master_reconnect";
+        const error = new Error(master
+          ? "A conta OAuth resultante não corresponde ao alvo do Painel Master."
+          : "A conta OAuth resultante não corresponde à conta escolhida para reconexão.");
+        error.code = master ? "MAGALU_MASTER_RECONNECT_ACCOUNT_MISMATCH" : "MAGALU_RECONNECT_ACCOUNT_MISMATCH";
         error.status = 409;
         throw error;
       }

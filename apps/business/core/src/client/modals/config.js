@@ -42,7 +42,7 @@ const userAccessAreas = [
   { screen: "receipts", label: "Recibos", read: "receipts:read" },
   { screen: "finance", label: "Financeiro", read: "expenses:read", write: "expenses:write" },
   { screen: "service_orders", label: "Ordens de servico", read: "service_orders:read", write: "service_orders:write" },
-  { screen: "services", label: "Servicos Volt", read: "services:read", write: "services:write", writeLabel: "Solicitar" },
+  { screen: "services", label: "Servicos", read: "services:read", write: "services:write", writeLabel: "Solicitar" },
   { screen: "reports", label: "Relatorios", read: "reports:read", write: "reports:export", writeLabel: "Exportar" },
   { screen: "settings", label: "Configuracoes", read: "settings:read", write: "settings:write" },
   { screen: "users", label: "Usuarios", read: "users:read", write: "users:write" },
@@ -113,6 +113,19 @@ function workflowStatusOptions(data, key, fallbackOptions) {
   const workflow = (data.workflows || []).find((item) => String(item.key || "").toLowerCase() === String(key).toLowerCase());
   if (!workflow?.states?.length) return fallbackOptions;
   return workflow.states.map((state) => ({ value: state, label: humanizeWorkflowStatus(state) }));
+}
+
+function receivableSummary(payload = {}) {
+  const customer = String(payload.customer || "").trim() || "Cliente nao informado";
+  const origin = payload.saleNumber
+    ? `Venda #${payload.saleNumber}`
+    : String(payload.origin || payload.description || "").trim() || "Cobranca avulsa";
+  const installment = String(payload.installment || "").trim();
+  const summary = [customer, origin, installment && installment !== "-" ? `Parcela ${installment}` : ""]
+    .filter(Boolean).join(" · ");
+  const detail = [payload.due ? `Venc. ${payload.due}` : "", payload.balanceValue || payload.value || ""]
+    .filter(Boolean).join(" · ");
+  return { summary, detail };
 }
 
 function buildModalConfig(type, data, payload, workspace) {
@@ -362,7 +375,7 @@ function buildModalConfig(type, data, payload, workspace) {
           wide: true,
           options: availableCompanyModules.map((module) => ({
             value: module.key,
-            label: `${module.name}${module.required ? " (obrigatorio)" : module.managedByProduct ? " (gerenciado por Servicos Volt)" : ""}`,
+            label: `${module.name}${module.required ? " (obrigatorio)" : module.managedByProduct ? " (gerenciado por Servicos)" : ""}`,
             disabled: module.required || module.managedByProduct,
           })),
         },
@@ -377,7 +390,7 @@ function buildModalConfig(type, data, payload, workspace) {
       },
     },
     commercialProduct: {
-      title: payload.masterMode ? "Gerenciar produto Volt" : "Solicitar produto Volt",
+      title: payload.masterMode ? "Gerenciar produto" : "Solicitar produto",
       description: payload.masterMode
         ? "Defina o plano e o estado comercial. Modulos e telas vinculados sao aplicados automaticamente."
         : "Escolha o plano desejado. A ativacao final e feita pelo Master.",
@@ -561,7 +574,7 @@ function buildModalConfig(type, data, payload, workspace) {
       icon: WalletCards,
       submitLabel: "Confirmar recebimento",
       fields: [
-        { name: "receivableId", label: "Recebivel", type: "select", options: [payload.id || payload.receivableId || recordKey(payload)].filter(Boolean) },
+        { name: "receivableId", label: "Recebivel selecionado", type: "record_summary", wide: true, ...receivableSummary(payload) },
         { name: "amount", label: "Valor recebido", inputMode: "decimal", required: true },
         { name: "paymentMethod", label: "Forma", type: "select", options: ["pix", "cash", "debit", "credit_card", "transfer"] },
       ],
@@ -580,7 +593,7 @@ function buildModalConfig(type, data, payload, workspace) {
       icon: CalendarClock,
       submitLabel: "Salvar correcao",
       fields: [
-        { name: "receivableId", label: "Recebivel", type: "select", options: [payload.id || payload.receivableId || recordKey(payload)].filter(Boolean) },
+        { name: "receivableId", label: "Recebivel selecionado", type: "record_summary", wide: true, ...receivableSummary(payload) },
         { name: "dueDate", label: "Novo vencimento", type: "date", required: true },
         { name: "reason", label: "Motivo da correcao", type: "textarea", required: true, wide: true, placeholder: "Explique por que o vencimento precisa ser corrigido." },
       ],
@@ -596,7 +609,7 @@ function buildModalConfig(type, data, payload, workspace) {
       icon: FileText,
       submitLabel: payload.action === "return-check" ? "Registrar devolucao" : "Registrar deposito",
       fields: [
-        { name: "receivableId", label: "Recebivel", type: "select", options: [payload.id || payload.receivableId || recordKey(payload)].filter(Boolean) },
+        { name: "receivableId", label: "Recebivel selecionado", type: "record_summary", wide: true, ...receivableSummary(payload) },
         { name: "notes", label: "Observacao", type: "textarea", wide: true },
       ],
       defaults: {
@@ -690,7 +703,7 @@ function buildModalConfig(type, data, payload, workspace) {
     },
     company: {
       title: editing ? "Editar empresa" : "Nova empresa",
-      description: "A empresa e validada primeiro no Hub; depois o Volt Core cria o ambiente operacional.",
+      description: "A empresa e validada primeiro no Hub; depois o DACHBYTE Core cria o ambiente operacional.",
       icon: Building2,
       submitLabel: editing ? "Salvar alteracoes" : "Criar empresa",
       fields: [

@@ -18,7 +18,7 @@ const accessJs = read("services/companyAccessService.js");
 test("hosts SKU costs inside the margin page and removes the old entry points", () => {
   assert.match(marginHtml, /id="fml-tab-costs"[\s\S]*?>Custos por SKU<\/button>/);
   assert.match(marginHtml, /id="fml-costs-panel"[\s\S]*?id="fml-cost-filters"[\s\S]*?id="fml-cost-body"/);
-  assert.match(marginHtml, /\/ml\/js\/financeiro-ml-custos\.js\?v=12/);
+  assert.match(marginHtml, /\/ml\/js\/financeiro-ml-custos\.js\?v=13/);
   assert.doesNotMatch(shellJs, /financeiro-custos-ml/);
   assert.doesNotMatch(accessJs, /ml\.precificacao\.custos/);
   assert.doesNotMatch(routesJs, /\/financeiro\/custos-mercado-livre/);

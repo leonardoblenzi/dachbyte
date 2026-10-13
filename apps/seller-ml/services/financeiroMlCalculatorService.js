@@ -2,6 +2,7 @@
 
 const TokenService = require("./tokenService");
 const { prepareAuthState } = require("./prazoProducaoService");
+const { itemsBulkPath } = require("./meliBulk");
 const {
   calculatePricingSnapshot,
   decomposeMarketplaceFee,
@@ -14,6 +15,7 @@ const _fetch = typeof fetch !== "undefined" ? fetch : require("node-fetch");
 const fetchRef = (...args) => _fetch(...args);
 const ML_API = "https://api.mercadolibre.com";
 let listingPriceRequest = mlJson;
+let shippingQuoteRequest = mlJson;
 
 function getFinanceiroMlService() {
   return require("./financeiroMlService");
@@ -61,6 +63,17 @@ function listingTypeLabel(value) {
   if (id === "gold_pro") return "Premium";
   if (id === "gold_special") return "Clássico";
   return id || "Não informado";
+}
+
+function categoryLabel(category = {}, fallbackId = "") {
+  return text(category?.name || category?.path_from_root?.at(-1)?.name || fallbackId);
+}
+
+async function fetchCategory(state, categoryId) {
+  const id = text(categoryId);
+  if (!id) return { id: "", name: "" };
+  const category = await mlJson(state, `/categories/${encodeURIComponent(id)}`).catch(() => null);
+  return { id, name: categoryLabel(category, id) };
 }
 
 function extractSku(attributes = [], direct = "") {
@@ -147,7 +160,7 @@ async function fetchItemBodies(state, ids = []) {
     ].join(",");
     const rows = await mlJson(
       state,
-      `/items?ids=${encodeURIComponent(chunk.join(","))}&attributes=${encodeURIComponent(attrs)}`,
+      itemsBulkPath(chunk, attrs),
     );
     for (const entry of Array.isArray(rows) ? rows : []) {
       const body = entry?.body || entry;
@@ -318,25 +331,37 @@ function preferredPositive(values) {
 }
 
 async function fetchSellerShipping(state, item, sellerId, priceOverride = null) {
-  if (!item?.shipping?.free_shipping) return { seller_cost: 0, source: "buyer_paid" };
+  const isMe2 = text(item?.shipping?.mode).toLowerCase() === "me2";
+  const freeShipping = Boolean(item?.shipping?.free_shipping);
+  if (!freeShipping && !isMe2) return { seller_cost: 0, source: "buyer_paid" };
   const price = num(priceOverride, num(item.price));
   const attempts = [];
-  if (sellerId && text(item?.shipping?.mode) === "me2") {
+  if (sellerId && isMe2) {
     const url = new URL(`${ML_API}/users/${encodeURIComponent(String(sellerId))}/shipping_options/free`);
     url.searchParams.set("item_id", upper(item.id));
     url.searchParams.set("mode", "me2");
-    url.searchParams.set("free_shipping", "true");
+    url.searchParams.set("free_shipping", String(freeShipping));
     url.searchParams.set("item_price", Number(price.toFixed(2)));
     if (item.listing_type_id) url.searchParams.set("listing_type_id", item.listing_type_id);
     if (item?.shipping?.logistic_type) url.searchParams.set("logistic_type", item.shipping.logistic_type);
     attempts.push({ url: url.toString(), source: "users_shipping_options_free" });
+  }
+  if (!freeShipping) {
+    for (const attempt of attempts) {
+      const payload = await shippingQuoteRequest(state, attempt.url).catch(() => null);
+      const quoted = payload?.coverage?.all_country?.list_cost;
+      if (quoted != null && text(quoted) !== "" && Number.isFinite(Number(quoted)) && Number(quoted) >= 0) {
+        return { seller_cost: Number(quoted), source: attempt.source };
+      }
+    }
+    return { seller_cost: 0, source: "unavailable" };
   }
   attempts.push({
     url: `${ML_API}/items/${encodeURIComponent(upper(item.id))}/shipping_options/free`,
     source: "items_shipping_options_free",
   });
   for (const attempt of attempts) {
-    const payload = await mlJson(state, attempt.url).catch(() => null);
+    const payload = await shippingQuoteRequest(state, attempt.url).catch(() => null);
     if (!payload) continue;
     const costs = collectShippingRows(payload).flatMap((row) => [
       row?.seller_cost,
@@ -379,7 +404,7 @@ async function accountTax(context) {
 }
 
 async function pricingForCandidate({ state, candidate, itemBody, seller, context }) {
-  const [cost, taxPct, fee, shipping] = await Promise.all([
+  const [cost, taxPct, fee, shipping, category] = await Promise.all([
     savedCostForSku(context, candidate.reference_sku),
     accountTax(context),
     fetchListingFee(state, {
@@ -392,6 +417,7 @@ async function pricingForCandidate({ state, candidate, itemBody, seller, context
       weight: candidate.shipping_weight,
     }),
     fetchSellerShipping(state, itemBody, seller.id, candidate.price),
+    fetchCategory(state, candidate.category_id),
   ]);
   const decomposition = decomposeMarketplaceFee({
     price: candidate.price,
@@ -413,6 +439,7 @@ async function pricingForCandidate({ state, candidate, itemBody, seller, context
   });
   return {
     ...candidate,
+    category_name: category.name,
     product_cost: round(cost, 2),
     tax_rate_pct: round(taxPct, 4),
     commission: decomposition.commission,
@@ -486,9 +513,11 @@ class FinanceiroMlCalculatorService {
         operation_cost: 0,
         other_costs: 0,
       },
-      note: enriched.shipping_source === "unavailable" && enriched.free_shipping
-        ? "O anúncio usa frete grátis, mas a tarifa do vendedor não pôde ser consultada agora. Revise o campo de frete antes de simular."
-        : "Dados carregados da conta ativa. Você pode ajustar os valores antes de calcular.",
+      note: enriched.shipping_source === "unavailable" && enriched.shipping_mode === "me2"
+        ? "O custo de envio do vendedor não pôde ser consultado agora. Informe o valor para completar a simulação."
+        : enriched.shipping_source === "unavailable" && enriched.free_shipping
+          ? "O anúncio usa frete grátis, mas a tarifa do vendedor não pôde ser consultada agora. Revise o campo de frete antes de simular."
+          : "Dados carregados da conta ativa. Você pode ajustar os valores antes de calcular.",
     };
   }
 
@@ -672,16 +701,24 @@ FinanceiroMlCalculatorService._test = {
   candidatesFromItem,
   extractSku,
   listingTypeLabel,
+  categoryLabel,
   buildCategoryDiscoveryUrl,
   normalizeCategorySuggestions,
   buildListingFeeUrl,
   filterOwnedItems,
   fetchListingFee,
+  fetchSellerShipping,
   setListingPriceRequest(request) {
     listingPriceRequest = request;
   },
   resetListingPriceRequest() {
     listingPriceRequest = mlJson;
+  },
+  setShippingQuoteRequest(request) {
+    shippingQuoteRequest = request;
+  },
+  resetShippingQuoteRequest() {
+    shippingQuoteRequest = mlJson;
   },
 };
 

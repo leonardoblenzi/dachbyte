@@ -53,6 +53,15 @@ test("frete do comprador entra apenas na base fiscal", () => {
   assert.equal(result.profit, 44);
 });
 
+test("ME2 dividido desconta a parcela do vendedor e tributa separadamente a do comprador", () => {
+  const base = { price: 35.9, productCost: 14, commissionRate: 0.115, taxRate: 0.1, buyerShippingTaxable: 5 };
+  const withoutSellerShare = calculatePricingSnapshot({ ...base, sellerShipping: 0 });
+  const withSellerShare = calculatePricingSnapshot({ ...base, sellerShipping: 8.4 });
+  assert.equal(withSellerShare.buyer_shipping_taxable, 5);
+  assert.equal(withSellerShare.tax_base, 40.9);
+  assert.equal(withSellerShare.profit, Math.round((withoutSellerShare.profit - 8.4) * 100) / 100);
+});
+
 test("decompoe tarifa do ML entre percentual e fixa", () => {
   const fee = decomposeMarketplaceFee({
     price: 100,

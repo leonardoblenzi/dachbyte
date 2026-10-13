@@ -213,7 +213,7 @@ test("retomada inclui somente MLBs ainda nao processados", () => {
   assert.deepEqual(pending, ["MLB3", "MLB4"]);
 });
 
-test("classifica somente percentual acima como revisao critica", () => {
+test("classifica percentual acima como critico e confirmacao ausente como pendente", () => {
   assert.deepEqual(
     classifyPostApplyReview({ actual_percent: 30, min_allowed_percent: 16, max_allowed_percent: 18 }),
     { code: "PERCENTUAL_ACIMA", severity: "critical", critical: true },
@@ -224,7 +224,7 @@ test("classifica somente percentual acima como revisao critica", () => {
   );
   assert.deepEqual(
     classifyPostApplyReview({ actual_percent: null }),
-    { code: "CONFIRMACAO_INCONCLUSIVA", severity: "critical", critical: true },
+    { code: "CONFIRMACAO_PENDENTE", severity: "warning", critical: false },
   );
 });
 
@@ -390,7 +390,7 @@ test("resposta 2xx Smart exige teto respeitado", () => {
   assert.equal(result.actual_percent, 23);
 });
 
-test("confirmacao Smart aceita offer diferente quando desconto fica dentro do teto", () => {
+test("confirmacao Smart rejeita outra oferta mesmo dentro do teto", () => {
   const result = evaluatePostApplySnapshot({
     snapshot: {
       status: "started",
@@ -404,13 +404,13 @@ test("confirmacao Smart aceita offer diferente quando desconto fica dentro do te
     expected_offer_id: "OFFER-MLB1-ESPERADO",
   });
 
-  assert.equal(result.ok, true);
+  assert.equal(result.ok, false);
   assert.equal(result.actual_percent, 22.48);
-  assert.equal(result.offer_match_required, false);
+  assert.equal(result.offer_match_required, true);
   assert.equal(result.offer_match_confirmed, false);
 });
 
-test("confirmacao de oferta estrita continua exigindo offer selecionada", () => {
+test("pre-acordo aceita identificador ativo diferente apos validar a oferta no POST", () => {
   const result = evaluatePostApplySnapshot({
     snapshot: {
       status: "started",
@@ -424,9 +424,9 @@ test("confirmacao de oferta estrita continua exigindo offer selecionada", () => 
     expected_offer_id: "OFFER-MLB1-ESPERADO",
   });
 
-  assert.equal(result.ok, false);
-  assert.equal(result.reason, "offer_id confirmado no ML difere da oferta selecionada");
-  assert.equal(result.offer_match_required, true);
+  assert.equal(result.ok, true);
+  assert.equal(result.reason, null);
+  assert.equal(result.offer_match_required, false);
 });
 
 test("resposta 2xx Smart aceita conversao de candidate para offer do ML", () => {
@@ -478,7 +478,7 @@ test("falha de autenticacao pausa o lote imediatamente", () => {
   assert.equal(decision.consecutive, 1);
 });
 
-test("falhas transitorias repetidas pausam somente no terceiro item", () => {
+test("falhas transitorias repetidas mantem o lote apos retry por item", () => {
   const first = evaluatePromotionBatchFailure(
     { status: 503, error: "service unavailable" },
     {},
@@ -494,7 +494,7 @@ test("falhas transitorias repetidas pausam somente no terceiro item", () => {
 
   assert.equal(first.action, "continue");
   assert.equal(second.action, "continue");
-  assert.equal(third.action, "pause");
+  assert.equal(third.action, "continue");
   assert.equal(third.consecutive, 3);
 });
 
@@ -712,7 +712,7 @@ test("rollback Smart inclui offer_id confirmado sem afetar outras ofertas", () =
   );
 });
 
-test("resposta 2xx Smart vazia usa candidato pre-validado enquanto propaga", () => {
+test("resposta 2xx Smart vazia nao confirma candidato so pelo preflight", () => {
   const result = evaluateAcceptedApplyResponse({
     applyResult: {
       ok: true,
@@ -732,9 +732,7 @@ test("resposta 2xx Smart vazia usa candidato pre-validado enquanto propaga", () 
     expected_offer_id: "CANDIDATE-MLB1-1",
   });
 
-  assert.equal(result.ok, true);
-  assert.equal(result.confirmation_deferred, true);
-  assert.equal(result.actual_percent, 23);
+  assert.equal(result, null);
 });
 
 test("resposta 2xx Smart vazia nao aceita candidato acima do teto", () => {

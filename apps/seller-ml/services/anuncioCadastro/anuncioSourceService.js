@@ -3,6 +3,7 @@
 const ml = require("./mercadoLivreApi");
 const capabilitiesService = require("./anuncioCapabilitiesService");
 const { httpError, normalizeItemId, normalizeText } = require("./helpers");
+const { itemsBulkPath } = require("../meliBulk");
 
 function compactAttribute(attr = {}) {
   if (!attr?.id && !attr?.name) return null;
@@ -225,7 +226,7 @@ async function searchOwnItems({ q = "", offset = 0, limit = 20 } = {}, ctx) {
   const ids = Array.isArray(search?.results) ? search.results.slice(0, safeLimit) : [];
   let items = [];
   if (ids.length) {
-    const details = await ml.get(`/items?ids=${encodeURIComponent(ids.join(","))}`, { accessToken: ctx.accessToken });
+    const details = await ml.get(itemsBulkPath(ids), { accessToken: ctx.accessToken });
     items = (Array.isArray(details) ? details : []).map((entry) => entry?.body || entry).filter(Boolean).map((item) => ({
       id: item.id,
       title: item.title,

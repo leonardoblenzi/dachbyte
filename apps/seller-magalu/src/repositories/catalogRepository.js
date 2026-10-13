@@ -28,9 +28,10 @@ async function markSkuMissing(accountId, sku, { httpStatus=404, error=null }={})
   await db.query(`update magalu.skus set is_present=false,last_synced_at=now(),last_http_status=$3,last_error=$4,updated_at=now()
     where account_id=$1 and sku=$2`, [Number(accountId),String(sku),Number(httpStatus)||null,error?String(error).slice(0,2000):null]);
 }
-async function markUnseenSkusMissing(accountId, syncStartedAt) {
+async function markUnseenSkusMissing(accountId, syncStartedAt, scannedStatuses) {
+  if (!Array.isArray(scannedStatuses) || scannedStatuses.length === 0) throw new Error("Status sincronizados são obrigatórios para reconciliar SKUs ausentes.");
   const result=await db.query(`update magalu.skus set is_present=false,updated_at=now() where account_id=$1 and is_present=true
-    and (last_seen_at is null or last_seen_at < $2::timestamptz)`,[Number(accountId),syncStartedAt]);
+    and (last_seen_at is null or last_seen_at < $2::timestamptz) and status = any($3::text[])`,[Number(accountId),syncStartedAt,scannedStatuses]);
   return result.rowCount||0;
 }
 async function upsertPrice(accountId, sku, payload, { httpStatus=200,error=null,present=true }={}) {

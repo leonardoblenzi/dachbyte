@@ -590,9 +590,9 @@ async function login(input = {}) {
       ].includes(String(hubLogin.reason || "").toLowerCase());
       const error = new Error(
         unavailable
-          ? "Hub indisponivel para validar o acesso ao Volt Core."
+          ? "Hub indisponivel para validar o acesso ao DACHBYTE Core."
           : moduleDenied
-            ? "Seu usuario nao possui acesso ao Volt Core."
+            ? "Seu usuario nao possui acesso ao DACHBYTE Core."
             : "Credenciais invalidas.",
       );
       error.status = unavailable ? 503 : moduleDenied ? 403 : 401;
@@ -623,7 +623,7 @@ async function login(input = {}) {
   }
 
   if (String(user.status || "").toLowerCase() !== "active") {
-    const error = new Error("Usuario inativo no Volt Core.");
+    const error = new Error("Usuario inativo no DACHBYTE Core.");
     error.status = 403;
     throw error;
   }

@@ -126,7 +126,7 @@ router.get("/permissions", asyncHandler(CoreOperationsController.listPermissions
 router.use((req, res) => {
   res.status(404).json({
     error: {
-      message: "Rota do Volt Core nao encontrada.",
+      message: "Rota do DACHBYTE Core nao encontrada.",
       code: "CORE_ROUTE_NOT_FOUND",
     },
   });

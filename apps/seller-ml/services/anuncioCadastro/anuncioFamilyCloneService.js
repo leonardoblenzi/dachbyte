@@ -4,6 +4,7 @@ const ml = require("./mercadoLivreApi");
 const sourceService = require("./anuncioSourceService");
 const groupService = require("./anuncioDraftGroupService");
 const { httpError, normalizeText, normalizeItemId } = require("./helpers");
+const { itemsBulkPath } = require("../meliBulk");
 
 function ensureScope(ctx = {}) {
   if (!ctx.meliContaId || !ctx.empresaId || !ctx.sellerId) {
@@ -55,7 +56,7 @@ async function fetchItems(ids, ctx) {
   const output = [];
   for (let i = 0; i < unique.length; i += 20) {
     const chunk = unique.slice(i, i + 20);
-    const response = await ml.get(`/items?ids=${encodeURIComponent(chunk.join(","))}`, { accessToken: ctx.accessToken });
+    const response = await ml.get(itemsBulkPath(chunk), { accessToken: ctx.accessToken });
     output.push(...(Array.isArray(response) ? response.map(itemBody).filter(Boolean) : []));
   }
   return output;

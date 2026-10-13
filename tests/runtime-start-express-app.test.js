@@ -39,6 +39,36 @@ test("hosted product keeps routes below its prefix and exposes prefix health", a
   });
 });
 
+test("hosted Seller accepts only the token-protected retirement path at the internal root", async () => {
+  const app = await createHostedExpressApp({
+    name: "seller-ml",
+    mountPath: "/ml",
+    createApp: () => {
+      const product = express();
+      product.use(express.json());
+      product.post("/internal/hub/retirement", (req, res) => {
+        if (req.get("authorization") !== "Bearer test-token") return res.sendStatus(401);
+        return res.json({ action: req.body.action });
+      });
+      product.get("/private", (_req, res) => res.sendStatus(204));
+      return product;
+    },
+  });
+
+  await withServer(app, async (origin) => {
+    const internal = await fetch(`${origin}/internal/hub/retirement`, {
+      method: "POST",
+      headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+      body: JSON.stringify({ action: "deactivate" }),
+    });
+    assert.equal(internal.status, 200);
+    assert.deepEqual(await internal.json(), { action: "deactivate" });
+    assert.equal((await fetch(`${origin}/internal/hub/retirement`, { method: "POST" })).status, 401);
+    assert.equal((await fetch(`${origin}/private`)).status, 404);
+    assert.equal((await fetch(`${origin}/ml/private`)).status, 204);
+  });
+});
+
 test("every standalone starter declares its stable public prefix", () => {
   const prefixes = {
     "apps/seller-ml/start.js": "/ml",

@@ -76,6 +76,7 @@ async function updateExistingAccount(client, existingId, { dachUserId, scopes, m
     `update magalu.accounts
         set dach_created_by_user_id = coalesce(dach_created_by_user_id, $2), status = 'active',
             scopes = $3::text[], metadata = coalesce(metadata, '{}'::jsonb) || $4::jsonb,
+            hub_sync_status = 'pending', hub_sync_error = null, hub_synced_at = null,
             connected_at = coalesce(connected_at, now()), last_oauth_at = now(), revoked_at = null, updated_at = now()
       where id = $1
       returning id, dach_tenant_id, magalu_tenant_id, magalu_tenant_name, status, scopes, metadata,

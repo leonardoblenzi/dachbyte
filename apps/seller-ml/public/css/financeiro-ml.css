@@ -700,6 +700,24 @@ td > .fml-muted {
   max-width: 120px;
 }
 
+.fml-manual-sku-editor {
+  display: grid;
+  gap: 6px;
+  min-width: 150px;
+}
+
+.fml-reference-sku-input {
+  min-width: 140px;
+}
+
+.fml-manual-sku-note {
+  display: block;
+  max-width: 170px;
+  color: var(--fml-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .fml-empty {
   padding: 34px !important;
   text-align: center !important;

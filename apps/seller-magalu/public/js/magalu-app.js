@@ -35,7 +35,6 @@
     "/precos": { title: "Preços", page: "mg-price-page", group: "operations" },
     "/estoque": { title: "Estoque", page: "mg-stock-page", group: "operations" },
     "/promocoes": { title: "Promoções", page: "mg-promotions-page", group: "promotions" },
-    "/custos": { title: "Custos por SKU", page: "mg-financial-costs-page", group: "financial" },
     "/margem": { title: "Margem de venda", page: "mg-financial-margin-page", group: "financial" },
     "/calculadora": { title: "Calculadora", page: "mg-financial-calculator-page", group: "financial" },
     "/contas": { title: "Contas Magalu", page: "mg-accounts-page", group: "account" },
@@ -787,6 +786,7 @@
           else if (status === "partial") showAlert(copy, "warning", { sticky: true });
           else if (status === "failed") showAlert(copy, "danger", { sticky: true });
           await Promise.all([loadCatalog(), route() === "/sincronizacao" ? loadSyncCenter() : Promise.resolve()]);
+          window.dispatchEvent(new CustomEvent("magalu:catalogsynced", { detail: { accountId, status } }));
           return;
         }
         await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -846,6 +846,10 @@
   function renderSyncAccount(data) {
     const account = selected();
     const remote = data?.account || {};
+    const reconnect = $("mg-reconnect-account");
+    if (reconnect) reconnect.href = account
+      ? `/magalu/auth/accounts/${encodeURIComponent(account.id)}/reconnect`
+      : "/magalu/auth/start?return=%2Fmagalu%2Fintegracoes";
     $("mg-sync-account").textContent = account ? accountLabel(account) : "—";
     $("mg-sync-account-status").textContent = remote.status || account?.status || "—";
     $("mg-sync-token-expiry").textContent = formatDate(remote.access_expires_at || account?.access_expires_at);
@@ -936,7 +940,7 @@
   function oauthResult() {
     const params = new URLSearchParams(location.search);
     if (params.get("oauth") === "connected") {
-      showAlert("Conta Magalu conectada. A sincronização inicial foi enfileirada.", "success", { sticky: true });
+      showAlert("Autorização Magalu concluída. A conta aparecerá após o Hub confirmar o acesso comercial; a sincronização inicial foi enfileirada.", "success", { sticky: true });
     } else if (params.get("oauth") === "error") {
       const reason = params.get("reason") || "oauth_failed";
       const map = {
@@ -944,6 +948,8 @@
         magalu_oauth_session_required: "Sua sessão DACH expirou antes da conclusão do OAuth.",
         magalu_oauth_identity_mismatch: "A sessão atual não é a mesma que iniciou o OAuth.",
         magalu_oauth_hub_access_revoked: "O Hub revogou o acesso Magalu antes da conclusão da conexão.",
+        magalu_reconnect_account_mismatch: "Você autorizou outra organização Magalu. Selecione a mesma conta para reconectar ou use Vincular organização.",
+        magalu_reconnect_account_inactive: "A conta foi desvinculada durante a autorização. Use Vincular organização para começar novamente.",
         state_invalid: "Falha na validação do state OAuth.",
         state_expired: "O state OAuth expirou.",
       };

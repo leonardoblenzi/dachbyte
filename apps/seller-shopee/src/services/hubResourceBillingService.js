@@ -100,6 +100,7 @@ function buildResourceContext({
   rangeEnforcement = null,
   planCode = null,
   orderRangeCode = null,
+  oauthConfirmed = false,
 } = {}) {
   const tenantId = String(auth?.tenantGlobalId || account?.tenantGlobalId || "").trim();
   const externalAccountId = String(shop?.shopId || shop?.shopeeShopId || shop?.shop_id || "").trim();
@@ -117,6 +118,7 @@ function buildResourceContext({
     planCode: planCode || shop?.planCode || DEFAULT_PLAN_CODE,
     orderRangeCode: orderRangeCode || shop?.orderRangeCode || DEFAULT_RANGE_CODE,
     localShopId,
+    oauthConfirmed: oauthConfirmed === true,
   };
 }
 
@@ -177,12 +179,13 @@ async function syncResource(context) {
 
   const cacheKey = `${context.tenantId}:${MODULE_SLUG}:${context.accountId}`;
   const cachedAt = Number(syncedResources.get(cacheKey) || 0);
-  if (Date.now() - cachedAt < SYNC_TTL_MS) return null;
+  if (!context.oauthConfirmed && Date.now() - cachedAt < SYNC_TTL_MS) return null;
 
   const response = await requestHub("POST", "/v1/internal/resources/sync", {
     tenant_id: context.tenantId,
     module_slug: MODULE_SLUG,
     account_id: context.accountId,
+    oauth_confirmed: context.oauthConfirmed,
     label: context.label,
     status: context.status,
     billing_mode: context.billingMode,
@@ -194,6 +197,9 @@ async function syncResource(context) {
   });
   if (!response.ok) {
     throw responseError(response, "Nao foi possivel sincronizar a loja com o Hub.");
+  }
+  if (context.oauthConfirmed && response.data?.access?.allow !== true) {
+    throw new HubBillingError("Hub nao confirmou a reativacao da loja apos OAuth.", { code: "hub_oauth_relink_denied", statusCode: 403 });
   }
   syncedResources.set(cacheKey, Date.now());
   return response.data?.resource || response.data?.account || null;

@@ -14,6 +14,7 @@ const router = express.Router();
 const appView = path.resolve(__dirname, "../../views/app.html");
 
 router.get("/auth/start", oauthController.start);
+router.get("/auth/accounts/:accountId/reconnect", oauthController.reconnectStart);
 
 // Painel Master independente da operação normal. Toda a árvore é Hub-first e
 // exige platform_admin ou module_master explícito do módulo Magalu.
@@ -39,7 +40,8 @@ async function renderAppEntry(req, res, next, returnPath) {
 
 const accountPagesWithoutProvider = new Set(["/contas", "/usuarios", "/plano", "/ajuda"]);
 router.get("/catalogo", (_req, res) => res.redirect(302, "/magalu/gestao-skus"));
-for (const route of ["/", "/pedidos", "/gestao-skus", "/estoque", "/precos", "/promocoes", "/custos", "/margem", "/calculadora", "/integracoes", "/contas", "/usuarios", "/plano", "/ajuda"]) {
+router.get("/custos", (_req, res) => res.redirect(302, "/magalu/margem?aba=costs"));
+for (const route of ["/", "/pedidos", "/gestao-skus", "/estoque", "/precos", "/promocoes", "/margem", "/calculadora", "/integracoes", "/contas", "/usuarios", "/plano", "/ajuda"]) {
   const returnPath = route === "/" ? "/magalu/" : `/magalu${route}`;
   router.get(route, (req, res, next) => {
     if (accountPagesWithoutProvider.has(route)) return res.sendFile(appView);

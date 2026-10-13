@@ -10,7 +10,26 @@ function skuFields(payload) {
     fulfillment: typeof data.fulfillment === "boolean" ? data.fulfillment : null,
     createdAt: text(data.created_at) || null, updatedAt: text(data.updated_at) || null };
 }
-function priceFields(payload) { const data = payloadObject(payload); return { price: numberOrNull(data.price), listPrice: numberOrNull(data.list_price) }; }
+function priceFields(payload) {
+  const data = payloadObject(payload);
+  if (Array.isArray(data.results)) {
+    const result = data.results.length === 1 ? payloadObject(data.results[0]) : {};
+    const normalizer = Number(result.normalizer);
+    if (!Number.isFinite(normalizer) || normalizer <= 0) return { price: null, listPrice: null };
+    const validMinorUnits = (value) => {
+      if (value == null) return null;
+      const amount = numberOrNull(value);
+      return amount !== null && amount >= 0 && amount <= 99_999_999 ? amount : null;
+    };
+    const price = validMinorUnits(result.price);
+    const listPrice = validMinorUnits(result.list_price);
+    return { price: price == null ? null : price / normalizer, listPrice: listPrice == null ? null : listPrice / normalizer };
+  }
+  return {
+    price: data.price == null ? null : numberOrNull(data.price),
+    listPrice: data.list_price == null ? null : numberOrNull(data.list_price),
+  };
+}
 function stockQuantity(payload) {
   const data = payloadObject(payload);
   const candidates = [data.quantity, data.available_quantity, data.available, data.stock, data.amount, data?.inventory?.quantity, data?.inventory?.available_quantity];

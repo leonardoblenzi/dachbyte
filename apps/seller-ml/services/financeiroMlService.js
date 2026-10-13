@@ -6,6 +6,7 @@ const db = require("../db/db");
 const TokenService = require("./tokenService");
 const MarketingMlService = require("./marketingMlService");
 const { parseXlsxRows } = require("./safeWorkbookParser");
+const { normalizeAttributes, normalizeBulkResponse } = require("./meliBulk");
 
 const ML_API_BASE = "https://api.mercadolibre.com";
 const INVENTORY_CACHE = new Map();
@@ -169,6 +170,10 @@ function normalizeSku(value) {
   return normalizeString(value).toUpperCase();
 }
 
+function normalizeMlb(value) {
+  return normalizeString(value).toUpperCase();
+}
+
 function normalizeStatus(value) {
   const raw = normalizeString(value).toLowerCase();
   return raw || "all";
@@ -191,6 +196,43 @@ function isMarketingPeriodScope(query = {}) {
 
 function textIncludes(value, term) {
   return String(value || "").toLowerCase().includes(term);
+}
+
+function classifyMarginSearch(value) {
+  const term = normalizeString(value);
+  if (!term) return "none";
+  if (/^MLB\d{6,}$/i.test(term)) return "mlb";
+  return /\s/.test(term) ? "text" : "sku_or_text";
+}
+
+function itemHasExactSku(item = {}, value = "") {
+  const sku = normalizeSku(value);
+  return Boolean(sku) && [item.reference_sku, ...(item.reference_skus || []),
+    ...(item.variation_skus || []).map((row) => row.reference_sku)]
+    .some((candidate) => normalizeSku(candidate) === sku);
+}
+
+function selectMarginCandidates({ query = "", sellerId = null, status = "all", snapshotItems = [], targetedItems = [] } = {}) {
+  const term = normalizeString(query);
+  const kind = classifyMarginSearch(term);
+  const wantedStatus = normalizeStatus(status);
+  const statusMatches = (item) => wantedStatus === "all" || normalizeStatus(item?.status) === wantedStatus;
+  const snapshot = snapshotItems.filter((item) => statusMatches(item) &&
+    (!sellerId || item?.seller_id == null || String(item.seller_id) === String(sellerId)));
+  const targeted = targetedItems.filter((item) => statusMatches(item) &&
+    (!sellerId || String(item?.seller_id) === String(sellerId)));
+  const unique = (items) => Array.from(new Map(items.map((item) => [normalizeMlb(item.item_id), item])).values());
+  if (kind === "none") return unique(snapshot);
+  if (kind === "mlb") return unique([...snapshot, ...targeted].filter((item) => normalizeMlb(item.item_id) === normalizeMlb(term)));
+  if (kind === "sku_or_text") {
+    const matches = unique([...snapshot, ...targeted].filter((item) => itemHasExactSku(item, term)));
+    if (matches.length) return matches;
+  }
+  const q = term.toLowerCase();
+  return unique(snapshot.filter((item) => textIncludes(item.item_id, q) ||
+    textIncludes(item.reference_sku, q) ||
+    (item.reference_skus || []).some((value) => textIncludes(value, q)) ||
+    textIncludes(item.title, q) || textIncludes(item.category_id, q)));
 }
 
 function parseDateOnly(value) {
@@ -319,7 +361,7 @@ function extractReferenceSkuValues(item = {}) {
     );
 
   const itemSku = normalizeString(
-    item.seller_custom_field || item.seller_sku || pickAttrValue(skuAttr),
+    item.seller_custom_field || item.seller_sku || item.sku || pickAttrValue(skuAttr),
   );
   if (itemSku) return [normalizeSku(itemSku)];
 
@@ -332,7 +374,7 @@ function extractReferenceSkuValues(item = {}) {
       String(attr?.name || "").trim().toLowerCase().includes("sku"),
     );
     const variationSku = normalizeString(
-      variation?.seller_custom_field || variation?.seller_sku || pickAttrValue(variationSkuAttr),
+      variation?.seller_custom_field || variation?.seller_sku || variation?.sku || pickAttrValue(variationSkuAttr),
     );
     if (variationSku) variationSkus.push(normalizeSku(variationSku));
   }
@@ -362,7 +404,7 @@ function extractVariationSkuRows(item = {}) {
       String(attr?.name || "").trim().toLowerCase().includes("sku"),
     );
     const sku = normalizeSku(
-      variation?.seller_custom_field || variation?.seller_sku || pickAttrValue(skuAttr),
+      variation?.seller_custom_field || variation?.seller_sku || variation?.sku || pickAttrValue(skuAttr),
     );
     if (!sku) continue;
     rows.push({
@@ -399,21 +441,23 @@ function extractProductIdentifiers(item = {}) {
   return Array.from(ids);
 }
 
-async function fetchItemDetails(state, ids = []) {
+async function fetchItemDetails(state, ids = [], context = {}, { strict = false } = {}) {
   const out = [];
   const cleanIds = Array.from(
     new Set(ids.map((id) => normalizeString(id)).filter(Boolean)),
   );
   for (let i = 0; i < cleanIds.length; i += 20) {
     const slice = cleanIds.slice(i, i + 20);
-    const rows = await mlRequest(state, "/items", {
+    const request = mlRequest(state, "/items/bulk", {
       ids: slice.join(","),
-      attributes: [
+      attributes: normalizeAttributes([
         "id",
         "title",
         "thumbnail",
         "secure_thumbnail",
         "seller_custom_field",
+        "seller_sku",
+        "sku",
         "price",
         "original_price",
         "status",
@@ -427,10 +471,11 @@ async function fetchItemDetails(state, ids = []) {
         "permalink",
         "attributes",
         "variations",
-      ].join(","),
-    }).catch(() => []);
+      ]),
+    });
+    const rows = strict ? await request : await request.catch(() => []);
 
-    for (const row of Array.isArray(rows) ? rows : []) {
+    for (const row of normalizeBulkResponse(rows)) {
       if (row?.code !== 200 || !row?.body?.id) continue;
       const body = row.body;
       out.push({
@@ -457,7 +502,7 @@ async function fetchItemDetails(state, ids = []) {
       });
     }
   }
-  return out;
+  return applyManualSkuReferences(out, context?.accountKey);
 }
 
 async function fetchSellerItemIdsByStatus(state, sellerId, status, limit) {
@@ -478,18 +523,19 @@ async function fetchSellerItemIdsByStatus(state, sellerId, status, limit) {
   return ids.slice(0, limit);
 }
 
-async function fetchSellerItemIdsBySku(state, sellerId, status, sku) {
+async function fetchSellerItemIdsBySku(state, sellerId, status, sku, { strict = false } = {}) {
   const term = normalizeString(sku);
   if (!term) return [];
   const ids = [];
   const pageSize = 50;
   for (let offset = 0; offset <= 5000; offset += pageSize) {
-    const payload = await mlRequest(state, `/users/${encodeURIComponent(String(sellerId))}/items/search`, {
+    const request = mlRequest(state, `/users/${encodeURIComponent(String(sellerId))}/items/search`, {
       seller_sku: term,
       status: status && status !== "all" ? status : "",
       limit: pageSize,
       offset,
-    }).catch(() => null);
+    });
+    const payload = strict ? await request : await request.catch(() => null);
     const rows = Array.isArray(payload?.results) ? payload.results : [];
     ids.push(...rows.map((id) => String(id)).filter(Boolean));
     const total = numberOrZero(payload?.paging?.total);
@@ -497,6 +543,23 @@ async function fetchSellerItemIdsBySku(state, sellerId, status, sku) {
     if (total > 0 && offset + rows.length >= total) break;
   }
   return Array.from(new Set(ids));
+}
+
+function applySkuSearchMatches(items = [], matches = new Map()) {
+  return items.map((item) => {
+    const itemId = normalizeString(item?.item_id).toUpperCase();
+    const matchedSkus = matches.get(itemId);
+    const hasSku = Boolean(normalizeSku(item?.reference_sku)) ||
+      (Array.isArray(item?.reference_skus) && item.reference_skus.some((sku) => Boolean(normalizeSku(sku))));
+    if (hasSku || !matchedSkus || matchedSkus.size !== 1) return item;
+    const sku = Array.from(matchedSkus)[0];
+    return {
+      ...item,
+      reference_sku: sku,
+      reference_skus: [sku],
+      sku_lookup_inferred: true,
+    };
+  });
 }
 
 function parseDirectLookupTerms(value) {
@@ -529,7 +592,7 @@ function normalizeCostLookupType(value) {
   return "sku";
 }
 
-async function fetchTargetedCostLookupItems(context = {}, query = {}, seller = {}) {
+async function fetchTargetedCostLookupItems(context = {}, query = {}, seller = {}, { strict = false } = {}) {
   const terms = parseDirectLookupTerms(query.q);
   if (!terms.length || !seller?.id) return [];
 
@@ -541,6 +604,7 @@ async function fetchTargetedCostLookupItems(context = {}, query = {}, seller = {
   const statuses = wantedStatus === "all" ? ["active", "paused", "closed"] : [wantedStatus];
   const targetIds = new Set();
   const skuTerms = [];
+  const skuMatches = new Map();
 
   for (const term of terms) {
     const normalized = term.toUpperCase();
@@ -554,14 +618,43 @@ async function fetchTargetedCostLookupItems(context = {}, query = {}, seller = {
   for (const sku of skuTerms) {
     for (const status of statuses) {
       for (const variant of buildSkuLookupVariants(sku)) {
-        const ids = await fetchSellerItemIdsBySku(state, seller.id, status, variant);
-        ids.forEach((id) => targetIds.add(String(id).toUpperCase()));
+        const ids = await fetchSellerItemIdsBySku(state, seller.id, status, variant, { strict });
+        ids.forEach((id) => {
+          const itemId = String(id).toUpperCase();
+          targetIds.add(itemId);
+          if (!skuMatches.has(itemId)) skuMatches.set(itemId, new Set());
+          skuMatches.get(itemId).add(normalizeSku(sku));
+        });
         if (ids.length) break;
       }
     }
   }
 
-  return fetchItemDetails(state, Array.from(targetIds));
+  const items = await fetchItemDetails(state, Array.from(targetIds), context, { strict });
+  // A busca por seller_sku do ML pode localizar um anuncio cujo detalhe omite
+  // o atributo. Mostramos a referencia encontrada, mas exigimos confirmacao
+  // antes de persistir o vinculo MLB -> SKU.
+  return applySkuSearchMatches(items, skuMatches);
+}
+
+async function resolveMarginCandidates({
+  query = {}, snapshot = {}, context = {}, targetedLookup = fetchTargetedCostLookupItems,
+} = {}) {
+  const kind = classifyMarginSearch(query.q);
+  const targetedItems = kind === "mlb" || kind === "sku_or_text"
+    ? await targetedLookup(context, {
+      q: query.q,
+      lookup_type: kind === "mlb" ? "mlb" : "sku",
+      status: query.status || "all",
+    }, snapshot.seller, { strict: true })
+    : [];
+  return selectMarginCandidates({
+    query: query.q,
+    sellerId: snapshot.seller?.id,
+    status: query.status,
+    snapshotItems: snapshot.items || [],
+    targetedItems,
+  });
 }
 
 function inventoryCacheKey(accountKey, status, maxItems) {
@@ -601,7 +694,7 @@ async function getInventorySnapshot(context = {}, opts = {}) {
   );
 
   const ids = Array.from(new Set(batches.flat())).slice(0, maxItems);
-  const items = await fetchItemDetails(state, ids);
+  const items = await fetchItemDetails(state, ids, context);
   const payload = {
     seller,
     items,
@@ -632,6 +725,57 @@ async function getSkuCostMap(accountKey, skus = []) {
       },
     ]),
   );
+}
+
+async function getManualSkuReferenceMap(accountKey, mlbs = []) {
+  const normalizedMlbs = Array.from(new Set(mlbs.map(normalizeMlb).filter(Boolean)));
+  if (!accountKey || !normalizedMlbs.length) return new Map();
+
+  const result = await db.query(
+    `select mlb, variation_id, reference_sku
+       from ml.mercadolivre_sku_reference_overrides
+      where account_key = $1
+        and upper(mlb) = any($2::text[])`,
+    [String(accountKey), normalizedMlbs],
+  ).catch((error) => {
+    if (String(error?.message || "").includes("mercadolivre_sku_reference_overrides")) {
+      return { rows: [] };
+    }
+    throw error;
+  });
+
+  return new Map((result.rows || []).map((row) => [
+    `${normalizeMlb(row.mlb)}:${normalizeString(row.variation_id)}`,
+    normalizeSku(row.reference_sku),
+  ]).filter(([, sku]) => Boolean(sku)));
+}
+
+async function applyManualSkuReferences(items = [], accountKey) {
+  if (!accountKey || !Array.isArray(items) || !items.length) return items;
+  const references = await getManualSkuReferenceMap(
+    accountKey,
+    items.map((item) => item?.item_id),
+  );
+  if (!references.size) return items;
+
+  return items.map((item) => {
+    const naturalSkus = Array.from(new Set(
+      (Array.isArray(item.reference_skus) && item.reference_skus.length
+        ? item.reference_skus
+        : [item.reference_sku]
+      ).map(normalizeSku).filter(Boolean),
+    ));
+    if (naturalSkus.length) return item;
+
+    const manualSku = references.get(`${normalizeMlb(item.item_id)}:`);
+    if (!manualSku) return item;
+    return {
+      ...item,
+      reference_sku: manualSku,
+      reference_skus: [manualSku],
+      manual_reference_sku: true,
+    };
+  });
 }
 
 async function getCatalogSkuCandidatesByMlb(accountKey, mlbs = []) {
@@ -778,6 +922,30 @@ async function saveSkuCost({ accountKey, sku, cost, userId, source = "manual", m
   return saved.rows[0];
 }
 
+async function saveManualSkuReference({ accountKey, mlb, variationId = "", sku, userId }) {
+  const normalizedMlb = normalizeMlb(mlb);
+  const referenceSku = normalizeSku(sku);
+  if (!/^MLB\d{6,}$/i.test(normalizedMlb)) {
+    throw new Error("Informe um MLB válido para vincular o SKU.");
+  }
+  if (!referenceSku) throw new Error("SKU de referência é obrigatório.");
+
+  const result = await db.query(
+    `insert into ml.mercadolivre_sku_reference_overrides
+        (account_key, mlb, variation_id, reference_sku, source, created_by, updated_by)
+     values ($1, $2, $3, $4, 'manual', $5, $5)
+     on conflict (account_key, mlb, variation_id)
+     do update set
+       reference_sku = excluded.reference_sku,
+       source = excluded.source,
+       updated_by = excluded.updated_by,
+       updated_at = now()
+     returning mlb, variation_id, reference_sku, updated_at`,
+    [String(accountKey || "default"), normalizedMlb, normalizeString(variationId), referenceSku, userId || null],
+  );
+  return result.rows[0];
+}
+
 async function getAccountTax(accountKey) {
   const result = await db.query(
     `select aliquota
@@ -843,6 +1011,8 @@ function groupItemsBySku(items = [], costMap = new Map()) {
         {
           reference_sku: sku,
           has_reference_sku: !!sku,
+          sku_lookup_inferred: false,
+          sku_lookup_inferred_mlbs: [],
           title: item.title,
           thumbnail: item.thumbnail,
           eans: new Set(),
@@ -857,6 +1027,10 @@ function groupItemsBySku(items = [], costMap = new Map()) {
           cost_updated_at: sku ? costMap.get(sku)?.updated_at || null : null,
         };
       current.item_count += 1;
+      if (item.sku_lookup_inferred) {
+        current.sku_lookup_inferred = true;
+        current.sku_lookup_inferred_mlbs.push(item.item_id);
+      }
       current.mlbs.push(item.item_id);
       (Array.isArray(item.eans) ? item.eans : []).forEach((ean) => {
         const normalized = normalizeString(ean);
@@ -2428,25 +2602,37 @@ async function fetchOrdersByStatuses(state, sellerId, range, limit, dateField, s
   return output;
 }
 
-function summarizeOrderRevenue(orders = []) {
+function summarizeOrderRevenue(orders = [], {
+  itemIds = [], itemFilterActive = false, skuFilter = "", itemsById = new Map(),
+} = {}) {
   const orderIds = new Set();
+  const idSet = new Set(itemIds.map(normalizeMlb));
+  const hasItemFilter = itemFilterActive || idSet.size > 0;
+  let matchedOrders = 0;
   let revenue = 0;
   let units = 0;
   for (const order of orders) {
+    const items = extractOrderItems(order).filter((row) => {
+      if (hasItemFilter && !idSet.has(row.item_id)) return false;
+      if (!skuFilter) return true;
+      return resolveOrderItemSkuCandidates(row, itemsById.get(row.item_id))
+        .includes(normalizeSku(skuFilter));
+    });
+    if (!items.length) continue;
+    matchedOrders += 1;
     if (order?.id) orderIds.add(String(order.id));
-    const items = extractOrderItems(order);
     revenue += items.reduce((sum, row) => sum + numberOrZero(row.revenue), 0);
     units += items.reduce((sum, row) => sum + numberOrZero(row.quantity), 0);
   }
   return {
     revenue: Number(revenue.toFixed(2)),
-    orders: orderIds.size || orders.length,
+    orders: orderIds.size || matchedOrders,
     units: Number(units.toFixed(0)),
-    available: numberOrZero(orders.total_available) || orders.length,
+    available: hasItemFilter ? orderIds.size || matchedOrders : numberOrZero(orders.total_available) || orders.length,
   };
 }
 
-async function fetchGrossAdjustmentSummary(state, sellerId, range, limit, dateField = "closed") {
+async function fetchGrossAdjustmentSummary(state, sellerId, range, limit, dateField = "closed", itemFilter = {}) {
   const [cancelledOrders, returnedOrders] = await Promise.all([
     fetchOrdersByStatuses(state, sellerId, range, limit, dateField, ["cancelled", "canceled"]),
     fetchOrdersByStatuses(state, sellerId, range, limit, dateField, [
@@ -2455,8 +2641,8 @@ async function fetchGrossAdjustmentSummary(state, sellerId, range, limit, dateFi
       "returned",
     ]),
   ]);
-  const cancelled = summarizeOrderRevenue(cancelledOrders);
-  const returned = summarizeOrderRevenue(returnedOrders);
+  const cancelled = summarizeOrderRevenue(cancelledOrders, itemFilter);
+  const returned = summarizeOrderRevenue(returnedOrders, itemFilter);
   return {
     cancelled_revenue: cancelled.revenue,
     cancelled_orders: cancelled.orders,
@@ -2536,6 +2722,8 @@ async function buildOrderFinancials({
   seller,
   range,
   itemIds,
+  itemFilterActive = false,
+  skuFilter = "",
   limit,
   itemsById,
   costMap,
@@ -2549,7 +2737,7 @@ async function buildOrderFinancials({
   batchSize = 4,
 }) {
   const idSet = new Set(Array.from(itemIds || []).map((id) => normalizeString(id).toUpperCase()));
-  const hasItemFilter = idSet.size > 0;
+  const hasItemFilter = Boolean(itemFilterActive) || idSet.size > 0;
   const detailMap = new Map(itemsById || []);
   const byItem = new Map();
   const ordersRows = [];
@@ -2599,7 +2787,9 @@ async function buildOrderFinancials({
       ? Promise.resolve(ordersOverride.slice(0, limit))
       : fetchPaidOrders(state, seller.id, range, limit, dateField),
     includeGrossAdjustments
-      ? fetchGrossAdjustmentSummary(state, seller.id, range, limit, dateField).catch(() => emptyAdjustments)
+      ? fetchGrossAdjustmentSummary(state, seller.id, range, limit, dateField, {
+        itemIds, itemFilterActive, skuFilter, itemsById: detailMap,
+      }).catch(() => emptyAdjustments)
       : Promise.resolve(emptyAdjustments),
   ]);
   Object.assign(summary, grossAdjustments);
@@ -2610,9 +2800,12 @@ async function buildOrderFinancials({
 
   for (const order of orders) {
     const allItems = extractOrderItems(order);
-    const items = allItems.filter((row) =>
-      hasItemFilter ? idSet.has(row.item_id) : true,
-    );
+    const items = allItems.filter((row) => {
+      if (hasItemFilter && !idSet.has(row.item_id)) return false;
+      if (!skuFilter) return true;
+      return resolveOrderItemSkuCandidates(row, detailMap.get(row.item_id))
+        .includes(normalizeSku(skuFilter));
+    });
     if (!items.length) continue;
     items.forEach((row) => soldItemIds.add(row.item_id));
     preparedOrders.push({ order, items, allItems });
@@ -2620,7 +2813,10 @@ async function buildOrderFinancials({
 
   const missingDetailIds = Array.from(soldItemIds).filter((id) => !detailMap.has(id));
   if (missingDetailIds.length) {
-    const details = await fetchItemDetails(state, missingDetailIds).catch(() => []);
+    // buildOrderFinancials recebe somente a chave da conta. Nao ha um contexto
+    // HTTP completo neste nivel, mas ela e suficiente para aplicar referencias
+    // manuais de SKU aos itens trazidos pelos pedidos.
+    const details = await fetchItemDetails(state, missingDetailIds, { accountKey }).catch(() => []);
     details.forEach((item) => {
       detailMap.set(normalizeString(item.item_id).toUpperCase(), item);
     });
@@ -2984,6 +3180,14 @@ function expandItemsForPricing(items = []) {
     }
   }
   return rows;
+}
+
+function selectMarginPricingCandidates(candidates = [], query = "") {
+  const exactSkuSearch = classifyMarginSearch(query) === "sku_or_text" &&
+    candidates.some((item) => itemHasExactSku(item, query));
+  const rows = expandItemsForPricing(candidates)
+    .filter((item) => !exactSkuSearch || normalizeSku(item.reference_sku) === normalizeSku(query));
+  return { rows, exactSkuSearch };
 }
 
 async function mapMarginRow({ item, costMap, taxPct, state, seller, orderMetrics }) {
@@ -3813,6 +4017,42 @@ class FinanceiroMlService {
     };
   }
 
+  static async saveManualCostReference(params = {}, context = {}) {
+    const reference = await saveManualSkuReference({
+      accountKey: context.accountKey,
+      mlb: params.mlb,
+      variationId: params.variation_id,
+      sku: params.sku,
+      userId: params.userId,
+    });
+    const saved = await saveSkuCost({
+      accountKey: context.accountKey,
+      sku: reference.reference_sku,
+      cost: params.cost,
+      userId: params.userId,
+      source: "manual_reference",
+      meta: {
+        mlb: reference.mlb,
+        variation_id: reference.variation_id || null,
+      },
+    });
+    clearQuickMarginCache(context.accountKey);
+    return {
+      success: true,
+      reference: {
+        mlb: reference.mlb,
+        variation_id: reference.variation_id || null,
+        reference_sku: reference.reference_sku,
+        updated_at: reference.updated_at,
+      },
+      cost: {
+        reference_sku: saved.reference_sku,
+        custo_produto_unitario: numberOrZero(saved.custo_produto_unitario),
+        updated_at: saved.updated_at,
+      },
+    };
+  }
+
   static async costTimeline(query = {}, context = {}) {
     return getSkuCostTimeline(query, context);
   }
@@ -4038,23 +4278,14 @@ class FinanceiroMlService {
       max_items: query.max_items,
     });
     const q = normalizeString(query.q).toLowerCase();
-    let candidates = snapshot.items.filter((item) => {
-      if (!q) return true;
-      return (
-        textIncludes(item.item_id, q) ||
-        textIncludes(item.reference_sku, q) ||
-        (Array.isArray(item.reference_skus) && item.reference_skus.some((sku) => textIncludes(sku, q))) ||
-        textIncludes(item.title, q) ||
-        textIncludes(item.category_id, q)
-      );
-    });
+    let candidates = await resolveMarginCandidates({ query, snapshot, context });
     if (query.only_full === "true") candidates = candidates.filter((item) => item.full);
     if (query.catalog === "with_catalog") candidates = candidates.filter((item) => item.catalog);
     if (query.catalog === "without_catalog") candidates = candidates.filter((item) => !item.catalog);
 
     const scopeTruncated = candidates.length > scopeLimit;
     candidates = candidates.slice(0, scopeLimit);
-    const pricingCandidates = expandItemsForPricing(candidates);
+    const { rows: pricingCandidates, exactSkuSearch } = selectMarginPricingCandidates(candidates, q);
     const costMap = await getSkuCostMap(
       context.accountKey,
       pricingCandidates.map((item) => item.reference_sku),
@@ -4069,6 +4300,8 @@ class FinanceiroMlService {
       seller: snapshot.seller,
       range,
       itemIds: q ? candidates.map((item) => item.item_id) : [],
+      itemFilterActive: Boolean(q),
+      skuFilter: exactSkuSearch ? q : "",
       limit: ordersLimit,
       itemsById: itemById,
       costMap,
@@ -4117,6 +4350,8 @@ class FinanceiroMlService {
       seller: snapshot.seller,
       range,
       itemIds: q ? candidates.map((item) => item.item_id) : [],
+      itemFilterActive: Boolean(q),
+      skuFilter: exactSkuSearch ? q : "",
       limit: ordersLimit,
       itemsById: itemById,
       costMap,
@@ -4244,6 +4479,15 @@ class FinanceiroMlService {
 }
 
 FinanceiroMlService._test = {
+  buildOrderFinancials,
+  summarizeOrderRevenue,
+  classifyMarginSearch,
+  selectMarginCandidates,
+  resolveMarginCandidates,
+  selectMarginPricingCandidates,
+  fetchTargetedCostLookupItems,
+  extractReferenceSkuValues,
+  applySkuSearchMatches,
   parseImportRows,
   resolveRealizedGmv,
   orderLifecycleStatus,

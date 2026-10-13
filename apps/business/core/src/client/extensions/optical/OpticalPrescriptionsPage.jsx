@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { Building2, Glasses, Wrench } from "lucide-react";
 import { OperationalList } from "../../components/OperationalList";
+import { apiFetch } from "../../core/api";
 import { formatShortDate } from "../../core/formatters";
 import { editRecordPayload } from "../../core/records";
-import { formatEyePrescription, formatPrescriptionMeasures } from "./presentation";
+import { formatEyePrescription, formatPrescriptionMeasures, prescriptionTypeLabel } from "./presentation";
 
 function runtimeOperationalListProps(runtimeData, resource, extraQuery = {}) {
   const state = runtimeData?.lists?.[resource];
@@ -59,7 +60,7 @@ function OpticalForm({ prescriptions, onAction, runtimeData, ui }) {
         items={prescriptions}
         renderRow={(prescription) => (
           <tr key={prescription.id || `${prescription.customer}-${prescription.validUntil}`}>
-            <td className="entity-main-cell"><strong>{prescription.customer || "Cliente nao informado"}</strong><small>{prescription.prescriptionType || "Receita optica"}</small></td>
+            <td className="entity-main-cell"><strong>{prescription.customer || "Cliente nao informado"}</strong><small>{prescriptionTypeLabel(prescription.prescriptionType)}</small></td>
             <td>{prescription.doctor || "Nao informado"}</td>
             <td>{formatEyePrescription(prescription, "right")}</td>
             <td>{formatEyePrescription(prescription, "left")}</td>
@@ -75,6 +76,7 @@ function OpticalForm({ prescriptions, onAction, runtimeData, ui }) {
           prescription.doctorCrm,
           prescription.validUntil,
           prescription.prescriptionType,
+          prescriptionTypeLabel(prescription.prescriptionType),
           formatEyePrescription(prescription, "right"),
           formatEyePrescription(prescription, "left"),
           formatPrescriptionMeasures(prescription),
@@ -124,13 +126,56 @@ function OpticalWorkflow({ data, onAction, runtimeData, ui }) {
   );
 }
 
-function OpticalLaboratories({ laboratories, onAction, ui }) {
+function OpticalLaboratories({ laboratories, onAction, runtimeData, ui }) {
   const { StatusPill, Toolbar } = ui;
+  const [selectedLabId, setSelectedLabId] = useState("");
+  const [viewMode, setViewMode] = useState("");
+  const [linkedOrders, setLinkedOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [removingId, setRemovingId] = useState("");
+  const [error, setError] = useState("");
+  const selectedLab = laboratories.find((lab) => lab.id === selectedLabId);
+  const companyId = runtimeData?.draftScope?.companyId;
+
+  async function consultOrders(lab) {
+    setSelectedLabId(lab.id);
+    setViewMode("orders");
+    setLinkedOrders([]);
+    setError("");
+    setLoadingOrders(true);
+    try {
+      if (!companyId) throw new Error("Empresa nao selecionada.");
+      const payload = await apiFetch(`/core/runtime/companies/${encodeURIComponent(companyId)}/optical-laboratories/${encodeURIComponent(lab.id)}/orders`);
+      setLinkedOrders(payload.orders || []);
+    } catch (requestError) {
+      setError(requestError.message || "Nao foi possivel consultar os pedidos.");
+    } finally {
+      setLoadingOrders(false);
+    }
+  }
+
+  async function removeLab(lab) {
+    if (!window.confirm(`Remover o laboratorio "${lab.name}"? Esta acao nao pode ser desfeita.`)) return;
+    setError("");
+    setRemovingId(lab.id);
+    try {
+      if (!companyId) throw new Error("Empresa nao selecionada.");
+      await apiFetch(`/core/runtime/companies/${encodeURIComponent(companyId)}/optical-laboratories/${encodeURIComponent(lab.id)}`, { method: "DELETE" });
+      if (selectedLabId === lab.id) { setSelectedLabId(""); setViewMode(""); }
+      await runtimeData.loadResource("opticalLaboratories", {}, { silent: false });
+    } catch (requestError) {
+      setError(requestError.message || "Nao foi possivel remover o laboratorio.");
+    } finally {
+      setRemovingId("");
+    }
+  }
+
   return (
     <div className="panel panel-section">
       <Toolbar title="Laboratorios parceiros" description="Contatos e prazos usados na producao optica." icon={Building2} action="Novo laboratorio" onAction={() => onAction("opticalLab")} />
+      {error ? <p className="optical-lab-error" role="alert">{error}</p> : null}
       <OperationalList
-        columns={["Laboratorio", "Contato", "Telefone", "Prazo padrao", "Status"]}
+        columns={["Laboratorio", "Contato", "Telefone", "Prazo padrao", "Status", "Acoes"]}
         emptyDescription="Cadastre laboratorios para usar nos pedidos opticos."
         emptyTitle="Nenhum laboratorio encontrado"
         filters={["Todos", "Ativos", "Inativos"].map((item) => ({ value: item, label: item }))}
@@ -144,11 +189,30 @@ function OpticalLaboratories({ laboratories, onAction, ui }) {
             <td>{lab.phone || "-"}</td>
             <td>{lab.defaultLeadDays} dias</td>
             <td><StatusPill status={lab.active ? "Ativo" : "Inativo"} /></td>
+            <td><span className="row-actions">
+              <button className="table-action" type="button" onClick={() => { setSelectedLabId(lab.id); setViewMode("details"); setError(""); }}>Ver</button>
+              <button className="table-action" type="button" onClick={() => consultOrders(lab)}>Consultar</button>
+              <button className="table-action table-action--danger" type="button" disabled={removingId === lab.id} onClick={() => removeLab(lab)}>{removingId === lab.id ? "Removendo..." : "Remover"}</button>
+            </span></td>
           </tr>
         )}
         searchPlaceholder="Buscar por laboratorio, contato, telefone, prazo ou status"
         searchText={(lab) => [lab.name, lab.contactName, lab.email, lab.phone, lab.defaultLeadDays, lab.active ? "Ativo" : "Inativo"].join(" ")}
       />
+      {selectedLab && viewMode ? <section className="optical-lab-details" aria-label={`Laboratorio ${selectedLab.name}`}>
+        <div className="optical-lab-details__header"><h3>{viewMode === "orders" ? `Pedidos de ${selectedLab.name}` : selectedLab.name}</h3><button className="button-secondary" type="button" onClick={() => { setViewMode(""); setSelectedLabId(""); }}>Fechar</button></div>
+        {viewMode === "details" ? <div className="optical-lab-details__grid">
+          <span><strong>CNPJ</strong>{selectedLab.document || "Nao informado"}</span>
+          <span><strong>Contato</strong>{selectedLab.contactName || "Nao informado"}</span>
+          <span><strong>Telefone</strong>{selectedLab.phone || "Nao informado"}</span>
+          <span><strong>E-mail</strong>{selectedLab.email || "Nao informado"}</span>
+          <span><strong>Prazo padrao</strong>{selectedLab.defaultLeadDays} dias</span>
+          <span><strong>Status</strong>{selectedLab.active ? "Ativo" : "Inativo"}</span>
+          {selectedLab.notes ? <span><strong>Observacoes</strong>{selectedLab.notes}</span> : null}
+        </div> : loadingOrders ? <p>Consultando pedidos...</p> : !error && linkedOrders.length ? <div className="optical-lab-orders">{linkedOrders.map((order) => <div key={order.id}>
+          <strong>Pedido OP-{order.number}</strong><span>{order.customerName || "Cliente nao informado"}</span><span>Venda #{order.saleNumber || "-"} / OS-{order.serviceOrderNumber || "-"}</span><span>{opticalOrderNextStep(order).label}</span>
+        </div>)}</div> : !error ? <p>Nenhum pedido vinculado a este laboratorio.</p> : null}
+      </section> : null}
     </div>
   );
 }
@@ -159,7 +223,7 @@ export default function OpticalPrescriptionsPage({ data, onAction, runtimeData, 
     <ModulePage tabs={[
       { id: "prescription", label: "Receita", icon: Glasses, content: <OpticalForm prescriptions={data.prescriptions || []} onAction={onAction} runtimeData={runtimeData} ui={ui} /> },
       { id: "orders", label: "Pedidos opticos", icon: Wrench, content: <OpticalWorkflow data={data} onAction={onAction} runtimeData={runtimeData} ui={ui} /> },
-      { id: "labs", label: "Laboratorios", icon: Building2, content: <OpticalLaboratories laboratories={data.opticalLaboratories || []} onAction={onAction} ui={ui} /> },
+      { id: "labs", label: "Laboratorios", icon: Building2, content: <OpticalLaboratories laboratories={data.opticalLaboratories || []} onAction={onAction} runtimeData={runtimeData} ui={ui} /> },
     ]} />
   );
 }

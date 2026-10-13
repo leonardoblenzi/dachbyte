@@ -9,7 +9,7 @@ test("financial pages stay in the canonical Magalu shell and label estimates", (
   const html = fs.readFileSync(path.join(root, "views", "app.html"), "utf8");
   const shell = fs.readFileSync(path.join(root, "public", "js", "magalu-app.js"), "utf8");
   assert.match(html, /Precificação<\/strong><small>Custos, margem e preço/);
-  assert.match(html, /data-page="\/custos"/);
+  assert.match(html, /data-margin-panel="costs"/);
   assert.match(html, /data-page="\/margem"/);
   assert.match(html, /data-page="\/calculadora"/);
   assert.match(html, /Resultado conhecido/);

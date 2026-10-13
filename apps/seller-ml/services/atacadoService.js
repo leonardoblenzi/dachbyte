@@ -6,6 +6,7 @@ const {
   extractSalePriceInfo,
   resolvePromotionSnapshot,
 } = require("./mlPromotionPricing");
+const { itemsBulkPath, normalizeBulkResponse } = require("./meliBulk");
 
 const API_BASE = "https://api.mercadolibre.com";
 const DEFAULT_CONTEXT = "channel_marketplace";
@@ -86,21 +87,16 @@ function normalizeTierConfigs(values, fallbackFirstUnit = 2, fallbackDiscountPer
   return configs;
 }
 
-function buildWholesalePrices(baseAmount, tierConfigs, currencyId) {
-  const amount = Number(baseAmount || 0);
-
-  if (!(amount > 0)) {
-    throw new Error("Nao foi possivel calcular o preco base do atacado.");
-  }
-
+function buildPercentagePrices(tierConfigs) {
   return tierConfigs.map((config) => ({
-      amount: round2(amount * (1 - Number(config.discount_percent || 0) / 100)),
-      currency_id: currencyId || "BRL",
-      conditions: {
-        context_restrictions: DEFAULT_BUSINESS_CONTEXTS,
-        min_purchase_unit: config.min_purchase_unit,
-      },
-    }));
+    type: "discount_percentage",
+    percentage: round2(config.discount_percent),
+    conditions: {
+      context_restrictions: DEFAULT_BUSINESS_CONTEXTS,
+      min_purchase_unit: config.min_purchase_unit,
+      eligible: true,
+    },
+  }));
 }
 
 function buildRow(item, salePriceAmount, extraDiscountPercent) {
@@ -231,9 +227,10 @@ class AtacadoService {
     const chunks = this.chunk(ids, 20);
 
     for (const slice of chunks) {
-      const url =
-        `${API_BASE}/items?ids=${slice.join(",")}` +
-        "&attributes=id,title,status,price,original_price,currency_id,available_quantity,seller_custom_field,thumbnail,permalink";
+      const url = `${API_BASE}${itemsBulkPath(
+        slice,
+        "id,title,status,price,original_price,currency_id,available_quantity,seller_custom_field,thumbnail,permalink",
+      )}`;
 
       const response = await this.authFetch(state, url);
       if (!response.ok) {
@@ -242,7 +239,7 @@ class AtacadoService {
       }
 
       const payload = await response.json();
-      const rows = Array.isArray(payload) ? payload : [];
+      const rows = normalizeBulkResponse(payload);
       details.push(
         ...rows
           .filter((row) => row && row.code === 200 && row.body?.id)
@@ -371,6 +368,49 @@ class AtacadoService {
     return response.json();
   }
 
+  static async fetchPriceVersion(state, itemId) {
+    const url = new URL(`${API_BASE}/items/${encodeURIComponent(itemId)}/prices`);
+    url.searchParams.set("display_version", "true");
+    const response = await this.authFetch(state, url.toString(), {
+      headers: { "show-all-prices": "true" },
+    });
+    const text = await response.text().catch(() => "");
+    const payload = parseJsonSafe(text);
+    if (!response.ok || !Number.isInteger(Number(payload?.version))) {
+      throw new Error(
+        payload?.message || payload?.error || `Falha ao consultar versão de preços: HTTP ${response.status}`,
+      );
+    }
+    return Number(payload.version);
+  }
+
+  static async fetchPriceRecommendations(state, itemId, tierConfigs, standardAmount, currencyId) {
+    const response = await this.authFetch(
+      state,
+      `${API_BASE}/prices-per-quantity/v1/recommendations`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_id: itemId,
+          range_item_quantities: tierConfigs.map((config) => config.min_purchase_unit),
+          price: {
+            standard_amount: Number(standardAmount),
+            currency: currencyId || "BRL",
+          },
+        }),
+      },
+    );
+    const text = await response.text().catch(() => "");
+    const payload = parseJsonSafe(text);
+    if (!response.ok) {
+      throw new Error(
+        payload?.message || payload?.error || `Falha ao consultar recomendações de atacado: HTTP ${response.status}`,
+      );
+    }
+    return payload;
+  }
+
   static async applyWholesaleForItem(state, itemId, options) {
     const liveItem = await this.fetchSingleItem(state, itemId);
     const liveSalePrice = await this.fetchSalePrice(state, itemId);
@@ -415,11 +455,7 @@ class AtacadoService {
     }
 
     const payload = {
-      prices: buildWholesalePrices(
-        amount,
-        tierConfigs,
-        row.currency_id,
-      ),
+      price_per_quantity: buildPercentagePrices(tierConfigs),
     };
 
     if (options.dry_run) {
@@ -432,15 +468,32 @@ class AtacadoService {
       };
     }
 
-    const response = await this.authFetch(
+    await this.fetchPriceRecommendations(
       state,
-      `${API_BASE}/items/${encodeURIComponent(itemId)}/prices/standard/quantity`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      },
+      itemId,
+      tierConfigs,
+      row.item_price || amount,
+      row.currency_id,
     );
+
+    const apply = async () => {
+      const version = await this.fetchPriceVersion(state, itemId);
+      return this.authFetch(
+        state,
+        `${API_BASE}/items/${encodeURIComponent(itemId)}/prices/price-per-quantity?remove-absolute-pxq=true`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Version": String(version),
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+    };
+
+    let response = await apply();
+    if (response.status === 409) response = await apply();
 
     const text = await response.text().catch(() => "");
     const parsed = parseJsonSafe(text);

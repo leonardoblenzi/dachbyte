@@ -13,7 +13,7 @@ const screens = [
   { key: "service_orders", name: "Ordens de servico", moduleKey: "service_orders" },
   { key: "optical_prescriptions", name: "Receitas opticas", moduleKey: "optical_prescriptions" },
   { key: "reports", name: "Relatorios", moduleKey: "reports" },
-  { key: "services", name: "Servicos Volt", moduleKey: "companies" },
+  { key: "services", name: "Servicos", moduleKey: "companies" },
   { key: "settings", name: "Configuracoes", moduleKey: "companies" },
   { key: "users", name: "Usuarios", moduleKey: "users" },
   { key: "master_companies", name: "Empresas", moduleKey: "companies", masterOnly: true },

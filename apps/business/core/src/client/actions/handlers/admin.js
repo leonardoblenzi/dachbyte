@@ -75,7 +75,7 @@ export function createAdminSubmitHandlers(context) {
         }),
       });
       await refreshRuntimeWorkspace();
-      notify(masterMode ? "Produto Volt atualizado." : "Solicitacao enviada para ativacao.");
+      notify(masterMode ? "Produto atualizado." : "Solicitacao enviada para ativacao.");
     },
 
     async user(values) {

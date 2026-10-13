@@ -33,7 +33,7 @@ const optionalFont = { bold: true, color: { argb: "FF1D4ED8" } };
 
 function createWorkbook() {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Volt Core";
+  workbook.creator = "DACHBYTE Core";
   workbook.created = new Date();
   return workbook;
 }
@@ -43,7 +43,7 @@ function addInstructions(workbook, entity) {
   const noun = entity === "products" ? "produtos" : "clientes";
   sheet.columns = [{ width: 110 }];
   [
-    `Importacao de ${noun} - Volt Core`,
+    `Importacao de ${noun} - DACHBYTE Core`,
     "Como usar",
     "1. Preencha somente a aba Importacao.",
     "2. Campos obrigatorios estao destacados no cabecalho azul e nas celulas em laranja claro.",

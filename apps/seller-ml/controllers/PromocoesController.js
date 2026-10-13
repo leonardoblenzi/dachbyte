@@ -2,6 +2,7 @@
 const fetch = require('node-fetch');
 const TokenService = require('../services/tokenService');
 const config = require('../config/config');
+const { itemsBulkPath } = require('../services/meliBulk');
 
 function U() {
   return {
@@ -100,14 +101,14 @@ class PromocoesController {
         return res.json({ ...promoJson, promotion_benefits: benefits, promotion_type: promoType });
       }
 
-      // 2) Enriquecimento com /items?ids=...
+      // 2) Enriquecimento com a consulta bulk de itens.
       const ids = results.map(x => x.id).filter(Boolean);
       const chunks = [];
       for (let i=0;i<ids.length;i+=20) chunks.push(ids.slice(i, i+20));
       const details = {};
       for (const pack of chunks) {
         const rr = await authFetch(
-          `${urls.items}?ids=${pack.join(',')}&attributes=id,title,available_quantity,seller_custom_field,price`,
+          `${String(urls.items).replace(/\/items\/?$/, '')}${itemsBulkPath(pack, 'id,title,available_quantity,seller_custom_field,price')}`,
           { method:'GET' }, state
         );
         const blob = await rr.json().catch(()=>[]);

@@ -52,6 +52,7 @@ test("runtime HTTP lets an assigned company reach the controller", async () => {
     });
     const payload = await response.json();
     assert.equal(response.status, 503);
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
     assert.equal(payload.error.code, "VOLT_CORE_DATABASE_DISABLED");
   });
 });
@@ -122,7 +123,7 @@ test("runtime HTTP serves authenticated spreadsheet import templates", async () 
 
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type") || "", /spreadsheetml\.sheet/);
-    assert.match(response.headers.get("content-disposition") || "", /modelo-clientes-volt-core\.xlsx/);
+    assert.match(response.headers.get("content-disposition") || "", /modelo-clientes-dachbyte-core\.xlsx/);
     assert.equal(body.subarray(0, 2).toString("utf8"), "PK");
   });
 });
@@ -416,6 +417,23 @@ test("optical laboratory creation requires optical write permission", async () =
       method: "POST",
       headers: { cookie: `auth_token=${authToken}`, "content-type": "application/json" },
       body: JSON.stringify({ name: "Lab teste" }),
+    });
+    const payload = await response.json();
+    assert.equal(response.status, 403);
+    assert.equal(payload.error.permission, "optical_prescriptions:write");
+  });
+});
+
+test("optical laboratory removal requires optical write permission", async () => {
+  await withServer(async (baseUrl) => {
+    const authToken = token({
+      uid: "seller-a",
+      role: "operator",
+      companies: [{ id: "company-a", role: "operator", permissions: ["optical_prescriptions:read"] }],
+    });
+    const response = await fetch(`${baseUrl}/api/core/runtime/companies/company-a/optical-laboratories/lab-test`, {
+      method: "DELETE",
+      headers: { cookie: `auth_token=${authToken}` },
     });
     const payload = await response.json();
     assert.equal(response.status, 403);

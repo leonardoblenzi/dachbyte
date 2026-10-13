@@ -21,10 +21,71 @@
       : { source: "estimativa", quote: false };
   }
 
-  function shippingVisibility(mode) {
+  function shippingVisibility(mode, { split = false } = {}) {
+    if (split) return { seller: true, buyer: true };
     return mode === "comprador"
       ? { seller: false, buyer: true }
       : { seller: true, buyer: false };
+  }
+
+  function listingShippingContext(item = {}) {
+    const mode = String(item.shipping_mode || "").trim().toLowerCase();
+    const logistic = String(item.logistic_type || "").trim().toLowerCase();
+    const agreed = ["me1", "not_specified", "to_be_agreed"].includes(mode);
+    const split = mode === "me2" && item.free_shipping === false;
+    const simulationMode = agreed ? "comprador" : item.free_shipping ? "mercado_envios" : "comprador";
+    const modeLabel = ({
+      me2: "Mercado Envios 2 (ME2)",
+      me1: "ME1 · logística própria",
+      custom: "Envio personalizado",
+      not_specified: "Entrega a combinar",
+      to_be_agreed: "Entrega a combinar",
+    })[mode] || "Modo não informado";
+    const logisticLabel = ({
+      cross_docking: "Coleta",
+      xd_drop_off: "Agência",
+      drop_off: "Ponto de envio",
+      fulfillment: "Full",
+      self_service: "Flex",
+      turbo: "Turbo",
+    })[logistic] || "";
+    const paymentLabel = agreed
+      ? "Frete a definir na simulação"
+      : item.free_shipping ? "Frete grátis para o comprador" : "Comprador paga o frete";
+    const quoteStatus = simulationMode !== "mercado_envios" && !split
+      ? "not_applicable"
+      : ["users_shipping_options_free", "items_shipping_options_free"].includes(item.shipping_source)
+        ? "estimated"
+        : "unavailable";
+    return { modeLabel, logisticLabel, paymentLabel, simulationMode, quoteStatus, ...(split ? { split: true } : {}) };
+  }
+
+  function normalizeShippingInputs(mode, { sellerShipping = 0, buyerShipping = 0 } = {}, { split = false } = {}) {
+    if (split) return { sellerShipping: Number(sellerShipping) || 0, buyerShipping: Number(buyerShipping) || 0 };
+    return mode === "comprador"
+      ? { sellerShipping: 0, buyerShipping: Number(buyerShipping) || 0 }
+      : { sellerShipping: Number(sellerShipping) || 0, buyerShipping: 0 };
+  }
+
+  function splitShippingReadiness({ split = false, source = "", loadedPrice, currentPrice, quotedValue, sellerValue, manuallyConfirmedPrice } = {}) {
+    if (!split) return { ready: true, reason: "" };
+    const raw = String(sellerValue ?? "").trim();
+    const value = Number(raw);
+    if (!raw || !Number.isFinite(value) || value < 0) return { ready: false, reason: "missing" };
+    if (manuallyConfirmedPrice != null && Number(manuallyConfirmedPrice) === Number(currentPrice)) {
+      return { ready: true, reason: "" };
+    }
+    const quoted = ["users_shipping_options_free", "items_shipping_options_free"].includes(source);
+    if (quoted && Number(currentPrice) === Number(loadedPrice) && value === Number(quotedValue)) {
+      return { ready: true, reason: "" };
+    }
+    return { ready: false, reason: quoted ? "stale" : "missing" };
+  }
+
+  function costConfidence(productCost) {
+    return Number(productCost) > 0
+      ? { state: "ready", roiAvailable: true }
+      : { state: "missing", roiAvailable: false };
   }
 
   function createCalculationScheduler(callback, delay = 350) {
@@ -44,7 +105,7 @@
     };
   }
 
-  const api = { manualListingFee, canQuoteMarketplaceFee, manualFeeMode, shippingVisibility, createCalculationScheduler };
+  const api = { manualListingFee, canQuoteMarketplaceFee, manualFeeMode, shippingVisibility, listingShippingContext, normalizeShippingInputs, splitShippingReadiness, costConfidence, createCalculationScheduler };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window !== "undefined") window.MLCalculatorRules = api;
 })();

@@ -912,8 +912,13 @@
 
       const available = Number(data.meta?.orders_available || 0);
       const scanned = Number(data.meta?.orders_scanned || 0);
+      const hasSearch = Boolean(String(els.form?.elements.namedItem("q")?.value || "").trim());
       if (data.meta?.order_partial) {
         setStatus(`Margem carregada parcialmente: ${fmtNum(scanned)} de ${fmtNum(available)} pedidos.`, "error");
+      } else if (hasSearch && !Number(data.total || 0) && !state.equilibriumRows.length && !state.periodRows.length) {
+        setStatus("Nenhum resultado para a busca e os filtros selecionados.", "info");
+      } else if (hasSearch && !state.periodRows.length && !Number(data.summary?.orders_matched || 0)) {
+        setStatus("Anuncio encontrado, mas sem pedidos no periodo selecionado.", "info");
       } else if (data.meta?.partial) {
         setStatus("Vendas carregadas; a precificacao usa um recorte de anuncios da conta.", "info");
       } else {

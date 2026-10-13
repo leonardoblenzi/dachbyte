@@ -175,15 +175,7 @@ export function createSharedSubmitHandlers(context) {
     },
 
     async genericConfig(values) {
-      if (runtimeMode === "database") {
-        await apiFetch(buildCompanyPath(selectedCompanyId, "/configuration/genericConfigs"), {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-        });
-        await refreshRuntimeWorkspace();
-      }
-      notify(values.feedback || "Configuracao salva.");
+      throw new Error("Esta funcionalidade ainda nao esta disponivel. Nenhuma alteracao foi realizada.");
     },
   };
 }

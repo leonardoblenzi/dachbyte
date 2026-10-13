@@ -208,7 +208,7 @@ test("phase D core health is public and exposes database plus worker lifecycle",
     const response = await fetch(`http://127.0.0.1:${address.port}/api/core/health`);
     const payload = await response.json();
     assert.notEqual(response.status, 401);
-    assert.equal(payload.name, "Volt Core API");
+    assert.equal(payload.name, "DACHBYTE Core API");
     assert.ok(Object.hasOwn(payload, "database"));
     assert.equal(typeof payload.worker, "object");
     assert.ok(Object.hasOwn(payload.worker, "started"));

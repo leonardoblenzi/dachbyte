@@ -24,6 +24,9 @@ const pricingV6Routes = require("./pricingV6.routes");
 const giftCampaignRoutes = require("./giftCampaign.routes");
 const MarginController = require("../controllers/MarginController");
 const asyncHandler = require("../utils/asyncHandler");
+const { withClient } = require("../config/postgres");
+const { createShopeeRetirementService } = require("../services/internalRetirementService");
+const { createShopeeRetirementRouter } = require("./internalRetirement.routes");
 
 const router = express.Router();
 
@@ -38,6 +41,10 @@ router.use(healthRoutes);
 router.use(authLocalRoutes);
 router.use(authRoutes);
 router.use(require("./webhooks.routes"));
+router.use("/internal/hub/retirement", createShopeeRetirementRouter({
+  secret: process.env.SELLER_RETIREMENT_TOKEN,
+  retire: createShopeeRetirementService({ withClient }),
+}));
 
 // daqui pra frente: protegido
 router.use(sessionAuth);

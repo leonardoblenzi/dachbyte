@@ -43,6 +43,14 @@ function registerOpticalRoutes({ router, asyncHandler, requireRuntimeCapability,
     if (!db.isDatabaseEnabled()) return databaseDisabledResponse(res);
     return res.status(201).json({ laboratory: await optical.saveOpticalLaboratory(req.params.companyId, inputWithActor(req)) });
   }));
+  router.get(`${base}/optical-laboratories/:laboratoryId/orders`, requireRuntimeCapability("optical.laboratories"), requireRuntimePermission("optical_prescriptions:read"), asyncHandler(async (req, res) => {
+    if (!db.isDatabaseEnabled()) return databaseDisabledResponse(res);
+    return res.json({ orders: await optical.listOpticalLaboratoryOrders(req.params.companyId, req.params.laboratoryId) });
+  }));
+  router.delete(`${base}/optical-laboratories/:laboratoryId`, requireRuntimeCapability("optical.laboratories"), requireRuntimePermission("optical_prescriptions:write"), asyncHandler(async (req, res) => {
+    if (!db.isDatabaseEnabled()) return databaseDisabledResponse(res);
+    return res.json({ laboratory: await optical.removeOpticalLaboratory(req.params.companyId, req.params.laboratoryId) });
+  }));
   router.patch(`${base}/optical-orders/:opticalOrderId/status`, requireRuntimeCapability("optical.orders"), requireRuntimePermission("service_orders:write"), asyncHandler(async (req, res) => {
     if (!db.isDatabaseEnabled()) return databaseDisabledResponse(res);
     return res.json({ opticalOrder: await optical.updateOpticalOrderStatus(req.params.companyId, req.params.opticalOrderId, inputWithActor(req)) });

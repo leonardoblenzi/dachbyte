@@ -13,8 +13,17 @@ const {
 } = require("../services/defaultMeliAccount");
 const { buildPlanCheckoutUrl } = require("../services/hubCreditsService");
 const { buildAccountBillingPayload } = require("../services/accountBillingStatus");
+const { createMlHubRelink } = require("../services/hubResourceRelinkService");
 
 const router = express.Router();
+
+async function confirmMlHubResourceAfterOAuth(outcome) {
+  const tenant = await db.query("select tenant_global_id from empresas where id=$1", [outcome.empresaId]);
+  const tenantId = String(tenant.rows[0]?.tenant_global_id || "").trim();
+  if (!tenantId) return;
+  const confirm = createMlHubRelink({ baseUrl: process.env.HUB_BASE_URL, token: process.env.HUB_INTERNAL_TOKEN });
+  await confirm({ tenantId, accountId: outcome.meli_user_id, label: `Conta ${outcome.meli_user_id}` });
+}
 
 // ===============================
 // Config do seu App (Mercado Livre)
@@ -1160,12 +1169,22 @@ router.get(
     });
 
     if (outcome?.contaId) {
+      let hubRelinkError = null;
+      await confirmMlHubResourceAfterOAuth(outcome).catch((error) => {
+        hubRelinkError = error;
+        console.warn("[ML][OAuth] Hub did not confirm account relink", { accountId: outcome.contaId, error: error?.message || "hub_unavailable" });
+      });
       await setDefaultIfMissingForMembership(
         outcome.usuarioId,
         outcome.empresaId,
         outcome.contaId,
       ).catch(() => null);
       res.cookie(COOKIE_MELI_CONTA, String(outcome.contaId), cookieOptions());
+      if (hubRelinkError) {
+        return res.status(502).send(
+          "Conta autorizada no Mercado Livre e salva localmente, mas o Hub nao confirmou a reativacao. Tente Reconectar novamente ou contate o suporte.",
+        );
+      }
     }
 
     const go = withBase(

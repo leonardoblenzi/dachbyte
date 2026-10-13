@@ -532,7 +532,7 @@ test("clinical prescription uses distance and near zones with shared ADD and D.P
   const opticalService = source("src/modules/core/runtime/services/opticalService.js");
 
   assert.match(saleState, /function buildPrescriptionPayload\(prescription = \{\}\)/);
-  assert.match(saleState, /const sharedAddition = addition \|\| rightAddition \|\| leftAddition \|\| null/);
+  assert.match(saleState, /const sharedAddition = addition \?\? rightAddition \?\? leftAddition \?\? null/);
   assert.match(saleState, /rightAddition: sharedAddition/);
   assert.match(saleState, /leftAddition: sharedAddition/);
   assert.match(saleState, /metadata:[\s\S]*near:[\s\S]*spherical:[\s\S]*cylindrical:[\s\S]*axis:/);

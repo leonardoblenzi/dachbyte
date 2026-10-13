@@ -1,0 +1,133 @@
+/* Margin workspace geometry mirrors the ML flow while keeping Magalu colors and data. */
+.mg-financial-page { min-width: 0; }
+
+#mg-financial-margin-page {
+  width: calc(100% - 40px);
+  margin-top: 26px;
+}
+
+#mg-financial-margin-page .mg-rich-hero.mg-ui-hero {
+  align-items: center;
+  margin: 0 0 16px;
+  padding: 15px 20px;
+  border-radius: 22px;
+}
+
+#mg-financial-margin-page .mg-rich-hero .mg-kicker {
+  margin-bottom: 2px !important;
+  font-size: 10px !important;
+}
+
+#mg-financial-margin-page .mg-ui-hero h1 {
+  margin: 4px 0 0;
+  font-size: 22px;
+  line-height: 1.04;
+  letter-spacing: -.03em;
+}
+
+#mg-financial-margin-page .mg-ui-hero p {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.mg-margin-context-note {
+  margin: 0 0 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--mg-border);
+  border-radius: 20px;
+  background: var(--mg-surface);
+  box-shadow: var(--mg-shadow-sm);
+  color: var(--mg-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+#mg-financial-margin-page .mg-margin-filter-card.mg-ui-filter-card {
+  padding: 12px 14px;
+  border-radius: 20px;
+}
+
+.mg-financial-page .mg-margin-filters {
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+  gap: 8px;
+}
+
+#mg-financial-margin-page .mg-margin-field,
+#mg-financial-margin-page .mg-margin-field--date,
+#mg-financial-margin-page .mg-margin-field--search,
+#mg-financial-margin-page .mg-margin-field--range,
+#mg-financial-margin-page .mg-margin-field--equilibrium {
+  grid-column: span 1;
+  gap: 4px;
+}
+
+#mg-financial-margin-page .mg-margin-field span {
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+
+#mg-financial-margin-page .mg-margin-field input,
+#mg-financial-margin-page .mg-margin-field select,
+#mg-financial-margin-page .mg-margin-filter-actions button {
+  min-height: 38px;
+  font-size: 11px;
+}
+
+#mg-financial-margin-page .mg-margin-filter-actions {
+  grid-column: span 2;
+  gap: 6px;
+}
+
+#mg-financial-margin-page .mg-margin-filter-actions .mg-secondary-btn { padding-inline: 10px; }
+#mg-financial-margin-page .mg-margin-filter-note { display: none; }
+
+#mg-financial-margin-page .mg-margin-tabs {
+  gap: 10px;
+  margin-top: 16px;
+  padding: 8px;
+  border-radius: 18px;
+}
+
+#mg-financial-margin-page .mg-margin-tabs button {
+  min-height: 38px;
+  padding-inline: 16px;
+  border-radius: 13px;
+  font-size: 11px;
+}
+
+#mg-financial-margin-page .mg-margin-filter-empty { min-height: 176px; }
+
+@media (max-width: 1280px) {
+  #mg-financial-margin-page { width: 100%; margin-top: 12px; }
+  .mg-financial-page .mg-margin-filters { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  #mg-financial-margin-page .mg-margin-field,
+  #mg-financial-margin-page .mg-margin-field--date,
+  #mg-financial-margin-page .mg-margin-field--search,
+  #mg-financial-margin-page .mg-margin-field--range,
+  #mg-financial-margin-page .mg-margin-field--equilibrium { grid-column: span 2; }
+  #mg-financial-margin-page .mg-margin-filter-actions { grid-column: span 2; }
+}
+
+@media (max-width: 760px) {
+  #mg-financial-margin-page .mg-rich-hero.mg-ui-hero { align-items: stretch; flex-direction: column; }
+  .mg-financial-page .mg-margin-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #mg-financial-margin-page .mg-margin-field,
+  #mg-financial-margin-page .mg-margin-field--date,
+  #mg-financial-margin-page .mg-margin-field--search,
+  #mg-financial-margin-page .mg-margin-field--range,
+  #mg-financial-margin-page .mg-margin-field--equilibrium { grid-column: span 1; }
+  #mg-financial-margin-page .mg-margin-field--search,
+  #mg-financial-margin-page .mg-margin-field--equilibrium,
+  #mg-financial-margin-page .mg-margin-filter-actions { grid-column: 1 / -1; }
+}
+
+@media (max-width: 480px) {
+  .mg-financial-page .mg-margin-filters { grid-template-columns: 1fr; }
+  #mg-financial-margin-page .mg-margin-field,
+  #mg-financial-margin-page .mg-margin-field--date,
+  #mg-financial-margin-page .mg-margin-field--search,
+  #mg-financial-margin-page .mg-margin-field--range,
+  #mg-financial-margin-page .mg-margin-field--equilibrium,
+  #mg-financial-margin-page .mg-margin-filter-actions { grid-column: 1; }
+}

@@ -80,9 +80,18 @@ function createApp() {
   }));
   app.use(express.urlencoded({ extended: true }));
 
+  // Operational data is company-scoped and changes during the session. Never
+  // reuse a previously visited page of results from the browser cache.
+  app.use((req, res, next) => {
+    if (req.path.startsWith(`${publicBasePath}/api/runtime/`) || req.path.startsWith("/api/core/runtime/")) {
+      res.setHeader("Cache-Control", "private, no-store");
+    }
+    next();
+  });
+
   app.get("/status", (req, res) => {
     res.json({
-      name: "Volt Core API",
+      name: "DACHBYTE Core API",
       status: "running",
     });
   });

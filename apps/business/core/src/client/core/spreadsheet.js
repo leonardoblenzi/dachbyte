@@ -82,7 +82,7 @@ function addInstructions(workbook, entity) {
   const noun = entity === "products" ? "produtos" : "clientes";
   sheet.columns = [{ width: 110 }];
   [
-    `Importacao de ${noun} - Volt Core`,
+    `Importacao de ${noun} - DACHBYTE Core`,
     "Como usar",
     "1. Preencha somente a aba Importacao.",
     "2. Campos obrigatorios estao destacados no cabecalho azul e nas celulas em laranja claro.",
@@ -159,14 +159,14 @@ async function downloadProductTemplateXlsx(categories = [], extensionSchema = {}
   const extensionColumns = Array.isArray(extensionSchema?.columns) ? extensionSchema.columns : [];
   if (!extensionColumns.length) {
     try {
-      await downloadTemplateFromApi("products", "modelo-produtos-volt-core.xlsx", categories);
+      await downloadTemplateFromApi("products", "modelo-produtos-dachbyte-core.xlsx", categories);
       return;
     } catch (error) {
       console.warn("Falha ao baixar modelo pelo servidor, usando geracao local.", error);
     }
   }
   const workbook = await createWorkbook();
-  workbook.creator = "Volt Core";
+  workbook.creator = "DACHBYTE Core";
   addInstructions(workbook, "products");
   const categoryList = categories.length ? categories : ["Produtos", "Servicos"];
   const columns = [...PRODUCT_IMPORT_COLUMNS, ...extensionColumns].map((column) => ({ ...column, width: column.key === "nome" ? 30 : 18 }));
@@ -190,18 +190,18 @@ async function downloadProductTemplateXlsx(categories = [], extensionSchema = {}
     classifications: extensionSchema.classifications || [],
     statuses: ["Ativo", "Inativo"],
   });
-  await writeWorkbook(workbook, "modelo-produtos-volt-core.xlsx");
+  await writeWorkbook(workbook, "modelo-produtos-dachbyte-core.xlsx");
 }
 
 async function downloadCustomerTemplateXlsx() {
   try {
-    await downloadTemplateFromApi("customers", "modelo-clientes-volt-core.xlsx");
+    await downloadTemplateFromApi("customers", "modelo-clientes-dachbyte-core.xlsx");
     return;
   } catch (error) {
     console.warn("Falha ao baixar modelo pelo servidor, usando geracao local.", error);
   }
   const workbook = await createWorkbook();
-  workbook.creator = "Volt Core";
+  workbook.creator = "DACHBYTE Core";
   addInstructions(workbook, "customers");
   addImportSheet(workbook, CUSTOMER_IMPORT_COLUMNS.map((column) => ({ ...column, width: column.key === "nome" || column.key === "email" ? 30 : 18 })), [
     { column: "E", formula: "Opcoes!$E$2:$E$5" },
@@ -211,7 +211,7 @@ async function downloadCustomerTemplateXlsx() {
     statuses: ["Ativo", "Inativo"],
     segments: ["Otica", "Varejo", "Servico", "Distribuidora"],
   });
-  await writeWorkbook(workbook, "modelo-clientes-volt-core.xlsx");
+  await writeWorkbook(workbook, "modelo-clientes-dachbyte-core.xlsx");
 }
 
 async function downloadRowsXlsx(filename, rows, columns, sheetName = "Exportacao") {

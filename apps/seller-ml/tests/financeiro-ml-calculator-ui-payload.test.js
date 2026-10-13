@@ -22,3 +22,28 @@ test("manual calculator sends an ML quote only from a selected category and pric
   assert.match(source, /use_ml_fee:\s*autoFee/);
   assert.match(source, /option\.textContent\s*=\s*row\.domain_name/);
 });
+
+test("calculator connects exclusive freight and confidence labels to the result", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "public", "js", "financeiro-ml-calculadora.js"), "utf8");
+  assert.match(source, /rules\.normalizeShippingInputs/);
+  assert.match(source, /\$\("calc-seller-shipping"\)\.disabled = !visible\.seller/);
+  assert.match(source, /\$\("calc-buyer-shipping"\)\.disabled = !visible\.buyer/);
+  assert.match(source, /setText\("calc-loaded-category"/);
+  assert.match(source, /setText\("calc-breakdown-cost-source"/);
+  assert.match(source, /Sem tarifa fixa aplicável/);
+  assert.match(source, /calc-cost-confidence/);
+});
+
+test("buyer-paid ME2 payload preserves both seller and buyer shipping shares", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "public", "js", "financeiro-ml-calculadora.js"), "utf8");
+  assert.match(source, /split:\s*isSplitShipping\(\)/);
+  assert.match(source, /seller_shipping:\s*shipping\.sellerShipping/);
+  assert.match(source, /buyer_shipping_taxable:\s*shipping\.buyerShipping/);
+});
+
+test("incomplete split shipping is checked before calculation request", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "public", "js", "financeiro-ml-calculadora.js"), "utf8");
+  assert.match(source, /function splitShippingReadiness\(\)/);
+  assert.match(source, /if \(!shippingReadiness\.ready\)\s*\{\s*showPendingShipping\(shippingReadiness\.reason\);\s*return;/);
+  assert.match(source, /manualShippingPrice/);
+});

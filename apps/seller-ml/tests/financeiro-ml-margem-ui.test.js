@@ -18,6 +18,11 @@ const css = fs.readFileSync(
   "utf8",
 );
 
+test("margin search reports no results instead of a generic loaded status", () => {
+  assert.match(js, /Nenhum resultado para a busca e os filtros selecionados\./);
+  assert.match(js, /Anuncio encontrado, mas sem pedidos no periodo selecionado\./);
+});
+
 test("shows product price between GMV and CMV and the order status at the end of the period table", () => {
   const periodTable = html.match(
     /<table class="fml-table fml-table--margin">([\s\S]*?)<\/table>/,
@@ -130,13 +135,14 @@ test("keeps nowrap styles aligned with period result columns", () => {
 });
 
 test("bumps the margin assets cache keys", () => {
-  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=19/);
+  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=20/);
   assert.match(html, /\/ml\/css\/financeiro-ml\.css\?v=2026100103/);
 });
 
 test("waits for the first filter before loading margin", () => {
-  const boot = js.match(/document\.addEventListener\("DOMContentLoaded", \(\) => \{([\s\S]*?)\n  \}\);\n\}\)\(\);/)?.[1];
-  assert.ok(boot);
+  const bootStart = js.indexOf('document.addEventListener("DOMContentLoaded", () => {');
+  assert.ok(bootStart >= 0, "margin initialization should run on DOMContentLoaded");
+  const boot = js.slice(bootStart);
   assert.match(boot, /initDates\(\)/);
   assert.doesNotMatch(boot, /\n    loadMargin\(\);\s*$/);
   assert.match(boot, /els\.form\?\.addEventListener\("submit",[\s\S]*?loadMargin\(\)/);

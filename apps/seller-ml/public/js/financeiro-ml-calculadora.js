@@ -13,6 +13,7 @@
     candidates: [],
     selected: null,
     shippingMode: "mercado_envios",
+    manualShippingPrice: null,
     busy: false,
     recalculateAfterBusy: false,
     categorySuggestions: [],
@@ -199,6 +200,10 @@
     return state.mode === "listing" && Boolean(state.selected?.item_id);
   }
 
+  function isSplitShipping() {
+    return isLoadedListing() && state.selected?.shipping_mode === "me2" && state.selected?.free_shipping === false;
+  }
+
   function syncListingTypeControl() {
     const value = $("calc-listing-type")?.value || "gold_special";
     const locked = state.mode !== "manual" || isLoadedListing();
@@ -222,14 +227,49 @@
 
   function syncShippingMode(mode = state.shippingMode) {
     state.shippingMode = mode === "comprador" ? "comprador" : "mercado_envios";
-    const visible = rules.shippingVisibility(state.shippingMode);
+    const split = isSplitShipping();
+    const sellerRaw = $("calc-seller-shipping")?.value || "";
+    const visible = rules.shippingVisibility(state.shippingMode, { split });
+    const shipping = rules.normalizeShippingInputs(state.shippingMode, {
+      sellerShipping: inputValue("calc-seller-shipping"),
+      buyerShipping: inputValue("calc-buyer-shipping"),
+    }, { split });
+    setInput("calc-seller-shipping", split && sellerRaw === "" ? "" : shipping.sellerShipping);
+    setInput("calc-buyer-shipping", shipping.buyerShipping);
+    if ($("calc-shipping-controls")) $("calc-shipping-controls").hidden = split;
     if ($("calc-seller-shipping-wrap")) $("calc-seller-shipping-wrap").hidden = !visible.seller;
     if ($("calc-buyer-shipping-wrap")) $("calc-buyer-shipping-wrap").hidden = !visible.buyer;
+    if ($("calc-seller-shipping")) $("calc-seller-shipping").disabled = !visible.seller;
+    if ($("calc-buyer-shipping")) $("calc-buyer-shipping").disabled = !visible.buyer;
     document.querySelectorAll("[data-shipping-mode]").forEach((button) => {
       const active = button.dataset.shippingMode === state.shippingMode;
       button.classList.toggle("is-active", active);
       button.setAttribute("aria-pressed", active ? "true" : "false");
     });
+  }
+
+  function clearListingShippingContext() {
+    if ($("calc-listing-shipping-context")) $("calc-listing-shipping-context").hidden = true;
+    if ($("calc-shipping-controls")) $("calc-shipping-controls").hidden = false;
+    if ($("calc-split-shipping-alert")) $("calc-split-shipping-alert").hidden = true;
+    if ($("calc-confirm-shipping")) $("calc-confirm-shipping").hidden = true;
+    setText("calc-seller-shipping-option", "Mercado Envios");
+    setText("calc-seller-shipping-label", "Tarifa Mercado Envios cobrada do vendedor");
+    $("calc-shipping-controls")?.setAttribute("aria-label", "Modalidade de frete");
+  }
+
+  function renderListingShippingContext(row, shippingContext) {
+    setText("calc-listing-shipping-mode", [shippingContext.modeLabel, shippingContext.logisticLabel].filter(Boolean).join(" · "));
+    setText("calc-listing-shipping-payment", shippingContext.paymentLabel);
+    setText("calc-listing-shipping-quote", shippingContext.quoteStatus === "estimated"
+      ? `Custo estimado do vendedor pelo ML (Estimativa do ML): ${fmtMoney(row.seller_shipping)}. Pode variar no pedido.`
+      : shippingContext.quoteStatus === "unavailable"
+        ? "Estimativa do ML indisponível. Informe o custo do vendedor para completar a simulação."
+        : "Valor pago pelo comprador é opcional e depende do destino.");
+    if ($("calc-listing-shipping-context")) $("calc-listing-shipping-context").hidden = false;
+    setText("calc-seller-shipping-option", "Custo do vendedor");
+    setText("calc-seller-shipping-label", "Custo de envio cobrado do vendedor");
+    $("calc-shipping-controls")?.setAttribute("aria-label", "Valor de frete na simulação");
   }
 
   function setMode(mode) {
@@ -244,6 +284,8 @@
     });
     if (state.mode === "manual") {
       state.selected = null;
+      state.manualShippingPrice = null;
+      clearListingShippingContext();
       setInput("calc-item-id", "");
       setInput("calc-variation-id", "");
       setInput("calc-reference-sku", "");
@@ -255,8 +297,11 @@
       syncFeeInputs();
     } else if (state.selected) {
       syncFeeInputs();
+    } else {
+      clearListingShippingContext();
     }
     syncListingTypeControl();
+    syncShippingMode();
     scheduleCalculation();
   }
 
@@ -306,6 +351,7 @@
     const row = payload?.selected;
     if (!row) return;
     state.selected = row;
+    state.manualShippingPrice = null;
     state.accountTaxPct = n(row.tax_rate_pct, state.accountTaxPct);
     renderCandidates(payload.candidates, row);
 
@@ -322,11 +368,11 @@
       listingSelect.appendChild(option);
     }
     setInput("calc-listing-type", row.listing_type_id || "gold_special");
-    setInput("calc-category-query", row.category_id);
+    setInput("calc-category-query", row.category_name || row.category_id);
     setInput("calc-category-id", row.category_id);
     setInput("calc-commission-pct", row.commission_rate_pct);
     setInput("calc-commission-fixed", row.commission_fixed);
-    setInput("calc-seller-shipping", row.seller_shipping);
+    setInput("calc-seller-shipping", row.shipping_mode === "me2" && row.free_shipping === false && row.shipping_source === "unavailable" ? "" : row.seller_shipping);
     setInput("calc-buyer-shipping", 0);
     setInput("calc-tax-pct", row.tax_rate_pct);
     if ($("calc-tax-preset")) $("calc-tax-preset").value = "account";
@@ -334,7 +380,9 @@
 
     syncFeeInputs();
     syncListingTypeControl();
-    syncShippingMode(row.free_shipping ? "mercado_envios" : "comprador");
+    const shippingContext = rules.listingShippingContext(row);
+    syncShippingMode(shippingContext.simulationMode);
+    renderListingShippingContext(row, shippingContext);
 
     const itemBox = $("calc-loaded-item");
     if (itemBox) itemBox.hidden = false;
@@ -345,7 +393,11 @@
     }
     setText("calc-item-title", row.title || row.item_id);
     setText("calc-item-meta", [row.item_id, row.reference_sku || "Sem SKU", row.variation_label || ""].filter(Boolean).join(" · "));
-    setText("calc-item-source", `${row.listing_type_label || row.listing_type_id || "Anúncio"} · comissão ${fmtMoney(row.commission)} · frete vendedor ${fmtMoney(row.seller_shipping)}`);
+    setText("calc-loaded-category", `Categoria: ${row.category_name || row.category_id || "Não informada"}`);
+    const shippingSummary = shippingContext.quoteStatus === "estimated"
+      ? `custo de envio estimado ${fmtMoney(row.seller_shipping)}`
+      : shippingContext.quoteStatus === "unavailable" ? "custo de envio não cotado" : "frete opcional na simulação";
+    setText("calc-item-source", `${row.listing_type_label || row.listing_type_id || "Anúncio"} · comissão ${fmtMoney(row.commission)} · ${shippingSummary}`);
     setBadge("calc-lookup-badge", "Carregado", "positive");
     setFeedback(payload.note || "Anúncio carregado. Os resultados serão atualizados automaticamente.", "ok");
     scheduleCalculation();
@@ -383,7 +435,10 @@
       categoryId,
       listingTypeId: $("calc-listing-type")?.value || "",
     });
-    const shippingMode = state.shippingMode;
+    const shipping = rules.normalizeShippingInputs(state.shippingMode, {
+      sellerShipping: inputValue("calc-seller-shipping"),
+      buyerShipping: inputValue("calc-buyer-shipping"),
+    }, { split: isSplitShipping() });
     return {
       mode: state.mode,
       item_id: $("calc-item-id")?.value || "",
@@ -401,12 +456,26 @@
       commission_rate_pct: inputValue("calc-commission-pct"),
       commission_fixed: inputValue("calc-commission-fixed"),
       tax_rate_pct: inputValue("calc-tax-pct"),
-      seller_shipping: shippingMode === "mercado_envios" ? inputValue("calc-seller-shipping") : 0,
-      buyer_shipping_taxable: shippingMode === "comprador" ? inputValue("calc-buyer-shipping") : 0,
+      seller_shipping: shipping.sellerShipping,
+      buyer_shipping_taxable: shipping.buyerShipping,
       operation_cost: inputValue("calc-operation-cost"),
       other_costs: inputValue("calc-other-costs"),
       target_margin_pct: String($("calc-target-margin")?.value || "").trim(),
     };
+  }
+
+  function syncCostConfidence({ productCost = inputValue("calc-product-cost"), roiPct = null } = {}) {
+    const confidence = rules.costConfidence(productCost);
+    if ($("calc-cost-confidence")) $("calc-cost-confidence").hidden = confidence.state !== "missing";
+    setText("calc-result-roi", confidence.roiAvailable && roiPct != null ? fmtPct(roiPct) : "--");
+  }
+
+  function sourceLabel({ source, value }) {
+    if (!(Number(value) > 0)) return "Não informado";
+    if (source === "mercado_livre") return "Mercado Livre";
+    if (source === "estimativa") return "Estimativa";
+    if (source === "cadastro") return "Cadastrado por SKU";
+    return "Informado manualmente";
   }
 
   function renderResult(payload = {}) {
@@ -420,7 +489,7 @@
 
     setText("calc-result-profit", fmtMoney(profit));
     setText("calc-result-margin", fmtPct(result.margin_pct));
-    setText("calc-result-roi", result.roi_pct == null ? "--" : fmtPct(result.roi_pct));
+    syncCostConfidence({ productCost: inputs.product_cost, roiPct: result.roi_pct });
     setText("calc-result-equilibrium", result.equilibrium_price == null ? "--" : fmtMoney(result.equilibrium_price));
     setText("calc-result-target", result.target_price == null ? "--" : fmtMoney(result.target_price));
     setText("calc-target-label", targetMargin == null ? "Preço para a meta" : `Preço para ${pct.format(targetMargin)}%`);
@@ -439,6 +508,8 @@
     if (callout) callout.hidden = targetMargin == null || result.target_price == null;
     if (targetMargin != null && result.target_price != null) {
       const delta = n(result.target_delta);
+      setText("calc-result-target-current", fmtMoney(result.price));
+      setText("calc-result-target-price", fmtMoney(result.target_price));
       setText("calc-result-target-delta", `${delta >= 0 ? "+ " : "- "}${fmtMoney(Math.abs(delta))}`);
       setText(
         "calc-result-target-text",
@@ -452,12 +523,27 @@
 
     setText("calc-breakdown-price", fmtMoney(result.price));
     setText("calc-breakdown-product", fmtMoney(result.product_cost));
-    setText("calc-breakdown-commission", `${fmtMoney(result.commission)} (${pct.format(result.commission_rate_pct)}% + ${fmtMoney(result.commission_fixed)})`);
+    setText("calc-breakdown-commission", `${fmtMoney(result.commission)} (${pct.format(result.commission_rate_pct)}% · ${n(result.commission_fixed) > 0 ? `tarifa fixa ${fmtMoney(result.commission_fixed)}` : "Sem tarifa fixa aplicável"})`);
     setText("calc-breakdown-tax", `${fmtMoney(result.taxes)} (${pct.format(result.tax_rate_pct)}%)`);
     setText("calc-breakdown-shipping", fmtMoney(result.seller_shipping));
     setText("calc-breakdown-operation", fmtMoney(result.operation_cost));
     setText("calc-breakdown-other", fmtMoney(result.other_costs));
     setText("calc-breakdown-total", fmtMoney(result.total_costs));
+    const loadedCost = state.selected && n(state.selected.product_cost) === n(inputs.product_cost);
+    setText("calc-breakdown-cost-source", sourceLabel({
+      source: loadedCost ? "cadastro" : "manual",
+      value: inputs.product_cost,
+    }));
+    setText("calc-breakdown-commission-source", sourceLabel({
+      source: payload.fee_mode === "mercado_livre" ? "mercado_livre" : payload.fee_mode,
+      value: result.commission,
+    }));
+    const loadedShipping = state.selected && (state.shippingMode === "mercado_envios" || isSplitShipping()) &&
+      ["users_shipping_options_free", "items_shipping_options_free"].includes(state.selected.shipping_source) &&
+      n(state.selected.seller_shipping) === n(inputs.seller_shipping);
+    setText("calc-breakdown-shipping-source", state.shippingMode === "comprador" && !isSplitShipping()
+      ? "Pago pelo comprador"
+      : loadedShipping ? "Estimativa ML" : sourceLabel({ source: "manual", value: inputs.seller_shipping }));
     setText("calc-result-note", payload.note || "Simulação concluída. Nenhum preço foi alterado no Mercado Livre.");
     if (state.mode === "manual") {
       if (payload.fee_mode === "mercado_livre") {
@@ -470,6 +556,37 @@
     }
   }
 
+  function splitShippingReadiness() {
+    return rules.splitShippingReadiness({
+      split: isSplitShipping(),
+      source: state.selected?.shipping_source,
+      loadedPrice: state.selected?.price,
+      currentPrice: inputValue("calc-price"),
+      quotedValue: state.selected?.seller_shipping,
+      sellerValue: $("calc-seller-shipping")?.value,
+      manuallyConfirmedPrice: state.manualShippingPrice,
+    });
+  }
+
+  function showPendingShipping(reason) {
+    calculationScheduler.cancel();
+    const message = reason === "stale"
+      ? "O preço mudou desde a cotação do frete. Confirme o custo para este preço ou recarregue o anúncio."
+      : "Custo de envio do vendedor indisponível. Informe-o, inclusive R$ 0,00 se confirmado, para completar o cálculo.";
+    setText("calc-split-shipping-alert", message);
+    if ($("calc-split-shipping-alert")) $("calc-split-shipping-alert").hidden = false;
+    const canConfirm = reason === "stale" && String($("calc-seller-shipping")?.value || "").trim() !== "";
+    if ($("calc-confirm-shipping")) $("calc-confirm-shipping").hidden = !canConfirm;
+    ["calc-result-profit", "calc-result-margin", "calc-result-roi", "calc-result-equilibrium", "calc-result-target"].forEach((id) => setText(id, "--"));
+    ["calc-breakdown-price", "calc-breakdown-product", "calc-breakdown-commission", "calc-breakdown-tax", "calc-breakdown-shipping", "calc-breakdown-operation", "calc-breakdown-other", "calc-breakdown-total"].forEach((id) => setText(id, "--"));
+    setText("calc-breakdown-shipping-source", "Frete pendente");
+    if ($("calc-target-callout")) $("calc-target-callout").hidden = true;
+    setText("calc-result-caption", "Resultado incompleto: confira o custo de envio do vendedor.");
+    setText("calc-result-note", message);
+    setBadge("calc-result-status", "Frete pendente", "warning");
+    setFeedback(message, "error");
+  }
+
   const calculationScheduler = rules.createCalculationScheduler(() => {
     if (state.busy) {
       state.recalculateAfterBusy = true;
@@ -479,12 +596,24 @@
   });
 
   function scheduleCalculation() {
+    const shippingReadiness = splitShippingReadiness();
+    if (!shippingReadiness.ready) {
+      showPendingShipping(shippingReadiness.reason);
+      return;
+    }
+    if ($("calc-split-shipping-alert")) $("calc-split-shipping-alert").hidden = true;
+    if ($("calc-confirm-shipping")) $("calc-confirm-shipping").hidden = true;
     if (!(inputValue("calc-price") > 0)) return;
     calculationScheduler.schedule();
   }
 
   async function calculate(event, { automatic = false } = {}) {
     event?.preventDefault?.();
+    const shippingReadiness = splitShippingReadiness();
+    if (!shippingReadiness.ready) {
+      showPendingShipping(shippingReadiness.reason);
+      return;
+    }
     if (state.busy) {
       state.recalculateAfterBusy = true;
       return;
@@ -505,6 +634,15 @@
         method: "POST",
         body: JSON.stringify(payload),
       });
+      const latestReadiness = splitShippingReadiness();
+      if (!latestReadiness.ready) {
+        showPendingShipping(latestReadiness.reason);
+        return;
+      }
+      if (JSON.stringify(buildPayload()) !== JSON.stringify(payload)) {
+        scheduleCalculation();
+        return;
+      }
       renderResult(result);
       setFeedback(automatic ? "Resultados atualizados automaticamente." : "Simulação atualizada.", "ok");
     } catch (error) {
@@ -520,6 +658,7 @@
 
   function resetForm() {
     state.selected = null;
+    state.manualShippingPrice = null;
     state.candidates = [];
     state.lookupQuery = "";
     $("calc-form")?.reset();
@@ -535,11 +674,13 @@
     setInput("calc-reference-sku", "");
     setInput("calc-category-query", "");
     setInput("calc-category-id", "");
+    setText("calc-loaded-category", "Categoria: —");
     clearCategorySuggestions();
     if ($("calc-tax-preset")) $("calc-tax-preset").value = "account";
     applyTaxPreset();
     if ($("calc-loaded-item")) $("calc-loaded-item").hidden = true;
     if ($("calc-variation-wrap")) $("calc-variation-wrap").hidden = true;
+    clearListingShippingContext();
     syncShippingMode("mercado_envios");
     setBadge("calc-lookup-badge", state.mode === "manual" ? "Manual" : "Não carregado", "neutral");
     applyManualListingFee();
@@ -548,13 +689,20 @@
     setText("calc-result-profit", "R$ 0,00");
     setText("calc-result-margin", "0,00%");
     setText("calc-result-roi", "--");
+    syncCostConfidence();
     setText("calc-result-equilibrium", "--");
     setText("calc-result-target", "--");
     setText("calc-target-label", "Preço para a meta");
     setText("calc-result-caption", "Preencha os dados para ver o resultado automaticamente.");
     setBadge("calc-result-status", "Aguardando", "neutral");
     if ($("calc-target-callout")) $("calc-target-callout").hidden = true;
+    setText("calc-result-target-current", "R$ 0,00");
+    setText("calc-result-target-price", "R$ 0,00");
+    setText("calc-result-target-delta", "R$ 0,00");
     ["calc-breakdown-price", "calc-breakdown-product", "calc-breakdown-commission", "calc-breakdown-tax", "calc-breakdown-shipping", "calc-breakdown-operation", "calc-breakdown-other", "calc-breakdown-total"].forEach((id) => setText(id, "R$ 0,00"));
+    setText("calc-breakdown-cost-source", "Não informado");
+    setText("calc-breakdown-commission-source", "Não informado");
+    setText("calc-breakdown-shipping-source", "Não informado");
     setText("calc-result-note", "A calculadora não altera preços ou estoque da conta.");
     setFeedback("");
   }
@@ -600,8 +748,16 @@
         scheduleCalculation();
       });
     });
+    $("calc-confirm-shipping")?.addEventListener("click", () => {
+      state.manualShippingPrice = inputValue("calc-price");
+      scheduleCalculation();
+    });
     $("calc-form")?.addEventListener("submit", calculate);
     $("calc-form")?.addEventListener("input", (event) => {
+      if (event.target.id === "calc-seller-shipping" && isSplitShipping()) {
+        state.manualShippingPrice = String(event.target.value).trim() === "" ? null : inputValue("calc-price");
+      }
+      if (event.target.id === "calc-product-cost") syncCostConfidence();
       if (event.target.id === "calc-price" && state.mode === "manual") {
         applyManualListingFee();
         syncFeeInputs();
@@ -621,6 +777,7 @@
     syncFeeInputs();
     syncListingTypeControl();
     syncShippingMode();
+    syncCostConfidence();
     setMode("listing");
   });
 })();

@@ -20,9 +20,49 @@ test("calculator keeps listing lookup and uses guided listing and freight contro
   assert.match(html, /id="calc-buyer-shipping-wrap"/);
 });
 
+test("loaded listing shows its shipping mode and estimated seller cost separately from payment", () => {
+  assert.match(html, /id="calc-listing-shipping-context"[^>]*hidden/);
+  assert.match(html, /id="calc-listing-shipping-mode"/);
+  assert.match(html, /id="calc-listing-shipping-payment"/);
+  assert.match(html, /id="calc-listing-shipping-quote"/);
+  assert.match(script, /rules\.listingShippingContext\(row\)/);
+  assert.match(script, /syncShippingMode\(shippingContext\.simulationMode\)/);
+  assert.match(script, /Custo estimado do vendedor pelo ML/);
+  assert.match(css, /\.calc-listing-shipping-context\[hidden\]/);
+});
+
+test("buyer-paid ME2 exposes seller and buyer shipping fields together", () => {
+  assert.match(html, /id="calc-split-shipping-alert"[^>]*role="alert"/);
+  assert.match(script, /isSplitShipping\(\)/);
+  assert.match(script, /Estimativa do ML/);
+  assert.match(css, /\.calc-segmented-control\[hidden\]/);
+});
+
+test("incomplete ME2 shipping blocks stale profit display", () => {
+  assert.match(html, /id="calc-confirm-shipping"/);
+  assert.match(script, /rules\.splitShippingReadiness/);
+  assert.match(script, /calculationScheduler\.cancel\(\)/);
+  assert.match(script, /Frete pendente/);
+  assert.match(script, /\["calc-breakdown-price",[^\n]+\]\.forEach\(\(id\) => setText\(id, "--"\)\)/);
+});
+
+test("switching away from a split listing restores exclusive manual freight controls", () => {
+  assert.match(script, /function setMode\(mode\)[\s\S]*?syncListingTypeControl\(\);\s*syncShippingMode\(\);\s*scheduleCalculation\(\);/);
+});
+
+test("calculator shows the origin and confidence of its inputs", () => {
+  assert.match(html, /id="calc-cost-confidence"/);
+  assert.match(html, /id="calc-loaded-category"/);
+  assert.match(html, /id="calc-breakdown-cost-source"/);
+  assert.match(html, /id="calc-breakdown-commission-source"/);
+  assert.match(html, /id="calc-breakdown-shipping-source"/);
+  assert.match(css, /\.calc-shipping-field\[hidden\]\s*\{\s*display:\s*none\s*!important/);
+});
+
 test("calculator sends only the freight relevant to the selected mode", () => {
-  assert.match(script, /shippingMode === "mercado_envios" \? inputValue\("calc-seller-shipping"\) : 0/);
-  assert.match(script, /shippingMode === "comprador" \? inputValue\("calc-buyer-shipping"\) : 0/);
+  assert.match(script, /rules\.normalizeShippingInputs\(state\.shippingMode/);
+  assert.match(script, /seller_shipping: shipping\.sellerShipping/);
+  assert.match(script, /buyer_shipping_taxable: shipping\.buyerShipping/);
 });
 
 test("calculator removes the redundant result heading and inherits Margin tokens", () => {

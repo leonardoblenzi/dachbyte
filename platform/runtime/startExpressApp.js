@@ -25,6 +25,16 @@ async function createHostedExpressApp({ createApp, name, mountPath }) {
   hostApp.get(`${normalizedMountPath}/health`, (_req, res) => {
     res.json({ ok: true, app: name });
   });
+  // Hub calls Seller containers directly, outside their public URL prefixes.
+  // Forward only this private POST; the product still verifies its bearer token.
+  if (String(name).startsWith("seller-")) {
+    hostApp.use((req, res, next) => {
+      if (req.method === "POST" && req.path === "/internal/hub/retirement") {
+        return productApp(req, res, next);
+      }
+      return next();
+    });
+  }
   hostApp.use(normalizedMountPath, productApp);
 
   return hostApp;

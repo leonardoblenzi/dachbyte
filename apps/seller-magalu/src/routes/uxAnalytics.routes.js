@@ -5,5 +5,6 @@ const router=express.Router();
 router.get("/stock",controller.stock);
 router.get("/costs",controller.costs);
 router.get("/margins",controller.margins);
+router.post("/margins/sync",controller.syncMargins);
 router.get("/equilibrium",controller.equilibrium);
 module.exports=router;

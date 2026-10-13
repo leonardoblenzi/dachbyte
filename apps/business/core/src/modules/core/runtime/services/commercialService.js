@@ -149,7 +149,7 @@ async function syncCompanyCommercialProductsWithClient(client, companyId, input 
 
 async function requestCommercialProduct(companyId, productKey, input = {}) {
   const product = normalizeProductOrFail(productKey);
-  if (product.alwaysActive) throw conflict("Volt Core ja faz parte de todas as empresas", "COMMERCIAL_PRODUCT_ALWAYS_ACTIVE");
+  if (product.alwaysActive) throw conflict("DACHBYTE Core ja faz parte de todas as empresas", "COMMERCIAL_PRODUCT_ALWAYS_ACTIVE");
   if (product.comingSoon) throw conflict("Este produto ainda nao esta disponivel para contratacao", "COMMERCIAL_PRODUCT_COMING_SOON");
   const plan = normalizePlanOrFail(product, input.planKey);
 
@@ -191,7 +191,7 @@ async function requestCommercialProduct(companyId, productKey, input = {}) {
 
 async function setCommercialProduct(companyId, productKey, input = {}) {
   const product = normalizeProductOrFail(productKey);
-  if (product.alwaysActive) throw conflict("Volt Core nao pode ser suspenso ou removido", "COMMERCIAL_PRODUCT_ALWAYS_ACTIVE");
+  if (product.alwaysActive) throw conflict("DACHBYTE Core nao pode ser suspenso ou removido", "COMMERCIAL_PRODUCT_ALWAYS_ACTIVE");
   if (product.comingSoon) throw conflict("Este produto ainda esta marcado como Em breve", "COMMERCIAL_PRODUCT_COMING_SOON");
   const status = String(input.status || "").trim().toLowerCase();
   if (!SUBSCRIPTION_STATUSES.includes(status)) {
