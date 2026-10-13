@@ -198,7 +198,7 @@
 #mg-financial-margin-page .mg-cost-row-actions { display: flex; gap: 5px; flex-wrap: wrap; min-width: 150px; }
 #mg-financial-margin-page .mg-cost-row-actions button { min-height: 32px; padding: 0 9px; font-size: 10px; }
 #mg-financial-margin-page .mg-cost-inline-input { width: 96px; min-height: 36px; padding: 0 8px; border: 1px solid var(--mg-border); border-radius: 11px; background: var(--mg-surface); }
-#mg-financial-margin-page .mg-cost-identifier { display: grid; gap: 3px; min-width: 132px; max-width: 205px; }
+#mg-financial-margin-page .mg-cost-identifier { display: grid; gap: 1px; min-width: 132px; max-width: 205px; }
 #mg-financial-margin-page .mg-cost-identifier code { width: fit-content; }
 #mg-financial-margin-page .mg-cost-identifier small { display: block; color: var(--mg-muted); font-size: 10px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #mg-financial-margin-page .mg-fin-rank-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 12px; }

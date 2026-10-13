@@ -3,6 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 const db = require("../src/config/postgres");
 const costs = require("../src/repositories/financialRepository");
 const skus = require("../src/repositories/skuMassRepository");
@@ -52,4 +53,14 @@ test("cost screen exposes identifiers and both search modes", () => {
   assert.match(html, /<option value="group">Família<\/option>/);
   assert.match(js, /r\.ean/);
   assert.match(js, /r\.group_id/);
+});
+
+test("identifier cell places family below EAN without a blank row", () => {
+  const js = fs.readFileSync(path.resolve(__dirname, "../public/js/magalu-financial.js"), "utf8");
+  const source = js.match(/  function identifierCell\(r\)\{[^\n]+/)[0];
+  const cell = vm.runInNewContext(`${source}; identifierCell`, { esc: String });
+  const full = cell({ sku: "SKU-1", ean: "7890123456789", group_id: "FAM-1" });
+  assert.match(full, /<code>SKU-1<\/code><small[^>]*>EAN 7890123456789<\/small><small[^>]*>Família FAM-1<\/small>/);
+  const partial = cell({ sku: "SKU-2", group_id: "FAM-2" });
+  assert.match(partial, /<code>SKU-2<\/code><small[^>]*>Família FAM-2<\/small>/);
 });

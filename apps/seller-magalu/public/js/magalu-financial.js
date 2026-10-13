@@ -15,7 +15,7 @@
   async function ux(path){return shell().fetchJson(`/magalu/api/ux-analytics${path}`,{loading:"none"});}
   function selectedGuard(){if(!account()){shell()?.showAlert?.("Escolha uma conta Magalu para usar a Precificação.","warning");return false;}return true;}
   function knownMargin(row){if(row.unit_cost==null)return null;const price=Number(row.price),cost=Number(row.unit_cost);if(!Number.isFinite(price)||price<=0||!Number.isFinite(cost))return null;const total=cost+(price*(Number(row.tax_rate)||0)/100)+(Number(row.packaging_cost)||0)+(Number(row.operational_cost)||0)+(Number(row.other_cost)||0);return ((price-total)/price)*100;}
-  function identifierCell(r){const details=[r.ean?`EAN ${esc(r.ean)}`:"",r.group_id?`Família ${esc(r.group_id)}`:""];return `<div class="mg-cost-identifier"><code>${esc(r.sku)}</code>${details.some(Boolean)?`<small title="${esc(details.filter(Boolean).join(" · "))}">${details.filter(Boolean).join(" · ")}</small>`:""}</div>`;}
+  function identifierCell(r){const details=[r.ean?`EAN ${esc(r.ean)}`:"",r.group_id?`Família ${esc(r.group_id)}`:""];return `<div class="mg-cost-identifier"><code>${esc(r.sku)}</code>${details.filter(Boolean).map(detail=>`<small title="${detail}">${detail}</small>`).join("")}</div>`;}
   function toneClass(v){if(v==null)return"";return Number(v)<0?"mg-money-negative":Number(v)<=10?"mg-money-warning":"mg-money-positive";}
   function todayISO(){return new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);}
   function addDaysISO(days){const d=new Date();d.setDate(d.getDate()+days);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);}
