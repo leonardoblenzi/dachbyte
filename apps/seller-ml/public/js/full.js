@@ -134,6 +134,19 @@
     { key: "value", label: "Valor", render: (row) => money(row.suggested_value_cents || 0) },
     { key: "m3", label: "M3", render: (row) => number(row.volume_m3_total || 0, 3) },
   ];
+  const FULL_PRODUCTS_PDF_STORAGE_KEY = "fullProductsPdfExportFields";
+  const FULL_PRODUCTS_PDF_FIELDS = [
+    { key: "photo", label: "Foto", render: (row) => row.image_url ? `<img src="${escapeHtml(row.image_url)}" alt="" />` : "" },
+    { key: "product", label: "Produto", render: (row) => escapeHtml(row.title || "-") },
+    { key: "sku", label: "SKU", render: (row) => escapeHtml(row.sku || "-") },
+    { key: "mlb", label: "MLB", render: (row) => escapeHtml(row.mlb || "-") },
+    { key: "stock", label: "Estoque Full", render: (row) => number(row.stock_full) },
+    { key: "sold", label: "Vendas 7/15/30d", render: (row) => `${number(row.sold_7d)} / ${number(row.sold_15d)} / ${number(row.sold_30d)}` },
+    { key: "revenue", label: "Faturamento 30d", render: (row) => money(row.revenue_30d_cents) },
+    { key: "coverage", label: "Cobertura", render: (row) => coverageLabel(row.coverage_days) },
+    { key: "suggested", label: "Reposição 30d", render: (row) => number(row.suggested_restock_30d) },
+    { key: "status", label: "Status", render: (row) => productBadges(row) },
+  ];
 
   function parseMoneyToCents(value) {
     const raw = String(value || "").trim().replace(/[^\d,.-]/g, "");
@@ -672,36 +685,34 @@
     if ($("fullPlannerMeta")) $("fullPlannerMeta").textContent = `Editando ${payload.plan?.name || "planejamento salvo"} - adicione, remova ou ajuste itens e clique em Salvar planejamento.`;
   }
 
-  function exportPlanPdf(plan, items = [], targetWindow = null, fieldKeys = selectedPdfFields()) {
-    const totals = items.reduce((acc, row) => {
-      acc.units += Number(row.suggested_restock || 0);
-      acc.value += Number(row.suggested_value_cents || 0);
-      acc.volume += Number(row.volume_m3_total || 0);
-      return acc;
-    }, { units: 0, value: 0, volume: 0 });
-    const freightCents = Number(plan?.freight_cents || 0);
-    const freightPct = totals.value > 0 ? (freightCents / totals.value) * 100 : Number(plan?.freight_pct || 0);
-    const freightLabel = freightCents > 0
-      ? `${number(freightPct, 2)}% - ${freightPct <= 5 ? "viavel" : "nao viavel"}`
-      : "sem frete informado";
-    const selected = new Set(Array.isArray(fieldKeys) && fieldKeys.length ? fieldKeys : selectedPdfFields());
-    const exportControls = PDF_EXPORT_FIELDS.map((field) => `
+  function selectedProductPdfFields() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(FULL_PRODUCTS_PDF_STORAGE_KEY) || "[]");
+      if (Array.isArray(stored)) {
+        const valid = stored.filter((key) => FULL_PRODUCTS_PDF_FIELDS.some((field) => field.key === key));
+        if (valid.length) return valid;
+      }
+    } catch {}
+    return FULL_PRODUCTS_PDF_FIELDS.map((field) => field.key);
+  }
+
+  function writePdfPreview({ title, meta, totals, notice = "", fields, items, storageKey, fieldKeys, targetWindow }) {
+    const selected = new Set(Array.isArray(fieldKeys) && fieldKeys.length ? fieldKeys : fields.map((field) => field.key));
+    const exportControls = fields.map((field) => `
       <label class="field-toggle">
         <input type="checkbox" data-pdf-field-toggle="${field.key}" ${selected.has(field.key) ? "checked" : ""}>
         <span>${escapeHtml(field.label)}</span>
       </label>
     `).join("");
-    const headers = PDF_EXPORT_FIELDS.map((field) => `<th data-pdf-field="${field.key}"${selected.has(field.key) ? "" : " hidden"}>${escapeHtml(field.label)}</th>`).join("");
+    const headers = fields.map((field) => `<th data-pdf-field="${field.key}"${selected.has(field.key) ? "" : " hidden"}>${escapeHtml(field.label)}</th>`).join("");
     const rows = items.map((row) => `
-      <tr>
-        ${PDF_EXPORT_FIELDS.map((field) => `<td data-pdf-field="${field.key}"${selected.has(field.key) ? "" : " hidden"}>${field.render(row)}</td>`).join("")}
-      </tr>
+      <tr>${fields.map((field) => `<td data-pdf-field="${field.key}"${selected.has(field.key) ? "" : " hidden"}>${field.render(row)}</td>`).join("")}</tr>
     `).join("");
     const win = targetWindow || window.open("", "_blank", "noopener,noreferrer");
     if (!win) return showError(new Error("Pop-up bloqueado para exportar o PDF."));
     win.document.open();
     win.document.write(`<!doctype html>
-      <html><head><title>${escapeHtml(plan?.name || "Planejamento Full")}</title>
+      <html><head><title>${escapeHtml(title)}</title>
       <style>
         body{font-family:Arial,sans-serif;color:#111827;margin:24px}
         h1{font-size:20px;margin:0 0 4px}
@@ -711,6 +722,7 @@
         th{background:#f3f4f6;text-transform:uppercase;font-size:10px}
         img{width:42px;height:42px;object-fit:cover;border-radius:6px}
         .totals{margin:12px 0;font-weight:700}
+        .notice{margin:12px 0;padding:8px;border:1px solid #facc15;border-radius:6px;background:#fefce8;font-size:12px}
         .export-tools{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:12px 0 16px;padding:10px;border:1px solid #d1d5db;border-radius:8px;background:#f8fafc}
         .export-tools strong{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#475569;margin-top:6px}
         .field-toggle{display:inline-flex;align-items:center;gap:6px;min-height:30px;border:1px solid #dbe4ef;border-radius:999px;background:#fff;padding:0 9px;font-size:12px;font-weight:700;color:#334155}
@@ -719,15 +731,16 @@
         @media print{button,.export-tools{display:none} body{margin:12mm}}
       </style></head><body>
       <button onclick="window.print()">Imprimir / salvar PDF</button>
-      <h1>${escapeHtml(plan?.name || "Planejamento Full")}</h1>
-      <div class="meta">${dateOnly(plan?.date_from)} a ${dateOnly(plan?.date_to)} - ${number(items.length)} itens</div>
-      <div class="totals">Total: ${number(totals.units)} unidades - ${money(totals.value)} - ${number(totals.volume, 3)} m3 - Frete / venda: ${freightLabel}</div>
+      <h1>${escapeHtml(title)}</h1>
+      <div class="meta">${escapeHtml(meta)}</div>
+      ${totals ? `<div class="totals">${escapeHtml(totals)}</div>` : ""}
+      ${notice ? `<div class="notice">${escapeHtml(notice)}</div>` : ""}
       <div class="export-tools"><strong>Campos do PDF</strong>${exportControls}</div>
       <table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>
       <script>
         (() => {
-          const storageKey = ${JSON.stringify(PDF_EXPORT_STORAGE_KEY)};
-          const fields = ${JSON.stringify(PDF_EXPORT_FIELDS.map((field) => field.key))};
+          const storageKey = ${JSON.stringify(storageKey)};
+          const fields = ${JSON.stringify(fields.map((field) => field.key))};
           const apply = () => {
             const toggles = Array.from(document.querySelectorAll("[data-pdf-field-toggle]"));
             let selected = toggles.filter((input) => input.checked).map((input) => input.dataset.pdfFieldToggle);
@@ -748,6 +761,54 @@
       </body></html>`);
     win.document.close();
     win.focus();
+  }
+
+  function exportPlanPdf(plan, items = [], targetWindow = null, fieldKeys = selectedPdfFields()) {
+    const totals = items.reduce((acc, row) => {
+      acc.units += Number(row.suggested_restock || 0);
+      acc.value += Number(row.suggested_value_cents || 0);
+      acc.volume += Number(row.volume_m3_total || 0);
+      return acc;
+    }, { units: 0, value: 0, volume: 0 });
+    const freightCents = Number(plan?.freight_cents || 0);
+    const freightPct = totals.value > 0 ? (freightCents / totals.value) * 100 : Number(plan?.freight_pct || 0);
+    const freightLabel = freightCents > 0
+      ? `${number(freightPct, 2)}% - ${freightPct <= 5 ? "viavel" : "nao viavel"}`
+      : "sem frete informado";
+    writePdfPreview({
+      title: plan?.name || "Planejamento Full",
+      meta: `${dateOnly(plan?.date_from)} a ${dateOnly(plan?.date_to)} - ${number(items.length)} itens`,
+      totals: `Total: ${number(totals.units)} unidades - ${money(totals.value)} - ${number(totals.volume, 3)} m3 - Frete / venda: ${freightLabel}`,
+      fields: PDF_EXPORT_FIELDS,
+      items,
+      storageKey: PDF_EXPORT_STORAGE_KEY,
+      fieldKeys,
+      targetWindow,
+    });
+  }
+
+  function exportProductsPdf(targetWindow = null) {
+    if (!state.products.length) return;
+    const context = state.productExportContext;
+    const sortLabels = {
+      suggested: "Maior reposição sugerida",
+      sold: "Mais vendidos 30d",
+      coverage: "Menor cobertura",
+      stock: "Menor estoque",
+    };
+    const count = state.products.length;
+    writePdfPreview({
+      title: "Produtos no Full",
+      meta: `Busca: ${context.q || "sem busca"} | Ordenação: ${sortLabels[context.sort] || sortLabels.suggested} | Atualizado em: ${dateTime(context.lastSyncedAt)} | ${number(count)} produtos exibidos - ${number(context.totalCached)} no cache`,
+      notice: context.totalCached > count
+        ? `Este PDF contém somente os ${number(count)} produtos exibidos na tela, não todos os ${number(context.totalCached)} produtos no cache.`
+        : "",
+      fields: FULL_PRODUCTS_PDF_FIELDS,
+      items: state.products,
+      storageKey: FULL_PRODUCTS_PDF_STORAGE_KEY,
+      fieldKeys: selectedProductPdfFields(),
+      targetWindow,
+    });
   }
 
   async function exportPlan(id, targetWindow = null, fieldKeys = selectedPdfFields()) {
@@ -796,6 +857,7 @@
     qsa("[data-full-tab]").forEach((btn) => btn.addEventListener("click", () => switchTab(btn.dataset.fullTab)));
     $("btnSyncFull")?.addEventListener("click", () => syncFull().catch(showError));
     $("fullProductsFilters")?.addEventListener("submit", (event) => { event.preventDefault(); loadProducts().catch(showError); });
+    $("btnExportFullProducts")?.addEventListener("click", () => exportProductsPdf());
     $("plannerPeriod")?.addEventListener("change", updateCustomDates);
     qsa("[data-planner-mode]").forEach((btn) => btn.addEventListener("click", () => setPlannerMode(btn.dataset.plannerMode)));
     qsa("[data-selection-group]").forEach((btn) => btn.addEventListener("click", () => setSelectionGroup(btn.dataset.selectionGroup)));
