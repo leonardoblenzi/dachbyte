@@ -857,7 +857,11 @@
     qsa("[data-full-tab]").forEach((btn) => btn.addEventListener("click", () => switchTab(btn.dataset.fullTab)));
     $("btnSyncFull")?.addEventListener("click", () => syncFull().catch(showError));
     $("fullProductsFilters")?.addEventListener("submit", (event) => { event.preventDefault(); loadProducts().catch(showError); });
-    $("btnExportFullProducts")?.addEventListener("click", () => exportProductsPdf());
+    $("btnExportFullProducts")?.addEventListener("click", () => {
+      const win = window.open("", "_blank");
+      if (!win) return showError(new Error("Pop-up bloqueado para exportar o PDF."));
+      exportProductsPdf(win);
+    });
     $("plannerPeriod")?.addEventListener("change", updateCustomDates);
     qsa("[data-planner-mode]").forEach((btn) => btn.addEventListener("click", () => setPlannerMode(btn.dataset.plannerMode)));
     qsa("[data-selection-group]").forEach((btn) => btn.addEventListener("click", () => setSelectionGroup(btn.dataset.selectionGroup)));

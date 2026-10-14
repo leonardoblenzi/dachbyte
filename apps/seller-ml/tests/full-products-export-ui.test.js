@@ -117,3 +117,8 @@ test("product PDF reports a blocked popup", () => {
   window.__fullTest.exportProductsPdf();
   assert.match(errors[0], /Pop-up bloqueado/);
 });
+
+test("export button opens a writable tab before rendering the PDF", () => {
+  assert.match(source, /btnExportFullProducts"\)\?\.addEventListener\("click", \(\) => \{\s*const win = window\.open\("", "_blank"\);/);
+  assert.match(source, /exportProductsPdf\(win\)/);
+});
