@@ -12,6 +12,7 @@
     editingPlan: null,
     requestSeq: 0,
     pdfExportFields: [],
+    productExportContext: { q: "", sort: "suggested", totalCached: 0, lastSyncedAt: null },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -233,8 +234,14 @@
     ].map(([label, value, hint]) => `<article class="full-kpi"><span>${label}</span><strong>${value}</strong><small>${hint}</small></article>`).join("");
   }
 
+  function updateProductExportButton() {
+    const button = $("btnExportFullProducts");
+    if (button) button.disabled = state.products.length === 0;
+  }
+
   function renderProducts(payload = {}) {
     state.products = Array.isArray(payload.items) ? payload.items : [];
+    updateProductExportButton();
     renderKpis(payload.kpis || {});
     const syncLabel = $("fullSyncLabel");
     if (syncLabel) syncLabel.textContent = payload.last_synced_at ? `Atualizado em ${dateTime(payload.last_synced_at)}` : "Aguardando atualizacao";
@@ -472,6 +479,12 @@
     qs.set("sort", $("fullSort")?.value || "suggested");
     const payload = await apiJson(`/api/full/products?${qs.toString()}`);
     if (seq !== state.requestSeq) return;
+    state.productExportContext = {
+      q: qs.get("q") || "",
+      sort: qs.get("sort") || "suggested",
+      totalCached: Number(payload.total_cached || 0),
+      lastSyncedAt: payload.last_synced_at || null,
+    };
     renderProducts(payload);
   }
 
@@ -482,6 +495,12 @@
     if (syncLabel) syncLabel.textContent = "Consultando Mercado Livre...";
     try {
       const payload = await apiJson("/api/full/sync", { method: "POST", body: JSON.stringify({}) });
+      state.productExportContext = {
+        q: "",
+        sort: "suggested",
+        totalCached: Number(payload.found_full || 0),
+        lastSyncedAt: payload.synced_at || null,
+      };
       renderProducts({ ...payload, last_synced_at: payload.synced_at, total_cached: payload.found_full });
     } catch (error) {
       if (syncLabel) syncLabel.textContent = error.message;
