@@ -124,6 +124,13 @@ router.post(
 );
 
 router.post(
+  "/credits/quote",
+  requireCaracteristicasAccess,
+  express.json({ limit: "8mb" }),
+  CaracteristicasController.quoteExcelCredits,
+);
+
+router.post(
   "/aplicar-excel",
   requireCaracteristicasEdit,
   createAuditAction({

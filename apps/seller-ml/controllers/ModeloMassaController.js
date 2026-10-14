@@ -169,6 +169,24 @@ class ModeloMassaController {
     }
   }
 
+  static async quoteCredits(req, res) {
+    try {
+      const quote = await ModeloMassaJobsService.previewCredits({
+        itemIds: req.body?.item_ids,
+        dryRun: req.body?.dry_run === true,
+        mlCreds: res.locals?.mlCreds || {},
+        account: res.locals?.account || null,
+      });
+      return res.json({ success: true, ...quote });
+    } catch (error) {
+      return res.status(Number(error?.statusCode || 400)).json({
+        success: false,
+        error: error?.message || "Erro ao calcular o custo do modelo em massa.",
+        code: error?.code || null,
+      });
+    }
+  }
+
   static async apply(req, res) {
     try {
       const job = await ModeloMassaJobsService.enqueue({
@@ -202,7 +220,7 @@ class ModeloMassaController {
     try {
       return res.json({
         success: true,
-        jobs: ModeloMassaJobsService.listRecent(25, {
+        jobs: await ModeloMassaJobsService.listRecent(25, {
           accountKey: res.locals?.accountKey || null,
         }),
       });
@@ -216,7 +234,7 @@ class ModeloMassaController {
 
   static async jobDetail(req, res) {
     try {
-      const job = ModeloMassaJobsService.jobDetail(req.params?.job_id, {
+      const job = await ModeloMassaJobsService.jobDetail(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
       });
       if (!job) {
@@ -237,7 +255,7 @@ class ModeloMassaController {
 
   static async cancelJob(req, res) {
     try {
-      const job = ModeloMassaJobsService.cancelJob(req.params?.job_id, {
+      const job = await ModeloMassaJobsService.cancelJob(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
       });
       if (!job) {
@@ -271,7 +289,7 @@ class ModeloMassaController {
 
   static async downloadCsv(req, res) {
     try {
-      const file = ModeloMassaJobsService.getJobCsv(req.params?.job_id, {
+      const file = await ModeloMassaJobsService.getJobCsv(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
       });
       if (!file?.csv) {

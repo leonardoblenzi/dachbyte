@@ -421,6 +421,41 @@
     return payload;
   }
 
+  async function fetchWholesaleCreditQuote(itemIds, dryRun) {
+    return fetchJson(mlUrl("/api/atacado/credits/quote"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        item_ids: itemIds,
+        dry_run: dryRun === true,
+      }),
+    });
+  }
+
+  function confirmWholesaleCreditQuote(quote, { dryRun = false } = {}) {
+    const estimated = Number(quote?.estimated_credits || 0);
+    const quantity = Math.max(0, Number(quote?.quantity || 0));
+    const unlimited = quote?.unlimited === true;
+
+    if (unlimited || estimated <= 0) return true;
+
+    const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+    const lines = [
+      `${dryRun ? "Simulação" : "Aplicação"} de atacado para aproximadamente ${formatter.format(quantity)} anúncio(s).`,
+      `Custo estimado: ${formatter.format(estimated)} crédito(s).`,
+    ];
+    if (quote?.available_credits != null) {
+      lines.push(
+        `Saldo disponível: ${formatter.format(Number(quote.available_credits || 0))} crédito(s).`,
+      );
+    }
+    if (quote?.sufficient === false) {
+      lines.push("O saldo atual é menor que a estimativa informada.");
+    }
+    lines.push("Deseja continuar?");
+    return window.confirm(lines.join("\n\n"));
+  }
+
   function setLoading(loading, message) {
     state.loading = loading;
     $("#btnCarregar").disabled = loading;
@@ -790,6 +825,25 @@
     const dryRun = Boolean($("#dryRun")?.checked);
     const account = window.__ACCOUNT__ || {};
     const accountLabel = readShellAccountLabel() || account.label || null;
+
+    try {
+      const creditQuote = await fetchWholesaleCreditQuote(unique, dryRun);
+      const confirmed = confirmWholesaleCreditQuote(creditQuote, { dryRun });
+      if (confirmed === false) {
+        renderApplySummary(
+          dryRun
+            ? "Simulação cancelada antes de criar o job."
+            : "Aplicação cancelada antes de criar o job.",
+          "info",
+        );
+        return;
+      }
+    } catch (error) {
+      console.warn(
+        "[atacado] prévia de créditos indisponível; seguindo em shadow:",
+        error?.message || error,
+      );
+    }
 
     setLoading(true, "Enfileirando job de atacado...");
     renderApplySummary(

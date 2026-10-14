@@ -210,11 +210,11 @@
   if (!shellDisabled) {
     injectAsset("link", {
       rel: "stylesheet",
-      href: withBase("/css/ml-shell.css?v=28"),
+      href: withBase("/css/ml-shell.css?v=29"),
     });
 
     injectAsset("script", {
-      src: withBase("/js/ml-shell.js?v=36"),
+      src: withBase("/js/ml-shell.js?v=37"),
       defer: "defer",
     });
 

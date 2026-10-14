@@ -17,6 +17,8 @@ const BASE_QUEUE_NAMES = [
   "financeiro-ml-sku-catalog-sync",
   "validar-dimensoes",
   "ml-exclusao-lote",
+  "ml-atacado",
+  "ml-modelo-massa",
   "ml-caracteristicas",
   "estoque-alerta-queue",
   "estoque-atualizacao-queue",

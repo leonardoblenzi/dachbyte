@@ -1,4 +1,5 @@
 const PromocaoService = require("../services/removerPromocaoService");
+const { recordSuccessfulChange } = require("../services/singleOperationGuardService");
 const {
   getRequestIp,
   getRequestUserAgent,
@@ -57,6 +58,17 @@ class PromocaoController {
         accountKey,
         logger: console,
       });
+
+      if (
+        resultado?.success === true &&
+        Array.isArray(resultado?.promocoes_removidas) &&
+        resultado.promocoes_removidas.length > 0
+      ) {
+        await recordSuccessfulChange({
+          res,
+          operation: "promotions.remove",
+        });
+      }
 
       await auditPromotionEvent(
         req,

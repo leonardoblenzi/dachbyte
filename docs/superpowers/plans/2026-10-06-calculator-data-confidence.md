@@ -299,4 +299,3 @@ Expected: PASS sem falhas.
 git status -sb
 git commit --allow-empty -m "Verify calculator data confidence flow"
 ```
-

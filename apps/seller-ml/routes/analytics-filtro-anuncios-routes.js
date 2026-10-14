@@ -6,6 +6,7 @@ const { createAuditAction } = require("../middleware/auditAction");
 const router = express.Router();
 
 const filtroQueue = require("../services/filtroAnunciosQueueService");
+const FilterBilling = require("../services/filtroAnunciosBillingService");
 const TokenService = require("../services/tokenService");
 const { attachJobReview } = require("../services/jobReviewHelper");
 const {
@@ -1010,6 +1011,39 @@ async function handleJobItems(req, res) {
     });
   }
 }
+
+router.post("/filtro-anuncios/credits/quote", express.json({ limit: "1mb" }), async (req, res) => {
+  try {
+    const currentContaId = getCurrentContaId(req);
+    if (!currentContaId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Nenhuma conta Mercado Livre OAuth esta selecionada.",
+      });
+    }
+
+    const filters = parseFiltersFromReq(req);
+    validateRequiredFilters(filters);
+    const quote = await FilterBilling.previewCredits({
+      mlCreds: req.res?.locals?.mlCreds || {},
+      account: {
+        meli_conta_id: currentContaId,
+        label: getCurrentAccountLabel(req),
+      },
+      filters,
+      itemCount: req.body?.item_count ?? null,
+    });
+
+    return res.json({ ok: true, ...quote });
+  } catch (err) {
+    console.error("POST /api/analytics/filtro-anuncios/credits/quote erro:", err);
+    return res.status(err.status || err.statusCode || 400).json({
+      ok: false,
+      error: err.message || "Falha ao calcular custo do filtro.",
+      details: err.details || null,
+    });
+  }
+});
 
 router.post(
   "/filtro-anuncios/jobs",

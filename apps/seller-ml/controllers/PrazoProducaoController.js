@@ -2,7 +2,6 @@
 
 const {
   updatePrazoProducao,
-  consultPrazoProducao,
 } = require("../services/prazoProducaoService");
 const {
   enqueuePrazoJob,
@@ -12,8 +11,11 @@ const {
   getPrazoJobDetail,
   getPrazoJobCsv,
   cancelPrazoJob,
+  previewPrazoCredits,
+  consultPrazoWithCredits,
 } = require("../services/prazoProducaoQueueService");
 const { attachJobContract } = require("../services/jobContract");
+const { recordSuccessfulChange } = require("../services/singleOperationGuardService");
 const {
   getRequestIp,
   getRequestUserAgent,
@@ -80,6 +82,13 @@ async function setPrazoProducaoSingle(req, res) {
       verify: true,
     });
 
+    if (out?.put_result) {
+      await recordSuccessfulChange({
+        res,
+        operation: "production-time.apply",
+      });
+    }
+
     await auditPrazo(req, res, "production_time_item_processed", "success", {
       mlb_id: out?.mlb_id || mlb_id,
       item_id: out?.mlb_id || mlb_id,
@@ -105,10 +114,11 @@ async function setPrazoProducaoSingle(req, res) {
 async function consultarPrazoProducao(req, res) {
   try {
     const accessToken = pickAccessToken(req);
-    const payload = await consultPrazoProducao({
+    const payload = await consultPrazoWithCredits({
       accessToken,
       mlCreds: res.locals?.mlCreds || {},
       mlbIds: req.body?.mlb_ids || req.body?.item_ids || [],
+      account: res.locals?.account || null,
     });
 
     res.json(payload);
@@ -116,6 +126,26 @@ async function consultarPrazoProducao(req, res) {
     res.status(e.statusCode || 400).json({
       success: false,
       error: e.message || "Falha ao consultar prazos",
+      details: e.details || null,
+    });
+  }
+}
+
+async function quotePrazoCredits(req, res) {
+  try {
+    const type = String(req.body?.type || "apply").trim().toLowerCase();
+    const quote = await previewPrazoCredits({
+      type: ["lookup", "lookup_active"].includes(type) ? type : "apply",
+      mlbIds: req.body?.mlb_ids || req.body?.item_ids || [],
+      maxItems: req.body?.max_items ?? req.body?.maxItems ?? null,
+      mlCreds: res.locals?.mlCreds || {},
+      account: res.locals?.account || null,
+    });
+    return res.json({ success: true, ...quote });
+  } catch (e) {
+    return res.status(e.statusCode || 400).json({
+      success: false,
+      error: e.message || "Falha ao calcular o custo do prazo de producao.",
       details: e.details || null,
     });
   }
@@ -181,6 +211,7 @@ async function setPrazoProducaoLote(req, res) {
       delayMs: delayMs ?? 250,
       accountKey: res.locals?.accountKey || null,
       accountLabel: res.locals?.accountLabel || null,
+      auditContext: buildAuditContext(req, res),
     });
     const contracted = attachJobContract({
       id: process_id,
@@ -288,4 +319,5 @@ module.exports = {
   detailJobPrazoProducao,
   downloadJobPrazoProducao,
   cancelJobPrazoProducao,
+  quotePrazoCredits,
 };

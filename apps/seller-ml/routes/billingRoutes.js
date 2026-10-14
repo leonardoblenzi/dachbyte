@@ -6,6 +6,7 @@ const {
   getCreditAccountAccess,
   getCreditActivity,
   getCreditPolicy,
+  quoteCredits,
   HubCreditError,
 } = require("../services/hubCreditsService");
 
@@ -84,6 +85,29 @@ router.get("/credit-policy", async (_req, res) => {
     }
     console.error("[billingRoutes] GET /credit-policy:", error?.message || error);
     return res.status(500).json({ ok: false, error: "credit_policy_load_failed" });
+  }
+});
+
+router.post("/credits/quote", express.json({ limit: "80kb" }), async (req, res) => {
+  try {
+    const operationKey = String(req.body?.operation_key || "").trim();
+    const units = Math.max(1, Math.trunc(Number(req.body?.units || req.body?.quantity || 1)));
+    if (!operationKey) {
+      return res.status(400).json({ ok: false, error: "operation_key_required" });
+    }
+    const quote = await quoteCredits({
+      mlCreds: res.locals.mlCreds || {},
+      account: res.locals.account || null,
+      operationKey,
+      units,
+    });
+    return res.json({ ok: true, quote });
+  } catch (error) {
+    if (error instanceof HubCreditError) {
+      return errorResponse(res, error, "Nao foi possivel calcular o custo da operacao.");
+    }
+    console.error("[billingRoutes] POST /credits/quote:", error?.message || error);
+    return res.status(500).json({ ok: false, error: "credit_quote_failed" });
   }
 });
 

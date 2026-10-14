@@ -901,6 +901,42 @@ function withBase(path) {
         options,
       };
 
+      const creditPreview = await window.PromoHttp?.postCreditQuote?.({
+        action: "apply",
+        promotion_id: promotionId,
+        promotion_type: promotionType,
+        promotion_name:
+          String(overrides.promotion_name || "").trim() ||
+          ctx.promotion_name ||
+          camp,
+        status: payload.status,
+        percent_max: payload.percent_max,
+        expected_total: normalizedIds.length,
+        selection_ids: normalizedIds,
+        options,
+      });
+      if (creditPreview?.ok) {
+        const confirmed = window.PromoHttp?.confirmCreditQuote?.(creditPreview, {
+          label: "aplicacao promocional",
+        });
+        if (confirmed === false) {
+          if (localJobId) {
+            window.JobsPanel?.updateLocalJob?.(localJobId, {
+              state: "cancelado antes de iniciar",
+              completed: true,
+              progress: 0,
+            });
+          }
+          window.notifyPromocoes("Aplicacao cancelada antes de criar o job.");
+          return false;
+        }
+      } else if (creditPreview) {
+        console.warn(
+          "[promo-bulk] previa de creditos indisponivel; seguindo em shadow:",
+          creditPreview?.data?.error || creditPreview?.status,
+        );
+      }
+
       const response = await fetch(withBase("/api/promocoes/jobs/apply-list"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -985,6 +1021,47 @@ function withBase(path) {
             dryRun: getDryRun(),
           },
         };
+        const creditPreview = await window.PromoHttp?.postCreditQuote?.({
+          action: "apply",
+          token: ctx.global.token || null,
+          promotion_id: ctx.promotion_id,
+          promotion_type: ctx.promotion_type,
+          promotion_name: ctx.promotion_name || camp,
+          status: mapStatusForPrepare(ctx.filtros.status),
+          percent_max:
+            ctx.filtros.maxDesc == null || ctx.filtros.maxDesc === ""
+              ? null
+              : Number(ctx.filtros.maxDesc),
+          expected_total: Math.max(1, qtd),
+          selection_ids: Array.isArray(ctx.global.ids) ? ctx.global.ids : null,
+          options: {
+            ...(body.values || {}),
+            expected_total: Math.max(1, qtd),
+            selection_count: Math.max(1, qtd),
+          },
+        });
+        if (creditPreview?.ok) {
+          const confirmed = window.PromoHttp?.confirmCreditQuote?.(creditPreview, {
+            label: "aplicacao promocional",
+          });
+          if (confirmed === false) {
+            if (localJobId) {
+              window.JobsPanel?.updateLocalJob?.(localJobId, {
+                state: "cancelado antes de iniciar",
+                completed: true,
+                progress: 0,
+              });
+            }
+            window.notifyPromocoes?.("Aplicacao cancelada antes de criar o job.");
+            return;
+          }
+        } else if (creditPreview) {
+          console.warn(
+            "[promo-bulk] previa de creditos indisponivel; seguindo em shadow:",
+            creditPreview?.data?.error || creditPreview?.status,
+          );
+        }
+
         const r = await fetch(withBase("/api/promocoes/jobs/apply-mass"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },

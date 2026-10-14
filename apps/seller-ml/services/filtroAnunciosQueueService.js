@@ -8,10 +8,7 @@ const { metricsPorItens } = require("./adsService");
 const PromoPricing = require("./mlPromotionPricing");
 const TokenService = require("./tokenService");
 const { applyPromotionSnapshot } = require("./filtroPromoSnapshot");
-const {
-  reserveAdsFilterCredits,
-  settleCredits,
-} = require("./hubCreditsService");
+const FilterBilling = require("./filtroAnunciosBillingService");
 const {
   reconcileCompletedQueueJob,
   sameCsvExportRequest,
@@ -2995,6 +2992,10 @@ class FiltroAnunciosQueueService {
       result: terminal ? { total: count } : null,
       download_csv_url: downloadCsvUrl,
       warnings: Array.isArray(currentMeta.warnings) ? currentMeta.warnings : [],
+      billing_telemetry:
+        currentMeta.billing_telemetry ||
+        currentJob?.returnvalue?.billing_telemetry ||
+        null,
       ...variationGtinStatusFields(currentMeta),
       sales_truncated: currentMeta.sales_truncated === true,
       review_action:
@@ -3016,6 +3017,7 @@ class FiltroAnunciosQueueService {
     this.queue.process("export", 1, async (job) => {
       const { token, filters, account, mlCreds } = job.data;
       const jobId = String(job.id);
+      const billingStartedAt = Date.now();
 
       console.log(
         "[FiltroAnunciosQueueService] processor picked job:",
@@ -3365,6 +3367,41 @@ class FiltroAnunciosQueueService {
             lookup_source: lookupType === "ean" ? "light_ean_scan" : "light_sku_scan",
           });
         }
+
+        const discoveredItems = allIds.length;
+        const creditReservation = await FilterBilling.reserveForDiscoveredItems({
+          mlCreds,
+          account,
+          filters,
+          itemCount: discoveredItems,
+          operationId: job.data?.operationId,
+        });
+        job.data.creditReservation = creditReservation;
+        job.data.billingDiscoveredItems = discoveredItems;
+        await job.update(job.data);
+        const reservedTelemetry = FilterBilling.telemetry({
+          reservation: creditReservation,
+          operationId: job.data?.operationId,
+          filters,
+          discoveredItems,
+          resultRows: 0,
+          completed: false,
+          startedAt: billingStartedAt,
+          finishedAt: Date.now(),
+        });
+        await this._writeMeta(jobId, {
+          billing_discovered_items: discoveredItems,
+          billing_telemetry: reservedTelemetry,
+          credit_reservation: {
+            operation_key: creditReservation?.operation_key || FilterBilling.OPERATION_KEY,
+            reserved_credits:
+              creditReservation?.reserved_credits ??
+              creditReservation?.quote?.estimated_credits ??
+              0,
+            bypass: Boolean(creditReservation?.bypass),
+            shadow: creditReservation?.shadow === true,
+          },
+        });
 
         await updateJobProgress(job, 15);
         await publishProgressMeta({
@@ -4035,35 +4072,81 @@ class FiltroAnunciosQueueService {
 
         await this._writeResults(jobId, rows);
 
+        const finishedAt = Date.now();
+        const billingTelemetry = FilterBilling.telemetry({
+          reservation: job.data?.creditReservation || null,
+          operationId: job.data?.operationId,
+          filters,
+          discoveredItems: Number(job.data?.billingDiscoveredItems || allIds.length || 0),
+          resultRows: rows.length,
+          completed: true,
+          startedAt: billingStartedAt,
+          finishedAt,
+        });
         await this._writeMeta(jobId, {
           status: "concluido",
           total: rows.length,
           progress_phase: "Concluido",
           progress_current: rows.length,
           progress_total: rows.length,
-          finished_at: new Date().toISOString(),
+          finished_at: new Date(finishedAt).toISOString(),
           seller_id: sellerId,
+          billing_telemetry: billingTelemetry,
         });
 
         await updateJobProgress(job, 100);
-        return { total: rows.length };
+        return {
+          total: rows.length,
+          billing_discovered_items: Number(job.data?.billingDiscoveredItems || allIds.length || 0),
+          billing_telemetry: billingTelemetry,
+        };
       } catch (e) {
         if (e instanceof JobCancelledError) {
+          const finishedAt = Date.now();
+          const billingTelemetry = FilterBilling.telemetry({
+            reservation: job.data?.creditReservation || null,
+            operationId: job.data?.operationId,
+            filters,
+            discoveredItems: Number(job.data?.billingDiscoveredItems || 0),
+            resultRows: 0,
+            cancelled: true,
+            startedAt: billingStartedAt,
+            finishedAt,
+          });
           await this._writeMeta(jobId, {
             status: "cancelado",
             error: null,
             cancel_requested: false,
             progress_phase: "Cancelado",
-            finished_at: new Date().toISOString(),
+            finished_at: new Date(finishedAt).toISOString(),
+            billing_telemetry: billingTelemetry,
           });
           await updateJobProgress(job, 100);
-          return { total: 0, cancelled: true };
+          return {
+            total: 0,
+            cancelled: true,
+            billing_discovered_items: Number(job.data?.billingDiscoveredItems || 0),
+            billing_telemetry: billingTelemetry,
+          };
         }
+        const finishedAt = Date.now();
+        const billingTelemetry = FilterBilling.telemetry({
+          reservation: job.data?.creditReservation || null,
+          operationId: job.data?.operationId,
+          filters,
+          discoveredItems: Number(job.data?.billingDiscoveredItems || 0),
+          resultRows: 0,
+          failed: true,
+          startedAt: billingStartedAt,
+          finishedAt,
+          error: e.message || String(e),
+        });
         await this._writeMeta(jobId, {
           status: "erro",
           error: e.message || String(e),
           progress_phase: "Erro",
-          finished_at: new Date().toISOString(),
+          finished_at: new Date(finishedAt).toISOString(),
+          billing_telemetry: billingTelemetry,
         });
         throw e;
       }
@@ -4239,11 +4322,24 @@ class FiltroAnunciosQueueService {
 
     this.queue.on("failed", async (job, err) => {
       console.error("[FiltroAnunciosQueueService] job failed:", job?.id, err?.message || err);
-      await settleCredits(job?.data?.creditReservation, { release: true });
+      await FilterBilling.settleReservation(job?.data?.creditReservation, {
+        filters: job?.data?.filters || {},
+        itemCount: Number(job?.data?.billingDiscoveredItems || 0),
+        completed: false,
+      });
     });
     this.queue.on("completed", async (job) => {
       console.log("[FiltroAnunciosQueueService] job completed:", job?.id);
-      await settleCredits(job?.data?.creditReservation, { release: false });
+      const cancelled = job?.returnvalue?.cancelled === true;
+      await FilterBilling.settleReservation(job?.data?.creditReservation, {
+        filters: job?.data?.filters || {},
+        itemCount: Number(
+          job?.returnvalue?.billing_discovered_items ??
+          job?.data?.billingDiscoveredItems ??
+          0
+        ),
+        completed: !cancelled,
+      });
     });
   }
 
@@ -4257,11 +4353,7 @@ class FiltroAnunciosQueueService {
   }
 
   async enqueue({ token, filters, account, mlCreds = null, cancelOpenJobs = true }) {
-    const creditReservation = await reserveAdsFilterCredits({
-      mlCreds,
-      account,
-      filters,
-    });
+    const operationId = FilterBilling.operationId();
 
     if (cancelOpenJobs !== false) {
       await this._cancelOpenJobsForAccount(account, { reason: "novo_filtro" });
@@ -4276,12 +4368,13 @@ class FiltroAnunciosQueueService {
           filters,
           account: account || null,
           mlCreds: mlCreds || null,
-          creditReservation,
+          operationId,
+          creditReservation: null,
+          billingDiscoveredItems: 0,
         },
         { attempts: 1, removeOnComplete: 50, removeOnFail: 50 }
       );
     } catch (error) {
-      await settleCredits(creditReservation, { release: true });
       throw error;
     }
 
@@ -4308,10 +4401,22 @@ class FiltroAnunciosQueueService {
       progress_total: null,
       error: null,
       seller_id: null,
+      operation_id: operationId,
+      billing_discovered_items: 0,
+      billing_telemetry: FilterBilling.telemetry({
+        reservation: null,
+        operationId,
+        filters,
+        discoveredItems: 0,
+        resultRows: 0,
+        completed: false,
+      }),
       credit_reservation: {
-        operation_key: creditReservation?.operation_key || null,
-        reserved_credits: creditReservation?.reserved_credits || 0,
-        bypass: Boolean(creditReservation?.bypass),
+        operation_key: FilterBilling.OPERATION_KEY,
+        reserved_credits: 0,
+        bypass: false,
+        shadow: true,
+        deferred: true,
       },
     });
     return jobId;
@@ -4471,6 +4576,10 @@ class FiltroAnunciosQueueService {
       error: meta.error || job?.failedReason || null,
       account: meta.account || job?.data?.account || null,
       seller_id: meta.seller_id || null,
+      billing_telemetry:
+        meta.billing_telemetry ||
+        job?.returnvalue?.billing_telemetry ||
+        null,
       download_csv_url: downloadCsvUrl,
       review_action:
         downloadCsvUrl && status === "concluido"

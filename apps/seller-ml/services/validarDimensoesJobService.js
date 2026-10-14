@@ -1,11 +1,12 @@
 const Queue = require("bull");
+const crypto = require("crypto");
 const { makeBullClient, getSharedRedis } = require("../lib/redisClient");
 
 const ValidarDimensoesService = require("./validarDimensoesService");
 const AtacadoService = require("./atacadoService");
 const { attachJobContract, backendJobIdFromUid } = require("./jobContract");
 const { recordAuthEvent } = require("./authAuditService");
-const { reserveCredits, settleCredits } = require("./hubCreditsService");
+const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
 
 function resolveJobId(value) {
   return backendJobIdFromUid("validar-dimensoes", value);
@@ -57,6 +58,69 @@ function normalizeAccountKey(value) {
 function positiveNumber(value) {
   const n = Number(value ?? 0);
   return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function normalizeDimensionIds(values = []) {
+  return Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => String(value || "").trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function dimensionsBillingOperationKey(mode = "analyze") {
+  return String(mode || "").trim().toLowerCase() === "analyze"
+    ? "dimensions.validate"
+    : "dimensions.apply";
+}
+
+function dimensionsBillingIdempotencyKey(operationId) {
+  const id = String(operationId || "").trim();
+  if (!id) throw new Error("dimensions_operation_id_required");
+  return `dimensions:${id}`;
+}
+
+function dimensionsBillableUnits(data = {}, meta = {}) {
+  if (String(data?.mode || "analyze").trim().toLowerCase() === "analyze") {
+    return Math.max(0, Number(meta.validated ?? meta.success ?? 0));
+  }
+  return Math.max(0, Number(meta.applied || 0));
+}
+
+function dimensionsBillingTelemetry(job, meta = {}) {
+  const reservation = job?.data?.creditReservation || {};
+  return {
+    billing_mode:
+      !reservation || Object.keys(reservation).length === 0
+        ? "pending"
+        : reservation?.shadow === true
+          ? "shadow"
+          : reservation?.bypass === true
+            ? "bypass"
+            : "enforce",
+    operation_key:
+      job?.data?.billingOperationKey ||
+      reservation?.quote?.operation_key ||
+      reservation?.operation_key ||
+      dimensionsBillingOperationKey(job?.data?.mode),
+    operation_id: job?.data?.operationId || null,
+    selected: Math.max(0, Number(meta.total || job?.data?.mlbs?.length || 0)),
+    processed: Math.max(0, Number(meta.processed || 0)),
+    validated: Math.max(0, Number(meta.validated ?? meta.success ?? 0)),
+    applied: Math.max(0, Number(meta.applied || 0)),
+    failed: Math.max(0, Number(meta.failed || 0)),
+    billable_units: dimensionsBillableUnits(job?.data || {}, meta),
+    estimated_credits:
+      reservation?.quote?.estimated_credits ??
+      reservation?.reserved_credits ??
+      null,
+    duration_ms:
+      meta.startedAt && meta.finishedAt
+        ? Math.max(0, Number(meta.finishedAt) - Number(meta.startedAt))
+        : null,
+  };
 }
 
 function canAccessJob(job, accountKey) {
@@ -269,6 +333,7 @@ function auditBase(job = {}) {
     meli_conta_id: context.meli_conta_id || job?.data?.mlCreds?.meli_conta_id || null,
     route: context.route || null,
     method: context.method || null,
+    operationId: job?.data?.operationId || null,
   };
 }
 
@@ -288,6 +353,7 @@ async function auditDimensoesEvent(job, evento, status, metadata = {}) {
       route: base.route,
       method: base.method,
       job_id: String(job?.id || ""),
+      operation_id: base.operationId,
       action: "validate_or_update_dimensions",
       ...metadata,
     },
@@ -307,7 +373,7 @@ async function processJob(job) {
     delayMs = 0,
     source = "manual_list",
   } = job.data || {};
-  let targetMlbs = Array.isArray(mlbs) ? mlbs.slice() : [];
+  let targetMlbs = normalizeDimensionIds(mlbs);
   let cancelled = false;
   let chunkBuffer = [];
 
@@ -318,6 +384,8 @@ async function processJob(job) {
       processed: 0,
       success: 0,
       failed: 0,
+      validated: 0,
+      applied: 0,
       mode,
       source,
       startedAt: Date.now(),
@@ -352,6 +420,8 @@ async function processJob(job) {
         processed: listingProcessed,
         success: 0,
         failed: 0,
+        validated: 0,
+        applied: 0,
         mode,
         source,
         phase: "listing_active_items",
@@ -362,12 +432,23 @@ async function processJob(job) {
       if (!cursor || !pageIds.length) break;
     }
 
-    targetMlbs = Array.from(
-      new Set(collected.map((value) => String(value || "").trim()).filter(Boolean)),
-    );
+    targetMlbs = normalizeDimensionIds(collected);
   }
 
   const total = Array.isArray(targetMlbs) ? targetMlbs.length : 0;
+  if (total > 0 && !cancelled && !job.data?.creditReservation) {
+    const creditReservation = await reserveCredits({
+      mlCreds,
+      operationKey:
+        job.data?.billingOperationKey || dimensionsBillingOperationKey(mode),
+      units: total,
+      idempotencyKey: dimensionsBillingIdempotencyKey(
+        job.data?.operationId || String(job.id),
+      ),
+    });
+    job.data.creditReservation = creditReservation;
+    await job.update(job.data);
+  }
 
   if (!total) {
     await initResultsManifest(job.id);
@@ -377,6 +458,8 @@ async function processJob(job) {
       processed: 0,
       success: 0,
       failed: 0,
+      validated: 0,
+      applied: 0,
       mode,
       source,
       cancelRequested: false,
@@ -403,6 +486,8 @@ async function processJob(job) {
     processed: 0,
     success: 0,
     failed: 0,
+    validated: 0,
+    applied: 0,
     mode,
     source,
     startedAt: Date.now(),
@@ -420,6 +505,8 @@ async function processJob(job) {
   });
   let success = 0;
   let failed = 0;
+  let validated = 0;
+  let applied = 0;
   let processed = 0;
   const effectiveDelayMs = mode === "analyze" ? 0 : Number(delayMs || 0);
 
@@ -445,8 +532,12 @@ async function processJob(job) {
       });
       chunkBuffer.push(...batchResults);
       for (const result of batchResults) {
-        if (result?.success) success += 1;
-        else failed += 1;
+        if (result?.success) {
+          success += 1;
+          validated += 1;
+        } else {
+          failed += 1;
+        }
       }
       processed += batch.length;
     } else {
@@ -460,8 +551,13 @@ async function processJob(job) {
           ...(mode === "auto" ? { autoFillFromItem: true } : {}),
         });
         chunkBuffer.push(result);
-        if (result?.success) success += 1;
-        else failed += 1;
+        if (result?.success) {
+          success += 1;
+          validated += 1;
+          if (result?.updated === true) applied += 1;
+        } else {
+          failed += 1;
+        }
         await auditDimensoesEvent(
           job,
           "dimensions_validation_item_processed",
@@ -530,6 +626,8 @@ async function processJob(job) {
         processed,
         success,
         failed,
+        validated,
+        applied,
         mode,
         source,
         phase: "fetching_dimensions",
@@ -564,12 +662,15 @@ async function processJob(job) {
     processed,
     success,
     failed,
+    validated,
+    applied,
     mode,
     source,
     cancelRequested: false,
     finishedAt: Date.now(),
   });
   await job.progress(100);
+  const finalMeta = (await readMeta(job.id)) || {};
   await auditDimensoesEvent(job, "dimensions_validation_job_completed", failed > 0 ? "warn" : "success", {
     total_items: total,
     processed,
@@ -578,6 +679,9 @@ async function processJob(job) {
     mode,
     source,
     cancelled,
+    validated,
+    applied,
+    billing_telemetry: dimensionsBillingTelemetry(job, finalMeta),
   });
 
   if (cancelled) {
@@ -602,9 +706,11 @@ function iniciarWorker() {
         status: "erro",
         finishedAt: Date.now(),
       }).catch(() => null);
+      const failedMeta = (await readMeta(job.id)) || {};
       await auditDimensoesEvent(job, "dimensions_validation_job_failed", "error", {
         mode: job?.data?.mode || null,
         source: job?.data?.source || null,
+        billing_telemetry: dimensionsBillingTelemetry(job, failedMeta),
         error: safeText(err?.message || String(err)),
       });
       console.error("[validar-dimensoes] erro no worker:", err);
@@ -614,12 +720,22 @@ function iniciarWorker() {
 
   queue.on("failed", async (job, err) => {
     console.error(`[validar-dimensoes] Job ${job.id} falhou:`, err?.message || err);
-    await settleCredits(job?.data?.creditReservation, { release: true });
+    const meta = (await readMeta(job.id)) || {};
+    const billableUnits = dimensionsBillableUnits(job?.data || {}, meta);
+    await settleCredits(job?.data?.creditReservation, {
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
+    });
   });
 
   queue.on("completed", async (job) => {
     console.log(`[validar-dimensoes] Job ${job.id} finalizado`);
-    await settleCredits(job?.data?.creditReservation, { release: false });
+    const meta = (await readMeta(job.id)) || {};
+    const billableUnits = dimensionsBillableUnits(job?.data || {}, meta);
+    await settleCredits(job?.data?.creditReservation, {
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
+    });
   });
 
   console.log(
@@ -641,26 +757,39 @@ async function criarJob(
   } = {},
 ) {
   const queue = getQueue();
-  const creditReservation = await reserveCredits({
-    mlCreds,
-    operationKey: "dimensions.validate",
-    units: Math.max(1, Array.isArray(mlbs) ? mlbs.length : 0),
-  });
+  const normalizedSource = source === "active_items" ? "active_items" : "manual_list";
+  const ids = normalizeDimensionIds(mlbs);
+  if (normalizedSource !== "active_items" && !ids.length) {
+    throw new Error("Nenhum anuncio informado para validar dimensoes.");
+  }
+  const operationId = `DIMENSIONS-${crypto.randomUUID()}`;
+  const billingOperationKey = dimensionsBillingOperationKey(mode);
   await cancelarJobsAbertosDaConta(accountKey, { reason: "novo_job" });
+  const creditReservation =
+    normalizedSource === "active_items"
+      ? null
+      : await reserveCredits({
+          mlCreds,
+          operationKey: billingOperationKey,
+          units: ids.length,
+          idempotencyKey: dimensionsBillingIdempotencyKey(operationId),
+        });
   let job;
   try {
     job = await queue.add(
       {
-        mlbs,
+        mlbs: ids,
         accountKey: accountKey || "conta",
         mlCreds: mlCreds || {},
         mode,
         fillDimensions,
         forceOverwrite: forceOverwrite === true,
         delayMs: Math.max(0, Number(delayMs || 0) || 0),
-        source: source === "active_items" ? "active_items" : "manual_list",
+        source: normalizedSource,
         auditContext: auditContext && typeof auditContext === "object" ? auditContext : null,
         creditReservation,
+        operationId,
+        billingOperationKey,
       },
       {
         attempts: 1,
@@ -675,12 +804,14 @@ async function criarJob(
 
   await updateMeta(job, {
     status: "aguardando",
-    total: Array.isArray(mlbs) ? mlbs.length : 0,
+    total: ids.length,
     processed: 0,
     success: 0,
     failed: 0,
+    validated: 0,
+    applied: 0,
     mode,
-    source: source === "active_items" ? "active_items" : "manual_list",
+    source: normalizedSource,
   });
 
   return attachJobContract({
@@ -733,6 +864,9 @@ function mapJob(j, status, meta = null) {
     total,
     success,
     errors: failed,
+    validated: Math.max(0, Number(currentMeta.validated ?? success ?? 0)),
+    applied: Math.max(0, Number(currentMeta.applied || 0)),
+    billing_telemetry: dimensionsBillingTelemetry(j, currentMeta),
     completed: ["concluido", "cancelado", "erro"].includes(stateLabel),
     account: j.data?.accountKey ? { key: j.data.accountKey, label: j.data.accountKey } : null,
     data: {
@@ -744,6 +878,52 @@ function mapJob(j, status, meta = null) {
     timestamp: j.timestamp,
     finishedOn: currentMeta.finishedAt || j.finishedOn || null,
     failedReason: j.failedReason || null,
+  };
+}
+
+async function previewCredits({
+  mlbs = [],
+  mode = "analyze",
+  source = "manual_list",
+  mlCreds = {},
+  account = null,
+} = {}) {
+  const operationKey = dimensionsBillingOperationKey(mode);
+  const normalizedSource =
+    String(source || "").trim().toLowerCase() === "active_items"
+      ? "active_items"
+      : "manual_list";
+
+  if (normalizedSource === "active_items") {
+    return {
+      operation_key: operationKey,
+      quantity: null,
+      estimated_credits: null,
+      available_credits: null,
+      sufficient: true,
+      unlimited: false,
+      deferred: true,
+    };
+  }
+
+  const ids = normalizeDimensionIds(mlbs);
+  if (!ids.length) throw new Error("Nenhum anuncio informado para calcular o custo.");
+  const quote = await quoteCredits({
+    mlCreds,
+    account,
+    operationKey,
+    units: ids.length,
+  });
+  return {
+    operation_key: operationKey,
+    quantity: ids.length,
+    estimated_credits: Number(quote?.estimated_credits || 0),
+    available_credits:
+      quote?.available_credits == null ? null : Number(quote.available_credits),
+    sufficient: quote?.sufficient !== false,
+    unlimited: quote?.unlimited === true,
+    deferred: false,
+    quote,
   };
 }
 
@@ -889,6 +1069,7 @@ async function cancelarJob(jobId, { accountKey = null } = {}) {
       cancelRequested: false,
       finishedAt: Date.now(),
     });
+    await settleCredits(job?.data?.creditReservation, { release: true }).catch(() => {});
     await job.remove();
     return { ok: true, status: "cancelado" };
   }
@@ -922,6 +1103,7 @@ async function cancelarJobsAbertosDaConta(accountKey, { reason = "novo_job" } = 
     }).catch(() => null);
 
     if (state === "waiting" || state === "delayed") {
+      await settleCredits(job?.data?.creditReservation, { release: true }).catch(() => {});
       await job.remove().catch(() => null);
     }
     cancelled += 1;
@@ -940,4 +1122,13 @@ module.exports = {
   obterCsv,
   cancelarJob,
   cancelarJobsAbertosDaConta,
+  previewCredits,
+  _test: {
+    normalizeDimensionIds,
+    dimensionsBillingOperationKey,
+    dimensionsBillingIdempotencyKey,
+    dimensionsBillableUnits,
+    dimensionsBillingTelemetry,
+    auditBase,
+  },
 };

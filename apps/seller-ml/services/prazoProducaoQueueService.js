@@ -1,10 +1,12 @@
 "use strict";
 
+const crypto = require("crypto");
 const Bull = require("bull");
 const { makeBullClient, getSharedRedis } = require("../lib/redisClient");
 const {
   updatePrazoProducao,
   consultPrazoItemRow,
+  consultPrazoProducao,
   summarizePrazoRows,
   listActiveSellerItemIds,
   prepareAuthState,
@@ -14,7 +16,8 @@ const {
 const { buildCsv, attachJobReview } = require("./jobReviewHelper");
 const { attachJobContract, backendJobIdFromUid } = require("./jobContract");
 const { recordAuthEvent } = require("./authAuditService");
-const { reserveCredits, settleCredits } = require("./hubCreditsService");
+const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
+const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 function resolveJobId(value) {
   return backendJobIdFromUid("prazo", value);
@@ -145,6 +148,7 @@ function prazoAuditBase(job = {}) {
     meli_conta_id: context.meli_conta_id || job?.data?.mlCreds?.meli_conta_id || null,
     route: context.route || null,
     method: context.method || null,
+    operationId: job?.data?.operationId || null,
   };
 }
 
@@ -164,6 +168,7 @@ async function auditPrazoJobEvent(job, evento, status, metadata = {}) {
       route: base.route,
       method: base.method,
       job_id: String(job?.id || ""),
+      operation_id: base.operationId,
       action: "update_production_time",
       ...metadata,
     },
@@ -175,6 +180,55 @@ async function auditPrazoJobEvent(job, evento, status, metadata = {}) {
 function prazoTermDays(term) {
   const value = Number(term?.value_struct?.number);
   return Number.isFinite(value) ? value : null;
+}
+
+function productionTimeBillingOperationKey(type = "apply") {
+  return ["lookup", "lookup_active"].includes(String(type || "").trim().toLowerCase())
+    ? "production-time.lookup"
+    : "production-time.apply";
+}
+
+function productionTimeBillingIdempotencyKey(operationId) {
+  const id = String(operationId || "").trim();
+  if (!id) throw new Error("production_time_operation_id_required");
+  return `production-time:${id}`;
+}
+
+function productionTimeBillableUnits(meta = {}) {
+  return Math.max(0, Number(meta.ok || 0));
+}
+
+function productionTimeBillingTelemetry(job, meta = {}) {
+  const reservation = job?.data?.creditReservation || {};
+  return {
+    billing_mode:
+      !reservation || Object.keys(reservation).length === 0
+        ? "pending"
+        : reservation?.shadow === true
+          ? "shadow"
+          : reservation?.bypass === true
+            ? "bypass"
+            : "enforce",
+    operation_key:
+      job?.data?.billingOperationKey ||
+      reservation?.quote?.operation_key ||
+      reservation?.operation_key ||
+      productionTimeBillingOperationKey(job?.data?.type),
+    operation_id: job?.data?.operationId || job?.id || null,
+    selected: Math.max(0, Number(meta.total || 0)),
+    processed: Math.max(0, Number(meta.processed || 0)),
+    success: Math.max(0, Number(meta.ok || 0)),
+    failed: Math.max(0, Number(meta.err || 0)),
+    billable_units: productionTimeBillableUnits(meta),
+    estimated_credits:
+      reservation?.quote?.estimated_credits ??
+      reservation?.reserved_credits ??
+      null,
+    duration_ms:
+      meta.startedAt && meta.finishedAt
+        ? Math.max(0, Number(meta.finishedAt) - Number(meta.startedAt))
+        : null,
+  };
 }
 
 function resolvePrazoJobMetrics(job, meta = {}) {
@@ -347,6 +401,7 @@ async function processPrazoJob(job) {
     success_count: ok,
     error_count: err,
     requested_days: days,
+    billing_telemetry: productionTimeBillingTelemetry(job, job.data.__meta || {}),
   });
 
   return {
@@ -402,6 +457,19 @@ async function processPrazoLookupActiveJob(job) {
   const { sellerId, ids } = listing;
 
   const total = ids.length;
+  if (total > 0 && !job.data?.creditReservation) {
+    const creditReservation = await reserveCredits({
+      mlCreds,
+      operationKey:
+        job.data?.billingOperationKey || productionTimeBillingOperationKey("lookup_active"),
+      units: total,
+      idempotencyKey: productionTimeBillingIdempotencyKey(
+        job.data?.operationId || String(job.id),
+      ),
+    });
+    job.data.creditReservation = creditReservation;
+    await job.update(job.data);
+  }
   const results = new Array(total);
   let processed = 0;
   let ok = 0;
@@ -483,6 +551,14 @@ async function processPrazoLookupActiveJob(job) {
   await writeResults(job.id, rows);
   await job.update(job.data);
   await setJobProgress(job, 100);
+  await auditPrazoJobEvent(job, "production_time_lookup_completed", err > 0 ? "warn" : "success", {
+    total_items: total,
+    processed: total,
+    success_count: ok,
+    error_count: err,
+    source: listing.source || null,
+    billing_telemetry: productionTimeBillingTelemetry(job, job.data.__meta || {}),
+  });
 
   return {
     ...summary,
@@ -499,9 +575,49 @@ function initWorker() {
 
   workerStarted = true;
   queue.process(async (job) => {
+    let heavyLease = null;
+    let refreshTimer = null;
     try {
+      const heavyAccountKey = String(
+        job?.data?.accountKey ||
+        job?.data?.mlCreds?.meli_user_id ||
+        job?.data?.mlCreds?.meli_conta_id ||
+        ""
+      ).trim();
+      if (heavyAccountKey) {
+        const lookupOnly = job?.data?.type === "lookup_active";
+        heavyLease = await waitForHeavyOperationLease({
+          accountKey: heavyAccountKey,
+          kind: lookupOnly ? "production-time-lookup" : "production-time",
+          ownerId: `production-time:${job.id}`,
+          lane: lookupOnly ? "read" : "write",
+          metadata: {
+            job_id: String(job.id),
+            lookup_only: lookupOnly,
+          },
+          onWait: async (holder) => {
+            job.data.__meta = {
+              ...(job.data.__meta || {}),
+              status: "aguardando",
+              queueReason: "heavy_operation_busy",
+              heavyOperationHolder: holder || null,
+              updatedAt: Date.now(),
+            };
+            await job.update(job.data);
+          },
+          shouldCancel: async () => job.data?.__meta?.cancelRequested === true,
+        });
+        refreshTimer = setInterval(() => {
+          heavyLease?.refresh?.().catch(() => {});
+        }, 60_000);
+        refreshTimer.unref?.();
+      }
+
       return await processPrazoJob(job);
-    } catch (error) {
+    } catch (rawError) {
+      const error = rawError?.code === "HEAVY_OPERATION_WAIT_CANCELLED"
+        ? new JobCancelledError()
+        : rawError;
       if (error instanceof JobCancelledError) {
         job.data.__meta = {
           ...(job.data.__meta || {}),
@@ -535,18 +651,30 @@ function initWorker() {
         success_count: Number(job.data?.__meta?.ok || 0),
         error_count: Number(job.data?.__meta?.err || 0),
         requested_days: Number(job.data?.days || 0),
+        billing_telemetry: productionTimeBillingTelemetry(job, job.data.__meta || {}),
         error: safeText(error?.message || String(error)),
       });
       throw error;
+    } finally {
+      if (refreshTimer) clearInterval(refreshTimer);
+      await heavyLease?.release?.().catch(() => {});
     }
   });
   queue.on("failed", async (job, err) => {
     console.error("[prazo-producao] job failed:", job?.id, err?.message || err);
-    await settleCredits(job?.data?.creditReservation, { release: true });
+    const billableUnits = productionTimeBillableUnits(job?.data?.__meta || {});
+    await settleCredits(job?.data?.creditReservation, {
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
+    });
   });
   queue.on("completed", async (job) => {
     console.log("[prazo-producao] job completed:", job?.id);
-    await settleCredits(job?.data?.creditReservation, { release: false });
+    const billableUnits = productionTimeBillableUnits(job?.data?.__meta || {});
+    await settleCredits(job?.data?.creditReservation, {
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
+    });
   });
   console.log("[prazo-producao] worker iniciado");
   return queue;
@@ -563,10 +691,21 @@ async function enqueuePrazoJob({
   auditContext = null,
 }) {
   const queue = getQueue();
+  const ids = Array.from(
+    new Set(
+      (Array.isArray(mlb_ids) ? mlb_ids : [])
+        .map(normMlb)
+        .filter(Boolean),
+    ),
+  );
+  if (!ids.length) throw new Error("Nenhum anuncio informado para atualizar prazo.");
+  const operationId = `PRAZO-${crypto.randomUUID()}`;
+  const billingOperationKey = productionTimeBillingOperationKey("apply");
   const creditReservation = await reserveCredits({
     mlCreds,
-    operationKey: "production-time.apply",
-    units: Math.max(1, Array.isArray(mlb_ids) ? mlb_ids.length : 0),
+    operationKey: billingOperationKey,
+    units: ids.length,
+    idempotencyKey: productionTimeBillingIdempotencyKey(operationId),
   });
   let job;
   try {
@@ -574,13 +713,15 @@ async function enqueuePrazoJob({
       {
         accessToken,
         mlCreds: mlCreds || null,
-        mlb_ids,
+        mlb_ids: ids,
         days,
         delayMs,
         accountKey,
         accountLabel,
         auditContext: auditContext && typeof auditContext === "object" ? auditContext : null,
         creditReservation,
+        operationId,
+        billingOperationKey,
       },
       {
         attempts: 1,
@@ -601,13 +742,11 @@ async function enqueuePrazoLookupActiveJob({
   maxItems = null,
   accountKey = null,
   accountLabel = null,
+  auditContext = null,
 }) {
   const queue = getQueue();
-  const creditReservation = await reserveCredits({
-    mlCreds,
-    operationKey: "production-time.lookup",
-    units: Math.max(1, Number(maxItems || 1)),
-  });
+  const operationId = `PRAZO-LOOKUP-${crypto.randomUUID()}`;
+  const billingOperationKey = productionTimeBillingOperationKey("lookup_active");
   let job;
   try {
     job = await queue.add(
@@ -618,7 +757,10 @@ async function enqueuePrazoLookupActiveJob({
         maxItems,
         accountKey,
         accountLabel,
-        creditReservation,
+        auditContext: auditContext && typeof auditContext === "object" ? auditContext : null,
+        creditReservation: null,
+        operationId,
+        billingOperationKey,
       },
       {
         attempts: 1,
@@ -627,10 +769,133 @@ async function enqueuePrazoLookupActiveJob({
       }
     );
   } catch (error) {
-    await settleCredits(creditReservation, { release: true });
     throw error;
   }
   return String(job.id);
+}
+
+async function consultPrazoWithCredits({
+  accessToken,
+  mlCreds = {},
+  mlbIds = [],
+  account = null,
+} = {}) {
+  const ids = Array.from(
+    new Set((Array.isArray(mlbIds) ? mlbIds : []).map(normMlb).filter(Boolean)),
+  );
+  if (!ids.length) throw new Error("Informe ao menos um MLB valido para consultar.");
+
+  const operationId = `PRAZO-LOOKUP-DIRECT-${crypto.randomUUID()}`;
+  const operationKey = productionTimeBillingOperationKey("lookup");
+  const creditReservation = await reserveCredits({
+    mlCreds,
+    account,
+    operationKey,
+    units: ids.length,
+    idempotencyKey: productionTimeBillingIdempotencyKey(operationId),
+  });
+
+  try {
+    const payload = await consultPrazoProducao({
+      accessToken,
+      mlCreds,
+      mlbIds: ids,
+    });
+    const billableUnits = Math.max(0, Number(payload?.found || 0));
+    await settleCredits(creditReservation, {
+      release: billableUnits <= 0,
+      consumedUnits: billableUnits > 0 ? billableUnits : null,
+    });
+    return {
+      ...payload,
+      billing_telemetry: {
+        billing_mode:
+          creditReservation?.shadow === true
+            ? "shadow"
+            : creditReservation?.bypass === true
+              ? "bypass"
+              : "enforce",
+        operation_key: operationKey,
+        operation_id: operationId,
+        selected: ids.length,
+        processed: Number(payload?.total || ids.length),
+        success: Number(payload?.found || 0),
+        failed: Number(payload?.errors || 0),
+        billable_units: billableUnits,
+        estimated_credits:
+          creditReservation?.quote?.estimated_credits ??
+          creditReservation?.reserved_credits ??
+          null,
+      },
+    };
+  } catch (error) {
+    await settleCredits(creditReservation, { release: true }).catch(() => {});
+    throw error;
+  }
+}
+
+async function previewPrazoCredits({
+  type = "apply",
+  mlbIds = [],
+  maxItems = null,
+  mlCreds = {},
+  account = null,
+} = {}) {
+  const operationKey = productionTimeBillingOperationKey(type);
+
+  if (type === "lookup_active") {
+    const max = Math.trunc(Number(maxItems || 0));
+    if (!Number.isFinite(max) || max <= 0) {
+      return {
+        operation_key: operationKey,
+        quantity: null,
+        estimated_credits: null,
+        available_credits: null,
+        sufficient: true,
+        unlimited: false,
+        deferred: true,
+      };
+    }
+    const quote = await quoteCredits({
+      mlCreds,
+      account,
+      operationKey,
+      units: max,
+    });
+    return {
+      operation_key: operationKey,
+      quantity: max,
+      estimated_credits: Number(quote?.estimated_credits || 0),
+      available_credits:
+        quote?.available_credits == null ? null : Number(quote.available_credits),
+      sufficient: quote?.sufficient !== false,
+      unlimited: quote?.unlimited === true,
+      deferred: false,
+      quote,
+    };
+  }
+
+  const ids = Array.from(
+    new Set((Array.isArray(mlbIds) ? mlbIds : []).map(normMlb).filter(Boolean)),
+  );
+  if (!ids.length) throw new Error("Nenhum anuncio informado para calcular o custo.");
+  const quote = await quoteCredits({
+    mlCreds,
+    account,
+    operationKey,
+    units: ids.length,
+  });
+  return {
+    operation_key: operationKey,
+    quantity: ids.length,
+    estimated_credits: Number(quote?.estimated_credits || 0),
+    available_credits:
+      quote?.available_credits == null ? null : Number(quote.available_credits),
+    sufficient: quote?.sufficient !== false,
+    unlimited: quote?.unlimited === true,
+    deferred: false,
+    quote,
+  };
 }
 
 async function getPrazoJobStatus(jobId, { accountKey = null } = {}) {
@@ -745,6 +1010,7 @@ async function mapPrazoJob(job, { includeRows = false } = {}) {
     completed: state === "completed" || state === "failed",
     account: buildPrazoAccount(job),
     result: returnValue,
+    billing_telemetry: productionTimeBillingTelemetry(job, meta),
   }, {
     basePath: "/anuncios/jobs-prazo",
     hasCsv: results.length > 0 || resultsCount > 0,
@@ -873,4 +1139,13 @@ module.exports = {
   getPrazoJobDetail,
   getPrazoJobCsv,
   cancelPrazoJob,
+  consultPrazoWithCredits,
+  previewPrazoCredits,
+  _test: {
+    productionTimeBillingOperationKey,
+    productionTimeBillingIdempotencyKey,
+    productionTimeBillableUnits,
+    productionTimeBillingTelemetry,
+    prazoAuditBase,
+  },
 };

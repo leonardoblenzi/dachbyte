@@ -18,6 +18,7 @@
   }
 
   const API_JOBS_CREATE = withBase("/api/analytics/filtro-anuncios/jobs");
+  const API_CREDITS_QUOTE = withBase("/api/analytics/filtro-anuncios/credits/quote");
   const API_JOBS_STATUS = (jobId) =>
     withBase(`/api/analytics/filtro-anuncios/jobs/${encodeURIComponent(jobId)}`);
   const API_JOBS_LIST = () =>
@@ -1383,6 +1384,55 @@
     syncSalesNoSalesAfterFromUI();
 
     const payload = buildFiltersPayload();
+
+    try {
+      const quoteResponse = await fetchWithTimeout(API_CREDITS_QUOTE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        timeout: TIMEOUT_MS,
+      });
+      const quote = await readJsonSafe(quoteResponse);
+      if (!quoteResponse.ok || quote?.ok === false) {
+        throw new Error(quote?.error || `HTTP ${quoteResponse.status}`);
+      }
+
+      if (quote?.unlimited !== true) {
+        const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+        const lines = [];
+        if (quote?.deferred === true) {
+          lines.push(
+            "O custo deste filtro sera definido depois que o sistema identificar quantos anuncios serao processados.",
+          );
+          if (Number(quote?.minimum_estimated_credits || 0) > 0) {
+            lines.push(
+              `Estimativa minima: ${fmt.format(Number(quote.minimum_estimated_credits))} credito(s).`,
+            );
+          }
+          lines.push(
+            `Peso desta consulta: ${Number(quote?.weight || 1)}x conforme os enriquecimentos selecionados.`,
+          );
+        } else if (Number.isFinite(Number(quote?.estimated_credits))) {
+          lines.push(
+            `Custo estimado: ${fmt.format(Number(quote.estimated_credits || 0))} credito(s).`,
+          );
+        }
+        if (quote?.available_credits != null) {
+          lines.push(
+            `Saldo disponivel: ${fmt.format(Number(quote.available_credits || 0))} credito(s).`,
+          );
+        }
+        if (lines.length) {
+          lines.push("Deseja continuar?");
+          if (!window.confirm(lines.join("\n\n"))) return null;
+        }
+      }
+    } catch (quoteError) {
+      console.warn(
+        "[filtro-anuncios] previa de creditos indisponivel; seguindo em shadow:",
+        quoteError?.message || quoteError,
+      );
+    }
 
     const r = await fetchWithTimeout(API_JOBS_CREATE, {
       method: "POST",

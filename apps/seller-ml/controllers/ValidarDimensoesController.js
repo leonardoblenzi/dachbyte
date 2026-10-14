@@ -2,6 +2,7 @@ const ValidarDimensoesService = require("../services/validarDimensoesService");
 const ValidarDimensoesJobService = require("../services/validarDimensoesJobService");
 const { attachJobReview } = require("../services/jobReviewHelper");
 const { attachJobContract } = require("../services/jobContract");
+const { recordSuccessfulChange } = require("../services/singleOperationGuardService");
 const {
   getRequestIp,
   getRequestUserAgent,
@@ -86,6 +87,13 @@ class ValidarDimensoesController {
         ...(forceOverwrite ? { forceOverwrite: true } : {}),
       });
 
+      if (result?.updated === true) {
+        await recordSuccessfulChange({
+          res,
+          operation: "dimensions.apply",
+        });
+      }
+
       await auditDimensoes(
         req,
         res,
@@ -117,6 +125,36 @@ class ValidarDimensoesController {
       return res.status(500).json({
         success: false,
         error: error?.message || "Erro ao validar dimensoes",
+        account: getAccountMeta(res),
+      });
+    }
+  }
+
+  static async quoteCredits(req, res) {
+    try {
+      const source =
+        String(req.body?.source || "").trim().toLowerCase() === "active_items"
+          ? "active_items"
+          : "manual_list";
+      const mode = ["analyze", "auto", "manual"].includes(
+        String(req.body?.mode || "").trim().toLowerCase(),
+      )
+        ? String(req.body.mode).trim().toLowerCase()
+        : "analyze";
+
+      const quote = await ValidarDimensoesJobService.previewCredits({
+        mlbs: req.body?.mlbs || [],
+        mode,
+        source,
+        mlCreds: getCreds(res),
+        account: res.locals?.account || null,
+      });
+
+      return res.json({ success: true, ...quote });
+    } catch (error) {
+      return res.status(error.statusCode || 400).json({
+        success: false,
+        error: error?.message || "Erro ao calcular custo de dimensoes",
         account: getAccountMeta(res),
       });
     }

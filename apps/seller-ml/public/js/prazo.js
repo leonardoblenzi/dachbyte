@@ -24,6 +24,7 @@ function withBase(path) {
   // ===== Config (agora alinhado com as rotas reais do backend)
   const API_LOOKUP = "/anuncios/prazo-producao/consultar";
   const API_LOOKUP_ACTIVE_JOB = "/anuncios/prazo-producao/consultar-ativos-job";
+  const API_CREDIT_QUOTE = "/anuncios/prazo-producao/credits/quote";
   const API_SINGLE = "/anuncio/prazo-producao";
   const API_BULK_LEGACY = "/anuncios/prazo-producao-lote"; // fallback sem painel
   const API_STATUS = (id) =>
@@ -220,6 +221,35 @@ function withBase(path) {
     return data;
   }
 
+  function confirmProductionTimeQuote(quote, { lookup = false } = {}) {
+    if (quote?.deferred === true) {
+      return window.confirm(
+        "A quantidade total de anúncios será conhecida após listar os ativos. " +
+        "O custo será calculado antes das consultas individuais. Deseja continuar?",
+      );
+    }
+
+    const estimated = Number(quote?.estimated_credits || 0);
+    const unlimited = quote?.unlimited === true;
+    if (unlimited || estimated <= 0) return true;
+
+    const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+    const lines = [
+      `${lookup ? "Consulta" : "Atualização"} de prazo para aproximadamente ${formatter.format(Number(quote?.quantity || 0))} anúncio(s).`,
+      `Custo estimado: ${formatter.format(estimated)} crédito(s).`,
+    ];
+    if (quote?.available_credits != null) {
+      lines.push(
+        `Saldo disponível: ${formatter.format(Number(quote.available_credits || 0))} crédito(s).`,
+      );
+    }
+    if (quote?.sufficient === false) {
+      lines.push("O saldo atual é menor que a estimativa informada.");
+    }
+    lines.push("Deseja continuar?");
+    return window.confirm(lines.join("\n\n"));
+  }
+
   function setActiveTab(tab) {
     const wanted = String(tab || "consultar");
     document.querySelectorAll("[data-pz-tab]").forEach((button) => {
@@ -385,6 +415,19 @@ function withBase(path) {
     }
 
     try {
+      try {
+        const quote = await postJson(API_CREDIT_QUOTE, {
+          type: "lookup",
+          mlb_ids: mlbs,
+        });
+        if (!confirmProductionTimeQuote(quote, { lookup: true })) return;
+      } catch (quoteError) {
+        console.warn(
+          "[prazo] prévia de créditos indisponível; seguindo em shadow:",
+          quoteError?.message || quoteError,
+        );
+      }
+
       box("info", `Consultando prazo de producao...\n\nItens: ${mlbs.length}`);
       const payload = await postJson(API_LOOKUP, { mlb_ids: mlbs });
       renderLookupStats(payload);
@@ -411,6 +454,19 @@ function withBase(path) {
     }
 
     try {
+      try {
+        const quote = await postJson(API_CREDIT_QUOTE, {
+          type: "lookup_active",
+          max_items: maxItems,
+        });
+        if (!confirmProductionTimeQuote(quote, { lookup: true })) return;
+      } catch (quoteError) {
+        console.warn(
+          "[prazo] prévia de créditos indisponível; seguindo em shadow:",
+          quoteError?.message || quoteError,
+        );
+      }
+
       box(
         "info",
         `Consulta enviada para o painel de processos.\n\nFonte: anuncios ativos da conta${maxItems ? `\nLimite: ${maxItems}` : "\nLimite: todos"}`

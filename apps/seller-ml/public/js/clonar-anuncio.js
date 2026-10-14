@@ -2854,6 +2854,37 @@
       return;
     }
 
+    try {
+      const quote = await request(
+        `/drafts/${state.currentDraft.id}/credits/quote`,
+        { method: "POST" },
+      );
+      if (quote?.already_published !== true && quote?.unlimited !== true) {
+        const estimated = Number(quote?.estimated_credits || 0);
+        if (estimated > 0) {
+          const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+          const lines = [
+            `Custo estimado para publicar este clone: ${fmt.format(estimated)} credito(s).`,
+          ];
+          if (quote?.available_credits != null) {
+            lines.push(
+              `Saldo disponivel: ${fmt.format(Number(quote.available_credits || 0))} credito(s).`,
+            );
+          }
+          if (quote?.sufficient === false) {
+            lines.push("O saldo atual e menor que a estimativa.");
+          }
+          lines.push("Deseja continuar com a publicacao?");
+          if (!window.confirm(lines.join("\n\n"))) return;
+        }
+      }
+    } catch (quoteError) {
+      console.warn(
+        "[clonar-anuncio] previa de creditos indisponivel; seguindo em shadow:",
+        quoteError?.message || quoteError,
+      );
+    }
+
     const publishButton = el.btnGoToPublish;
     setBusy(publishButton, true, "Publicando...");
     setFeedback("Publicacao iniciada. Aguarde o progresso...", "warn");

@@ -130,6 +130,13 @@ router.post(
   ModeloMassaController.preview,
 );
 router.post(
+  "/credits/quote",
+  requireModeloAccess,
+  express.json({ limit: "1mb" }),
+  ModeloMassaController.quoteCredits,
+);
+
+router.post(
   "/aplicar",
   requireModeloEdit,
   createAuditAction({

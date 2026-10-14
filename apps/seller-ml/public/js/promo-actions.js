@@ -558,6 +558,46 @@
             values: options,
           };
 
+      const quotePayload = {
+        action: "apply",
+        token: selectionToken || null,
+        promotion_id: state.selectedCard.id,
+        promotion_type: state.selectedCard.type,
+        promotion_name: campaignName,
+        status: filtroToStatusParam() || null,
+        percent_max: discountMax,
+        expected_total:
+          Number(expected_total || 0) > 0
+            ? Number(expected_total)
+            : hasPreparedIds
+              ? preparedIds.length
+              : 1,
+        selection_ids: hasPreparedIds ? preparedIds : null,
+        options,
+      };
+      const creditPreview = await global.PromoHttp?.postCreditQuote?.(quotePayload);
+      if (creditPreview?.ok) {
+        const confirmed = global.PromoHttp?.confirmCreditQuote?.(creditPreview, {
+          label: "aplicacao promocional",
+        });
+        if (confirmed === false) {
+          if (localJobId) {
+            global.JobsPanel?.updateLocalJob?.(localJobId, {
+              state: "cancelado antes de iniciar",
+              progress: 0,
+              completed: true,
+            });
+          }
+          window.notifyPromocoes("Aplicacao cancelada antes de criar o job.");
+          return false;
+        }
+      } else if (creditPreview) {
+        console.warn(
+          "[promo-actions] previa de creditos indisponivel; seguindo em shadow:",
+          creditPreview?.data?.error || creditPreview?.status,
+        );
+      }
+
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

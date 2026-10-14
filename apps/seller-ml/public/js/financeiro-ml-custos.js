@@ -525,6 +525,61 @@ window.FinanceiroMlCosts = (() => {
   async function startSync() {
     if (els.sync) els.sync.disabled = true;
     try {
+      try {
+        const quoteResponse = await fetch(
+          mlUrl("/api/financeiro-ml/costs/sync/credits/quote"),
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { accept: "application/json" },
+          },
+        );
+        const quote = await quoteResponse.json().catch(() => null);
+        if (!quoteResponse.ok || !quote?.success) {
+          throw new Error(quote?.error || "Falha ao calcular custo da sincronizacao.");
+        }
+
+        if (quote?.already_running === true) {
+          setStatus(
+            "Ja existe uma sincronizacao em andamento para esta conta. O job atual sera reutilizado sem nova reserva.",
+            "info",
+          );
+        } else if (quote?.unlimited !== true) {
+          const creditFmt = new Intl.NumberFormat("pt-BR", {
+            maximumFractionDigits: 2,
+          });
+          const lines = [
+            "A sincronizacao consulta anuncios relevantes e pedidos recentes do Mercado Livre.",
+          ];
+          if (quote?.deferred === true) {
+            lines.push(
+              "O custo exato sera calculado depois que o sistema descobrir o volume real desta conta.",
+            );
+            if (Number(quote?.minimum_estimated_credits || 0) > 0) {
+              lines.push(
+                `Estimativa minima: ${creditFmt.format(Number(quote.minimum_estimated_credits))} credito(s).`,
+              );
+            }
+          } else if (Number.isFinite(Number(quote?.estimated_credits))) {
+            lines.push(
+              `Custo estimado: ${creditFmt.format(Number(quote.estimated_credits || 0))} credito(s).`,
+            );
+          }
+          if (quote?.available_credits != null) {
+            lines.push(
+              `Saldo disponivel: ${creditFmt.format(Number(quote.available_credits || 0))} credito(s).`,
+            );
+          }
+          lines.push("Deseja iniciar a sincronizacao?");
+          if (!window.confirm(lines.join("\n\n"))) return;
+        }
+      } catch (quoteError) {
+        console.warn(
+          "[financeiro-ml] previa de creditos da sincronizacao indisponivel; seguindo em shadow:",
+          quoteError?.message || quoteError,
+        );
+      }
+
       setStatus("Iniciando sincronizacao dos SKUs relevantes...", "info");
       const response = await fetch(mlUrl("/api/financeiro-ml/costs/sync"), {
         method: "POST",

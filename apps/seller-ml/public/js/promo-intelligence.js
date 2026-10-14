@@ -410,16 +410,44 @@
     $("smartOptimizerReview")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }
 
-  function prepareOptimization() {
+  async function prepareOptimization() {
     if (!state.analysis || !state.selected.size) return;
     const count = state.selected.size;
     const selectedRows = (state.analysis.opportunities || []).filter((opp) => state.selected.has(String(opp.id)));
     const itemCount = new Set(selectedRows.map((opp) => String(opp.item_id || "").toUpperCase()).filter(Boolean)).size;
+    let creditText = "";
+
+    try {
+      const quote = await request("/api/promocoes/intelligence/smart/credits/quote", {
+        method: "POST",
+        body: JSON.stringify({
+          opportunity_ids: [...state.selected],
+        }),
+      });
+      if (quote?.unlimited === true) {
+        creditText = " Conta ilimitada/cortesia: sem débito de créditos.";
+      } else if (Number.isFinite(Number(quote?.estimated_credits))) {
+        const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+        creditText = ` Custo estimado: ${fmt.format(Number(quote.estimated_credits || 0))} crédito(s).`;
+        if (quote?.available_credits != null) {
+          creditText += ` Saldo: ${fmt.format(Number(quote.available_credits || 0))} crédito(s).`;
+        }
+        if (quote?.sufficient === false) {
+          creditText += " O saldo atual é menor que a estimativa.";
+        }
+      }
+    } catch (quoteError) {
+      console.warn(
+        "[promo-smart] prévia de créditos indisponível; seguindo em shadow:",
+        quoteError?.message || quoteError,
+      );
+    }
+
     if ($("smartOptimizerConfirmTitle")) {
       $("smartOptimizerConfirmTitle").textContent = `Otimizar ${count.toLocaleString("pt-BR")} Smart em ${itemCount.toLocaleString("pt-BR")} anúncio${itemCount === 1 ? "" : "s"}?`;
     }
     if ($("smartOptimizerConfirmText")) {
-      $("smartOptimizerConfirmText").textContent = `${count.toLocaleString("pt-BR")} Smart menos vantajosa${count === 1 ? " será" : "s serão"} removida${count === 1 ? "" : "s"} de ${itemCount.toLocaleString("pt-BR")} anúncio${itemCount === 1 ? "" : "s"}, somente se cada condição recomendada continuar equivalente e mais vantajosa no momento da execução.`;
+      $("smartOptimizerConfirmText").textContent = `${count.toLocaleString("pt-BR")} Smart menos vantajosa${count === 1 ? " será" : "s serão"} removida${count === 1 ? "" : "s"} de ${itemCount.toLocaleString("pt-BR")} anúncio${itemCount === 1 ? "" : "s"}, somente se cada condição recomendada continuar equivalente e mais vantajosa no momento da execução.${creditText}`;
     }
     $("smartOptimizerConfirm")?.classList.remove("hidden");
     setStep("optimize");

@@ -57,6 +57,8 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18"/><path d="M5 7v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7"/><path d="M9 12h6"/><path d="M4 4h16v3H4z"/></svg>',
     wallet:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14V7Z"/><path d="M18 13h2v4h-2a2 2 0 1 1 0-4Z"/><path d="M16 7V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2"/></svg>',
+    coins:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="7" rx="6" ry="3"/><path d="M6 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7"/><path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"/></svg>',
     operations:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l1 2h3v14H5V6h3l1-2Z"/><path d="M9 12l2 2 4-4"/><path d="M8 17h8"/></svg>',
     bell:
@@ -97,9 +99,9 @@
       hint: "Catálogo e monitoramento",
       icon: "box",
       items: [
-        { id: "consulta-anuncios", label: "Consulta de anúncios", path: "/filtro-anuncios", icon: "search" },
+        { id: "consulta-anuncios", label: "Consulta de anúncios", path: "/filtro-anuncios", icon: "search", credits: true },
         { id: "cadastro-anuncios", label: "Cadastro", path: "/anuncios/cadastro", icon: "edit" },
-        { id: "estoque-alerta", label: "Estoque", path: "/estoque", icon: "warning", badge: "BETA" },
+        { id: "estoque-alerta", label: "Estoque", path: "/estoque", icon: "warning", badge: "BETA", credits: true },
         { id: "ranking-anuncios", label: "Ranking", path: "/ranking-anuncios", icon: "chart" },
         { id: "full", label: "Full", path: "/full", icon: "box", badge: "BETA" },
         { id: "estrategicos", label: "Estratégicos", path: "/estrategicos", icon: "brain", badge: "BETA" },
@@ -111,12 +113,12 @@
       hint: "Execução, cadastro e lote",
       icon: "operations",
       items: [
-        { id: "excluir-massa", label: "Gestão de anúncios", path: "/gestao-anuncios", icon: "edit" },
-        { id: "modelo-massa", label: "Modelo em massa", path: "/modelo-massa", icon: "layers" },
-        { id: "caracteristicas", label: "Características", path: "/caracteristicas", icon: "edit", badge: "BETA" },
-        { id: "validar-dimensoes", label: "Validar dimensões", path: "/validar-dimensoes", icon: "ruler" },
-        { id: "prazo-producao", label: "Prazo de produção", path: "/prazo", icon: "clock" },
-        { id: "atacado", label: "Atacado", path: "/atacado", icon: "ticket" },
+        { id: "excluir-massa", label: "Gestão de anúncios", path: "/gestao-anuncios", icon: "edit", credits: true },
+        { id: "modelo-massa", label: "Modelo em massa", path: "/modelo-massa", icon: "layers", credits: true },
+        { id: "caracteristicas", label: "Características", path: "/caracteristicas", icon: "edit", badge: "BETA", credits: true },
+        { id: "validar-dimensoes", label: "Validar dimensões", path: "/validar-dimensoes", icon: "ruler", credits: true },
+        { id: "prazo-producao", label: "Prazo de produção", path: "/prazo", icon: "clock", credits: true },
+        { id: "atacado", label: "Atacado", path: "/atacado", icon: "ticket", credits: true },
       ],
     },
     {
@@ -134,8 +136,8 @@
       hint: "Campanhas e descontos",
       icon: "ticket",
       items: [
-        { id: "central-promocoes", label: "Criar promoções", path: "/criar-promocao", icon: "ticket" },
-        { id: "remover-promocoes", label: "Remover promoções", path: "/remover-promocao", icon: "trash" },
+        { id: "central-promocoes", label: "Criar promoções", path: "/criar-promocao", icon: "ticket", credits: true },
+        { id: "remover-promocoes", label: "Remover promoções", path: "/remover-promocao", icon: "trash", credits: true },
       ],
     },
     {
@@ -144,7 +146,7 @@
       hint: "Custos, margem e preço",
       icon: "wallet",
       items: [
-        { id: "financeiro-margem-ml", label: "Margem de venda", path: "/financeiro/margem-venda-mercado-livre", icon: "chart" },
+        { id: "financeiro-margem-ml", label: "Margem de venda", path: "/financeiro/margem-venda-mercado-livre", icon: "chart", credits: true },
       ],
     },
     {
@@ -355,9 +357,13 @@
           const badge = item.badge
             ? `<span class="ml-shell__item-badge">${escapeHtml(item.badge)}</span>`
             : "";
+          const creditMarker = item.credits === true
+            ? `<span class="ml-shell__credit-marker" title="Esta área possui ações que consomem créditos" aria-label="Esta área possui ações que consomem créditos">${makeIcon("coins")}</span>`
+            : "";
           return `
-            <a class="ml-shell__link ml-shell__child-link ${active ? "is-active" : ""}" href="${window.mlUrl(item.path)}" data-nav-item="${item.id}">
+            <a class="ml-shell__link ml-shell__child-link ${active ? "is-active" : ""}" href="${window.mlUrl(item.path)}" data-nav-item="${item.id}"${item.credits === true ? ' data-consumes-credits="true"' : ""}>
               <span class="ml-shell__label">${escapeHtml(item.label)}</span>
+              ${creditMarker}
               ${badge}
             </a>
           `;

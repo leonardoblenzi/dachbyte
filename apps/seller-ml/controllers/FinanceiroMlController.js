@@ -8,6 +8,7 @@ function context(req, res) {
   return {
     mlCreds: res.locals?.mlCreds || {},
     accountKey: res.locals?.accountKey || null,
+    account: res.locals?.account || null,
     userId: FinanceiroMlService.getUserId(req.user),
   };
 }
@@ -30,12 +31,27 @@ module.exports = {
     }
   },
 
+  async quoteSyncCostsCatalog(req, res) {
+    try {
+      const ctx = context(req, res);
+      const quote = await FinanceiroMlSkuCatalogSyncService.previewCredits({
+        accountKey: ctx.accountKey,
+        mlCreds: ctx.mlCreds,
+        account: ctx.account,
+      });
+      return res.json({ success: true, ...quote });
+    } catch (error) {
+      return handleError(res, error, "Falha ao calcular custo da sincronizacao de SKUs.");
+    }
+  },
+
   async syncCostsCatalog(req, res) {
     try {
       return res.json(
         await FinanceiroMlSkuCatalogSyncService.enqueue({
           ...context(req, res),
           userId: FinanceiroMlService.getUserId(req.user),
+          trigger: "manual",
         }),
       );
     } catch (error) {

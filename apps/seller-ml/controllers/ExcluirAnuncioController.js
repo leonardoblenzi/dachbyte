@@ -2,6 +2,7 @@
 const ExclusaoService = require('../services/excluirAnuncioService');
 const ExclusaoLoteJobService = require('../services/exclusaoLoteJobService');
 const { attachJobContract } = require('../services/jobContract');
+const { recordSuccessfulChange } = require('../services/singleOperationGuardService');
 const {
   getRequestIp,
   getRequestUserAgent,
@@ -68,6 +69,31 @@ class ExcluirAnuncioController {
     return 'listing_deleted_bulk_started';
   }
 
+  static async quoteCredits(req, res) {
+    try {
+      const operation = ExcluirAnuncioController.normalizeOperation(req.body?.operation || "DELETE");
+      if (!operation) {
+        return res.status(400).json({
+          success: false,
+          error: "Operacao invalida para calcular o custo.",
+        });
+      }
+      const quote = await ExclusaoLoteJobService.previewListingOperationCredits({
+        mlCreds: res.locals?.mlCreds || {},
+        account: res.locals?.account || null,
+        mlbIds: req.body?.mlb_ids || [],
+        operation,
+      });
+      return res.json({ success: true, ...quote });
+    } catch (error) {
+      return res.status(error.statusCode || error.status || 400).json({
+        success: false,
+        error: error.message || "Falha ao calcular custo da exclusao em massa.",
+        details: error.details || null,
+      });
+    }
+  }
+
   static async excluirUnico(req, res) {
     try {
       const mlbId = (req.params.mlb_id || req.body.mlb_id || '').trim().toUpperCase();
@@ -98,6 +124,13 @@ class ExcluirAnuncioController {
           },
         },
       );
+
+      if (resultado.success) {
+        await recordSuccessfulChange({
+          res,
+          operation: "listing.delete",
+        });
+      }
 
       const statusCode = resultado.success ? 200 : 400;
       return res.status(statusCode).json(resultado);

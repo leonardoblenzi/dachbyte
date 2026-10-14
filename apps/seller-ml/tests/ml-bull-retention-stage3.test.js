@@ -51,6 +51,8 @@ test("retencao cobre filas principais e fila de webhook", () => {
     "financeiro-ml-sku-catalog-sync",
     "Filtro Anuncios Export Queue v3",
     "promo-jobs",
+    "ml-atacado",
+    "ml-modelo-massa",
     "meli-webhook-notifications",
   ]) {
     assert.equal(names.includes(expected), true, expected);
