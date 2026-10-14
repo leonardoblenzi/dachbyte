@@ -14,12 +14,12 @@
   <link rel="stylesheet" href="/magalu/assets/css/magalu-account.css?v=2026092503">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-sku-management.css?v=2026101302">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-orders.css?v=2026100101">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-financial.css?v=2026092902">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-financial.css?v=2026101401">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-rich-workspaces.css?v=2026100702">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-post-review-fixes.css?v=2026092904">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-loading.css?v=2026092801">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-promotions.css?v=2026093001">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-margin-parity.css?v=2026100701">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-margin-parity.css?v=2026101401">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-cost-visual-parity.css?v=2026101303">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-canonical-ui.css?v=2026093001">
 </head>
@@ -455,7 +455,17 @@
           <section class="mg-section-card mg-ui-surface"><div class="mg-section-head"><div><h2>O que merece atenção</h2><p class="mg-section-copy">Alertas calculados sobre os pedidos filtrados com dados conhecidos.</p></div></div><div class="mg-margin-insights"><article class="mg-margin-insight" data-tone="danger"><span>Resultado conhecido negativo</span><strong id="mg-margin-negative">—</strong></article><article class="mg-margin-insight" data-tone="warning"><span>Pedidos com custo ausente</span><strong id="mg-margin-missing-orders">—</strong></article><article class="mg-margin-insight" data-tone="warning"><span>Margem conhecida ≤10%</span><strong id="mg-margin-low">—</strong></article><article class="mg-margin-insight"><span>Maior resultado conhecido</span><strong id="mg-margin-best">—</strong></article></div></section>
         </div>
 
-        <div class="mg-margin-panel mg-margin-result-panel" data-margin-panel="period" data-awaiting-filter="true" hidden><div class="mg-margin-filter-empty" role="status"><strong>Escolha o período e clique em Filtrar</strong><span>Os pedidos aparecerão com os filtros selecionados.</span></div><section class="mg-section-card mg-ui-surface"><div class="mg-section-head"><div><span class="mg-kicker">Pedidos</span><h2>Margem por período</h2><p class="mg-section-copy">Conciliação por pedido. Valores financeiros ausentes não são presumidos como zero.</p></div></div><div class="mg-table-wrap"><table class="mg-table mg-margin-period-table"><thead><tr><th>Pedido / Produto</th><th>Data</th><th>Modo de envio</th><th>GMV</th><th>Preço produto</th><th>CMV</th><th>Comissões Magalu</th><th title="Impacto do frete no repasse: crédito ou débito, não valor pago pelo comprador.">Frete</th><th>Cupons e descontos</th><th>Subsídios</th><th>Tarifas Magalu</th><th>Base imposto</th><th>Impostos</th><th>Resultado</th><th>Margem</th><th title="Valor por unidade usando as taxas efetivas observadas neste pedido; estimativa, não tabela oficial de tarifas.">Equilíbrio est./un.</th><th>Folga/un.</th><th>Status</th></tr></thead><tbody id="mg-financial-margin-body"></tbody></table></div><div class="mg-pagination"><button class="mg-secondary-btn" id="mg-margin-prev" type="button">← Anterior</button><span id="mg-margin-page">—</span><button class="mg-secondary-btn" id="mg-margin-next" type="button">Próxima →</button></div></section></div>
+        <div class="mg-margin-panel mg-margin-result-panel" data-margin-panel="period" data-awaiting-filter="true" hidden>
+          <div class="mg-margin-filter-empty" role="status"><strong>Escolha o período e clique em Filtrar</strong><span>Os pedidos aparecerão com os filtros selecionados.</span></div>
+          <section class="mg-section-card mg-ui-surface">
+            <div class="mg-section-head"><div><span class="mg-kicker">Pedidos</span><h2>Margem por período</h2><p class="mg-section-copy">Conciliação por pedido. Valores financeiros ausentes não são presumidos como zero.</p></div></div>
+            <div id="mg-financial-margin-body" class="mg-margin-period-list" role="list"></div>
+            <div class="mg-pagination"><button class="mg-secondary-btn" id="mg-margin-prev" type="button">← Anterior</button><span id="mg-margin-page">—</span><button class="mg-secondary-btn" id="mg-margin-next" type="button">Próxima →</button></div>
+          </section>
+        </div>
+        <section class="mg-orders-dialog mg-ui-modal" id="mg-margin-missing-cost-dialog" role="dialog" aria-modal="true" aria-labelledby="mg-margin-missing-cost-title" hidden>
+          <div class="mg-orders-dialog__card mg-ui-modal__dialog"><header class="mg-orders-dialog__head"><div><span class="mg-kicker">Pedido · custos</span><h2 id="mg-margin-missing-cost-title">Itens sem custo</h2></div><button class="mg-icon-btn" id="mg-margin-missing-cost-close" type="button" aria-label="Fechar">×</button></header><div id="mg-margin-missing-cost-list" class="mg-margin-missing-cost-list"></div></div>
+        </section>
 
         <div class="mg-margin-panel mg-margin-result-panel" data-margin-panel="equilibrium" data-awaiting-filter="true" hidden><div class="mg-margin-filter-empty" role="status"><strong>Escolha o período e clique em Filtrar</strong><span>As estimativas aparecerão com os filtros selecionados.</span></div><section class="mg-section-card mg-ui-surface"><div class="mg-section-head"><div><span class="mg-kicker">Preço atual</span><h2>Equilíbrio conhecido por SKU</h2><p class="mg-section-copy">Compara preço, custo e despesas cadastradas. Comissão, tarifa e frete Magalu não entram enquanto não houver fonte oficial.</p></div></div><div class="mg-table-wrap"><table class="mg-table"><thead><tr><th>SKU / Produto</th><th>Preço</th><th>Custo</th><th>Imposto</th><th>Equilíbrio conhecido</th><th>Margem conhecida</th><th>Situação</th></tr></thead><tbody id="mg-equilibrium-body"></tbody></table></div><div class="mg-pagination"><button class="mg-secondary-btn" id="mg-equilibrium-prev" type="button">← Anterior</button><span id="mg-equilibrium-page">—</span><button class="mg-secondary-btn" id="mg-equilibrium-next" type="button">Próxima →</button></div></section></div>
       </section>
@@ -512,7 +522,7 @@
         <script src="/magalu/assets/js/magalu-sku-management.js?v=2026101303"></script>
     <script src="/magalu/assets/js/magalu-orders.js?v=2026100101"></script>
 <script src="/magalu/assets/js/magalu-stock-price.js?v=2026092904"></script>
-    <script src="/magalu/assets/js/magalu-financial.js?v=2026101303"></script>
+    <script src="/magalu/assets/js/magalu-financial.js?v=2026101401"></script>
 <script src="/magalu/assets/js/magalu-promotions.js?v=2026093001"></script>
 </body>
 </html>

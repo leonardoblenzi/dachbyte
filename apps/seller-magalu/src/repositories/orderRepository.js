@@ -135,6 +135,12 @@ async function stats(accountId, days=30, offsetDays=0){
 async function knownChannels(accountId){const{rows}=await db.query(`select channel_id,count(*)::int uses from magalu.orders where account_id=$1 and channel_id is not null group by channel_id order by uses desc`,[Number(accountId)]);return rows;}
 async function getDelivery(accountId,remoteId){return db.queryOne(`select * from magalu.deliveries where account_id=$1 and remote_id=$2 limit 1`,[Number(accountId),text(remoteId,300)]);}
 
+async function ownedCodes(accountId,codes){
+  const {rows}=await db.query(`select code from magalu.orders where account_id=$1 and code=any($2::text[]) and is_present=true`,[Number(accountId),codes]);
+  const owned=new Set(rows.map(row=>String(row.code)));
+  return codes.filter(code=>owned.has(code));
+}
+
 async function accountSyncState(accountId){return db.queryOne(`select orders_sync_status,orders_last_synced_at,orders_last_error from magalu.accounts where id=$1`,[Number(accountId)]);}
 async function runs(accountId,limit=12){const{rows}=await db.query(`select id,sync_type,status,scanned_count,created_count,updated_count,failed_count,result,error_message,started_at,finished_at from magalu.sync_runs where account_id=$1 and sync_type like 'orders_%' order by started_at desc limit $2`,[Number(accountId),int(limit,1,50,12)]);return rows;}
-module.exports={upsertOrder,upsertDelivery,setSyncState,accountSyncState,listOrders,orderDetail,stats,knownChannels,getDelivery,runs,_test:{text,int,whereFor}};
+module.exports={upsertOrder,upsertDelivery,setSyncState,accountSyncState,listOrders,orderDetail,stats,knownChannels,getDelivery,ownedCodes,runs,_test:{text,int,whereFor}};

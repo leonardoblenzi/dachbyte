@@ -6,9 +6,27 @@
 @media(max-width:980px){.mg-financial-grid{grid-template-columns:1fr}.mg-financial-form{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.mg-financial-form,.mg-financial-result{grid-template-columns:1fr!important}.mg-financial-result h2{grid-column:auto}}
 .mg-app[data-theme="dark"] .mg-financial-note{background:linear-gradient(135deg,rgba(59,130,246,.14),rgba(139,92,246,.12))!important;border-color:#294d7b!important}
 
-/* A conciliação por pedido mantém a densidade do ML sem esmagar valores. */
-#mg-financial-margin-page .mg-margin-period-table{min-width:2100px!important}
-#mg-financial-margin-page .mg-margin-period-table th,#mg-financial-margin-page .mg-margin-period-table td{min-width:112px;white-space:nowrap!important}
-#mg-financial-margin-page .mg-margin-period-table th:first-child,#mg-financial-margin-page .mg-margin-period-table td:first-child{min-width:270px;position:sticky;left:0;z-index:2;background:var(--mg-surface)!important}
-#mg-financial-margin-page .mg-margin-period-table th:first-child{z-index:3;background:var(--mg-surface-soft)!important}
-#mg-financial-margin-page .mg-margin-period-product small{display:block;max-width:260px;overflow:hidden;text-overflow:ellipsis;color:var(--mg-muted);font-size:.69rem;margin-top:3px}
+/* Cada pedido ocupa a largura disponível; componentes financeiros ficam sob demanda. */
+#mg-financial-margin-page .mg-margin-panel,#mg-financial-margin-page .mg-section-card,#mg-financial-margin-page .mg-margin-period-list{min-width:0;max-width:100%}
+#mg-financial-margin-page .mg-margin-period-list{display:grid;gap:12px;container-type:inline-size}
+#mg-financial-margin-page .mg-margin-period-order{min-width:0;padding:16px;border:1px solid var(--mg-border);border-radius:16px;background:var(--mg-surface)}
+#mg-financial-margin-page .mg-margin-period-main{display:grid;grid-template-columns:minmax(180px,1.2fr) minmax(0,2.8fr);align-items:start;gap:18px;min-width:0}
+#mg-financial-margin-page .mg-margin-period-identity{display:grid;gap:4px;min-width:0}
+#mg-financial-margin-page .mg-margin-period-identity strong{font-size:.86rem;color:var(--mg-title);overflow-wrap:anywhere}
+#mg-financial-margin-page .mg-margin-period-identity span{font-size:.77rem;color:var(--mg-muted);overflow-wrap:anywhere}
+#mg-financial-margin-page .mg-margin-period-identity .mg-margin-period-note{color:var(--mg-warning);font-size:.68rem}
+#mg-financial-margin-page .mg-margin-period-primary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;min-width:0}
+#mg-financial-margin-page .mg-margin-period-metric{min-width:0}
+#mg-financial-margin-page .mg-margin-period-metric dt{margin:0 0 5px;color:var(--mg-muted);font-size:.65rem;font-weight:850;letter-spacing:.06em;text-transform:uppercase}
+#mg-financial-margin-page .mg-margin-period-metric dd{margin:0;color:var(--mg-title);font-size:.84rem;font-weight:800;overflow-wrap:anywhere}
+#mg-financial-margin-page .mg-margin-period-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#mg-financial-margin-page .mg-margin-period-actions:empty{display:none}
+#mg-financial-margin-page .mg-margin-period-actions .mg-margin-period-note{font-size:.7rem;color:var(--mg-warning);overflow-wrap:anywhere}
+#mg-financial-margin-page .mg-margin-period-details{min-width:0;margin-top:12px;border-top:1px solid var(--mg-border);padding-top:10px}
+#mg-financial-margin-page .mg-margin-period-details summary{width:max-content;max-width:100%;cursor:pointer;color:var(--mg-primary-strong);font-size:.76rem;font-weight:800}
+#mg-financial-margin-page .mg-margin-period-details summary:focus-visible{outline:2px solid var(--mg-primary);outline-offset:3px;border-radius:3px}
+#mg-financial-margin-page .mg-margin-period-details dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));gap:14px;margin:16px 0 0}
+#mg-margin-missing-cost-dialog .mg-margin-missing-cost-list{display:grid;gap:8px;padding:18px}
+#mg-margin-missing-cost-dialog .mg-margin-missing-cost-list button{text-align:left;white-space:normal;overflow-wrap:anywhere}
+@container (max-width:850px){#mg-financial-margin-page .mg-margin-period-main{grid-template-columns:1fr}#mg-financial-margin-page .mg-margin-period-primary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container (max-width:420px){#mg-financial-margin-page .mg-margin-period-order{padding:13px}#mg-financial-margin-page .mg-margin-period-primary{gap:14px 8px}}

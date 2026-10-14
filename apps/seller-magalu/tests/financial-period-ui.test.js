@@ -8,9 +8,10 @@ const root = path.resolve(__dirname, "..");
 const html = fs.readFileSync(path.join(root, "views/app.html"), "utf8");
 const client = fs.readFileSync(path.join(root, "public/js/magalu-financial.js"), "utf8");
 
-test("period table presents Magalu financial components without an operational column", () => {
-  const period = html.match(/data-margin-panel="period"[\s\S]*?<\/table>/)?.[0] || "";
-  for (const name of ["Produto", "Modo de envio", "Comissões Magalu", "Frete", "Cupons e descontos", "Subsídios", "Tarifas Magalu", "Resultado", "Margem", "Equilíbrio est./un.", "Folga/un."]) assert.ok(period.includes(name), name);
+test("compact period cards preserve Magalu financial components without an operational column", () => {
+  const period = html.match(/data-margin-panel="period"[\s\S]*?id="mg-margin-missing-cost-dialog"/)?.[0] || "";
+  assert.match(period, /mg-margin-period-list/);
+  for (const name of ["Modo de envio", "Comissões Magalu", "Frete", "Cupons e descontos", "Subsídios", "Tarifas Magalu", "Resultado", "Margem", "Equilíbrio est.\/un.", "Folga\/un."]) assert.ok(client.includes(name), name);
   assert.doesNotMatch(period, /<th>Operacional<\/th>/);
 });
 

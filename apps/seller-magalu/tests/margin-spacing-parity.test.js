@@ -14,12 +14,12 @@ test("Margem mantém a nota entre hero e filtros, como na hierarquia do ML", () 
   assert.match(margin, /mg-margin-filter-note/);
 });
 
-test("CSS dedicado preserva a grade compacta sem deslocar o stylesheet canônico", () => {
+test("CSS dedicado deixa os filtros quebrarem por largura sem deslocar o stylesheet canônico", () => {
   const html = read("views/app.html");
   assert.match(html, /magalu-margin-parity\.css[\s\S]*?magalu-canonical-ui\.css/);
   const css = read("public/css/magalu-margin-parity.css");
   assert.match(css, /\.mg-financial-page\s*\{/);
-  assert.match(css, /\.mg-financial-page \.mg-margin-filters\s*\{[^}]*grid-template-columns:\s*repeat\(11,/s);
+  assert.match(css, /\.mg-financial-page \.mg-margin-filters\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,/s);
   assert.match(css, /#mg-financial-margin-page \.mg-ui-hero h1\s*\{[^}]*font-size:\s*22px/s);
   assert.match(css, /@media\s*\(max-width:\s*1280px\)/);
 });

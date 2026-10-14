@@ -49,8 +49,9 @@
 }
 
 .mg-financial-page .mg-margin-filters {
-  grid-template-columns: repeat(11, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 10px;
+  min-width: 0;
 }
 
 #mg-financial-margin-page .mg-margin-field,
@@ -58,8 +59,9 @@
 #mg-financial-margin-page .mg-margin-field--search,
 #mg-financial-margin-page .mg-margin-field--range,
 #mg-financial-margin-page .mg-margin-field--equilibrium {
-  grid-column: span 1;
+  grid-column: auto;
   gap: 4px;
+  min-width: 0;
 }
 
 #mg-financial-margin-page .mg-margin-field span {
@@ -75,11 +77,14 @@
 }
 
 #mg-financial-margin-page .mg-margin-filter-actions {
-  grid-column: span 2;
+  grid-column: 1 / -1;
   gap: 6px;
+  min-width: 0;
+  justify-content: flex-end;
 }
 
 #mg-financial-margin-page .mg-margin-filter-actions .mg-secondary-btn { padding-inline: 10px; }
+#mg-financial-margin-page .mg-margin-filter-actions .mg-primary-btn { flex: 0 0 auto; min-width: 130px; }
 #mg-financial-margin-page .mg-margin-filter-note { display: none; }
 
 #mg-financial-margin-page .mg-margin-tabs {
@@ -100,34 +105,18 @@
 
 @media (max-width: 1280px) {
   #mg-financial-margin-page { width: 100%; margin-top: 12px; }
-  .mg-financial-page .mg-margin-filters { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  #mg-financial-margin-page .mg-margin-field,
-  #mg-financial-margin-page .mg-margin-field--date,
-  #mg-financial-margin-page .mg-margin-field--search,
-  #mg-financial-margin-page .mg-margin-field--range,
-  #mg-financial-margin-page .mg-margin-field--equilibrium { grid-column: span 2; }
-  #mg-financial-margin-page .mg-margin-filter-actions { grid-column: span 2; }
 }
 
 @media (max-width: 760px) {
   #mg-financial-margin-page .mg-rich-hero.mg-ui-hero { align-items: stretch; flex-direction: column; }
-  .mg-financial-page .mg-margin-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  #mg-financial-margin-page .mg-margin-field,
-  #mg-financial-margin-page .mg-margin-field--date,
-  #mg-financial-margin-page .mg-margin-field--search,
-  #mg-financial-margin-page .mg-margin-field--range,
-  #mg-financial-margin-page .mg-margin-field--equilibrium { grid-column: span 1; }
   #mg-financial-margin-page .mg-margin-field--search,
   #mg-financial-margin-page .mg-margin-field--equilibrium,
   #mg-financial-margin-page .mg-margin-filter-actions { grid-column: 1 / -1; }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 620px) {
   .mg-financial-page .mg-margin-filters { grid-template-columns: 1fr; }
   #mg-financial-margin-page .mg-margin-field,
-  #mg-financial-margin-page .mg-margin-field--date,
-  #mg-financial-margin-page .mg-margin-field--search,
-  #mg-financial-margin-page .mg-margin-field--range,
-  #mg-financial-margin-page .mg-margin-field--equilibrium,
   #mg-financial-margin-page .mg-margin-filter-actions { grid-column: 1; }
+  #mg-financial-margin-page .mg-margin-filter-actions .mg-primary-btn { flex: 1; min-width: 0; }
 }

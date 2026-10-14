@@ -1,6 +1,7 @@
 "use strict";
 
 const db = require("../config/postgres");
+const {enrichMarginRows}=require("../services/marginOrderPresentation");
 
 function int(value, min, max, fallback) {
   const n = Number.parseInt(String(value == null ? "" : value), 10);
@@ -241,11 +242,26 @@ async function marginOverview(accountId, options={}){
     select *,count(*) over()::int total_count
     from base ${whereSql}
     order by purchased_at desc nulls last,id desc limit $${li} offset $${oi}`,rowParams);
+  let enrichedRows=rows;
+  if(rows.length){
+    const ids=rows.map(row=>Number(row.id));
+    const [items,deliveries]=await Promise.all([
+      db.query(`select oi.order_id,oi.sku,oi.name,oi.quantity,c.unit_cost,coalesce(s.is_present,false) as catalog_present
+        from magalu.order_items oi left join magalu.sku_costs c on c.account_id=oi.account_id and c.sku=oi.sku
+        left join magalu.skus s on s.account_id=oi.account_id and s.sku=oi.sku
+        where oi.account_id=$1 and oi.order_id=any($2::bigint[]) order by oi.order_id,oi.id`,[Number(accountId),ids]),
+      db.query(`select d.order_id,di.sku,di.name,di.quantity
+        from magalu.deliveries d join magalu.delivery_items di on di.delivery_id=d.id and di.account_id=d.account_id
+        where d.account_id=$1 and d.order_id=any($2::bigint[]) and d.is_present=true
+        order by d.order_id,d.id,di.id`,[Number(accountId),ids])
+    ]);
+    enrichedRows=enrichMarginRows(rows,items.rows,deliveries.rows);
+  }
   const best=await db.queryOne(`${marginOrderCte()}
     select code,known_result,gmv from base ${whereSql}${whereSql?" and":" where"} result_complete=true
     order by known_result desc nulls last limit 1`,filtered.params);
 
-  return {from:start,to:end,summary:summary||{},best:best||null,rows,total:rows.length?Number(rows[0].total_count||0):0,page,limit,
+  return {from:start,to:end,summary:summary||{},best:best||null,rows:enrichedRows,total:rows.length?Number(rows[0].total_count||0):0,page,limit,
     limitations:{
       commission:true,platform_fees:true,seller_shipping:true,
       message:"Resultado conhecido inclui as transações financeiras recebidas do Magalu e considera somente pedidos com relatório financeiro e custo cadastrado. Pedidos sem qualquer uma dessas fontes permanecem incompletos. O imposto global cadastrado e os custos adicionais informados são abatidos separadamente."
