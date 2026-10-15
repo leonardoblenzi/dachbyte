@@ -803,6 +803,22 @@
   async function recoverActiveLoadJob() {
     let jobId = readPersistedActiveLoadJob();
 
+    if (jobId) {
+      try {
+        const payload = await fetchJson(
+          mlUrl(
+            `/api/atacado/jobs/${encodeURIComponent(jobId)}?include_results=0`,
+          ),
+        );
+        if (!isActiveLoadJobPayload(payload?.job)) {
+          throw new Error("stored_job_is_not_active_load");
+        }
+      } catch {
+        clearPersistedActiveLoadJob();
+        jobId = "";
+      }
+    }
+
     if (!jobId) {
       const jobs = await syncJobsPanel();
       const runningLoad = jobs.find(
