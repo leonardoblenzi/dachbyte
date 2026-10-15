@@ -151,6 +151,7 @@ function bypassReservation({ operationKey, credits, reason, idempotencyKey }) {
   };
 }
 
+// Legacy compatibility hint only. Credit authorization must come from Hub consumption_model/quote/wallet.
 function hasUnlimitedAccess(context = {}) {
   const status = String(context.status || "").trim().toLowerCase();
   const billingMode = String(context.billingMode || "").trim().toLowerCase();
