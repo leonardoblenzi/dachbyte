@@ -1,7 +1,8 @@
 "use strict";
 const accountRepository=require("../repositories/accountRepository");
 const analytics=require("../repositories/uxAnalyticsRepository");
-const financialAnalysis=require("../services/financialAnalysisSyncService");
+const marginFresh=require("../services/marginFreshSyncService");
+const {enqueueMarginRangeSync,getQueue,queueNames}=require("../queues/magaluQueue");
 const orderRepository=require("../repositories/orderRepository");
 const {reconcileOrder,reconcileDelivery}=require("../services/orderSyncService");
 const {identifyVisibleOrders}=require("../services/marginOrderIdentityService");
@@ -12,7 +13,22 @@ function fail(res,e){const status=Number(e?.status)||500;return res.status(statu
 async function stock(req,res){try{const a=await accountFor(req);return res.json({ok:true,...await analytics.stockAnalysis(a.id,req.query)});}catch(e){return fail(res,e);}}
 async function costs(req,res){try{const a=await accountFor(req);return res.json({ok:true,...await analytics.costOverview(a.id)});}catch(e){return fail(res,e);}}
 async function margins(req,res){try{const a=await accountFor(req);return res.json({ok:true,...await analytics.marginOverview(a.id,req.query)});}catch(e){return fail(res,e);}}
-async function syncMargins(req,res){try{const a=await accountFor(req);return res.json({ok:true,...await financialAnalysis.syncRange(a,{from:req.body?.from,to:req.body?.to})});}catch(e){return fail(res,e);}}
+async function syncMargins(req,res){try{
+  const a=await accountFor(req),from=req.body?.from,to=req.body?.to;
+  marginFresh.validate(a,from,to);
+  const job=await enqueueMarginRangeSync(a.id,{from,to,dachTenantId:a.dach_tenant_id});
+  return res.status(202).json({ok:true,job_id:job.id,scheduled:job.scheduled});
+}catch(e){return fail(res,e);}}
+async function marginSyncStatus(req,res){try{
+  const a=await accountFor(req);
+  const job=await (await getQueue(queueNames.ordersSync)).getJob(String(req.params.jobId||""));
+  if(!job||job.name!=="margin-range-sync"||Number(job.data.accountId)!==Number(a.id)||String(job.data.dachTenantId)!==String(a.dach_tenant_id)){
+    return res.status(404).json({ok:false,error:"MAGALU_MARGIN_JOB_NOT_FOUND",message:"Consulta de margem não encontrada para esta conta."});
+  }
+  const state=await job.getState();
+  return res.json({ok:true,state,progress:job.progress||null,fresh_since:state==="completed"&&job.processedOn?new Date(job.processedOn).toISOString():null,result:state==="completed"?job.returnvalue||null:null,
+    error:state==="failed"?String(job.failedReason||"Falha na consulta.").slice(0,300):null});
+}catch(e){return fail(res,e);}}
 async function identifyMarginOrders(req,res){try{
   const a=await accountFor(req);
   const codes=req.body?.codes;
@@ -43,4 +59,4 @@ async function identifyMarginOrders(req,res){try{
   return res.json({ok:true,rows});
 }catch(e){return fail(res,e);}}
 async function equilibrium(req,res){try{const a=await accountFor(req);return res.json({ok:true,...await analytics.equilibrium(a.id,req.query)});}catch(e){return fail(res,e);}}
-module.exports={stock,costs,margins,syncMargins,identifyMarginOrders,equilibrium,_test:{int}};
+module.exports={stock,costs,margins,syncMargins,marginSyncStatus,identifyMarginOrders,equilibrium,_test:{int}};

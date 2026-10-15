@@ -132,18 +132,52 @@ async function costOverview(accountId){
   return {summary:summary||{},ranking:rows};
 }
 
-function marginOrderCte(){return `with item_costs as (
-  select o.id as order_id,
-    count(oi.id)::int as synced_item_rows,
-    coalesce(sum(case when c.unit_cost is not null then c.unit_cost*coalesce(oi.quantity,0) else 0 end),0)::numeric as product_cost,
-    coalesce(sum(case when c.unit_cost is not null then coalesce(oi.amount_total::numeric,oi.unit_price::numeric*coalesce(oi.quantity,0))/nullif(oi.amount_normalizer,0) else 0 end),0)::numeric as tax_base,
-    coalesce(sum(case when c.unit_cost is not null then (coalesce(oi.amount_total::numeric,oi.unit_price::numeric*coalesce(oi.quantity,0))/nullif(oi.amount_normalizer,0))*coalesce(nullif(f.aliquota,0),c.tax_rate,0)/100 else 0 end),0)::numeric as taxes,
-    coalesce(sum(case when c.unit_cost is not null then (coalesce(c.packaging_cost,0)+coalesce(c.operational_cost,0)+coalesce(c.other_cost,0))*coalesce(oi.quantity,0) else 0 end),0)::numeric as operating_costs,
-    count(*) filter(where oi.id is not null and c.unit_cost is null)::int as missing_cost_rows,
-    coalesce(sum(oi.quantity),0)::numeric as units
-  from magalu.orders o
-  left join magalu.order_items oi on oi.order_id=o.id and oi.account_id=o.account_id
-  left join magalu.sku_costs c on c.account_id=oi.account_id and c.sku=oi.sku
+function marginOrderCte(){return `with source_items as (
+  select oi.id,oi.order_id,oi.account_id,oi.sku,oi.name,oi.quantity,oi.amount_total,oi.unit_price,oi.amount_normalizer,'order'::text as source_kind
+  from magalu.order_items oi join magalu.orders o on o.id=oi.order_id and o.account_id=oi.account_id
+  where o.account_id=$1 and o.is_present=true and o.purchased_at >= $2::date and o.purchased_at < ($3::date + interval '1 day')
+  union all
+  select di.id,d.order_id,di.account_id,di.sku,di.name,di.quantity,di.amount_total,di.unit_price,di.amount_normalizer,'delivery'::text as source_kind
+  from magalu.delivery_items di join magalu.deliveries d on d.id=di.delivery_id and di.account_id=d.account_id
+  join magalu.orders o on o.id=d.order_id and o.account_id=d.account_id
+  where o.account_id=$1 and o.is_present=true and o.purchased_at >= $2::date and o.purchased_at < ($3::date + interval '1 day')
+    and d.is_present=true and lower(coalesce(d.status,'')) not in ('cancelled','canceled')
+    and not exists (select 1 from magalu.order_items oi where oi.order_id=o.id and oi.account_id=o.account_id)
+), delivery_counts as (
+  select d.id,d.order_id,d.item_count as expected_items,count(di.id)::int as actual_items,
+    count(*) filter(where di.id is null or di.sku is null or di.quantity is null or di.quantity<=0
+      or (di.amount_total is null and di.unit_price is null))::int as invalid_items
+  from magalu.deliveries d join magalu.orders o on o.id=d.order_id and o.account_id=d.account_id
+  left join magalu.delivery_items di on di.delivery_id=d.id and di.account_id=d.account_id
+  where o.account_id=$1 and o.is_present=true and o.purchased_at >= $2::date and o.purchased_at < ($3::date + interval '1 day')
+    and d.is_present=true and lower(coalesce(d.status,'')) not in ('cancelled','canceled')
+  group by d.id
+), delivery_coverage as (
+  select order_id,count(*)::int as deliveries,sum(expected_items)::int as expected_items,
+    sum(actual_items)::int as actual_items,
+    sum(invalid_items)::int+count(*) filter(where expected_items<=0)::int as invalid_items
+  from delivery_counts group by order_id
+), duplicate_delivery_items as (
+  select order_id,count(*)::int as duplicates from (
+    select d.order_id,coalesce(nullif(di.remote_item_id,''),di.item_key) as item_identity
+    from magalu.deliveries d join magalu.delivery_items di on di.delivery_id=d.id and di.account_id=d.account_id
+    join magalu.orders o on o.id=d.order_id and o.account_id=d.account_id
+    where d.account_id=$1 and o.purchased_at >= $2::date and o.purchased_at < ($3::date + interval '1 day')
+      and d.is_present=true and lower(coalesce(d.status,'')) not in ('cancelled','canceled')
+    group by d.order_id,coalesce(nullif(di.remote_item_id,''),di.item_key)
+    having count(distinct d.id)>1
+  ) collisions group by order_id
+), item_costs as (
+  select o.id as order_id,count(si.id)::int as synced_item_rows,max(si.source_kind) as source_kind,
+    coalesce(sum(case when c.unit_cost is not null then c.unit_cost*coalesce(si.quantity,0) else 0 end),0)::numeric as product_cost,
+    coalesce(sum(case when c.unit_cost is not null then coalesce(si.amount_total::numeric,si.unit_price::numeric*coalesce(si.quantity,0))/nullif(si.amount_normalizer,0) else 0 end),0)::numeric as tax_base,
+    coalesce(sum(case when c.unit_cost is not null then (coalesce(si.amount_total::numeric,si.unit_price::numeric*coalesce(si.quantity,0))/nullif(si.amount_normalizer,0))*coalesce(nullif(f.aliquota,0),c.tax_rate,0)/100 else 0 end),0)::numeric as taxes,
+    coalesce(sum(case when c.unit_cost is not null then (coalesce(c.packaging_cost,0)+coalesce(c.operational_cost,0)+coalesce(c.other_cost,0))*coalesce(si.quantity,0) else 0 end),0)::numeric as operating_costs,
+    count(*) filter(where si.id is not null and (c.unit_cost is null or si.sku is null or si.quantity is null or si.quantity<=0
+      or (si.amount_total is null and si.unit_price is null) or coalesce(si.amount_normalizer,0)<=0))::int as missing_cost_rows,
+    coalesce(sum(si.quantity),0)::numeric as units
+  from magalu.orders o left join source_items si on si.order_id=o.id and si.account_id=o.account_id
+  left join magalu.sku_costs c on c.account_id=si.account_id and c.sku=si.sku
   left join magalu.finance_settings f on f.account_id=o.account_id
   where o.account_id=$1 and o.is_present=true
     and o.purchased_at >= $2::date and o.purchased_at < ($3::date + interval '1 day')
@@ -156,23 +190,26 @@ function marginOrderCte(){return `with item_costs as (
     coalesce(ic.tax_base,0)::numeric as tax_base,
     coalesce(ic.taxes,0)::numeric as taxes,
     coalesce(ic.operating_costs,0)::numeric as operating_costs,
-    (fr.order_code is not null and fr.transaction_count>0) as financial_report_present,
+    (fr.order_code is not null and fr.transaction_count>0 and ($4::timestamptz is null or fr.fetched_at >= $4::timestamptz)) as financial_report_present,
     fr.fetched_at as financial_fetched_at,
     fr.sale as sale,fr.commission as commission,fr.fees as fees,fr.shipping_net as shipping_net,
     fr.promotion_net as promotion_net,fr.subsidy as subsidy,fr.discount_net as discount_net,
     fr.refund_net as refund_net,fr.other_net as other_net,fr.net_receivable as net_receivable,
     d.shipping_name,d.shipping_type,d.is_fulfillment,
-    (coalesce(ic.missing_cost_rows,0)
-      + greatest(coalesce(o.item_count,0)-coalesce(ic.synced_item_rows,0),
-          case when coalesce(ic.synced_item_rows,0)=0 then 1 else 0 end))::int as missing_cost_items,
+    (coalesce(ic.missing_cost_rows,0) + case
+      when ic.source_kind='order' then greatest(coalesce(o.item_count,0)-coalesce(ic.synced_item_rows,0),0)
+      when ic.source_kind='delivery' and dc.deliveries>0 and dc.expected_items=dc.actual_items and o.item_count>0 and o.item_count=dc.actual_items and dc.invalid_items=0 and coalesce(dup.duplicates,0)=0 then 0
+      else 1 end)::int as missing_cost_items,
     coalesce(ic.units,0)::numeric as units
   from magalu.orders o left join item_costs ic on ic.order_id=o.id
+  left join delivery_coverage dc on dc.order_id=o.id
+  left join duplicate_delivery_items dup on dup.order_id=o.id
   left join magalu.order_financial_reports fr on fr.account_id=o.account_id and fr.order_code=o.code
   left join lateral (select shipping_name,shipping_type,is_fulfillment from magalu.deliveries d
     where d.account_id=o.account_id and d.order_code=o.code and d.is_present=true
     order by d.updated_at desc limit 1) d on true
-  left join lateral (select sku,name from magalu.order_items oi where oi.order_id=o.id
-    order by oi.id limit 1) oi_first on true
+  left join lateral (select sku,name from source_items si where si.order_id=o.id
+    order by si.id limit 1) oi_first on true
   where o.account_id=$1 and o.is_present=true
     and o.purchased_at >= $2::date and o.purchased_at < ($3::date + interval '1 day')
     and lower(coalesce(o.status,'')) not in ('cancelled','canceled')
@@ -193,7 +230,8 @@ function marginFilters(options, start, end) {
   const marginState=["negative","attention","healthy","unknown"].includes(options.margin_state) ? options.margin_state : "";
   let marginMin=decimal(options.margin_min), marginMax=decimal(options.margin_max);
   if (marginMin != null && marginMax != null && marginMin > marginMax) [marginMin,marginMax]=[marginMax,marginMin];
-  const params=[Number(options.accountId),start,end], where=[];
+  const freshSince=typeof options.fresh_since==="string"&&/^\d{4}-\d\d-\d\dT/.test(options.fresh_since)&&Number.isFinite(Date.parse(options.fresh_since))?options.fresh_since:null;
+  const params=[Number(options.accountId),start,end,freshSince], where=[];
   if(status){params.push(status);where.push(`lower(coalesce(status,''))=$${params.length}`);}
   if(q){params.push(`%${q}%`);where.push(`(lower(code) like $${params.length} or exists(
     select 1 from magalu.order_items oi where oi.order_id=base.id
@@ -295,4 +333,4 @@ async function equilibrium(accountId,options={}){
     limitations:{message:"Equilíbrio conhecido considera custo cadastrado, imposto informado e custos operacionais. Comissão, tarifa e frete Magalu não estão incluídos."}};
 }
 
-module.exports={stockAnalysis,costOverview,marginOverview,equilibrium,_test:{int,decimal,text,isoDate,marginFilters}};
+module.exports={stockAnalysis,costOverview,marginOverview,equilibrium,_test:{int,decimal,text,isoDate,marginFilters,marginOrderCte}};

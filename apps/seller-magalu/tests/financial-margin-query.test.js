@@ -16,7 +16,7 @@ test("period margin requires both registered costs and a financial snapshot", ()
 });
 
 test("unknown financial data never becomes a zero-valued reconciled result", () => {
-  assert.match(source, /\(fr\.order_code is not null and fr\.transaction_count>0\) as financial_report_present/);
+  assert.match(source, /\(fr\.order_code is not null and fr\.transaction_count>0 and \(\$4::timestamptz is null or fr\.fetched_at >= \$4::timestamptz\)\) as financial_report_present/);
   assert.match(source, /case when missing_cost_items=0 and financial_report_present then/);
 });
 

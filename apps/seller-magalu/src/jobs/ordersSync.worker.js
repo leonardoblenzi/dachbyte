@@ -5,6 +5,8 @@ const { ensureRedisConnected } = require("../config/redis");
 const queueNames = require("../config/queueNames");
 const accountRepository = require("../repositories/accountRepository");
 const { fullOrderSync, reconcileOrder, reconcileDelivery } = require("../services/orderSyncService");
+const { syncRange } = require("../services/financialAnalysisSyncService");
+const { runMarginFreshSync } = require("../services/marginFreshSyncService");
 const { recordBestEffort, errorDetails } = require("../services/auditService");
 
 let worker=null;
@@ -14,6 +16,16 @@ async function processOrdersJob(job){
   if(job.data.dachTenantId&&String(account.dach_tenant_id)!==String(job.data.dachTenantId)){const e=new Error("Tenant DACH divergente no job de pedidos Magalu.");e.code="MAGALU_ORDERS_TENANT_MISMATCH";throw e;}
   const base={source:"worker",accountId:account.id,dachTenantId:account.dach_tenant_id,magaluTenantId:account.magalu_tenant_id};
   try{
+    if(job.name==="margin-range-sync"){
+      await recordBestEffort({...base,eventKey:"margin_fresh_sync_started",details:{job_id:job.id||null,from:job.data.from,to:job.data.to,read_only:true}});
+      const result=await runMarginFreshSync({account,from:job.data.from,to:job.data.to,
+        orders:(accountId,options)=>fullOrderSync(accountId,{...options,reason:"margin_filter",jobId:job.id}),
+        finance:syncRange,
+        progress:stage=>job.updateProgress(stage),
+      });
+      await recordBestEffort({...base,eventKey:"margin_fresh_sync_completed",details:{job_id:job.id||null,...result,read_only:true}});
+      return result;
+    }
     if(job.name==="full-sync"){
       await recordBestEffort({...base,eventKey:"orders_sync_started",details:{job_id:job.id||null,reason:job.data.reason||"queue",read_only:true}});
       const result=await fullOrderSync(account.id,{reason:job.data.reason||"queue",jobId:job.id});

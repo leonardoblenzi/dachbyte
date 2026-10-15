@@ -20,7 +20,7 @@ test("period financial data loads only when the user applies filters", () => {
   assert.match(client, /financial_report_present/);
   assert.match(client, /Sem relatório financeiro/);
   assert.match(client, /money\(r\.tax_base\)/);
-  assert.match(client, /async function applyMarginFilters\(\)\{if\(!selectedGuard\(\)\)return;/);
+  assert.match(client, /async function applyMarginFilters\(\)\{\s*if\(!selectedGuard\(\)\)return;/);
   assert.match(client, /loading:"none"/);
   assert.match(client, /async function ux\(path\)\{return shell\(\)\.fetchJson\(`\/magalu\/api\/ux-analytics\$\{path\}`,\{loading:"none"\}\);\}/);
 });

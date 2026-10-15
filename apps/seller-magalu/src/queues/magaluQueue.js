@@ -4,6 +4,7 @@ const crypto = require("node:crypto");
 const { Queue } = require("bullmq");
 const { ensureRedisConnected } = require("../config/redis");
 const queueNames = require("../config/queueNames");
+const { jobKey } = require("../services/marginFreshSyncService");
 
 const queues = new Map();
 async function getQueue(name) {
@@ -39,9 +40,22 @@ async function ensureSkuRetentionSchedule(){
   return q.add("retention",{reason:"scheduled"},{jobId:"magalu-sku-retention-daily",repeat:{pattern:"7 4 * * *",tz:"America/Sao_Paulo"},...opts});
 }
 async function enqueueOrdersSync(accountId,{dachTenantId=null,dachUserId=null,reason="manual"}={}){const id=Number(accountId);if(!Number.isFinite(id)||id<=0)throw new Error("accountId inválido para sync de pedidos Magalu.");const q=await getQueue(queueNames.ordersSync);return q.add("full-sync",{accountId:id,dachTenantId:dachTenantId||null,dachUserId:dachUserId||null,reason},{jobId:`magalu-orders-full-${id}-${crypto.randomUUID()}`,attempts:3,backoff:{type:"exponential",delay:10000},removeOnComplete:300,removeOnFail:1000});}
+async function enqueueMarginRangeSync(accountId,{from,to,dachTenantId=null}={}){
+  const id=Number(accountId),jobId=jobKey(id,from,to);
+  if(!Number.isSafeInteger(id)||id<=0)throw new Error("accountId inválido para margem Magalu.");
+  const q=await getQueue(queueNames.ordersSync),redis=await ensureRedisConnected(),lockKey=`magalu:margin:enqueue:${jobId}`,token=crypto.randomUUID();
+  const reserved=await redis.set(lockKey,token,"PX",30000,"NX");
+  if(reserved!=="OK")return {id:jobId,scheduled:false};
+  try{
+    const existing=await q.getJob(jobId);
+    if(existing){const state=await existing.getState();if(["waiting","active","delayed","prioritized"].includes(state))return {id:jobId,scheduled:false};await existing.remove();}
+    const job=await q.add("margin-range-sync",{accountId:id,from,to,dachTenantId:dachTenantId||null},{jobId,attempts:2,backoff:{type:"exponential",delay:10000},removeOnComplete:300,removeOnFail:300});
+    return {id:job.id,scheduled:true};
+  }finally{await redis.eval("if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0",1,lockKey,token).catch(()=>{});}
+}
 async function enqueueOrderReconcile(accountId,code,{dachTenantId=null,dachUserId=null,reason="manual"}={}){const id=Number(accountId),orderCode=String(code||"").trim();if(!Number.isFinite(id)||id<=0||!orderCode)throw new Error("Conta/código inválidos para reconciliação de pedido Magalu.");const q=await getQueue(queueNames.ordersSync);return q.add("reconcile-order",{accountId:id,code:orderCode,dachTenantId:dachTenantId||null,dachUserId:dachUserId||null,reason},{jobId:`magalu-order-reconcile-${id}-${crypto.randomUUID()}`,attempts:3,backoff:{type:"exponential",delay:5000},removeOnComplete:500,removeOnFail:1000});}
 async function enqueueDeliveryReconcile(accountId,deliveryId,{dachTenantId=null,dachUserId=null,reason="orders_delivery"}={}){const id=Number(accountId),remoteId=String(deliveryId||"").trim();if(!Number.isFinite(id)||id<=0||!remoteId)throw new Error("Conta/entrega inválidas para reconciliação Magalu.");const q=await getQueue(queueNames.ordersSync);return q.add("reconcile-delivery",{accountId:id,deliveryId:remoteId,dachTenantId:dachTenantId||null,dachUserId:dachUserId||null,reason},{jobId:`magalu-delivery-reconcile-${id}-${crypto.randomUUID()}`,attempts:3,backoff:{type:"exponential",delay:5000},removeOnComplete:500,removeOnFail:1000});}
 async function enqueueDeliveryWriteOperation(operation,{reason="apply"}={}){const id=Number(operation?.id);if(!Number.isFinite(id)||id<=0)throw new Error("Operação de entrega inválida para fila.");const q=await getQueue(queueNames.deliveryWrite);return q.add(reason==="reverify"?"verify":"apply",{operationId:id,reason},{jobId:`magalu-delivery-write-${id}-${reason}-${crypto.randomUUID()}`,attempts:3,backoff:{type:"exponential",delay:5000},removeOnComplete:500,removeOnFail:1000});}
 async function ensureDeliveryWriteRetentionSchedule(){const q=await getQueue(queueNames.deliveryWrite);const opts={attempts:2,backoff:{type:"exponential",delay:30000},removeOnComplete:50,removeOnFail:100};if(typeof q.upsertJobScheduler==="function")return q.upsertJobScheduler("magalu-delivery-write-retention-daily",{pattern:"37 4 * * *",tz:"America/Sao_Paulo"},{name:"retention",data:{reason:"scheduled"},opts});return q.add("retention",{reason:"scheduled"},{jobId:"magalu-delivery-write-retention-daily",repeat:{pattern:"37 4 * * *",tz:"America/Sao_Paulo"},...opts});}
 async function closeQueues(){await Promise.all([...queues.values()].map(q=>q.close().catch(()=>{})));queues.clear();}
-module.exports={getQueue,enqueueWebhookEvent,enqueueTokenRefresh,enqueueCatalogSync,enqueueHubResourceSync,enqueueCatalogReconcile,enqueueWriteOperation,enqueueAuditMaintenance,ensureAuditMaintenanceSchedule,enqueueSkuMassItems,enqueueSkuMassReverify,ensureSkuRetentionSchedule,enqueueOrdersSync,enqueueOrderReconcile,enqueueDeliveryReconcile,enqueueDeliveryWriteOperation,ensureDeliveryWriteRetentionSchedule,closeQueues,queueNames};
+module.exports={getQueue,enqueueWebhookEvent,enqueueTokenRefresh,enqueueCatalogSync,enqueueHubResourceSync,enqueueCatalogReconcile,enqueueWriteOperation,enqueueAuditMaintenance,ensureAuditMaintenanceSchedule,enqueueSkuMassItems,enqueueSkuMassReverify,ensureSkuRetentionSchedule,enqueueOrdersSync,enqueueMarginRangeSync,enqueueOrderReconcile,enqueueDeliveryReconcile,enqueueDeliveryWriteOperation,ensureDeliveryWriteRetentionSchedule,closeQueues,queueNames};

@@ -28,7 +28,7 @@ function bootMargin() {
     route: () => "/margem",
     getSelectedAccountId: () => 1,
     isReady: () => true,
-    fetchJson: async (url) => { requests.push(url); return { summary: {}, rows: [], total: 0 }; },
+    fetchJson: async (url) => { requests.push(url); if (url.includes("/margins/sync/")) return { state: "completed", fresh_since: "2026-10-15T12:00:00.000Z" }; if (url.includes("/margins/sync?")) return { job_id: "test-job" }; return { summary: {}, rows: [], total: 0 }; },
     showAlert() {},
   };
   const context = { document, window: { MagaluSellerShell: shell, addEventListener: (name, callback) => windowEvents.set(name, callback) }, location: { href: "https://example.test/magalu/margem", search: "" }, history: { pushState() {} }, URL, URLSearchParams, Intl, Date, Map, Number, String, Math, Promise, setTimeout, clearTimeout };
@@ -72,8 +72,9 @@ test("trocar de conta volta ao estado sem resultados até novo filtro", async ()
   await settle();
   assert.equal(page.panels.find((panel) => panel.dataset.marginPanel === "summary").dataset.awaitingFilter, "true");
   assert.equal(page.panels.find((panel) => panel.dataset.marginPanel === "equilibrium").dataset.awaitingFilter, "true");
-  assert.equal(page.requests.length, 3);
+  assert.equal(page.requests.length, 4);
   assert.equal(page.requests.filter((url) => url.includes("/margins/sync?")).length, 1);
+  assert.equal(page.requests.filter((url) => url.includes("/margins/sync/test-job?")).length, 1);
 });
 
 test("Resumo usa a ordem de blocos da referência sem inventar comissão ou marketing", () => {
