@@ -7,7 +7,7 @@ const { makeBullClient } = require("../lib/redisClient");
 const TokenService = require("./tokenService");
 const CatalogBilling = require("./financeiroMlCatalogSyncBillingService");
 const { normalizeAttributes } = require("./meliBulk");
-const { successfulBodies, assertDetailsAvailable } = require("./financeiroMlCatalogBulk");
+const { successfulBodies, assertCompleteDetails } = require("./financeiroMlCatalogBulk");
 
 const ML_API_BASE = "https://api.mercadolibre.com";
 const QUEUE_NAME = "financeiro-ml-sku-catalog-sync";
@@ -675,10 +675,10 @@ async function processSyncJob(job) {
     const manualReferences = await getManualSkuReferenceMap(accountKey, ids);
     const rows = [];
     let noSkuItems = 0;
-    let detailsRead = 0;
+    const detailIds = [];
     for (let i = 0; i < ids.length; i += 20) {
       const details = await fetchItemDetails(state, ids.slice(i, i + 20));
-      detailsRead += details.length;
+      detailIds.push(...details.map((item) => item.id));
       for (const item of details) {
         const extracted = extractCatalogRows(item, manualReferences);
         if (!extracted.length) noSkuItems += 1;
@@ -695,7 +695,7 @@ async function processSyncJob(job) {
       await setJobProgress(job, ids.length ? Math.min(85, Math.round((processed / ids.length) * 85)) : 85);
     }
 
-    assertDetailsAvailable(ids.length, detailsRead);
+    assertCompleteDetails(ids, detailIds);
 
     await upsertCatalogItems({ accountKey, sellerId: seller.id, runId, rows });
     const priceHistoryRows = await savePriceHistoryRows({ accountKey, sellerId: seller.id, runId, rows });

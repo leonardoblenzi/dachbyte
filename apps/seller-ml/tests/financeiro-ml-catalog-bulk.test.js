@@ -5,7 +5,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { successfulBodies, assertDetailsAvailable } = require("../services/financeiroMlCatalogBulk");
+const Module = require("node:module");
+const { successfulBodies, assertCompleteDetails } = require("../services/financeiroMlCatalogBulk");
 
 test("aceita detalhe bulk com body.id mesmo sem code", () => {
   const item = { id: "MLB123", attributes: [{ id: "SELLER_SKU", value_name: "SKU-1" }] };
@@ -24,10 +25,71 @@ test("aceita code e status_code 200 e rejeita erros explicitos", () => {
   ]), [first, second]);
 });
 
-test("falha quando IDs foram descobertos mas nenhum detalhe valido retornou", () => {
-  assert.throws(() => assertDetailsAvailable(26, 0), /nenhum detalhe valido/i);
-  assert.doesNotThrow(() => assertDetailsAvailable(0, 0));
-  assert.doesNotThrow(() => assertDetailsAvailable(26, 1));
+test("falha antes de reconstruir o catalogo quando detalhes bulk retornam parcialmente", () => {
+  assert.throws(() => assertCompleteDetails(["MLB1", "MLB2"], [{ id: "MLB1" }]), /1 de 2 detalhes/i);
+  assert.throws(() => assertCompleteDetails(["MLB1"], []), /1 de 1 detalhes/i);
+  assert.throws(() => assertCompleteDetails(["MLB1"], [{ id: "MLB2" }]), /detalhes/i);
+  assert.doesNotThrow(() => assertCompleteDetails([], []));
+  assert.doesNotThrow(() => assertCompleteDetails(["mlb1", "MLB2"], [{ id: "MLB1" }, { id: "mlb2" }]));
+  assert.doesNotThrow(() => assertCompleteDetails(["MLB1", "MLB2"], ["mlb1", "mlb2"]));
+});
+
+test("job com resposta bulk parcial falha sem substituir a base anterior", async () => {
+  const filename = require.resolve("../services/financeiroMlSkuCatalogSyncService");
+  const source = fs.readFileSync(filename, "utf8");
+  const queries = [];
+  let catalogConnectionOpened = false;
+  const db = {
+    query: async (sql, params = []) => {
+      queries.push({ sql: String(sql), params });
+      if (String(sql).includes("returning id")) return { rows: [{ id: 77 }] };
+      return { rows: [] };
+    },
+    pool: { connect: async () => { catalogConnectionOpened = true; throw new Error("catalog write started"); } },
+  };
+  const fetch = async (url) => {
+    const pathname = new URL(url).pathname;
+    const payload = pathname === "/users/me"
+      ? { id: 123 }
+      : pathname.endsWith("/items/search")
+        ? { results: ["MLB1", "MLB2"] }
+        : pathname === "/orders/search"
+          ? { results: [], paging: { total: 0 } }
+          : pathname === "/items/bulk"
+            ? [{ body: { id: "MLB1", seller_custom_field: "SKU-1" } }, { code: 404, body: { id: "MLB2" } }]
+            : {};
+    return { ok: true, status: 200, text: async () => JSON.stringify(payload) };
+  };
+  const mocked = {
+    bull: class {},
+    "node-fetch": fetch,
+    "../db/db": db,
+    "../lib/redisClient": { makeBullClient() {} },
+    "./tokenService": { renovarTokenSeNecessario: async () => "test-token" },
+    "./financeiroMlCatalogSyncBillingService": { telemetry: () => ({}) },
+  };
+  const originalLoad = Module._load;
+  const compiled = new Module(filename, module);
+  compiled.filename = filename;
+  compiled.paths = Module._nodeModulePaths(path.dirname(filename));
+  Module._load = function loadForTest(request, parent, isMain) {
+    if (parent?.filename === filename && Object.hasOwn(mocked, request)) return mocked[request];
+    return originalLoad.call(this, request, parent, isMain);
+  };
+  try {
+    compiled._compile(`${source}\nmodule.exports.testProcessSyncJob = processSyncJob;`, filename);
+  } finally {
+    Module._load = originalLoad;
+  }
+  const job = {
+    data: { accountKey: "test-account", mlCreds: {}, trigger: "internal" },
+    progress: async () => {},
+    update: async () => {},
+  };
+  await assert.rejects(compiled.exports.testProcessSyncJob(job), /1 de 2 detalhes/);
+  assert.equal(catalogConnectionOpened, false);
+  assert.equal(queries.some(({ sql }) => sql.includes("update ml.mercadolivre_sku_catalog\n")), false);
+  assert.equal(queries.some(({ sql, params }) => sql.includes("update ml.mercadolivre_sku_sync_runs") && params.includes("failed")), true);
 });
 
 test("aba informa quantos SKUs e anuncios sem SKU vieram da ultima sincronizacao", async () => {

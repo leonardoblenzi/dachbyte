@@ -4,7 +4,7 @@
 
 **Goal:** Corrigir a sincronização de Custos por SKU quando `/items/bulk` retorna `body` sem `code`, preservando erros explícitos e mostrando a contagem sem SKU.
 
-**Architecture:** Um helper pequeno interpreta as entradas bulk. O job usa esse helper e não reconstrói a base quando nenhum detalhe válido retorna. A aba lê os números da última execução já presentes no payload `meta.latest_sync`.
+**Architecture:** Um helper pequeno interpreta as entradas bulk. O job usa esse helper e não reconstrói a base quando qualquer ID descoberto fica sem detalhe válido. A aba lê os números da última execução já presentes no payload `meta.latest_sync`.
 
 **Tech Stack:** Node.js, Bull, API Mercado Livre, JavaScript no navegador, `node:test`.
 
@@ -23,7 +23,7 @@
 
 **Files:** Modify `apps/seller-ml/services/financeiroMlSkuCatalogSyncService.js`; Test `apps/seller-ml/tests/financeiro-ml-catalog-bulk.test.js`.
 
-- [x] Testar que IDs descobertos sem detalhes válidos provocam erro antes da reconstrução do catálogo.
+- [x] Testar que IDs descobertos com detalhes vazios ou parciais provocam erro antes da reconstrução do catálogo.
 - [x] Rodar o teste e confirmar falha pelo comportamento atual.
 - [x] Usar `successfulBodies` em `fetchItemDetails`, propagar falhas HTTP e validar a coleta antes do upsert/rebuild.
 - [x] Rodar testes de catálogo e billing shadow.
