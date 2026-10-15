@@ -83,7 +83,7 @@
     const policy = normalize(account?.usage_policy || billing.usage_policy);
     if (isUnlinked(account) || status === "unlinked") return { label: "Desvinculada", tone: "danger" };
     if (policy === "unlimited" || (status === "legacy_active" && mode === "legacy")) {
-      return { label: "Ilimitada", tone: "ok" };
+      return { label: "Acesso ilimitado", tone: "ok" };
     }
     if (status === "active") return { label: "Plano ativo", tone: "ok" };
     if (status === "awaiting_subscription") return { label: "Aguardando assinatura", tone: "warn" };
