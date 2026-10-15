@@ -369,6 +369,76 @@ async function shapeJob(job, { includeResults = false } = {}) {
   );
 }
 
+async function scanActiveLoadPages({
+  loadPage,
+  onPage = null,
+  shouldCancel = null,
+} = {}) {
+  if (typeof loadPage !== "function") {
+    throw new Error("active_load_page_loader_required");
+  }
+
+  const seenCursors = new Set();
+  let cursor = null;
+  let total = 0;
+  let processed = 0;
+  let loaded = 0;
+  let errors = 0;
+  let pages = 0;
+
+  for (;;) {
+    if (typeof shouldCancel === "function" && await shouldCancel()) {
+      throw new AtacadoJobCancelledError();
+    }
+
+    const page = await loadPage({ cursor });
+    const rows = Array.isArray(page?.items) ? page.items : [];
+    const paging = page?.paging || {};
+    const scanned = Math.max(0, Number(paging.scanned ?? rows.length) || 0);
+    const pageTotal = Number(paging.total);
+    if (Number.isFinite(pageTotal) && pageTotal >= 0) total = pageTotal;
+
+    processed += scanned;
+    loaded += rows.length;
+    errors += Math.max(0, scanned - rows.length);
+    pages += 1;
+
+    const snapshot = {
+      cursor,
+      next_cursor: paging.next_cursor || null,
+      has_more: paging.has_more === true,
+      rows,
+      scanned,
+      total: total || processed,
+      processed,
+      loaded,
+      errors,
+      pages,
+    };
+    if (typeof onPage === "function") await onPage(snapshot);
+
+    const nextCursor = String(paging.next_cursor || "").trim();
+    if (
+      paging.has_more !== true ||
+      !nextCursor ||
+      scanned <= 0 ||
+      seenCursors.has(nextCursor)
+    ) {
+      break;
+    }
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  }
+
+  return {
+    total: total || processed,
+    processed,
+    loaded,
+    errors,
+    pages,
+  };
+}
+
 async function runActiveLoadJob(job) {
   const data = job.data || {};
   const initialMeta = (await readMeta(job.id)) || {};
@@ -397,63 +467,45 @@ async function runActiveLoadJob(job) {
   });
 
   const serviceState = await AtacadoService.prepareState(data.mlCreds || {});
-  const seenCursors = new Set();
-  let cursor = null;
-  let total = 0;
-  let processed = 0;
-  let loaded = 0;
-  let errors = 0;
-  let pages = 0;
+  const scan = await scanActiveLoadPages({
+    shouldCancel: async () => {
+      const latestMeta = (await readMeta(job.id)) || {};
+      return latestMeta.cancelRequested === true || latestMeta.status === "cancelado";
+    },
+    loadPage: ({ cursor }) =>
+      AtacadoService.listActiveItemsPage(serviceState, {
+        cursor,
+        limit: 50,
+        extra_discount_percent: data.extraDiscountPercent,
+      }),
+    onPage: async (snapshot) => {
+      if (snapshot.rows.length) await appendResults(job.id, snapshot.rows);
+      const progress = snapshot.total > 0
+        ? Math.min(99, Math.round((snapshot.processed / snapshot.total) * 100))
+        : 0;
+      await writeMeta(job.id, {
+        status: "processando",
+        total: snapshot.total,
+        processed: snapshot.processed,
+        loaded: snapshot.loaded,
+        applied: 0,
+        skipped: 0,
+        errors: snapshot.errors,
+        pages: snapshot.pages,
+        cursor: snapshot.next_cursor,
+      });
+      await job.progress(progress);
+    },
+  });
 
-  for (;;) {
-    const latestMeta = (await readMeta(job.id)) || {};
-    if (latestMeta.cancelRequested === true || latestMeta.status === "cancelado") {
-      throw new AtacadoJobCancelledError();
-    }
-
-    const page = await AtacadoService.listActiveItemsPage(serviceState, {
-      cursor,
-      limit: 50,
-      extra_discount_percent: data.extraDiscountPercent,
-    });
-    const rows = Array.isArray(page?.items) ? page.items : [];
-    const paging = page?.paging || {};
-    const scanned = Math.max(0, Number(paging.scanned ?? rows.length) || 0);
-    const pageTotal = Number(paging.total);
-    if (Number.isFinite(pageTotal) && pageTotal >= 0) total = pageTotal;
-
-    if (rows.length) await appendResults(job.id, rows);
-    processed += scanned;
-    loaded += rows.length;
-    errors += Math.max(0, scanned - rows.length);
-    pages += 1;
-
-    const progress = total > 0
-      ? Math.min(99, Math.round((processed / total) * 100))
-      : 0;
-    await writeMeta(job.id, {
-      status: "processando",
-      total: total || processed,
-      processed,
-      loaded,
-      applied: 0,
-      skipped: 0,
-      errors,
-      pages,
-      cursor: paging.next_cursor || null,
-    });
-    await job.progress(progress);
-
-    const nextCursor = String(paging.next_cursor || "").trim();
-    if (!paging.has_more || !nextCursor || scanned <= 0 || seenCursors.has(nextCursor)) {
-      break;
-    }
-    seenCursors.add(nextCursor);
-    cursor = nextCursor;
-  }
-
+  const {
+    total: finalTotal,
+    processed,
+    loaded,
+    errors,
+    pages,
+  } = scan;
   const finishedAt = nowISO();
-  const finalTotal = total || processed;
   await writeMeta(job.id, {
     status: "concluido",
     total: finalTotal,
@@ -1094,6 +1146,7 @@ class AtacadoJobsService {
 
 AtacadoJobsService._test = {
   isActiveLoadJob,
+  scanActiveLoadPages,
   wholesaleBillingOperationKey,
   wholesaleBillingIdempotencyKey,
   wholesaleBillableUnits,
