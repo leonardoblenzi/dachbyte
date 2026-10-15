@@ -18,6 +18,10 @@ const creditsUiSource = fs.readFileSync(
   path.join(__dirname, "../public/js/conta-creditos.js"),
   "utf8",
 );
+const hubCreditsSource = fs.readFileSync(
+  path.join(__dirname, "../services/hubCreditsService.js"),
+  "utf8",
+);
 
 test("metadado legado ilimitado nao bloqueia recarga quando o Hub usa prepaid_credits", async () => {
   const previous = {
@@ -145,6 +149,12 @@ test("Hub continua bloqueando recarga quando consumption_model e unlimited", asy
     else process.env.HUB_INTERNAL_TOKEN = previous.token;
     global.fetch = previous.fetch;
   }
+});
+
+test("fluxos de credito nao consultam o helper legado de acesso ilimitado", () => {
+  const references = hubCreditsSource.match(/hasUnlimitedAccess\(/g) || [];
+  assert.equal(references.length, 1);
+  assert.match(hubCreditsSource, /Legacy compatibility hint only/);
 });
 
 test("metadados legados continuam apenas como hint de compatibilidade, nao como autoridade de creditos", () => {
