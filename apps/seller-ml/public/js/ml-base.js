@@ -214,7 +214,7 @@
     });
 
     injectAsset("script", {
-      src: withBase("/js/ml-shell.js?v=37"),
+      src: withBase("/js/ml-shell.js?v=38"),
       defer: "defer",
     });
 
