@@ -31,6 +31,12 @@ router.post(
   }),
   AtacadoController.cancelJob,
 );
+router.post(
+  "/ativos/jobs",
+  requireAtacadoAccess,
+  express.json({ limit: "80kb" }),
+  AtacadoController.enqueueActiveLoad,
+);
 router.get("/ativos", requireAtacadoAccess, AtacadoController.listActive);
 router.post(
   "/listar-especificos",
