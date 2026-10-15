@@ -28,6 +28,12 @@
       return;
     }
 
+    if (mode === "active-partial") {
+      badge.className = "badge badge-neutral";
+      badge.textContent = "Ativos parciais";
+      return;
+    }
+
     if (mode === "specific") {
       badge.className = "badge badge-accent";
       badge.textContent = "MLBs especificos";
@@ -85,6 +91,68 @@
     if (!raw) return "";
     if (/carregando|indispon|nao selecionada|nenhuma selecionada/i.test(raw)) return "";
     return raw;
+  }
+
+  function activeLoadStorageKey() {
+    const account = window.__ACCOUNT__ || {};
+    const accountKey = String(
+      account.key || account.meli_conta_id || account.meli_user_id || "default",
+    ).trim() || "default";
+    return `ml:atacado:active-load:${accountKey}`;
+  }
+
+  function persistActiveLoadJob(jobId) {
+    const normalized = String(jobId || "").trim();
+    if (!normalized) return;
+    try {
+      window.sessionStorage?.setItem(activeLoadStorageKey(), normalized);
+    } catch {}
+  }
+
+  function readPersistedActiveLoadJob() {
+    try {
+      return String(
+        window.sessionStorage?.getItem(activeLoadStorageKey()) || "",
+      ).trim();
+    } catch {
+      return "";
+    }
+  }
+
+  function clearPersistedActiveLoadJob() {
+    try {
+      window.sessionStorage?.removeItem(activeLoadStorageKey());
+    } catch {}
+  }
+
+  function isActiveLoadJobPayload(job) {
+    const kind = String(
+      job?.kind ||
+        job?.job_kind ||
+        job?.job_contract?.kind ||
+        "",
+    ).trim();
+    return kind === "atacado-load-active";
+  }
+
+  function jobLifecycle(job) {
+    return normalizePanelJobText(
+      job?.lifecycle_status ||
+        job?.job_contract?.status ||
+        job?.status ||
+        job?.state ||
+        "",
+    );
+  }
+
+  function jobWasCanceled(job) {
+    const lifecycle = jobLifecycle(job);
+    return lifecycle === "canceled" || /^cancel/.test(lifecycle) || /^abort/.test(lifecycle);
+  }
+
+  function jobFailed(job) {
+    const lifecycle = jobLifecycle(job);
+    return lifecycle === "failed" || /^erro/.test(lifecycle) || /^falh/.test(lifecycle);
   }
 
   function isTerminalJobStateText(value) {
@@ -502,6 +570,8 @@
         throw new Error("Backend nao retornou o identificador do job.");
       }
 
+      persistActiveLoadJob(state.currentJobId);
+
       if (localJobId) {
         window.JobsPanel?.replaceId?.(localJobId, state.currentJobId);
         window.JobsPanel?.updateLocalJob?.(state.currentJobId, {
@@ -527,6 +597,7 @@
           completed: true,
         });
       }
+      clearPersistedActiveLoadJob();
       state.currentJobId = null;
       state.currentJobKind = null;
       $("#loadStatus").textContent =
@@ -685,6 +756,8 @@
   }
 
   function resolveAtacadoReviewAction(job, jobId, completed) {
+    if (isActiveLoadJobPayload(job)) return null;
+
     const explicit =
       job?.review_action && job.review_action.url
         ? {
@@ -727,6 +800,37 @@
     return [];
   }
 
+  async function recoverActiveLoadJob() {
+    let jobId = readPersistedActiveLoadJob();
+
+    if (!jobId) {
+      const jobs = await syncJobsPanel();
+      const runningLoad = jobs.find(
+        (job) => isActiveLoadJobPayload(job) && isActiveJob(job),
+      );
+      jobId = String(
+        runningLoad?.backend_job_id ||
+          runningLoad?.backendJobId ||
+          runningLoad?.id ||
+          "",
+      ).trim();
+    }
+
+    if (!jobId) return false;
+
+    state.currentJobId = jobId;
+    state.currentJobKind = "atacado-load-active";
+    persistActiveLoadJob(jobId);
+    setLoading(true, "Retomando carga dos anúncios ativos...");
+    renderApplySummary(
+      "Carga de ativos em andamento no backend. Retomando acompanhamento após recarregar a página.",
+      "info",
+    );
+    startJobsPolling();
+    await pollCurrentJob();
+    return true;
+  }
+
   function stopJobsPanelSync() {
     if (state.jobsPanelTimer) clearInterval(state.jobsPanelTimer);
     state.jobsPanelTimer = null;
@@ -755,7 +859,18 @@
       state: /cancelando/i.test(status) ? "cancelando" : "cancelado",
       completed: !/cancelando/i.test(status),
       progress: /cancelando/i.test(status) ? job.progress || 0 : 100,
+      reviewAction: null,
+      downloadCsvUrl: null,
     });
+
+    const backendId = String(job.backendJobId || job.backend_job_id || job.id || "");
+    if (
+      state.currentJobId &&
+      backendId === state.currentJobId &&
+      !/cancelando/i.test(status)
+    ) {
+      await pollCurrentJob();
+    }
     return true;
   }
 
@@ -801,15 +916,28 @@
 
         if (kind === "atacado-load-active") {
           const rows = Array.isArray(finalJob?.results) ? finalJob.results : [];
+          const canceled = jobWasCanceled(finalJob);
+          const failed = jobFailed(finalJob);
+
           state.rows = rows;
           state.page = 1;
-          setLoadModeBadge("active");
+          setLoadModeBadge(
+            canceled || failed
+              ? rows.length
+                ? "active-partial"
+                : "none"
+              : "active",
+          );
           applyFilters();
 
-          const failed = /^(erro|failed|falh)/i.test(
-            String(finalJob?.status || finalJob?.state || ""),
-          );
-          if (failed) {
+          if (canceled) {
+            $("#loadStatus").textContent =
+              `Carga cancelada. ${rows.length} anúncio(s) recuperado(s) antes do cancelamento.`;
+            renderApplySummary(
+              `Carga de ativos cancelada. ${rows.length} anúncio(s) foram recuperados e a lista exibida é parcial.`,
+              "info",
+            );
+          } else if (failed) {
             $("#loadStatus").textContent =
               `Carga finalizada com falha. ${rows.length} anúncio(s) recuperado(s) antes da interrupção.`;
             renderApplySummary(
@@ -825,6 +953,8 @@
               Number(finalJob?.errors || 0) ? "error" : "success",
             );
           }
+
+          clearPersistedActiveLoadJob();
         } else {
           const summaryParts = [
             `Total: ${finalJob.total || 0}`,
@@ -843,6 +973,7 @@
           );
         }
 
+        state.currentJobId = null;
         state.currentJobKind = null;
         setLoading(false, "Job finalizado.");
         stopJobsPolling();
@@ -1047,15 +1178,26 @@
     });
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("DOMContentLoaded", async () => {
     bindEvents();
     syncTierConfig();
     updateSpecificIdsStatus();
     setLoadModeBadge("none");
     updateStats();
     applyAtacadoPanelVisibilityFilter();
-    startJobsPanelSync();
     window.JobsPanel?.setCancelHandler?.(cancelJobFromPanel);
+
+    try {
+      const recovered = await recoverActiveLoadJob();
+      if (!recovered) startJobsPanelSync();
+    } catch (error) {
+      console.warn("Falha ao recuperar carga ativa do atacado:", error.message);
+      clearPersistedActiveLoadJob();
+      state.currentJobId = null;
+      state.currentJobKind = null;
+      setLoading(false, "Pronto.");
+      startJobsPanelSync();
+    }
   });
 
   window.addEventListener("beforeunload", () => {
