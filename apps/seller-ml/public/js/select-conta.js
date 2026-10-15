@@ -377,7 +377,7 @@ function withBase(path) {
     const mode = String(account?.billing_mode || "").trim().toLowerCase();
     const policy = String(account?.usage_policy || "").trim().toLowerCase();
     if (policy === "unlimited" || (status === "legacy_active" && mode === "legacy")) {
-      return { label: "Legado ilimitado", tone: "ok" };
+      return { label: "Acesso ilimitado", tone: "ok" };
     }
     if (status === "active") return { label: "Plano ativo", tone: "ok" };
     if (status === "awaiting_subscription") return { label: "Aguardando assinatura", tone: "warn" };
