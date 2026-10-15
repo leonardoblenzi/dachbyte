@@ -2,53 +2,152 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const {
   createCreditTopupCheckout,
+  getCreditAccountAccess,
+  getCreditActivity,
   hasUnlimitedAccess,
+  hasUnlimitedCredits,
   reserveCredits,
   settleCredits,
 } = require("../services/hubCreditsService");
 
-test("conta ilimitada nao pode abrir checkout de recarga", async () => {
-  const previousFetch = global.fetch;
-  let calls = 0;
-  global.fetch = async () => { calls += 1; throw new Error("unexpected_hub_call"); };
+const creditsUiSource = fs.readFileSync(
+  path.join(__dirname, "../public/js/conta-creditos.js"),
+  "utf8",
+);
+
+test("metadado legado ilimitado nao bloqueia recarga quando o Hub usa prepaid_credits", async () => {
+  const previous = {
+    baseUrl: process.env.HUB_BASE_URL,
+    token: process.env.HUB_INTERNAL_TOKEN,
+    fetch: global.fetch,
+  };
+  process.env.HUB_BASE_URL = "https://hub-topup-prepaid.example.test";
+  process.env.HUB_INTERNAL_TOKEN = "internal-test-token";
+
+  const calls = [];
+  global.fetch = async (url) => {
+    calls.push(String(url));
+    const pathname = new URL(String(url)).pathname;
+    if (pathname === "/v1/internal/resources/sync") {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            ok: true,
+            resource: {
+              resource_key: "ml:legacy_prepaid_topup",
+              access_policy: "unlimited",
+              consumption_model: "prepaid_credits",
+            },
+          });
+        },
+      };
+    }
+    if (pathname === "/v1/internal/resources/credits/topup/checkout") {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            ok: true,
+            checkout_url: "https://checkout.example.test/prepaid",
+          });
+        },
+      };
+    }
+    throw new Error(`unexpected_hub_call:${pathname}`);
+  };
+
+  try {
+    const checkout = await createCreditTopupCheckout({
+      mlCreds: {
+        meli_user_id: "legacy_prepaid_topup",
+        tenant_id: "tenant_legacy_prepaid_topup",
+        billing_status: "courtesy_unlimited",
+        billing_mode: "courtesy",
+        usage_policy: "unlimited",
+      },
+      packageCode: "ml_1000",
+    });
+
+    assert.equal(checkout.checkout_url, "https://checkout.example.test/prepaid");
+    assert.deepEqual(
+      calls.map((url) => new URL(url).pathname),
+      ["/v1/internal/resources/sync", "/v1/internal/resources/credits/topup/checkout"],
+    );
+  } finally {
+    if (previous.baseUrl === undefined) delete process.env.HUB_BASE_URL;
+    else process.env.HUB_BASE_URL = previous.baseUrl;
+    if (previous.token === undefined) delete process.env.HUB_INTERNAL_TOKEN;
+    else process.env.HUB_INTERNAL_TOKEN = previous.token;
+    global.fetch = previous.fetch;
+  }
+});
+
+test("Hub continua bloqueando recarga quando consumption_model e unlimited", async () => {
+  const previous = {
+    baseUrl: process.env.HUB_BASE_URL,
+    token: process.env.HUB_INTERNAL_TOKEN,
+    fetch: global.fetch,
+  };
+  process.env.HUB_BASE_URL = "https://hub-topup-unlimited.example.test";
+  process.env.HUB_INTERNAL_TOKEN = "internal-test-token";
+
+  global.fetch = async (url) => {
+    const pathname = new URL(String(url)).pathname;
+    if (pathname === "/v1/internal/resources/sync") {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({ ok: true, resource: { resource_key: "ml:hub_unlimited_topup" } });
+        },
+      };
+    }
+    if (pathname === "/v1/internal/resources/credits/topup/checkout") {
+      return {
+        ok: false,
+        status: 409,
+        async text() {
+          return JSON.stringify({
+            ok: false,
+            error: "credit_topup_unavailable_for_unlimited",
+          });
+        },
+      };
+    }
+    throw new Error(`unexpected_hub_call:${pathname}`);
+  };
+
   try {
     await assert.rejects(
       () => createCreditTopupCheckout({
         mlCreds: {
-          meli_user_id: "unlimited_test",
-          tenant_id: "tenant_test",
-          billing_status: "courtesy_unlimited",
-          usage_policy: "unlimited",
+          meli_user_id: "hub_unlimited_topup",
+          tenant_id: "tenant_hub_unlimited_topup",
+          billing_status: "active",
+          billing_mode: "paid",
+          usage_policy: "metered",
         },
-        packageCode: "any_package",
+        packageCode: "ml_1000",
       }),
       (error) => error.code === "credit_topup_unavailable_for_unlimited" && error.statusCode === 409,
     );
-    assert.equal(calls, 0);
   } finally {
-    global.fetch = previousFetch;
+    if (previous.baseUrl === undefined) delete process.env.HUB_BASE_URL;
+    else process.env.HUB_BASE_URL = previous.baseUrl;
+    if (previous.token === undefined) delete process.env.HUB_INTERNAL_TOKEN;
+    else process.env.HUB_INTERNAL_TOKEN = previous.token;
+    global.fetch = previous.fetch;
   }
 });
 
-test("identifica contas ilimitadas migradas ou de cortesia", () => {
-  assert.equal(
-    hasUnlimitedAccess({
-      status: "internal_unlimited",
-      billingMode: "internal",
-      usagePolicy: "unlimited",
-    }),
-    true,
-  );
-  assert.equal(
-    hasUnlimitedAccess({
-      status: "courtesy_unlimited",
-      billingMode: "courtesy",
-      usagePolicy: "metered",
-    }),
-    true,
-  );
+test("metadados legados continuam apenas como hint de compatibilidade, nao como autoridade de creditos", () => {
   assert.equal(
     hasUnlimitedAccess({
       status: "legacy_active",
@@ -58,45 +157,271 @@ test("identifica contas ilimitadas migradas ou de cortesia", () => {
     true,
   );
   assert.equal(
-    hasUnlimitedAccess({
-      status: "active",
-      billingMode: "paid",
-      usagePolicy: "metered",
+    hasUnlimitedCredits({
+      resource: {
+        access_policy: "unlimited",
+        consumption_model: "prepaid_credits",
+      },
     }),
     false,
   );
+  assert.equal(
+    hasUnlimitedCredits({
+      resource: {
+        access_policy: "paid",
+        consumption_model: "unlimited",
+      },
+    }),
+    true,
+  );
 });
 
-test("conta ilimitada nao chama Hub nem consome creditos no modo enforce", async () => {
-  const previousMode = process.env.HUB_CREDITS_MODE;
-  process.env.HUB_CREDITS_MODE = "enforce";
+test("modo enforce nao permite que metadado legado ilimitado faca bypass de prepaid_credits", async () => {
+  const previous = {
+    mode: process.env.HUB_RESOURCE_CREDITS_MODE,
+    legacyMode: process.env.HUB_CREDITS_MODE,
+    baseUrl: process.env.HUB_BASE_URL,
+    token: process.env.HUB_INTERNAL_TOKEN,
+    fetch: global.fetch,
+  };
+  process.env.HUB_RESOURCE_CREDITS_MODE = "enforce";
+  delete process.env.HUB_CREDITS_MODE;
+  process.env.HUB_BASE_URL = "https://hub-legacy-prepaid-enforce.example.test";
+  process.env.HUB_INTERNAL_TOKEN = "internal-test-token";
+
+  const calls = [];
+  global.fetch = async (url, options = {}) => {
+    calls.push(String(url));
+    const pathname = new URL(String(url)).pathname;
+    if (pathname === "/v1/internal/resources/sync") {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({ ok: true, resource: { resource_key: "ml:legacy_prepaid_enforce" } });
+        },
+      };
+    }
+    if (pathname === "/v1/internal/resources/credits/reserve") {
+      const body = JSON.parse(String(options.body || "{}"));
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            ok: true,
+            reservation: {
+              idempotency_key: body.idempotency_key,
+              operation_key: body.operation_key,
+              reserved_credits: 1000,
+              credit_unit_scale: 100,
+            },
+            wallet: {
+              model: "prepaid_credits",
+              unlimited: false,
+              purchased_balance: 99000,
+              credit_unit_scale: 100,
+            },
+            access: {
+              access_policy: "unlimited",
+              consumption_model: "prepaid_credits",
+              unlimited: true,
+            },
+          });
+        },
+      };
+    }
+    throw new Error(`unexpected_hub_call:${pathname}`);
+  };
 
   try {
     const reservation = await reserveCredits({
       mlCreds: {
-        meli_user_id: "123",
-        tenant_id: "tenant_123",
-        billing_status: "internal_unlimited",
-        billing_mode: "internal",
+        meli_user_id: "legacy_prepaid_enforce",
+        tenant_id: "tenant_legacy_prepaid_enforce",
+        billing_status: "legacy_active",
+        billing_mode: "legacy",
         usage_policy: "unlimited",
       },
       operationKey: "promotions.apply",
-      units: 10,
-      idempotencyKey: "test:unlimited",
+      units: 30000,
+      idempotencyKey: "test:legacy-prepaid-enforce",
     });
 
-    assert.equal(reservation.bypass, true);
-    assert.equal(reservation.reason, "unlimited_account");
-    assert.equal(reservation.reserved_credits, 0);
+    assert.equal(reservation.bypass, false);
+    assert.equal(reservation.reserved_credits, 10);
+    assert.equal(reservation.access_unlimited, true);
+    assert.equal(reservation.credits_unlimited, false);
+    assert.equal(
+      calls.some((url) => new URL(url).pathname.endsWith("/credits/reserve")),
+      true,
+    );
   } finally {
-    if (previousMode === undefined) {
-      delete process.env.HUB_CREDITS_MODE;
-    } else {
-      process.env.HUB_CREDITS_MODE = previousMode;
-    }
+    if (previous.mode === undefined) delete process.env.HUB_RESOURCE_CREDITS_MODE;
+    else process.env.HUB_RESOURCE_CREDITS_MODE = previous.mode;
+    if (previous.legacyMode === undefined) delete process.env.HUB_CREDITS_MODE;
+    else process.env.HUB_CREDITS_MODE = previous.legacyMode;
+    if (previous.baseUrl === undefined) delete process.env.HUB_BASE_URL;
+    else process.env.HUB_BASE_URL = previous.baseUrl;
+    if (previous.token === undefined) delete process.env.HUB_INTERNAL_TOKEN;
+    else process.env.HUB_INTERNAL_TOKEN = previous.token;
+    global.fetch = previous.fetch;
   }
 });
 
+
+test("acesso ilimitado e consumo prepaid sao expostos separadamente pelo Seller", async () => {
+  const previous = {
+    baseUrl: process.env.HUB_BASE_URL,
+    token: process.env.HUB_INTERNAL_TOKEN,
+    fetch: global.fetch,
+  };
+  process.env.HUB_BASE_URL = "https://hub-access-split.example.test";
+  process.env.HUB_INTERNAL_TOKEN = "internal-test-token";
+
+  global.fetch = async (url) => {
+    const pathname = new URL(String(url)).pathname;
+    if (pathname === "/v1/internal/resources/sync") {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({ ok: true, resource: { resource_key: "ml:split_access" } });
+        },
+      };
+    }
+    if (pathname === "/v1/internal/resources/access") {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            ok: true,
+            resource: {
+              resource_key: "ml:split_access",
+              access_policy: "unlimited",
+              consumption_model: "prepaid_credits",
+            },
+            allow: true,
+            access_policy: "unlimited",
+            consumption_model: "prepaid_credits",
+            unlimited: true,
+          });
+        },
+      };
+    }
+    throw new Error(`unexpected_hub_call:${pathname}`);
+  };
+
+  try {
+    const result = await getCreditAccountAccess({
+      mlCreds: {
+        meli_user_id: "split_access",
+        tenant_id: "tenant_split_access",
+        billing_status: "legacy_active",
+        billing_mode: "legacy",
+        usage_policy: "unlimited",
+      },
+    });
+
+    assert.equal(result.access_unlimited, true);
+    assert.equal(result.credits_unlimited, false);
+    assert.equal(result.unlimited, false);
+    assert.equal(result.resource.consumption_model, "prepaid_credits");
+  } finally {
+    if (previous.baseUrl === undefined) delete process.env.HUB_BASE_URL;
+    else process.env.HUB_BASE_URL = previous.baseUrl;
+    if (previous.token === undefined) delete process.env.HUB_INTERNAL_TOKEN;
+    else process.env.HUB_INTERNAL_TOKEN = previous.token;
+    global.fetch = previous.fetch;
+  }
+});
+
+test("extrato usa wallet.model como autoridade de consumo ilimitado", async () => {
+  const previous = {
+    baseUrl: process.env.HUB_BASE_URL,
+    token: process.env.HUB_INTERNAL_TOKEN,
+    fetch: global.fetch,
+  };
+  process.env.HUB_BASE_URL = "https://hub-activity-split.example.test";
+  process.env.HUB_INTERNAL_TOKEN = "internal-test-token";
+
+  global.fetch = async (url) => {
+    const parsed = new URL(String(url));
+    const pathname = parsed.pathname;
+    if (pathname === "/v1/internal/resources/sync") {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({ ok: true, resource: { resource_key: "ml:split_activity" } });
+        },
+      };
+    }
+    if (pathname === "/v1/internal/resources/credits/activity") {
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            ok: true,
+            resource: {
+              resource_key: "ml:split_activity",
+              access_policy: "unlimited",
+              consumption_model: "prepaid_credits",
+            },
+            access: {
+              allow: true,
+              access_policy: "unlimited",
+              consumption_model: "prepaid_credits",
+              unlimited: true,
+            },
+            wallet: {
+              model: "prepaid_credits",
+              unlimited: false,
+              purchased_balance: 1000,
+              available_balance: 1000,
+            },
+            ledger: [],
+            reservations: [],
+          });
+        },
+      };
+    }
+    throw new Error(`unexpected_hub_call:${pathname}`);
+  };
+
+  try {
+    const result = await getCreditActivity({
+      mlCreds: {
+        meli_user_id: "split_activity",
+        tenant_id: "tenant_split_activity",
+        billing_status: "courtesy_unlimited",
+        billing_mode: "courtesy",
+        usage_policy: "unlimited",
+      },
+    });
+
+    assert.equal(result.access_unlimited, true);
+    assert.equal(result.credits_unlimited, false);
+    assert.equal(result.unlimited, false);
+    assert.equal(result.wallet.model, "prepaid_credits");
+  } finally {
+    if (previous.baseUrl === undefined) delete process.env.HUB_BASE_URL;
+    else process.env.HUB_BASE_URL = previous.baseUrl;
+    if (previous.token === undefined) delete process.env.HUB_INTERNAL_TOKEN;
+    else process.env.HUB_INTERNAL_TOKEN = previous.token;
+    global.fetch = previous.fetch;
+  }
+});
+
+test("tela de creditos nao usa acesso ou metadados legados para decidir consumo ilimitado", () => {
+  const match = creditsUiSource.match(/function isUnlimited\(payload\) \{([\s\S]*?)\n  \}/);
+  assert.ok(match);
+  assert.match(match[1], /credits_unlimited/);
+  assert.match(match[1], /consumption_model/);
+  assert.doesNotMatch(match[1], /access_policy|billingMode|usagePolicy|legacy_active|courtesy_unlimited|internal_unlimited/);
+});
 
 test("modo shadow consulta quote generico sem reservar saldo", async () => {
   const previous = {
@@ -152,9 +477,9 @@ test("modo shadow consulta quote generico sem reservar saldo", async () => {
       mlCreds: {
         meli_user_id: "shadow_123",
         tenant_id: "tenant_shadow_123",
-        billing_status: "active",
-        billing_mode: "paid",
-        usage_policy: "metered",
+        billing_status: "legacy_active",
+        billing_mode: "legacy",
+        usage_policy: "unlimited",
       },
       operationKey: "promotions.apply",
       units: 30000,
