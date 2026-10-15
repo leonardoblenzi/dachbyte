@@ -9,6 +9,8 @@ const root = path.join(__dirname, "..");
 const shellJs = fs.readFileSync(path.join(root, "public/js/ml-shell.js"), "utf8");
 const shellCss = fs.readFileSync(path.join(root, "public/css/ml-shell.css"), "utf8");
 const baseJs = fs.readFileSync(path.join(root, "public/js/ml-base.js"), "utf8");
+const selectContaJs = fs.readFileSync(path.join(root, "public/js/select-conta.js"), "utf8");
+const contaContasJs = fs.readFileSync(path.join(root, "public/js/conta-contas.js"), "utf8");
 
 const CREDIT_NAV_IDS = [
   "consulta-anuncios",
@@ -72,7 +74,34 @@ test("CSS mantem marker pequeno, dourado e compativel com tema escuro", () => {
   assert.ok(shellCss.includes("body.theme-dark .ml-shell__credit-marker"));
 });
 
-test("assets do shell recebem cache bust apos marker de creditos", () => {
+test("assets do shell recebem cache bust apos ajuste da carteira", () => {
   assert.ok(baseJs.includes("/css/ml-shell.css?v=29"));
-  assert.ok(baseJs.includes("/js/ml-shell.js?v=37"));
+  assert.ok(baseJs.includes("/js/ml-shell.js?v=38"));
+});
+
+test("selo de creditos usa somente a autoridade do Hub", () => {
+  const unlimitedBlock = shellJs.match(/function hasUnlimitedCredits\(payload\) \{([\s\S]*?)\n  \}/);
+  assert.ok(unlimitedBlock);
+  assert.match(unlimitedBlock[1], /consumption_model/);
+  assert.match(unlimitedBlock[1], /credits_unlimited/);
+  assert.match(unlimitedBlock[1], /model === "unlimited"/);
+  assert.doesNotMatch(
+    unlimitedBlock[1],
+    /legacy_active|courtesy_unlimited|internal_unlimited|usagePolicy|billingMode/,
+  );
+});
+
+test("carteira do cabecalho converte unidades internas pela credit_unit_scale", () => {
+  const walletBlock = shellJs.match(/function readWalletBalance\(payload\) \{([\s\S]*?)\n  \}/);
+  assert.ok(walletBlock);
+  assert.match(walletBlock[1], /credit_unit_scale/);
+  assert.match(walletBlock[1], /monthlyUnits \/ scale/);
+  assert.match(walletBlock[1], /purchasedUnits \/ scale/);
+});
+
+test("cards de conta descrevem acesso ilimitado sem chamar creditos de ilimitados", () => {
+  assert.match(selectContaJs, /Acesso ilimitado/);
+  assert.doesNotMatch(selectContaJs, /Legado ilimitado/);
+  assert.match(contaContasJs, /Acesso ilimitado/);
+  assert.match(shellJs, /acesso ilimitado/);
 });
