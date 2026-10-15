@@ -68,18 +68,17 @@
 
   function isUnlimited(payload) {
     const resource = resourceFrom(payload);
-    const context = payload?.billing_context || payload?.context || {};
-    const status = String(resource.status || context.status || payload?.status || "").toLowerCase();
-    const billingMode = String(resource.billing_mode || context.billingMode || context.billing_mode || "").toLowerCase();
-    const usagePolicy = String(resource.usage_policy || context.usagePolicy || context.usage_policy || "").toLowerCase();
+    const model = String(
+      payload?.wallet?.model ||
+      resource.model ||
+      resource.consumption_model ||
+      "",
+    ).toLowerCase();
     return Boolean(
+      payload?.credits_unlimited ||
       payload?.unlimited ||
-        resource.unlimited ||
-        resource.consumption_model === "unlimited" ||
-        resource.access_policy === "unlimited" ||
-        usagePolicy === "unlimited" ||
-        ["internal_unlimited", "courtesy_unlimited"].includes(status) ||
-        (status === "legacy_active" && billingMode === "legacy"),
+      resource.unlimited ||
+      model === "unlimited",
     );
   }
 
@@ -107,7 +106,7 @@
     const starts = dateLabel(resource.period_starts_at);
     const ends = dateLabel(resource.period_ends_at);
     $("credits-period").textContent = unlimited
-      ? "Conta legado, cortesia ou interna sem limite de consumo."
+      ? "Consumo de créditos ilimitado nesta conta."
       : prepaid
         ? "Sem franquia mensal. O saldo comprado não expira."
         : starts && ends
