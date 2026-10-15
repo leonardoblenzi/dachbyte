@@ -87,6 +87,12 @@ test("scan continua apos pagina sem detalhes e para em cursor repetido", async (
   assert.equal(result.loaded, 2);
   assert.equal(result.errors, 2);
   assert.equal(result.total, 5);
+  assert.equal(result.stop_reason, "repeated_cursor");
+  assert.equal(result.complete, false);
+  assert.match(
+    jobsSource,
+    /if \(scan\.complete !== true\) \{/,
+  );
 });
 
 test("pagina ativa informa cobertura mesmo quando o bulk omite detalhes", () => {
