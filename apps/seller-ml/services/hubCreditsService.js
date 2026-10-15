@@ -162,6 +162,20 @@ function hasUnlimitedAccess(context = {}) {
   );
 }
 
+function hubConsumptionModel(payload = {}) {
+  return String(
+    payload?.quote?.consumption_model ||
+    payload?.wallet?.model ||
+    payload?.resource?.consumption_model ||
+    payload?.consumption_model ||
+    "",
+  ).trim().toLowerCase();
+}
+
+function hasUnlimitedCredits(payload = {}) {
+  return hubConsumptionModel(payload) === "unlimited";
+}
+
 function normalizeOrderRangeCode(value) {
   const normalized = String(value || "").trim();
   return normalized || "up_to_30";
@@ -311,15 +325,18 @@ async function getCreditAccountAccess({ mlCreds, account = null } = {}) {
   if (!response.ok) {
     throw responseError(response, "Nao foi possivel carregar a carteira de creditos.");
   }
+  const accessUnlimited = Boolean(
+    response.data?.unlimited ||
+    response.data?.access?.unlimited ||
+    response.data?.resource?.access_policy === "unlimited"
+  );
+  const creditsUnlimited = hasUnlimitedCredits(response.data);
   return {
     ...response.data,
     billing_context: context,
-    unlimited: Boolean(
-      response.data?.unlimited ||
-      response.data?.access?.unlimited ||
-      response.data?.resource?.consumption_model === "unlimited" ||
-      hasUnlimitedAccess(context)
-    ),
+    access_unlimited: accessUnlimited,
+    credits_unlimited: creditsUnlimited,
+    unlimited: creditsUnlimited,
   };
 }
 
@@ -333,15 +350,17 @@ async function getCreditActivity({ mlCreds, account = null, limit = 50 } = {}) {
   if (!response.ok) {
     throw responseError(response, "Nao foi possivel carregar o extrato de creditos.");
   }
+  const accessUnlimited = Boolean(
+    response.data?.access?.unlimited ||
+    response.data?.resource?.access_policy === "unlimited"
+  );
+  const creditsUnlimited = hasUnlimitedCredits(response.data);
   return {
     ...response.data,
     billing_context: context,
-    unlimited: Boolean(
-      response.data?.unlimited ||
-      response.data?.access?.unlimited ||
-      response.data?.resource?.consumption_model === "unlimited" ||
-      hasUnlimitedAccess(context)
-    ),
+    access_unlimited: accessUnlimited,
+    credits_unlimited: creditsUnlimited,
+    unlimited: creditsUnlimited,
   };
 }
 
@@ -354,12 +373,6 @@ async function createCreditTopupCheckout({
   successUrl = null,
 } = {}) {
   const context = billingContext({ mlCreds, account });
-  if (hasUnlimitedAccess(context)) {
-    throw new HubCreditError("Contas ilimitadas nao precisam comprar creditos.", {
-      statusCode: 409,
-      code: "credit_topup_unavailable_for_unlimited",
-    });
-  }
   await ensureAccountSynced(context);
   const response = await postHub("/v1/internal/resources/credits/topup/checkout", {
     module_slug: "ml",
@@ -453,7 +466,6 @@ async function reserveCredits({
   }
 
   const context = billingContext({ mlCreds, account });
-  const unlimited = hasUnlimitedAccess(context);
 
   if (mode === "shadow") {
     try {
@@ -463,39 +475,32 @@ async function reserveCredits({
         operationKey: normalizedOperation,
         units: quantity,
       });
+      const unlimited = hasUnlimitedCredits({ quote });
       return {
         ...bypassReservation({
           operationKey: normalizedOperation,
-          credits: unlimited ? 0 : Number(quote.estimated_credits || 0),
+          credits: Number(quote.estimated_credits || 0),
           reason: unlimited ? "unlimited_shadow" : "shadow_mode",
           idempotencyKey: key,
         }),
         shadow: true,
         operation_quantity: quantity,
         quote,
+        credits_unlimited: unlimited,
       };
     } catch (error) {
       console.warn("[hub-credits] quote em shadow:", error?.code || error?.message || error);
       return {
         ...bypassReservation({
           operationKey: normalizedOperation,
-          credits: unlimited ? 0 : localEstimate,
-          reason: unlimited ? "unlimited_shadow_quote_unavailable" : error?.code || "shadow_quote_unavailable",
+          credits: localEstimate,
+          reason: error?.code || "shadow_quote_unavailable",
           idempotencyKey: key,
         }),
         shadow: true,
         operation_quantity: quantity,
       };
     }
-  }
-
-  if (unlimited) {
-    return bypassReservation({
-      operationKey: normalizedOperation,
-      credits: 0,
-      reason: "unlimited_account",
-      idempotencyKey: key,
-    });
   }
 
   try {
@@ -519,6 +524,8 @@ async function reserveCredits({
       bypass: false,
       wallet: response.data.wallet || null,
       access: response.data.access || null,
+      access_unlimited: Boolean(response.data?.access?.unlimited),
+      credits_unlimited: hasUnlimitedCredits(response.data),
     };
   } catch (error) {
     if (error instanceof HubCreditError) throw error;
@@ -571,6 +578,8 @@ module.exports = {
   getCreditActivity,
   getCreditPolicy,
   hasUnlimitedAccess,
+  hasUnlimitedCredits,
+  hubConsumptionModel,
   quoteCredits,
   unlinkBillingResource,
   reserveAdsFilterCredits,
