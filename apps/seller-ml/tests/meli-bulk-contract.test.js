@@ -32,6 +32,17 @@ test("normalizeBulkResponse preserva o contrato interno code/body", () => {
   assert.equal(rows[0].body.id, "MLB1");
 });
 
+test("normalizeBulkResponse copia o id raiz do novo bulk para body quando necessario", () => {
+  const rows = normalizeBulkResponse([
+    { id: "MLB123", status_code: 200, body: { title: "Produto" } },
+  ]);
+
+  assert.equal(rows[0].code, 200);
+  assert.equal(rows[0].id, "MLB123");
+  assert.equal(rows[0].body.id, "MLB123");
+  assert.equal(rows[0].body.title, "Produto");
+});
+
 test("consultas bulk do Seller ML respeitam o limite oficial de 20 IDs", () => {
   const fs = require("node:fs");
   const path = require("node:path");
