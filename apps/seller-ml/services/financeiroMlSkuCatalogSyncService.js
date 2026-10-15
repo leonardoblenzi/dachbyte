@@ -6,7 +6,8 @@ const db = require("../db/db");
 const { makeBullClient } = require("../lib/redisClient");
 const TokenService = require("./tokenService");
 const CatalogBilling = require("./financeiroMlCatalogSyncBillingService");
-const { normalizeAttributes, normalizeBulkResponse } = require("./meliBulk");
+const { normalizeAttributes } = require("./meliBulk");
+const { successfulBodies, assertDetailsAvailable } = require("./financeiroMlCatalogBulk");
 
 const ML_API_BASE = "https://api.mercadolibre.com";
 const QUEUE_NAME = "financeiro-ml-sku-catalog-sync";
@@ -356,11 +357,9 @@ async function fetchItemDetails(state, ids = []) {
         "attributes",
         "variations",
       ]),
-    }).catch(() => []);
+    });
 
-    for (const row of normalizeBulkResponse(rows)) {
-      if (row?.code === 200 && row?.body?.id) out.push(row.body);
-    }
+    out.push(...successfulBodies(rows));
   }
   return out;
 }
@@ -676,8 +675,10 @@ async function processSyncJob(job) {
     const manualReferences = await getManualSkuReferenceMap(accountKey, ids);
     const rows = [];
     let noSkuItems = 0;
+    let detailsRead = 0;
     for (let i = 0; i < ids.length; i += 20) {
       const details = await fetchItemDetails(state, ids.slice(i, i + 20));
+      detailsRead += details.length;
       for (const item of details) {
         const extracted = extractCatalogRows(item, manualReferences);
         if (!extracted.length) noSkuItems += 1;
@@ -693,6 +694,8 @@ async function processSyncJob(job) {
       await updateRun(runId, { processed_items: processed, no_sku_items: noSkuItems });
       await setJobProgress(job, ids.length ? Math.min(85, Math.round((processed / ids.length) * 85)) : 85);
     }
+
+    assertDetailsAvailable(ids.length, detailsRead);
 
     await upsertCatalogItems({ accountKey, sellerId: seller.id, runId, rows });
     const priceHistoryRows = await savePriceHistoryRows({ accountKey, sellerId: seller.id, runId, rows });

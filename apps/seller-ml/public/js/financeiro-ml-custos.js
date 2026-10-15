@@ -378,7 +378,13 @@ window.FinanceiroMlCosts = (() => {
         : `${fmtNum(data.total)} SKU(s) filtrado(s).`;
       if (els.kpiNote) {
         if (data.meta?.source === "catalog") {
-          els.kpiNote.textContent = "Indicadores calculados sobre a base sincronizada de SKUs ativos da conta.";
+          const latestSync = data.meta?.latest_sync;
+          const skuCount = Number(latestSync?.total_skus || 0);
+          const noSkuCount = Number(latestSync?.no_sku_items || 0);
+          const syncCounts = latestSync?.status === "completed"
+            ? `Última sincronização: ${fmtNum(skuCount)} ${skuCount === 1 ? "SKU distinto" : "SKUs distintos"}; ${fmtNum(noSkuCount)} ${noSkuCount === 1 ? "anúncio" : "anúncios"} sem SKU. `
+            : "";
+          els.kpiNote.textContent = `${syncCounts}Indicadores calculados sobre a base sincronizada de SKUs ativos da conta.`;
         } else {
           els.kpiNote.textContent = partial
             ? `Indicadores da leitura otimizada atual, limitada a ${fmtNum(data.meta?.max_items)} anuncios. Para a planilha de preenchimento, use Baixar XLSX.`
