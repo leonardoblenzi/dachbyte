@@ -688,7 +688,7 @@
             <span class="ml-shell__account-menu-copy">
               <span class="ml-shell__account-menu-name">${escapeHtml(label)}</span>
               <span class="ml-shell__account-menu-sub">${escapeHtml(accountSubtitleFromRow(account))}</span>
-              <span class="ml-shell__account-billing-tag ${billingClass}">${escapeHtml(billing.label)}${billing.isUnlimited ? " - ilimitado" : ""}</span>
+              <span class="ml-shell__account-billing-tag ${billingClass}">${escapeHtml(billing.label)}${billing.isUnlimited ? " - acesso ilimitado" : ""}</span>
             </span>
             ${active ? '<span class="ml-shell__account-active-dot" aria-label="Conta ativa"></span>' : ""}
           </button>
@@ -737,27 +737,43 @@
   }
 
   function readWalletBalance(payload) {
+    const wallet = payload?.wallet || {};
+    if (
+      wallet.monthly_balance !== undefined ||
+      wallet.purchased_balance !== undefined
+    ) {
+      const monthly = Number(wallet.monthly_balance || 0);
+      const purchased = Number(wallet.purchased_balance || 0);
+      return {
+        monthly: Number.isFinite(monthly) ? monthly : 0,
+        purchased: Number.isFinite(purchased) ? purchased : 0,
+      };
+    }
+
     const resource = payload?.resource || {};
-    const monthly = Number(resource.monthly_balance || resource.monthly_credits_balance || 0);
-    const purchased = Number(resource.purchased_balance || resource.purchased_credits_balance || 0);
+    const scale = Math.max(1, Number(resource.credit_unit_scale || 1) || 1);
+    const monthlyUnits = Number(resource.monthly_balance || resource.monthly_credits_balance || 0);
+    const purchasedUnits = Number(resource.purchased_balance || resource.purchased_credits_balance || 0);
     return {
-      monthly: Number.isFinite(monthly) ? monthly : 0,
-      purchased: Number.isFinite(purchased) ? purchased : 0,
+      monthly: Number.isFinite(monthlyUnits) ? monthlyUnits / scale : 0,
+      purchased: Number.isFinite(purchasedUnits) ? purchasedUnits / scale : 0,
     };
   }
 
   function hasUnlimitedCredits(payload) {
     const resource = payload?.resource || {};
-    const context = payload?.billing_context || payload?.context || {};
-    const status = String(resource.status || context.status || payload?.status || "").toLowerCase();
-    const billingMode = String(resource.billing_mode || context.billingMode || context.billing_mode || "").toLowerCase();
-    const usagePolicy = String(resource.usage_policy || context.usagePolicy || context.usage_policy || "").toLowerCase();
+    const model = String(
+      payload?.wallet?.model ||
+        resource.consumption_model ||
+        payload?.consumption_model ||
+        "",
+    ).trim().toLowerCase();
+
+    if (model) return model === "unlimited";
     return Boolean(
-      payload?.unlimited ||
-        resource.unlimited ||
-        usagePolicy === "unlimited" ||
-        ["internal_unlimited", "courtesy_unlimited"].includes(status) ||
-        (status === "legacy_active" && billingMode === "legacy"),
+      payload?.credits_unlimited === true ||
+        payload?.unlimited === true ||
+        resource.unlimited === true,
     );
   }
 
