@@ -265,8 +265,7 @@ class AtacadoService {
     }
   }
 
-  static async listActiveItems(mlCreds, options = {}) {
-    const state = await this.prepareState(mlCreds);
+  static async listActiveItemsPage(state, options = {}) {
     const limit = Math.min(asNonNegativeInteger(options.limit, 50) || 50, 50);
     const cursor = String(options.cursor || "").trim() || null;
     const extraDiscountPercent = asPositiveNumber(
@@ -294,10 +293,18 @@ class AtacadoService {
         limit,
         total,
         cursor,
-        has_more: !!next_cursor && rows.length > 0,
+        scanned: ids.length,
+        loaded: rows.length,
+        missing: Math.max(0, ids.length - rows.length),
+        has_more: !!next_cursor && ids.length > 0,
         next_cursor,
       },
     };
+  }
+
+  static async listActiveItems(mlCreds, options = {}) {
+    const state = await this.prepareState(mlCreds);
+    return this.listActiveItemsPage(state, options);
   }
 
   static async listSpecificItems(mlCreds, options = {}) {
