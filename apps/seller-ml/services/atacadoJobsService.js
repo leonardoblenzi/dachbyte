@@ -264,6 +264,21 @@ function wholesaleBillableUnits(data = {}, meta = {}) {
   return Math.max(0, Number(meta.applied || 0));
 }
 
+function explicitAtacadoLifecycleStatus(status) {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (normalized === "erro") return "failed";
+  if (normalized === "cancelado") return "canceled";
+  return null;
+}
+
+function attachAtacadoJobContract(job) {
+  const lifecycleStatus = explicitAtacadoLifecycleStatus(job?.status);
+  return attachJobContract(job, {
+    module: "atacado",
+    ...(lifecycleStatus ? { lifecycleStatus } : {}),
+  });
+}
+
 function telemetryFrom(job, meta = {}) {
   const reservation = job?.data?.creditReservation || {};
   const billableUnits = wholesaleBillableUnits(job?.data || {}, meta);
@@ -360,12 +375,11 @@ async function shapeJob(job, { includeResults = false } = {}) {
     heavy_operation_holder: meta.heavyOperationHolder || null,
     ...(includeResults ? { results: await readResults(job.id) } : {}),
   };
-  return attachJobContract(
+  return attachAtacadoJobContract(
     attachJobReview(publicJob, {
       basePath: "/api/atacado/jobs",
       hasCsv: !activeLoad && resultTotal > 0,
     }),
-    { module: "atacado" },
   );
 }
 
@@ -1158,6 +1172,8 @@ class AtacadoJobsService {
 
 AtacadoJobsService._test = {
   isActiveLoadJob,
+  explicitAtacadoLifecycleStatus,
+  attachAtacadoJobContract,
   scanActiveLoadPages,
   wholesaleBillingOperationKey,
   wholesaleBillingIdempotencyKey,
