@@ -14,6 +14,9 @@ test("compra de creditos comeca oculta e permanece oculta para conta ilimitada",
 
   assert.match(html, /id="credits-topup-panel" hidden/);
   assert.match(js, /topupPanel\.hidden = unlimited/);
-  assert.match(js, /resource\.consumption_model === "unlimited"/);
+  assert.match(js, /payload\?\.credits_unlimited/);
+  assert.match(js, /model === "unlimited"/);
+  assert.doesNotMatch(js, /resource\.access_policy === "unlimited"/);
+  assert.doesNotMatch(js, /legacy_active|courtesy_unlimited|internal_unlimited/);
   assert.match(css, /#credits-topup-panel\[hidden\]\s*\{\s*display:\s*none/);
 });
