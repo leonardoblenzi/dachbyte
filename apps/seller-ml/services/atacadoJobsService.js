@@ -440,6 +440,7 @@ async function scanActiveLoadPages({
 
     if (stopReason) {
       const finalTotal = total || processed;
+      if (processed > 0 && loaded === 0) stopReason = "all_details_missing";
       return {
         total: finalTotal,
         processed,
@@ -447,9 +448,9 @@ async function scanActiveLoadPages({
         errors,
         pages,
         stop_reason: stopReason,
-        complete:
-          stopReason === "complete" ||
-          (finalTotal > 0 && processed >= finalTotal),
+        complete: stopReason !== "all_details_missing" && (
+          stopReason === "complete" || (finalTotal > 0 && processed >= finalTotal)
+        ),
       };
     }
 

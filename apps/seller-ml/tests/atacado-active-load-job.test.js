@@ -96,6 +96,19 @@ test("scan continua apos pagina sem detalhes e para em cursor repetido", async (
   );
 });
 
+test("carga com IDs mas nenhum detalhe aceito nao conclui", async () => {
+  const scan = await AtacadoJobsService._test.scanActiveLoadPages({
+    loadPage: async () => ({
+      items: [],
+      paging: { scanned: 2, total: 2, has_more: false, next_cursor: null },
+    }),
+  });
+  assert.equal(scan.processed, 2);
+  assert.equal(scan.loaded, 0);
+  assert.equal(scan.complete, false);
+  assert.equal(scan.stop_reason, "all_details_missing");
+});
+
 test("pagina ativa informa cobertura mesmo quando o bulk omite detalhes", () => {
   assert.match(serviceSource, /scanned: ids\.length/);
   assert.match(serviceSource, /missing: Math\.max\(0, ids\.length - rows\.length\)/);
