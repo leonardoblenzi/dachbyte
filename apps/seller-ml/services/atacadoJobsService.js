@@ -418,25 +418,30 @@ async function scanActiveLoadPages({
     if (typeof onPage === "function") await onPage(snapshot);
 
     const nextCursor = String(paging.next_cursor || "").trim();
-    if (
-      paging.has_more !== true ||
-      !nextCursor ||
-      scanned <= 0 ||
-      seenCursors.has(nextCursor)
-    ) {
-      break;
+    let stopReason = null;
+    if (paging.has_more !== true) stopReason = "complete";
+    else if (!nextCursor) stopReason = "missing_cursor";
+    else if (scanned <= 0) stopReason = "empty_page";
+    else if (seenCursors.has(nextCursor)) stopReason = "repeated_cursor";
+
+    if (stopReason) {
+      const finalTotal = total || processed;
+      return {
+        total: finalTotal,
+        processed,
+        loaded,
+        errors,
+        pages,
+        stop_reason: stopReason,
+        complete:
+          stopReason === "complete" ||
+          (finalTotal > 0 && processed >= finalTotal),
+      };
     }
+
     seenCursors.add(nextCursor);
     cursor = nextCursor;
   }
-
-  return {
-    total: total || processed,
-    processed,
-    loaded,
-    errors,
-    pages,
-  };
 }
 
 async function runActiveLoadJob(job) {
@@ -505,6 +510,13 @@ async function runActiveLoadJob(job) {
     errors,
     pages,
   } = scan;
+
+  if (scan.complete !== true) {
+    throw new Error(
+      `Carga de ativos interrompida antes de cobrir todos os anuncios (${scan.stop_reason || "scan_incomplete"}): ${processed}/${finalTotal || "?"} processados.`,
+    );
+  }
+
   const finishedAt = nowISO();
   await writeMeta(job.id, {
     status: "concluido",
