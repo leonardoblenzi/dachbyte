@@ -40,6 +40,33 @@ class AtacadoController {
     }
   }
 
+  static async enqueueActiveLoad(req, res) {
+    try {
+      const job = await AtacadoJobsService.enqueueActiveLoad({
+        extraDiscountPercent: req.body?.extra_discount_percent,
+        mlCreds: res.locals?.mlCreds || {},
+        accountKey: res.locals?.accountKey || null,
+        accountLabel: res.locals?.accountLabel || null,
+        auditContext: buildAuditContext(req, res),
+      });
+
+      return res.json({
+        success: true,
+        job_id: job.id,
+        job_uid: job.job_uid,
+        backend_job_id: job.backend_job_id,
+        lifecycle_status: job.lifecycle_status,
+        job_contract: job.job_contract,
+        job,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        error: error?.message || "Erro ao enfileirar carga de anuncios ativos.",
+      });
+    }
+  }
+
   static async listSpecific(req, res) {
     try {
       const data = await AtacadoService.listSpecificItems(
@@ -129,6 +156,7 @@ class AtacadoController {
     try {
       const job = await AtacadoJobsService.jobDetail(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
+        includeResults: String(req.query?.include_results || "1") !== "0",
       });
       if (!job) {
         return res.status(404).json({
