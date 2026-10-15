@@ -9,6 +9,7 @@
     pageSize: 25,
     loading: false,
     currentJobId: null,
+    currentJobKind: null,
     jobsTimer: null,
     jobsPanelTimer: null,
   };
@@ -475,49 +476,66 @@
 
   async function loadAllActiveItems() {
     resetTableState();
-    setLoading(true, "Buscando anúncios ativos...");
+    setLoading(true, "Enfileirando carga dos anúncios ativos...");
 
-    const limit = 50;
-    let cursor = "";
-    let total = null;
+    const account = window.__ACCOUNT__ || {};
+    const accountLabel = readShellAccountLabel() || account.label || null;
+    const localJobId =
+      window.JobsPanel?.addLocalJob?.({
+        title: "Carregar ativos do Atacado",
+        accountKey: account.key || null,
+        accountLabel,
+      }) || null;
 
     try {
-      for (;;) {
-        const params = new URLSearchParams({
-          limit: String(limit),
-          extra_discount_percent: String(currentExtraDiscountPercent()),
-        });
-        if (cursor) params.set("cursor", cursor);
+      const payload = await fetchJson(mlUrl("/api/atacado/ativos/jobs"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          extra_discount_percent: currentExtraDiscountPercent(),
+        }),
+      });
 
-        const payload = await fetchJson(
-          mlUrl(`/api/atacado/ativos?${params.toString()}`),
-        );
-
-        const items = Array.isArray(payload?.items) ? payload.items : [];
-        const paging = payload?.paging || {};
-        total = Number.isFinite(Number(paging.total))
-          ? Number(paging.total)
-          : total;
-
-        state.rows.push(...items);
-        cursor = String(paging.next_cursor || "");
-
-        $("#loadStatus").textContent =
-          total != null
-            ? `Carregando anúncios ativos... ${state.rows.length}/${total}`
-            : `Carregando anúncios ativos... ${state.rows.length}`;
-
-        if (!paging.has_more || !items.length) break;
+      state.currentJobId = String(payload?.job_id || "");
+      state.currentJobKind = "atacado";
+      state.currentJobKind = "atacado-load-active";
+      if (!state.currentJobId) {
+        throw new Error("Backend nao retornou o identificador do job.");
       }
 
-      $("#loadStatus").textContent = `Carga concluída. ${state.rows.length} anúncio(s) ativos carregados.`;
-      setLoadModeBadge("active");
-      state.page = 1;
-      applyFilters();
+      if (localJobId) {
+        window.JobsPanel?.replaceId?.(localJobId, state.currentJobId);
+        window.JobsPanel?.updateLocalJob?.(state.currentJobId, {
+          state: "na fila - aguardando worker",
+          progress: 0,
+          processed: 0,
+          total: 0,
+        });
+      }
+
+      $("#loadStatus").textContent =
+        "Carga enviada para o backend. Acompanhe o progresso no painel de processos.";
+      renderApplySummary(
+        "Os anúncios ativos estão sendo carregados em segundo plano. A tabela será preenchida quando o job terminar.",
+        "info",
+      );
+      startJobsPolling();
     } catch (error) {
-      $("#loadStatus").textContent = `Falha ao carregar anúncios ativos: ${error.message}`;
-      renderApplySummary(`Falha ao carregar anúncios ativos: ${error.message}`, "error");
-    } finally {
+      if (localJobId) {
+        window.JobsPanel?.updateLocalJob?.(localJobId, {
+          progress: 100,
+          state: "falha ao iniciar",
+          completed: true,
+        });
+      }
+      state.currentJobId = null;
+      state.currentJobKind = null;
+      $("#loadStatus").textContent =
+        `Falha ao iniciar carga dos anúncios ativos: ${error.message}`;
+      renderApplySummary(
+        `Falha ao iniciar carga dos anúncios ativos: ${error.message}`,
+        "error",
+      );
       setLoading(false, $("#loadStatus").textContent);
     }
   }
@@ -748,7 +766,9 @@
     try {
       await syncJobsPanel();
       const payload = await fetchJson(
-        mlUrl(`/api/atacado/jobs/${encodeURIComponent(state.currentJobId)}`),
+        mlUrl(
+          `/api/atacado/jobs/${encodeURIComponent(state.currentJobId)}?include_results=0`,
+        ),
       );
       const job = payload?.job || null;
       if (!job) return;
@@ -772,16 +792,59 @@
       });
 
       if (completed) {
-        const summaryParts = [
-          `Total: ${job.total || 0}`,
-          `Aplicados: ${job.applied || 0}`,
-          `Ignorados: ${job.skipped || 0}`,
-          `Erros: ${job.errors || 0}`,
-        ];
-        if (job.dry_run) summaryParts.push("Simulação");
+        const finalPayload = await fetchJson(
+          mlUrl(
+            `/api/atacado/jobs/${encodeURIComponent(state.currentJobId)}?include_results=1`,
+          ),
+        );
+        const finalJob = finalPayload?.job || job;
+        const kind = String(finalJob?.kind || state.currentJobKind || "");
 
-        renderApplySummary(summaryParts.join(" • "), job.errors ? "error" : "success");
-        renderApplyResults(Array.isArray(job.results) ? job.results : []);
+        if (kind === "atacado-load-active") {
+          const rows = Array.isArray(finalJob?.results) ? finalJob.results : [];
+          state.rows = rows;
+          state.page = 1;
+          setLoadModeBadge("active");
+          applyFilters();
+
+          const failed = /^(erro|failed|falh)/i.test(
+            String(finalJob?.status || finalJob?.state || ""),
+          );
+          if (failed) {
+            $("#loadStatus").textContent =
+              `Carga finalizada com falha. ${rows.length} anúncio(s) recuperado(s) antes da interrupção.`;
+            renderApplySummary(
+              finalJob?.error ||
+                `A carga dos ativos falhou após recuperar ${rows.length} anúncio(s).`,
+              "error",
+            );
+          } else {
+            $("#loadStatus").textContent =
+              `Carga concluída. ${rows.length} anúncio(s) ativos carregados.`;
+            renderApplySummary(
+              `Carga de ativos concluída pelo backend: ${rows.length} anúncio(s) carregado(s)${Number(finalJob?.errors || 0) ? ` • ${Number(finalJob.errors)} detalhe(s) não retornado(s) pelo Mercado Livre` : ""}.`,
+              Number(finalJob?.errors || 0) ? "error" : "success",
+            );
+          }
+        } else {
+          const summaryParts = [
+            `Total: ${finalJob.total || 0}`,
+            `Aplicados: ${finalJob.applied || 0}`,
+            `Ignorados: ${finalJob.skipped || 0}`,
+            `Erros: ${finalJob.errors || 0}`,
+          ];
+          if (finalJob.dry_run) summaryParts.push("Simulação");
+
+          renderApplySummary(
+            summaryParts.join(" • "),
+            finalJob.errors ? "error" : "success",
+          );
+          renderApplyResults(
+            Array.isArray(finalJob.results) ? finalJob.results : [],
+          );
+        }
+
+        state.currentJobKind = null;
         setLoading(false, "Job finalizado.");
         stopJobsPolling();
       }
@@ -915,6 +978,7 @@
     state.selected.clear();
     state.page = 1;
     state.currentJobId = null;
+    state.currentJobKind = null;
     stopJobsPolling();
     $("#searchInput").value = "";
     if ($("#specificIdsInput")) $("#specificIdsInput").value = "";
