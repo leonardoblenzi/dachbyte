@@ -243,6 +243,10 @@ function canAccessJob(job, accountKey) {
   return Boolean(wanted && current && wanted === current);
 }
 
+function isActiveLoadJob(data = {}) {
+  return String(data?.kind || "").trim() === "atacado-load-active";
+}
+
 function wholesaleBillingOperationKey(dryRun = false) {
   return dryRun === true ? "wholesale.validate" : "wholesale.apply";
 }
@@ -298,11 +302,13 @@ async function shapeJob(job, { includeResults = false } = {}) {
   if (!job) return null;
   const meta = (await readMeta(job.id)) || {};
   const bullState = await job.getState().catch(() => "unknown");
-  const total = Math.max(0, Number(meta.total || job.data?.itemIds?.length || 0));
+  const activeLoad = isActiveLoadJob(job.data);
+  const total = Math.max(0, Number(meta.total || (activeLoad ? 0 : job.data?.itemIds?.length) || 0));
   const processed = Math.max(0, Number(meta.processed || 0));
   const applied = Math.max(0, Number(meta.applied || 0));
   const skipped = Math.max(0, Number(meta.skipped || 0));
   const errors = Math.max(0, Number(meta.errors || 0));
+  const loaded = Math.max(0, Number(meta.loaded || 0));
   const progress = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
   const status = String(
     meta.status ||
@@ -318,19 +324,27 @@ async function shapeJob(job, { includeResults = false } = {}) {
   const resultTotal = await resultCount(job.id);
   const publicJob = {
     id: String(job.id),
+    kind: job.data?.kind || "atacado",
     title:
       job.data?.title ||
-      `${job.data?.dryRun ? "Simular" : "Aplicar"} Atacado - ${total} item(ns)`,
+      (activeLoad
+        ? "Carregar ativos do Atacado"
+        : `${job.data?.dryRun ? "Simular" : "Aplicar"} Atacado - ${total} item(ns)`),
     state:
       status === "concluido"
-        ? `concluido: ${applied} ok, ${errors} erros, ${skipped} ignorados`
+        ? activeLoad
+          ? `concluido: ${loaded || resultTotal} anuncio(s) carregado(s)${errors ? `, ${errors} detalhe(s) ausente(s)` : ""}`
+          : `concluido: ${applied} ok, ${errors} erros, ${skipped} ignorados`
         : status === "processando"
-          ? `processando ${processed}/${total}`
+          ? activeLoad
+            ? `carregando ${processed}/${total || "?"}`
+            : `processando ${processed}/${total}`
           : status,
     status,
     progress: terminal ? 100 : progress,
     processed,
     total,
+    loaded: activeLoad ? (loaded || resultTotal) : undefined,
     applied,
     skipped,
     errors,
@@ -340,7 +354,7 @@ async function shapeJob(job, { includeResults = false } = {}) {
     completed: terminal,
     account: accountFromData(job.data),
     result_total: resultTotal,
-    billing_telemetry: telemetryFrom(job, meta),
+    billing_telemetry: activeLoad ? null : telemetryFrom(job, meta),
     queue_reason: meta.queueReason || null,
     heavy_operation_holder: meta.heavyOperationHolder || null,
     ...(includeResults ? { results: await readResults(job.id) } : {}),
@@ -348,10 +362,136 @@ async function shapeJob(job, { includeResults = false } = {}) {
   return attachJobContract(
     attachJobReview(publicJob, {
       basePath: "/api/atacado/jobs",
-      hasCsv: resultTotal > 0,
+      hasCsv: !activeLoad && resultTotal > 0,
     }),
     { module: "atacado" },
   );
+}
+
+async function runActiveLoadJob(job) {
+  const data = job.data || {};
+  const initialMeta = (await readMeta(job.id)) || {};
+  if (initialMeta.cancelRequested === true || initialMeta.status === "cancelado") {
+    throw new AtacadoJobCancelledError();
+  }
+
+  const startedAt = nowISO();
+  await writeMeta(job.id, {
+    status: "processando",
+    total: 0,
+    processed: 0,
+    loaded: 0,
+    applied: 0,
+    skipped: 0,
+    errors: 0,
+    cancelRequested: false,
+    queueReason: null,
+    heavyOperationHolder: null,
+    started_at: startedAt,
+  });
+  await job.progress(0);
+
+  await auditAtacadoEvent(data, job.id, "wholesale_active_load_started", "success", {
+    action: "load_active_wholesale_items",
+  });
+
+  const serviceState = await AtacadoService.prepareState(data.mlCreds || {});
+  const seenCursors = new Set();
+  let cursor = null;
+  let total = 0;
+  let processed = 0;
+  let loaded = 0;
+  let errors = 0;
+  let pages = 0;
+
+  for (;;) {
+    const latestMeta = (await readMeta(job.id)) || {};
+    if (latestMeta.cancelRequested === true || latestMeta.status === "cancelado") {
+      throw new AtacadoJobCancelledError();
+    }
+
+    const page = await AtacadoService.listActiveItemsPage(serviceState, {
+      cursor,
+      limit: 50,
+      extra_discount_percent: data.extraDiscountPercent,
+    });
+    const rows = Array.isArray(page?.items) ? page.items : [];
+    const paging = page?.paging || {};
+    const scanned = Math.max(0, Number(paging.scanned ?? rows.length) || 0);
+    const pageTotal = Number(paging.total);
+    if (Number.isFinite(pageTotal) && pageTotal >= 0) total = pageTotal;
+
+    if (rows.length) await appendResults(job.id, rows);
+    processed += scanned;
+    loaded += rows.length;
+    errors += Math.max(0, scanned - rows.length);
+    pages += 1;
+
+    const progress = total > 0
+      ? Math.min(99, Math.round((processed / total) * 100))
+      : 0;
+    await writeMeta(job.id, {
+      status: "processando",
+      total: total || processed,
+      processed,
+      loaded,
+      applied: 0,
+      skipped: 0,
+      errors,
+      pages,
+      cursor: paging.next_cursor || null,
+    });
+    await job.progress(progress);
+
+    const nextCursor = String(paging.next_cursor || "").trim();
+    if (!paging.has_more || !nextCursor || scanned <= 0 || seenCursors.has(nextCursor)) {
+      break;
+    }
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  }
+
+  const finishedAt = nowISO();
+  const finalTotal = total || processed;
+  await writeMeta(job.id, {
+    status: "concluido",
+    total: finalTotal,
+    processed,
+    loaded,
+    applied: 0,
+    skipped: 0,
+    errors,
+    pages,
+    finished_at: finishedAt,
+    cancelRequested: false,
+  });
+  await job.progress(100);
+
+  await auditAtacadoEvent(
+    data,
+    job.id,
+    "wholesale_active_load_completed",
+    errors > 0 ? "warn" : "success",
+    {
+      action: "load_active_wholesale_items",
+      total_items: finalTotal,
+      processed,
+      loaded,
+      errors,
+      pages,
+      duration_ms: Math.max(0, new Date(finishedAt).getTime() - new Date(startedAt).getTime()),
+    },
+  );
+
+  return {
+    ok: true,
+    kind: "atacado-load-active",
+    total: finalTotal,
+    processed,
+    loaded,
+    errors,
+    pages,
+  };
 }
 
 async function runJob(job) {
@@ -559,16 +699,22 @@ class AtacadoJobsService {
     queue.process(WORKER_CONCURRENCY, async (job) => {
       let heavyLease = null;
       let refreshTimer = null;
+      const activeLoad = isActiveLoadJob(job.data);
       try {
         heavyLease = await waitForHeavyOperationLease({
           accountKey: job.data?.accountKey,
-          kind: job.data?.dryRun === true ? "wholesale-validation" : "wholesale",
-          ownerId: `wholesale:${job.id}`,
+          kind: activeLoad
+            ? "wholesale-active-load"
+            : job.data?.dryRun === true
+              ? "wholesale-validation"
+              : "wholesale",
+          ownerId: `${activeLoad ? "wholesale-load" : "wholesale"}:${job.id}`,
           metadata: {
             job_id: String(job.id),
             dry_run: job.data?.dryRun === true,
+            active_load: activeLoad,
           },
-          lane: job.data?.dryRun === true ? "read" : "write",
+          lane: activeLoad || job.data?.dryRun === true ? "read" : "write",
           onWait: async (holder) => {
             await writeMeta(job.id, {
               status: "aguardando",
@@ -587,7 +733,7 @@ class AtacadoJobsService {
         }, 60_000);
         refreshTimer.unref?.();
 
-        return await runJob(job);
+        return activeLoad ? await runActiveLoadJob(job) : await runJob(job);
       } catch (rawError) {
         const error =
           rawError?.code === "HEAVY_OPERATION_WAIT_CANCELLED"
@@ -649,6 +795,7 @@ class AtacadoJobsService {
     });
 
     queue.on("completed", async (job) => {
+      if (isActiveLoadJob(job?.data)) return;
       const meta = (await readMeta(job.id)) || {};
       const billableUnits = wholesaleBillableUnits(job?.data || {}, meta);
       await settleCredits(job?.data?.creditReservation, {
@@ -659,6 +806,7 @@ class AtacadoJobsService {
 
     queue.on("failed", async (job, error) => {
       console.error("[AtacadoJobsService] job failed:", job?.id, error?.message || error);
+      if (isActiveLoadJob(job?.data)) return;
       const meta = (await readMeta(job.id)) || {};
       const billableUnits = wholesaleBillableUnits(job?.data || {}, meta);
       await settleCredits(job?.data?.creditReservation, {
@@ -704,6 +852,52 @@ class AtacadoJobsService {
       unlimited: quote?.unlimited === true,
       quote,
     };
+  }
+
+  static async enqueueActiveLoad({
+    extraDiscountPercent = 1,
+    mlCreds = {},
+    accountKey = null,
+    accountLabel = null,
+    auditContext = null,
+  } = {}) {
+    const normalizedAccount = normalizeAccountKey(accountKey);
+    if (!normalizedAccount) throw new Error("Conta obrigatoria para carregar anuncios ativos.");
+
+    const operationId = `WHOLESALE-LOAD-${crypto.randomUUID()}`;
+    const job = await getQueue().add(
+      {
+        kind: "atacado-load-active",
+        operationId,
+        title: "Carregar ativos do Atacado",
+        extraDiscountPercent: Number(extraDiscountPercent) || 1,
+        mlCreds,
+        accountKey: normalizedAccount,
+        accountLabel: accountLabel || normalizedAccount,
+        auditContext: auditContext && typeof auditContext === "object" ? auditContext : null,
+        createdAt: Date.now(),
+      },
+      {
+        jobId: `job_atacado_${operationId}`,
+        attempts: 1,
+        removeOnComplete: 50,
+        removeOnFail: false,
+      },
+    );
+
+    await writeMeta(job.id, {
+      status: "aguardando",
+      total: 0,
+      processed: 0,
+      loaded: 0,
+      applied: 0,
+      skipped: 0,
+      errors: 0,
+      cancelRequested: false,
+      created_at: nowISO(),
+    });
+
+    return shapeJob(job);
   }
 
   static async enqueue({
@@ -799,10 +993,10 @@ class AtacadoJobsService {
     return mapped.filter(Boolean);
   }
 
-  static async jobDetail(id, { accountKey = null } = {}) {
+  static async jobDetail(id, { accountKey = null, includeResults = true } = {}) {
     const job = await getQueue().getJob(resolveJobId(id));
     if (!job || !canAccessJob(job, accountKey)) return null;
-    return shapeJob(job, { includeResults: true });
+    return shapeJob(job, { includeResults: includeResults !== false });
   }
 
   static async cancelJob(id, { accountKey = null } = {}) {
@@ -878,6 +1072,7 @@ class AtacadoJobsService {
 }
 
 AtacadoJobsService._test = {
+  isActiveLoadJob,
   wholesaleBillingOperationKey,
   wholesaleBillingIdempotencyKey,
   wholesaleBillableUnits,
