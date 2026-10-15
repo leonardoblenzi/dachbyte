@@ -240,9 +240,15 @@ class AtacadoService {
 
       const payload = await response.json();
       const rows = normalizeBulkResponse(payload);
+      const requested = new Set(slice.map(normalizeItemId));
       details.push(
         ...rows
-          .filter((row) => row && row.code === 200 && row.body?.id)
+          .filter((row) => {
+            const id = normalizeItemId(row?.body?.id);
+            return !!id && requested.has(id)
+              && (row.code == null || Number(row.code) === 200)
+              && (row.status_code == null || Number(row.status_code) === 200);
+          })
           .map((row) => row.body),
       );
     }

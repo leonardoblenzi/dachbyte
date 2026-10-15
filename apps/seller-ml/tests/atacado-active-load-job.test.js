@@ -9,6 +9,7 @@ process.env.ML_DATABASE_URL ||= "postgres://test:test@127.0.0.1:5432/test";
 process.env.REDIS_URL ||= "redis://127.0.0.1:6379";
 
 const AtacadoJobsService = require("../services/atacadoJobsService");
+const AtacadoService = require("../services/atacadoService");
 const root = path.join(__dirname, "..");
 const routesSource = fs.readFileSync(path.join(root, "routes/atacadoRoutes.js"), "utf8");
 const controllerSource = fs.readFileSync(path.join(root, "controllers/AtacadoController.js"), "utf8");
@@ -99,6 +100,39 @@ test("pagina ativa informa cobertura mesmo quando o bulk omite detalhes", () => 
   assert.match(serviceSource, /scanned: ids\.length/);
   assert.match(serviceSource, /missing: Math\.max\(0, ids\.length - rows\.length\)/);
   assert.match(serviceSource, /has_more: !!next_cursor && ids\.length > 0/);
+});
+
+test("atacado aceita body de item solicitado sem codigo de status", async () => {
+  const original = AtacadoService.authFetch;
+  AtacadoService.authFetch = async () => ({
+    ok: true,
+    json: async () => [{ body: { id: "MLB1", title: "Produto", status: "active", price: 90 } }],
+  });
+  try {
+    const rows = await AtacadoService.fetchItemsDetails({}, ["MLB1"]);
+    assert.deepEqual(rows.map((row) => row.id), ["MLB1"]);
+  } finally {
+    AtacadoService.authFetch = original;
+  }
+});
+
+test("atacado ignora erro explicito, id estranho e corpo vazio", async () => {
+  const original = AtacadoService.authFetch;
+  AtacadoService.authFetch = async () => ({
+    ok: true,
+    json: async () => [
+      { status_code: 200, body: { id: "MLB1", status: "active" } },
+      { status_code: 404, body: { id: "MLB2", status: "active" } },
+      { body: { id: "MLB3", status: "active" } },
+      { body: {} },
+    ],
+  });
+  try {
+    const rows = await AtacadoService.fetchItemsDetails({}, ["MLB1", "MLB2"]);
+    assert.deepEqual(rows.map((row) => row.id), ["MLB1"]);
+  } finally {
+    AtacadoService.authFetch = original;
+  }
 });
 
 test("reload recupera a carga ativa e continua consultando o mesmo job", () => {
