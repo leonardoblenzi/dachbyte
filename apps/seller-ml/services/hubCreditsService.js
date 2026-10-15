@@ -173,7 +173,13 @@ function hubConsumptionModel(payload = {}) {
 }
 
 function hasUnlimitedCredits(payload = {}) {
-  return hubConsumptionModel(payload) === "unlimited";
+  const model = hubConsumptionModel(payload);
+  if (model) return model === "unlimited";
+  return Boolean(
+    payload?.quote?.unlimited === true ||
+    payload?.wallet?.unlimited === true ||
+    payload?.credits_unlimited === true
+  );
 }
 
 function normalizeOrderRangeCode(value) {
