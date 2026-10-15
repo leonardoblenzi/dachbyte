@@ -497,7 +497,6 @@
       });
 
       state.currentJobId = String(payload?.job_id || "");
-      state.currentJobKind = "atacado";
       state.currentJobKind = "atacado-load-active";
       if (!state.currentJobId) {
         throw new Error("Backend nao retornou o identificador do job.");
@@ -938,6 +937,7 @@
       });
 
       state.currentJobId = String(payload?.job_id || "");
+      state.currentJobKind = "atacado";
       if (localJobId && state.currentJobId) {
         window.JobsPanel?.replaceId?.(localJobId, state.currentJobId);
         window.JobsPanel?.updateLocalJob?.(state.currentJobId, {
