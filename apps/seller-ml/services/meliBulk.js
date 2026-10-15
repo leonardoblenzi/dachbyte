@@ -28,8 +28,18 @@ function itemsBulkPath(ids, attributes = "", extraParams = {}) {
 
 function normalizeBulkEntry(entry) {
   if (!entry || typeof entry !== "object") return entry;
-  if (entry.code != null || entry.status_code == null) return entry;
-  return { ...entry, code: entry.status_code };
+  const normalized = entry.code != null || entry.status_code == null
+    ? { ...entry }
+    : { ...entry, code: entry.status_code };
+  if (
+    normalized.id &&
+    normalized.body &&
+    typeof normalized.body === "object" &&
+    !normalized.body.id
+  ) {
+    normalized.body = { ...normalized.body, id: normalized.id };
+  }
+  return normalized;
 }
 
 function normalizeBulkResponse(payload) {
