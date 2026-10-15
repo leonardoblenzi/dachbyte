@@ -123,3 +123,25 @@ test("job de leitura dos ativos nunca oferece CSV de aplicacao", () => {
     /if \(isActiveLoadJobPayload\(job\)\) return null;/,
   );
 });
+
+test("status erro preserva lifecycle failed mesmo sem contador de erros", () => {
+  const contract = AtacadoJobsService._test.attachAtacadoJobContract({
+    id: "job_atacado_load_failed",
+    kind: "atacado-load-active",
+    status: "erro",
+    state: "erro",
+    completed: true,
+    errors: 0,
+    processed: 4,
+    total: 5,
+  });
+
+  assert.equal(
+    AtacadoJobsService._test.explicitAtacadoLifecycleStatus("erro"),
+    "failed",
+  );
+  assert.equal(contract.lifecycle_status, "failed");
+  assert.equal(contract.job_contract.status, "failed");
+  assert.equal(contract.completed, true);
+  assert.equal(contract.terminal, true);
+});
