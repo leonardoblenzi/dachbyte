@@ -355,6 +355,7 @@ async function shapeJob(job, { includeResults = false } = {}) {
     account: accountFromData(job.data),
     result_total: resultTotal,
     billing_telemetry: activeLoad ? null : telemetryFrom(job, meta),
+    error: meta.error || null,
     queue_reason: meta.queueReason || null,
     heavy_operation_holder: meta.heavyOperationHolder || null,
     ...(includeResults ? { results: await readResults(job.id) } : {}),
@@ -748,17 +749,27 @@ class AtacadoJobsService {
             cancelRequested: false,
           });
           await job.progress(100);
-          await auditAtacadoEvent(job.data || {}, job.id, "wholesale_price_job_canceled", "warn", {
-            total_items: Number(meta.total || job.data?.itemIds?.length || 0),
-            processed: Number(meta.processed || 0),
-            applied: Number(meta.applied || 0),
-            skipped: Number(meta.skipped || 0),
-            errors: Number(meta.errors || 0),
-            billing_telemetry: telemetryFrom(job, {
-              ...meta,
-              finished_at: finishedAt,
-            }),
-          });
+          await auditAtacadoEvent(
+            job.data || {},
+            job.id,
+            activeLoad ? "wholesale_active_load_canceled" : "wholesale_price_job_canceled",
+            "warn",
+            {
+              action: activeLoad ? "load_active_wholesale_items" : "apply_wholesale_price",
+              total_items: Number(meta.total || job.data?.itemIds?.length || 0),
+              processed: Number(meta.processed || 0),
+              loaded: activeLoad ? Number(meta.loaded || 0) : undefined,
+              applied: Number(meta.applied || 0),
+              skipped: Number(meta.skipped || 0),
+              errors: Number(meta.errors || 0),
+              billing_telemetry: activeLoad
+                ? null
+                : telemetryFrom(job, {
+                    ...meta,
+                    finished_at: finishedAt,
+                  }),
+            },
+          );
           return {
             ok: false,
             cancelled: true,
@@ -775,18 +786,28 @@ class AtacadoJobsService {
           finished_at: nowISO(),
           error: safeText(error?.message || String(error)),
         });
-        await auditAtacadoEvent(job.data || {}, job.id, "wholesale_price_job_failed", "error", {
-          total_items: Number(meta.total || job.data?.itemIds?.length || 0),
-          processed: Number(meta.processed || 0),
-          applied: Number(meta.applied || 0),
-          skipped: Number(meta.skipped || 0),
-          errors: Number(meta.errors || 0),
-          billing_telemetry: telemetryFrom(job, {
-            ...meta,
-            finished_at: nowISO(),
-          }),
-          error: safeText(error?.message || String(error)),
-        });
+        await auditAtacadoEvent(
+          job.data || {},
+          job.id,
+          activeLoad ? "wholesale_active_load_failed" : "wholesale_price_job_failed",
+          "error",
+          {
+            action: activeLoad ? "load_active_wholesale_items" : "apply_wholesale_price",
+            total_items: Number(meta.total || job.data?.itemIds?.length || 0),
+            processed: Number(meta.processed || 0),
+            loaded: activeLoad ? Number(meta.loaded || 0) : undefined,
+            applied: Number(meta.applied || 0),
+            skipped: Number(meta.skipped || 0),
+            errors: Number(meta.errors || 0),
+            billing_telemetry: activeLoad
+              ? null
+              : telemetryFrom(job, {
+                  ...meta,
+                  finished_at: nowISO(),
+                }),
+            error: safeText(error?.message || String(error)),
+          },
+        );
         throw error;
       } finally {
         if (refreshTimer) clearInterval(refreshTimer);
