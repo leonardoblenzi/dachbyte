@@ -77,6 +77,22 @@ function createSellerPortalService({ baseUrl, internalToken, fetchImpl = fetch }
       });
     },
 
+    async unlinkAccount(identity, input = {}) {
+      const resolved = normalizeIdentity(identity);
+      if (!resolved.tenant_id || !resolved.user_id) {
+        return {
+          ok: false,
+          status: 401,
+          payload: { ok: false, error: "suite_identity_incomplete" },
+        };
+      }
+      return post("/v1/internal/portal/accounts/unlink", {
+        ...input,
+        tenant_id: resolved.tenant_id,
+        user_id: resolved.user_id,
+      });
+    },
+
     async renewalIntent(identity, resourceKeys) {
       const resolved = normalizeIdentity(identity);
       if (!resolved.tenant_id || !resolved.user_id) {
