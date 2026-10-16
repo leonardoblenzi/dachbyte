@@ -12,6 +12,7 @@ function money(value) {
 async function getDashboard(companyId, configuration = {}) {
   const enabled = new Set(configuration.modules || []);
   const has = (moduleKey) => enabled.has(moduleKey);
+  const timezone = configuration.timezone || "America/Sao_Paulo";
   const cashSummaryPromise = has("cash_register") ? getCashSummary(companyId) : Promise.resolve({ status: "closed", balance: 0 });
 
   const [
@@ -32,12 +33,12 @@ async function getDashboard(companyId, configuration = {}) {
     has("sales") ? db.query(`
       select count(*)::int as count,coalesce(sum(total),0)::numeric as amount
       from volt_core.sales
-      where company_id=$1 and status<>'canceled' and sold_at::date=current_date`, [companyId]) : Promise.resolve({ rows: [{ count: 0, amount: 0 }] }),
+      where company_id=$1 and status<>'canceled' and (sold_at at time zone $2)::date=(now() at time zone $2)::date`, [companyId, timezone]) : Promise.resolve({ rows: [{ count: 0, amount: 0 }] }),
     (has("cash_register") || has("receivables") || has("sales")) ? db.query(`
       select count(*)::int as count,coalesce(sum(amount),0)::numeric as amount
       from volt_core.cash_movements
-      where company_id=$1 and type='entry' and operational_at::date=current_date
-        and source_type in ('sale','sale_edit','receivable')`, [companyId]) : Promise.resolve({ rows: [{ count: 0, amount: 0 }] }),
+      where company_id=$1 and type='entry' and (operational_at at time zone $2)::date=(now() at time zone $2)::date
+        and source_type in ('sale','sale_edit','receivable')`, [companyId, timezone]) : Promise.resolve({ rows: [{ count: 0, amount: 0 }] }),
     has("receivables") ? db.query(`
       select
         coalesce(sum(case when r.status not in ('paid','received','compensated','canceled') then r.amount-r.paid_amount else 0 end),0)::numeric as "openAmount",
@@ -77,16 +78,16 @@ async function getDashboard(companyId, configuration = {}) {
     has("sales") ? db.query(`select count(*)::int as total from volt_core.sales where company_id=$1 and status<>'canceled'`, [companyId]) : Promise.resolve({ rows: [{ total: 0 }] }),
     has("sales") ? db.query(`
       with days as (
-        select generate_series(current_date-interval '29 days',current_date,interval '1 day')::date as day
+        select generate_series((now() at time zone $2)::date-interval '29 days',(now() at time zone $2)::date,interval '1 day')::date as day
       ), totals as (
-        select sold_at::date as day,coalesce(sum(total),0)::numeric as amount,count(*)::int as count
+        select (sold_at at time zone $2)::date as day,coalesce(sum(total),0)::numeric as amount,count(*)::int as count
         from volt_core.sales
-        where company_id=$1 and status<>'canceled' and sold_at>=current_date-interval '29 days'
-        group by sold_at::date
+        where company_id=$1 and status<>'canceled' and (sold_at at time zone $2)::date>=(now() at time zone $2)::date-interval '29 days'
+        group by (sold_at at time zone $2)::date
       )
       select to_char(days.day,'YYYY-MM-DD') as date,coalesce(totals.amount,0)::numeric as amount,coalesce(totals.count,0)::int as count
       from days left join totals using(day)
-      order by days.day`, [companyId]) : Promise.resolve({ rows: [] }),
+      order by days.day`, [companyId, timezone]) : Promise.resolve({ rows: [] }),
     cashSummaryPromise,
   ]);
 

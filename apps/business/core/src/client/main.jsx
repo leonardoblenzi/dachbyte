@@ -1625,10 +1625,10 @@ function DashboardPage({ onNavigate, workspace, canReadPage }) {
   const quickActions = [
     { id: "sale", label: "Nova venda", icon: BadgeDollarSign, page: "sales", intent: { tab: "pdv" } },
     { id: "customer", label: "Novo cliente", icon: UsersRound, page: "customers" },
-    { id: "stock", label: "Receber produtos", icon: Boxes, page: "inventory", intent: { tab: "balance" } },
-    { id: "receive", label: "Receber", icon: WalletCards, page: receiveTarget.page, intent: receiveTarget.intent },
-    primaryOperation ? { id: "operation", label: primaryOperation.title || "Pedidos", icon: ClipboardList, page: primaryOperation.page || "sales", intent: primaryOperation.intent || {} } : null,
-    { id: "cash", label: cashOpen ? "Ver caixa" : "Abrir caixa", icon: CircleDollarSign, page: "cash_register" },
+    { id: "receive-sale", label: "Receber venda", icon: WalletCards, page: receiveTarget.page, intent: receiveTarget.intent },
+    { id: "products", label: "Produtos e servicos", icon: PackagePlus, page: "products" },
+    { id: "receipt", label: "Recibo de venda", icon: ReceiptText, page: "receipts" },
+    { id: "orders", label: "Pedidos", icon: ClipboardList, page: "sales", intent: { tab: "orders" } },
   ].filter((item) => item && canAccess(item.page));
 
   return (

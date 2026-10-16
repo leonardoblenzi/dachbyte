@@ -137,6 +137,14 @@ function normalizeDateInput(value) {
     : null;
 }
 
+function resolveSaleTimestamp(value, now = new Date().toISOString()) {
+  const reference = new Date(now);
+  const resolved = String(value || "").trim() ? new Date(value) : reference;
+  if (Number.isNaN(resolved.getTime())) throw Object.assign(new Error("Informe uma data/hora de venda valida"), { statusCode: 400, code: "SALE_DATE_INVALID" });
+  if (resolved.getTime() > reference.getTime()) throw Object.assign(new Error("A data/hora da venda nao pode ser futura"), { statusCode: 400, code: "SALE_DATE_IN_FUTURE" });
+  return resolved.toISOString();
+}
+
 function deliveryError(message, code) {
   return Object.assign(new Error(message), { statusCode: 400, code });
 }
@@ -571,7 +579,7 @@ async function createSale(companyId, input = {}) {
       const discountTotal = toMoney(preparedItems.reduce((sum, item) => sum + item.discount, 0));
       const total = toMoney(subtotal - discountTotal);
       if (total <= 0) throw Object.assign(new Error("Total da venda deve ser maior que zero"), { statusCode: 400, code: "SALE_TOTAL_INVALID" });
-      const soldAt = input.soldAt || input.sold_at || new Date().toISOString();
+      const soldAt = resolveSaleTimestamp(input.soldAt || input.sold_at);
       const normalizedPayments = deliveryPayment ? [] : normalizeSalePayments(payments, total, soldAt);
       if (!customer && normalizedPayments.some((payment) => CUSTOMER_REQUIRED_PAYMENT_METHODS.has(payment.method))) {
         throw Object.assign(new Error("Venda a prazo exige cliente cadastrado"), { statusCode: 400, code: "RECEIVABLE_CUSTOMER_REQUIRED" });
@@ -879,7 +887,7 @@ async function updateSale(companyId, saleId, input = {}) {
       if (customerWasRequested && !customer) {
         throw Object.assign(new Error("Cliente informado nao foi encontrado"), { statusCode: 404, code: "SALE_CUSTOMER_NOT_FOUND" });
       }
-      const soldAt = input.soldAt || input.sold_at || sale.soldAt;
+      const soldAt = resolveSaleTimestamp(input.soldAt || input.sold_at || sale.soldAt);
       const payments = Array.isArray(input.payments) && input.payments.length ? input.payments : sale.payments;
       const normalizedPayments = normalizeSalePayments(payments, toMoney(sale.total), soldAt);
       if (!customer && normalizedPayments.some((payment) => CUSTOMER_REQUIRED_PAYMENT_METHODS.has(payment.method))) {
@@ -1270,6 +1278,7 @@ module.exports = {
     normalizeSalePayments,
     resolveReceivableDueDate,
     resolveReceivableDueDateDetails,
+    resolveSaleTimestamp,
     saleIdempotencyFingerprint,
   },
   cancelSale, completeSaleDelivery, createSale, deleteCanceledSale, listReceipts, listSales, updateSale,

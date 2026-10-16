@@ -10,7 +10,7 @@ const { getCommercialSnapshotWithClient } = require("./commercialService");
 
 async function getCompanyConfigurationWithClient(client, companyId) {
   const result = await client.query(`
-    select c.id as "companyId", c.name, c.document, c.phone, c.address,
+    select c.id as "companyId", c.name, c.document, c.phone, c.address, c.timezone as "timezone",
       c.segment_key as "segmentKey", c.plan_key as "planKey",
       cfg.modules, cfg.screens, cfg.settings, cfg.overrides,
       cfg.updated_by as "updatedBy", cfg.updated_at as "updatedAt"
