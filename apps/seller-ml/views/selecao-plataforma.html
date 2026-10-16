@@ -1,1107 +1,595 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-portal">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DACHBYTE Seller | Seleção de plataforma</title>
+  <title>DACHBYTE Seller | Portal</title>
   <meta name="theme-color" content="#090b10" />
   <link rel="icon" type="image/svg+xml" href="/ml/img/dachbyte-seller-mark.svg?v=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <style>
     :root{
-      --ink:#090b10;
-      --panel:rgba(255,255,255,.045);
-      --panel-2:rgba(255,255,255,.075);
-      --line:rgba(255,255,255,.10);
-      --line-strong:rgba(255,255,255,.18);
-      --text:#f4f2ec;
-      --muted:#8b8f9e;
-      --signal:#ff8a3f;
-      --signal-2:#ffb37a;
-      --mint:#2dd9a8;
-      --rose:#ff5470;
-      --yellow:#ffe066;
-      --blue:#6c93ff;
-      --r-xl:30px;
-      --r-lg:22px;
-      --r-md:16px;
-      --shadow:0 30px 80px rgba(0,0,0,.42);
-      --max:1240px;
+      --bg:#090b10;
+      --sidebar:#0c0f14;
+      --panel:#11151c;
+      --panel-2:#151a22;
+      --panel-3:#1a2029;
+      --line:#252c37;
+      --line-strong:#343e4d;
+      --text:#f4f1e8;
+      --muted:#8e97a5;
+      --muted-2:#66707e;
+      --orange:#ff8a3d;
+      --orange-2:#ffb15f;
+      --green:#62d694;
+      --yellow:#f2c94c;
+      --red:#ff7373;
+      --blue:#78a9ff;
+      --radius:12px;
+      --shadow:0 22px 60px rgba(0,0,0,.28);
     }
     *{box-sizing:border-box}
-    html{scroll-behavior:smooth}
-    body{
-      margin:0;
-      min-height:100dvh;
-      color:var(--text);
-      background:
-        radial-gradient(circle at 12% 10%, rgba(255,138,63,.14), transparent 18rem),
-        radial-gradient(circle at 82% 14%, rgba(45,217,168,.10), transparent 22rem),
-        radial-gradient(circle at 72% 88%, rgba(108,147,255,.10), transparent 22rem),
-        linear-gradient(180deg,#090b10 0%,#0d1119 46%,#090b10 100%);
-      font-family:"Inter",ui-sans-serif,system-ui,sans-serif;
-      -webkit-font-smoothing:antialiased;
-      overflow-x:hidden;
-    }
-    body::before{
-      content:"";
-      position:fixed;
-      inset:0;
-      z-index:0;
-      pointer-events:none;
-      opacity:.45;
-      background-image:
-        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
-      background-size:64px 64px;
-      mask-image:radial-gradient(circle at 50% 0%, rgba(0,0,0,.95), rgba(0,0,0,.14) 72%);
-    }
+    html{background:var(--bg)}
+    body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:"Exo 2",Arial,sans-serif}
+    button,input,select{font:inherit}
     a{color:inherit;text-decoration:none}
-    button{font:inherit;color:inherit;cursor:pointer}
-    img{display:block;max-width:100%}
-    :focus-visible{outline:2px solid var(--signal);outline-offset:3px}
-    .page{
-      position:relative;
-      z-index:1;
-      min-height:100dvh;
-      padding:14px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-    .brand{
-      display:inline-flex;
-      align-items:center;
-      gap:9px;
-      padding:10px 14px;
-      border-radius:999px;
-      border:1px solid var(--line-strong);
-      background:var(--panel);
-      backdrop-filter:blur(14px);
-    }
-    .brand__wordmark{
-      display:grid;
-      gap:1px;
-      min-width:max-content;
-      justify-items:center;
-      text-align:center;
-    }
-    .brand__wordmark strong{
-      display:block;
-      margin:0;
-      font-family:"Space Grotesk",sans-serif;
-      font-size:16px;
-      font-weight:700;
-      letter-spacing:-.04em;
-      line-height:.95;
-      color:#35a2ff;
-      text-shadow:0 0 18px rgba(53,162,255,.16);
-    }
-    .brand__wordmark span{
-      display:block;
-      color:#8abaff;
-      font-size:7.5px;
-      font-family:"JetBrains Mono",monospace;
-      letter-spacing:.18em;
-      text-transform:uppercase;
-    }
-    .brand__copy span{
-      display:block;
-      color:var(--muted);
-      font-size:12px;
-      margin-top:0;
-      font-family:"JetBrains Mono",monospace;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-    }
-    .back-btn{
-      display:inline-flex;
-      align-items:center;
-      gap:10px;
-      min-height:42px;
-      padding:0 15px;
-      border-radius:999px;
-      border:1px solid var(--line-strong);
-      background:var(--panel);
-      color:var(--text);
-      backdrop-filter:blur(14px);
-    }
-    .shell{
-      width:min(var(--max),100%);
-      margin:auto;
-      display:grid;
-      gap:10px;
-      align-content:center;
-    }
-    .notice,.context-panel,.modules-panel{
-      border:1px solid var(--line);
-      border-radius:var(--r-xl);
-      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-      box-shadow:var(--shadow);
-    }
-    .eyebrow{
-      display:inline-flex;
-      align-items:center;
-      gap:9px;
-      font-family:"JetBrains Mono",monospace;
-      font-size:12px;
-      letter-spacing:.06em;
-      text-transform:uppercase;
-      color:var(--signal-2);
-    }
-    .eyebrow i{
-      width:6px;height:6px;border-radius:999px;background:var(--signal);
-      box-shadow:0 0 12px var(--signal);
-    }
-    .hero-title{
-      margin:10px 0 0;
-      font-family:"Space Grotesk",sans-serif;
-      font-size:clamp(24px,2.8vw,34px);
-      line-height:1;
-      letter-spacing:-.05em;
-      max-width:14ch;
-    }
-    .meta-card{
-      display:grid;
-      grid-template-columns:auto 1fr;
-      align-items:center;
-      gap:10px 16px;
-      padding:12px 14px;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.07);
-      background:rgba(255,255,255,.02);
-      min-width:0;
-      max-width:420px;
-    }
-    .meta-card > span{
-      display:block;
-      color:var(--muted);
-      font-size:11px;
-      font-family:"JetBrains Mono",monospace;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-    }
-    .meta-card > strong{
-      display:block;
-      margin-top:0;
-      font-size:20px;
-      font-family:"Space Grotesk",sans-serif;
-      letter-spacing:-.04em;
-      color:#ebe7df;
-      min-width:36px;
-    }
-    .meta-list{
-      grid-column:1 / -1;
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px 14px;
-      margin-top:0;
-    }
-    .meta-line{
-      display:grid;
-      gap:4px;
-      font-size:11.5px;
-      color:#c8cedb;
-      padding:0;
-      border-bottom:0;
-    }
-    .meta-line span:first-child{
-      color:#7d8496;
-      font-size:10.5px;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
-    .notice{
-      display:none;
-      padding:12px 14px;
-      gap:14px;
-      align-items:center;
-      grid-template-columns:auto 1fr auto;
-      border-color:rgba(255,255,255,.06);
-      background:rgba(255,255,255,.02);
-      box-shadow:none;
-    }
-    .notice.is-visible{display:grid}
-    .notice.is-expired{
-      border-color:rgba(255,84,112,.18);
-      background:linear-gradient(180deg, rgba(255,84,112,.06), rgba(255,255,255,.02));
-    }
-    .notice.is-critical{
-      border-color:rgba(255,138,63,.18);
-      background:linear-gradient(180deg, rgba(255,138,63,.06), rgba(255,255,255,.02));
-    }
-    .notice__icon{
-      width:34px;height:34px;border-radius:12px;display:grid;place-items:center;
-      font-weight:900;background:rgba(255,255,255,.08);border:1px solid var(--line);
-    }
-    .notice.is-expired .notice__icon{background:rgba(255,84,112,.18);border-color:rgba(255,84,112,.30)}
-    .notice.is-critical .notice__icon{background:rgba(255,138,63,.18);border-color:rgba(255,138,63,.30)}
-    .notice__content strong{display:block;font-size:13.5px}
-    .notice__content span,.notice__content small{display:block;color:var(--muted);margin-top:3px;line-height:1.4}
-    .notice__content small{font-size:12px}
-    .notice__action{
-      min-height:38px;
-      padding:0 14px;
-      border-radius:999px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      background:var(--signal);
-      color:#1a0e02;
-      font-weight:800;
-      white-space:nowrap;
-    }
-    .context-panel,.modules-panel{
-      padding:18px;
-    }
-    .context-head{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      align-items:flex-start;
-      margin-bottom:12px;
-      flex-wrap:wrap;
-    }
-    .context-copy{
-      display:grid;
-      gap:14px;
-    }
-    .context-head h2{
-      margin:0;
-      font-family:"Space Grotesk",sans-serif;
-      font-size:clamp(21px,2.2vw,28px);
-      letter-spacing:-.03em;
-    }
-    .context-tools{
-      display:flex;
-      align-items:flex-start;
-      gap:14px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-    .modules-head{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      align-items:center;
-      margin-bottom:14px;
-      flex-wrap:wrap;
-    }
-    .modules-head h2{
-      margin:0;
-      font-family:"Space Grotesk",sans-serif;
-      font-size:clamp(22px,2.4vw,30px);
-      letter-spacing:-.04em;
-    }
-    .modules-subcopy{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.5;
-    }
-    .modules-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:12px;
-      align-items:stretch;
-    }
-    .module-card{
-      display:grid;
-      gap:14px;
-      padding:16px;
-      border-radius:22px;
-      border:1px solid var(--line);
-      background:
-        radial-gradient(circle at top left, rgba(255,138,63,.12), transparent 34%),
-        linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.025));
-      transition:transform .2s ease,border-color .2s ease,background .2s ease,box-shadow .2s ease;
-      min-height:154px;
-      position:relative;
-      overflow:hidden;
-    }
-    .module-card[hidden]{display:none!important}
-    .module-card::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      background:linear-gradient(120deg, transparent 0%, rgba(255,255,255,.10) 36%, transparent 62%);
-      opacity:0;
-      transform:translateX(-32%);
-      transition:opacity .25s ease, transform .45s ease;
-      pointer-events:none;
-    }
-    .module-card::after{
-      content:"";
-      position:absolute;
-      inset:auto -40px -48px auto;
-      width:160px;
-      height:160px;
-      border-radius:50%;
-      background:radial-gradient(circle, rgba(255,138,63,.18), transparent 68%);
-      pointer-events:none;
-    }
-    .module-card:hover{
-      transform:translateY(-2px);
-      border-color:rgba(255,138,63,.24);
-      box-shadow:0 18px 34px rgba(0,0,0,.18);
-    }
-    .module-card:hover::before{
-      opacity:.65;
-      transform:translateX(16%);
-    }
-    .module-card[aria-disabled="true"]{
-      opacity:.72;
-      cursor:not-allowed;
-    }
-
-    .module-card[data-module="magalu"]{
-      background:
-        radial-gradient(circle at top left, rgba(22,131,232,.18), transparent 38%),
-        linear-gradient(180deg, rgba(85,174,255,.08), rgba(255,255,255,.025));
-    }
-    .module-card[data-module="magalu"]:hover{border-color:rgba(85,174,255,.34)}
-    .module-card[data-module="magalu"] .module-mark{
-      color:#79c9ff;
-      border-color:rgba(85,174,255,.24);
-      background:linear-gradient(180deg, rgba(85,174,255,.16), rgba(57,199,243,.06));
-    }
-    .module-card[data-module="magalu"] .module-action span{color:#79c9ff}
-    .module-card.is-renewal-required{
-      border-color:rgba(255,84,112,.28);
-      background:
-        radial-gradient(circle at top left, rgba(255,84,112,.16), transparent 34%),
-        linear-gradient(180deg, rgba(255,84,112,.08), rgba(255,255,255,.03));
-    }
-    .module-card__top{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      align-items:flex-start;
-    }
-    .module-mark{
-      width:54px;
-      height:54px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.04));
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 18px 34px rgba(0,0,0,.18);
-      overflow:hidden;
-      font-family:"Space Grotesk",sans-serif;
-      font-size:20px;
-      font-weight:800;
-      letter-spacing:-.05em;
-    }
-    .module-badge{
-      display:inline-flex;
-      align-items:center;
-      gap:7px;
-      min-height:26px;
-      padding:0 9px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:var(--panel);
-      color:#c4cad8;
-      font-size:9px;
-      font-weight:800;
-      text-transform:uppercase;
-      letter-spacing:.1em;
-      opacity:.92;
-    }
-    .module-badge::before{
-      content:"";
-      width:7px;
-      height:7px;
-      border-radius:50%;
-      background:var(--mint);
-      box-shadow:0 0 0 5px rgba(45,217,168,.08);
-    }
-    .module-card.is-renewal-required .module-badge{
-      color:#ffd0d8;
-      border-color:rgba(255,84,112,.24);
-      background:rgba(255,84,112,.12);
-    }
-    .module-card.is-renewal-required .module-badge::before{
-      background:var(--rose);
-      box-shadow:0 0 0 5px rgba(255,84,112,.10);
-    }
-    .module-name{
-      font-family:"Space Grotesk",sans-serif;
-      font-size:22px;
-      letter-spacing:-.04em;
-      line-height:1.02;
-      margin-top:auto;
-      min-height:50px;
-      max-width:10ch;
-      display:flex;
-      align-items:flex-end;
-    }
-    .module-action{
-      display:inline-flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      font-weight:800;
-      color:var(--signal-2);
-      font-size:14px;
-      padding-top:12px;
-      border-top:1px solid rgba(255,255,255,.08);
-    }
-    .module-card[aria-disabled="false"] .module-action{color:var(--text)}
-    .module-action span{
-      display:inline-grid;
-      place-items:center;
-      width:30px;
-      height:30px;
-      border-radius:50%;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(255,255,255,.06);
-      color:var(--signal-2);
-      transition:transform .2s ease, border-color .2s ease, background .2s ease;
-      flex:0 0 30px;
-    }
-    .module-card:hover .module-action span{
-      transform:translateX(2px);
-      border-color:rgba(255,138,63,.28);
-      background:rgba(255,138,63,.10);
-    }
-    .empty-state{
-      display:none;
-      margin-top:18px;
-      padding:18px;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.03);
-      color:var(--muted);
-      line-height:1.6;
-    }
-    .empty-state.is-visible{display:block}
-    .support{
-      margin-top:16px;
-      padding:14px 2px 0;
-      display:flex;
-      justify-content:space-between;
-      gap:18px;
-      align-items:center;
-      flex-wrap:wrap;
-      border-top:1px solid rgba(255,255,255,.08);
-      border-radius:0;
-      background:transparent;
-      box-shadow:none;
-    }
-    .support p{margin:0;color:#73798a;line-height:1.45;font-size:12.5px}
-    .support strong{color:var(--text)}
-    .support a{
-      min-height:34px;
-      padding:0 12px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.08);
-      background:rgba(255,255,255,.03);
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      font-weight:700;
-      font-size:12.5px;
-    }
-    .session-loader{
-      position:fixed;
-      inset:auto 24px 24px auto;
-      display:none;
-      align-items:center;
-      gap:12px;
-      padding:14px 16px;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:rgba(9,11,16,.92);
-      box-shadow:var(--shadow);
-      z-index:30;
-    }
-    .session-loader.is-visible{display:flex}
-    .spinner{
-      width:18px;height:18px;border-radius:999px;
-      border:2px solid rgba(255,255,255,.18);
-      border-top-color:var(--signal);
-      animation:spin .8s linear infinite;
-    }
+    [hidden]{display:none!important}
+    .app{min-height:100vh;display:grid;grid-template-columns:238px minmax(0,1fr)}
+    .sidebar{position:sticky;top:0;height:100vh;border-right:1px solid var(--line);background:var(--sidebar);padding:22px 16px 18px;display:flex;flex-direction:column;z-index:20}
+    .brand{padding:3px 10px 24px}
+    .brand__name{display:block;font-size:1.18rem;font-weight:800;letter-spacing:.08em}
+    .brand__line{display:block;color:var(--orange);font-family:"Share Tech Mono",monospace;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;margin-top:3px}
+    .nav{display:grid;gap:5px}
+    .nav__item{appearance:none;border:1px solid transparent;background:transparent;color:#9ca5b2;padding:11px 12px;border-radius:9px;text-align:left;font-weight:700;cursor:pointer;transition:.18s ease;display:flex;align-items:center;gap:10px}
+    .nav__item:hover{background:#121720;color:var(--text)}
+    .nav__item.is-active{background:#181e27;border-color:#2b3441;color:#fff}
+    .nav__dot{width:7px;height:7px;border-radius:2px;border:1px solid #596474;background:#202733}
+    .nav__item.is-active .nav__dot{background:var(--orange);border-color:var(--orange)}
+    .sidebar__bottom{margin-top:auto;border-top:1px solid var(--line);padding:16px 10px 0;display:grid;gap:8px}
+    .side-link{appearance:none;border:0;background:transparent;color:var(--muted);text-align:left;padding:5px 0;cursor:pointer;font-size:.8rem}
+    .main{min-width:0}
+    .topbar{height:72px;border-bottom:1px solid var(--line);background:rgba(9,11,16,.94);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 28px;position:sticky;top:0;z-index:15}
+    .tenant strong{font-size:.95rem}.tenant small{display:block;color:var(--muted);font-size:.7rem;margin-top:3px;font-family:"Share Tech Mono",monospace}
+    .userbox{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.78rem}
+    .avatar{width:34px;height:34px;border-radius:9px;background:var(--panel-3);border:1px solid var(--line-strong);display:grid;place-items:center;color:#fff;font-weight:800}
+    .content{max-width:1480px;margin:0 auto;padding:30px 30px 54px}
+    .view{display:none}.view.is-active{display:block}
+    .kicker{color:var(--orange);font:700 .7rem "Share Tech Mono",monospace;letter-spacing:.16em;text-transform:uppercase}
+    h1{margin:8px 0 6px;font-family:"Rajdhani",sans-serif;font-size:2.1rem;line-height:1;font-weight:700;letter-spacing:-.02em}
+    .lead{margin:0;color:var(--muted);font-size:.9rem;line-height:1.55;max-width:760px}
+    .section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin:28px 0 13px}
+    .section-head h2{margin:0;font-family:"Rajdhani",sans-serif;font-size:1.25rem;font-weight:700}
+    .section-head p{margin:4px 0 0;color:var(--muted);font-size:.78rem}
+    .summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:23px 0}
+    .metric{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+    .metric span{font:700 .63rem "Share Tech Mono",monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    .metric strong{display:block;margin-top:7px;font-family:"Rajdhani",sans-serif;font-size:1.55rem}
+    .alerts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:22px}
+    .alert{border:1px solid #443923;background:#18150f;border-radius:var(--radius);padding:14px 15px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .alert--critical{border-color:#552f2f;background:#1b1112}
+    .alert--info{border-color:#263b55;background:#101722}
+    .alert strong{font-size:.84rem}.alert small{display:block;color:#aaa18e;margin-top:4px;font-size:.7rem}
+    .btn{appearance:none;border:0;border-radius:8px;padding:9px 12px;background:linear-gradient(135deg,var(--orange),var(--orange-2));color:#21150d;font-weight:800;cursor:pointer;white-space:nowrap}
+    .btn:hover{filter:brightness(1.04)}
+    .btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+    .btn--ghost{background:transparent;border:1px solid var(--line-strong);color:#c4cbd4}
+    .btn--soft{background:#1b222c;border:1px solid #303a48;color:#d8dde3}
+    .btn--danger{background:#261616;border:1px solid #573131;color:#ffb0b0}
+    .modules-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .module-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:17px;min-height:220px;display:flex;flex-direction:column;position:relative;overflow:hidden;transition:.18s ease}
+    .module-card.is-installed{border-color:#35404e}
+    .module-card.is-installed::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,var(--orange),var(--orange-2))}
+    .module-card.is-available{opacity:.62;filter:saturate(.4)}
+    .module-card.is-available:hover{opacity:.95;filter:none;border-color:#3b4655}
+    .module-top{display:flex;justify-content:space-between;align-items:flex-start}
+    .module-mark{width:42px;height:42px;border:1px solid #35404e;background:#171c24;border-radius:9px;display:grid;place-items:center;font-family:"Rajdhani",sans-serif;font-weight:700;font-size:1rem}
+    .badge{display:inline-flex;align-items:center;gap:6px;border:1px solid #333d4a;border-radius:999px;padding:5px 8px;font:700 .63rem "Share Tech Mono",monospace;color:#bbc3ce}
+    .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:#687586}
+    .badge--active{color:#9bedbc;border-color:#28523a;background:#0d2116}.badge--active::before{background:var(--green)}
+    .badge--warning{color:#f3d876;border-color:#594819;background:#231f0d}.badge--warning::before{background:var(--yellow)}
+    .badge--danger{color:#ff9d9d;border-color:#5b2d2d;background:#251313}.badge--danger::before{background:var(--red)}
+    .badge--info{color:#9ec5ff;border-color:#29445f;background:#101d2b}.badge--info::before{background:var(--blue)}
+    .module-card h3{margin:18px 0 7px;font-family:"Rajdhani",sans-serif;font-size:1.25rem}
+    .module-desc{color:var(--muted);font-size:.78rem;line-height:1.5}
+    .module-stats{display:flex;gap:13px;flex-wrap:wrap;color:#b8c0ca;font-size:.7rem;margin-top:11px}
+    .module-stats b{color:#fff}
+    .module-actions{display:flex;gap:8px;align-items:center;margin-top:auto;padding-top:18px;flex-wrap:wrap}
+    .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:20px 0 13px}
+    .chip{appearance:none;border:1px solid var(--line);background:var(--panel);color:#aab3bf;border-radius:999px;padding:7px 11px;font-size:.72rem;font-weight:700;cursor:pointer}
+    .chip.is-active{background:#1b222c;border-color:#3a4655;color:#fff}
+    .toolbar__spacer{flex:1}
+    .table-wrap{border:1px solid var(--line);border-radius:var(--radius);overflow:auto;background:var(--panel)}
+    table{width:100%;border-collapse:collapse;min-width:1000px}
+    th,td{padding:13px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;font-size:.75rem}
+    th{background:#0f1319;color:#838d9b;font:700 .62rem "Share Tech Mono",monospace;text-transform:uppercase;letter-spacing:.07em}
+    tr:last-child td{border-bottom:0}
+    td strong{font-size:.79rem}td small{display:block;color:var(--muted);margin-top:3px}
+    .status-text{font-weight:800}.status-text--active{color:var(--green)}.status-text--warning{color:var(--yellow)}.status-text--danger{color:var(--red)}.status-text--muted{color:var(--muted)}
+    .plans{display:grid;gap:12px}
+    .plan-group{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+    .plan-head{padding:14px 16px;background:#11161d;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:16px;align-items:center}
+    .plan-head h3{margin:0;font:700 1.05rem "Rajdhani",sans-serif}.plan-head small{color:var(--muted)}
+    .plan-row{display:grid;grid-template-columns:28px 1.35fr .85fr .75fr .8fr .8fr auto;gap:12px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--line);font-size:.73rem}
+    .plan-row:last-child{border-bottom:0}
+    .plan-row input[type="checkbox"]{accent-color:var(--orange)}
+    .empty{border:1px dashed #394451;border-radius:var(--radius);padding:22px;color:var(--muted);text-align:center;font-size:.8rem}
+    .company-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px;margin-top:22px}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:17px}
+    .panel h2{margin:0 0 13px;font:700 1.15rem "Rajdhani",sans-serif}
+    .detail-list{display:grid;gap:10px}
+    .detail{display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding-bottom:9px;font-size:.75rem}
+    .detail:last-child{border-bottom:0;padding-bottom:0}.detail span{color:var(--muted)}
+    .loader{position:fixed;inset:0;background:rgba(9,11,16,.9);display:grid;place-items:center;z-index:80}
+    .loader__box{display:flex;align-items:center;gap:12px;color:#d6dbe2}
+    .spinner{width:20px;height:20px;border-radius:50%;border:2px solid #303845;border-top-color:var(--orange);animation:spin .7s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
-    @media (max-width:1080px){
-      .meta-card{width:100%;max-width:none}
-      .meta-list{grid-template-columns:1fr}
+    .toast{position:fixed;right:22px;bottom:22px;z-index:90;max-width:420px;padding:13px 14px;background:#161b22;border:1px solid #394451;border-radius:10px;box-shadow:var(--shadow);font-size:.76rem}
+    .toast.is-error{border-color:#663434;background:#211516}
+    .drawer{position:fixed;inset:0;z-index:70;pointer-events:none}
+    .drawer.is-open{pointer-events:auto}
+    .drawer__backdrop{position:absolute;inset:0;background:rgba(0,0,0,.58);opacity:0;transition:.2s}
+    .drawer.is-open .drawer__backdrop{opacity:1}
+    .drawer__panel{position:absolute;right:0;top:0;bottom:0;width:min(520px,100%);background:#0e1218;border-left:1px solid var(--line-strong);transform:translateX(100%);transition:.22s ease;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+    .drawer.is-open .drawer__panel{transform:none}
+    .drawer__head{padding:20px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+    .drawer__head h2{margin:4px 0 0;font:700 1.45rem "Rajdhani",sans-serif}
+    .drawer__body{padding:18px 22px;overflow:auto;display:grid;gap:15px}
+    .drawer__foot{margin-top:auto;border-top:1px solid var(--line);padding:15px 22px;display:flex;justify-content:flex-end;gap:9px}
+    .close{appearance:none;border:1px solid var(--line);background:#171c24;color:#b8c0ca;border-radius:8px;width:34px;height:34px;cursor:pointer}
+    .field{display:grid;gap:6px}.field label{font:700 .64rem "Share Tech Mono",monospace;color:#98a2af;text-transform:uppercase;letter-spacing:.06em}
+    .field input,.field select{width:100%;border:1px solid #303947;border-radius:8px;background:#12171f;color:#f2f1ed;padding:10px 11px;outline:none}
+    .field input:focus,.field select:focus{border-color:#765039}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field--wide{grid-column:1/-1}
+    .purchase-summary{border:1px solid var(--line);border-radius:10px;background:#12171e;padding:13px}
+    .purchase-summary strong{display:block}.purchase-summary small{display:block;color:var(--muted);margin-top:5px;line-height:1.5}
+    .purchase-price{font:700 1.45rem "Rajdhani",sans-serif;margin-top:8px}
+    @media(max-width:1120px){
+      .app{grid-template-columns:82px minmax(0,1fr)}
+      .brand__name{font-size:0}.brand__name::after{content:"D";font-size:1.4rem}.brand__line{display:none}
+      .nav__item{justify-content:center;font-size:0;padding:11px 8px}.nav__dot{width:10px;height:10px}.sidebar__bottom{display:none}
       .modules-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .summary{grid-template-columns:repeat(3,minmax(0,1fr))}
     }
-    @media (max-height:860px){
-      .page{padding:12px;gap:10px}
-      .shell{gap:10px}
-      .meta-card{padding:11px 13px}
-      .meta-card > strong{font-size:18px}
-      .meta-list{gap:8px 12px}
-      .notice{padding:12px 14px}
-      .context-panel,.modules-panel{padding:16px}
-      .module-card{min-height:144px;padding:15px}
-      .module-mark{width:48px;height:48px;font-size:18px}
-      .module-name{font-size:20px;min-height:38px}
-      .back-btn{min-height:38px;padding:0 13px}
-      .support{padding-top:12px}
+    @media(max-width:760px){
+      .app{display:block}.sidebar{position:sticky;top:0;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:7px;display:block}.brand,.sidebar__bottom{display:none}
+      .nav{grid-template-columns:repeat(5,1fr)}.nav__item{padding:10px 5px}.topbar{top:50px;height:62px;padding:0 14px}.content{padding:20px 13px 42px}
+      .modules-grid,.alerts,.company-grid{grid-template-columns:1fr}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .plan-row{grid-template-columns:28px 1fr 1fr}.plan-row>*:nth-child(n+4){grid-column:auto}.plan-row .plan-action{grid-column:2/-1}
+      .form-grid{grid-template-columns:1fr}.field--wide{grid-column:auto}
     }
-    @media (max-width:720px){
-      .page{padding:18px}
-      .context-panel,.modules-panel{padding:22px}
-      .modules-grid{grid-template-columns:1fr}
-      .notice{grid-template-columns:1fr}
-      .notice__action{width:100%}
-      .meta-card{
-        grid-template-columns:1fr;
-        gap:8px;
-      }
-      .meta-list{grid-template-columns:1fr}
-      .module-name{max-width:none}
-      .context-tools{
-        width:100%;
-        justify-content:flex-start;
-      }
-      .support{
-        padding:4px 0 0;
-        gap:10px;
-        align-items:flex-start;
-      }
-    }
-    .renewal-modal{
-      position:fixed;
-      inset:0;
-      z-index:80;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:22px;
-      background:rgba(2,6,23,.72);
-      backdrop-filter:blur(16px);
-    }
-    .renewal-modal.is-visible{display:flex}
-    .renewal-modal__panel{
-      width:min(620px,100%);
-      border:1px solid rgba(255,255,255,.16);
-      border-radius:28px;
-      background:linear-gradient(145deg,rgba(24,27,35,.98),rgba(13,18,26,.98));
-      box-shadow:0 28px 90px rgba(0,0,0,.45);
-      color:var(--text);
-      overflow:hidden;
-    }
-    .renewal-modal__head,.renewal-modal__foot{padding:22px 24px;border-bottom:1px solid rgba(255,255,255,.1)}
-    .renewal-modal__foot{border-top:1px solid rgba(255,255,255,.1);border-bottom:0;display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap}
-    .renewal-modal__body{padding:18px 24px 22px;max-height:52vh;overflow:auto}
-    .renewal-modal__kicker{display:block;color:var(--accent);font-size:.68rem;font-weight:900;letter-spacing:.18em;text-transform:uppercase;margin-bottom:8px}
-    .renewal-modal__title{font-family:"Clash Display",Inter,sans-serif;font-size:1.55rem;font-weight:800;margin:0 0 6px}
-    .renewal-modal__copy{margin:0;color:var(--muted);line-height:1.5}
-    .renewal-resource{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(255,255,255,.045);margin-bottom:10px;cursor:pointer}
-    .renewal-resource input{margin-top:4px;accent-color:#ff8a3d}
-    .renewal-resource strong{display:block;font-size:.95rem;margin-bottom:3px}
-    .renewal-resource span{display:block;color:var(--muted);font-size:.78rem;line-height:1.45}
-    .renewal-modal__button{border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:11px 16px;font-weight:900;color:var(--text);background:rgba(255,255,255,.05);cursor:pointer}
-    .renewal-modal__button--primary{border-color:transparent;background:linear-gradient(135deg,#ff8a3d,#ffb15f);color:#1c1208}
-    .renewal-modal__button:disabled{opacity:.5;cursor:not-allowed}
   </style>
-  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20261016" />
 </head>
 <body>
-  <main class="page">
-    <section class="shell">
-      <section class="notice" id="billing-notice" role="status" aria-live="polite">
-        <div class="notice__icon" aria-hidden="true">!</div>
-        <div class="notice__content">
-          <strong id="billing-notice-title">Assinatura perto do vencimento</strong>
-          <span id="billing-notice-text">Sua assinatura está perto do vencimento.</span>
-          <small id="billing-notice-meta">Dados recebidos do Hub de pagamento.</small>
-        </div>
-        <a class="notice__action" id="billing-renewal-action" href="/landing">Regularizar</a>
-      </section>
+  <div class="app">
+    <aside class="sidebar">
+      <a class="brand" href="/selecao-plataforma">
+        <span class="brand__name">DACHBYTE</span>
+        <span class="brand__line">Seller</span>
+      </a>
+      <nav class="nav" aria-label="Navegação do portal">
+        <button class="nav__item is-active" type="button" data-view-target="home"><span class="nav__dot"></span>Início</button>
+        <button class="nav__item" type="button" data-view-target="modules"><span class="nav__dot"></span>Módulos</button>
+        <button class="nav__item" type="button" data-view-target="accounts"><span class="nav__dot"></span>Contas</button>
+        <button class="nav__item" type="button" data-view-target="plans"><span class="nav__dot"></span>Planos</button>
+        <button class="nav__item" type="button" data-view-target="company"><span class="nav__dot"></span>Empresa</button>
+      </nav>
+      <div class="sidebar__bottom">
+        <a class="side-link" href="mailto:contato@davanttisuite.com.br">Suporte</a>
+        <button class="side-link" id="logout-button" type="button">Sair</button>
+      </div>
+    </aside>
 
-      <section class="context-panel" aria-labelledby="suite-title">
-        <div class="context-head">
-          <div class="context-copy">
-            <a class="brand" href="/selecao-plataforma" aria-label="DACHBYTE Seller — área do cliente">
-              <span class="brand__wordmark" aria-hidden="true">
-                <strong>DACHBYTE</strong>
-                <span>Seller</span>
-              </span>
-              <span class="brand__copy">
-                <span>Área do cliente</span>
-              </span>
-            </a>
-            <div>
-              <div class="eyebrow"><i></i> acesso por permissão</div>
-              <h2 class="hero-title" id="suite-title">Boa tarde, qual plataforma deseja acessar?</h2>
-            </div>
-          </div>
-          <div class="context-tools">
-            <div class="meta-card" aria-label="Resumo da sessão">
-              <span>Módulos liberados</span>
-              <strong><span id="available-count">0</span></strong>
-              <div class="meta-list">
-                <div class="meta-line"><span>Usuário</span><span id="suite-user-name">Usuário</span></div>
-                <div class="meta-line"><span>Hub</span><span id="hub-status-label">Hub ativo</span></div>
-                <div class="meta-line"><span>Assinatura</span><span id="subscription-status-label">Em dia</span></div>
-              </div>
-            </div>
-            <a class="back-btn" href="/landing">← Voltar</a>
-          </div>
+    <main class="main">
+      <header class="topbar">
+        <div class="tenant">
+          <strong id="tenant-name">DACHBYTE Seller</strong>
+          <small>WORKSPACE DO CLIENTE</small>
         </div>
-      </section>
-
-      <section class="modules-panel" aria-labelledby="modules-title">
-        <div class="modules-head">
+        <div class="userbox">
+          <span id="top-alert-count"></span>
           <div>
-            <h2 id="modules-title">Escolha seu módulo</h2>
-            <div class="modules-subcopy">Selecione a plataforma liberada para continuar sua operação.</div>
+            <strong id="user-name">Usuário</strong>
+            <small id="user-role" style="display:block;color:var(--muted);margin-top:2px"></small>
           </div>
+          <div class="avatar" id="user-avatar">U</div>
         </div>
-        <div class="modules-grid">
-          <a class="module-card" href="/go/ml" data-module="ml" aria-disabled="true" hidden>
-            <div class="module-card__top">
-              <div class="module-mark" aria-hidden="true">ML</div>
-              <span class="module-badge">Disponível</span>
-            </div>
-            <div class="module-name">DACHBYTE Mercado Livre</div>
-            <div class="module-action">Entrar <span>→</span></div>
-          </a>
+      </header>
 
-          <a class="module-card" href="/go/shopee" data-module="shopee" aria-disabled="true" hidden>
-            <div class="module-card__top">
-              <div class="module-mark" aria-hidden="true">SH</div>
-              <span class="module-badge">Disponível</span>
-            </div>
-            <div class="module-name">DACHBYTE Shopee</div>
-            <div class="module-action">Entrar <span>→</span></div>
-          </a>
+      <div class="content">
+        <section class="view is-active" data-view="home">
+          <div class="kicker">Dach Seller Home</div>
+          <h1 id="home-title">Bem-vindo.</h1>
+          <p class="lead">Entre nos seus módulos, acompanhe contas vinculadas e resolva planos e renovações sem sair do portal.</p>
+          <div class="alerts" id="alerts"></div>
+          <div class="section-head"><div><h2>Meus módulos</h2><p>Produtos contratados e prontos para sua operação.</p></div></div>
+          <div class="modules-grid" id="home-installed"></div>
+          <div class="section-head"><div><h2>Explore outros módulos</h2><p>Produtos disponíveis para ampliar sua operação.</p></div></div>
+          <div class="modules-grid" id="home-available"></div>
+        </section>
 
-          <a class="module-card" href="/go/magalu" data-module="magalu" aria-disabled="true" hidden>
-            <div class="module-card__top">
-              <div class="module-mark" aria-hidden="true">MG</div>
-              <span class="module-badge">Disponível</span>
-            </div>
-            <div class="module-name">DACHBYTE Magalu</div>
-            <div class="module-action">Entrar <span>→</span></div>
-          </a>
+        <section class="view" data-view="modules">
+          <div class="kicker">Produtos</div>
+          <h1>Módulos</h1>
+          <p class="lead">Seu catálogo Seller em uma única visão. Contratados aparecem primeiro; os demais continuam disponíveis para contratação.</p>
+          <div class="summary" id="module-summary"></div>
+          <div class="modules-grid" id="all-modules"></div>
+        </section>
 
-          <a class="module-card" href="/go/tracking" data-module="tracking" aria-disabled="true" hidden>
-            <div class="module-card__top">
-              <div class="module-mark">TR</div>
-              <span class="module-badge">Disponível</span>
-            </div>
-            <div class="module-name">DACHBYTE Tracking</div>
-            <div class="module-action">Entrar <span>→</span></div>
-          </a>
+        <section class="view" data-view="accounts">
+          <div class="kicker">Operação multi-conta</div>
+          <h1>Contas vinculadas</h1>
+          <p class="lead">Cada conta de marketplace é tratada de forma independente. Uma conta vencida não bloqueia as demais.</p>
+          <div class="toolbar" id="account-filters"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Conta</th><th>Plataforma</th><th>Status</th><th>Plano / faixa</th><th>Vencimento</th><th>Pedidos</th><th>Ação</th></tr></thead>
+              <tbody id="accounts-body"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="accounts-empty" hidden>Nenhuma conta vinculada foi encontrada.</div>
+        </section>
 
+        <section class="view" data-view="plans">
+          <div class="kicker">Comercial</div>
+          <h1>Planos e cobrança</h1>
+          <p class="lead">Acompanhe vigências por conta, renove em conjunto e contrate novos módulos sem abandonar o Seller.</p>
+          <div class="toolbar">
+            <button class="btn" type="button" id="renew-selected" disabled>Renovar selecionadas</button>
+            <span id="renew-selected-count" style="color:var(--muted);font-size:.72rem"></span>
+          </div>
+          <div class="plans" id="plans-list"></div>
+        </section>
+
+        <section class="view" data-view="company">
+          <div class="kicker">Workspace</div>
+          <h1>Empresa</h1>
+          <p class="lead">Esta área continua disponível mesmo quando algum plano está vencido, para que você consiga regularizar o acesso.</p>
+          <div class="summary" id="company-summary"></div>
+          <div class="company-grid">
+            <div class="panel">
+              <h2>Dados do workspace</h2>
+              <div class="detail-list" id="company-details"></div>
+            </div>
+            <div class="panel">
+              <h2>Permissões comerciais</h2>
+              <div class="detail-list" id="billing-permissions"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="loader" id="loader"><div class="loader__box"><span class="spinner"></span><span>Carregando seu workspace...</span></div></div>
+  <div class="toast" id="toast" hidden></div>
+
+  <div class="drawer" id="purchase-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close-drawer></div>
+    <section class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
+      <div class="drawer__head">
+        <div><div class="kicker">Contratação</div><h2 id="purchase-title">Novo módulo</h2></div>
+        <button class="close" type="button" data-close-drawer aria-label="Fechar">×</button>
+      </div>
+      <div class="drawer__body">
+        <div class="purchase-summary" id="purchase-summary"></div>
+        <div class="field"><label for="purchase-plan">Plano</label><select id="purchase-plan"></select></div>
+        <div class="field"><label for="purchase-range">Faixa</label><select id="purchase-range"></select></div>
+        <div class="field"><label for="purchase-payment">Pagamento</label><select id="purchase-payment"><option value="credit_card">Cartão de crédito</option><option value="pix">PIX</option></select></div>
+        <div class="form-grid">
+          <div class="field"><label for="billing-phone">Telefone</label><input id="billing-phone" inputmode="numeric" placeholder="44999999999" /></div>
+          <div class="field"><label for="billing-postal">CEP</label><input id="billing-postal" inputmode="numeric" placeholder="00000000" /></div>
+          <div class="field field--wide"><label for="billing-address">Endereço</label><input id="billing-address" placeholder="Rua / avenida" /></div>
+          <div class="field"><label for="billing-number">Número</label><input id="billing-number" placeholder="123" /></div>
+          <div class="field"><label for="billing-province">UF</label><input id="billing-province" maxlength="2" placeholder="PR" /></div>
         </div>
-
-        <div class="empty-state" id="empty-state">Nenhum módulo foi encontrado para esta sessão. Verifique as permissões vinculadas à conta no Hub.</div>
-
-        <div class="support">
-          <p><strong>Precisa de ajuda?</strong> Nosso time responde rápido para orientar acesso, renovação e próximos passos.</p>
-          <a href="mailto:contato@davanttisuite.com.br">Falar com suporte</a>
-        </div>
-      </section>
+        <small style="color:var(--muted);line-height:1.55">Os dados de cobrança são enviados ao Hub apenas para preparar o checkout. Credenciais de marketplace continuam armazenadas nos módulos, não no Hub.</small>
+      </div>
+      <div class="drawer__foot">
+        <button class="btn btn--ghost" type="button" data-close-drawer>Voltar</button>
+        <button class="btn" type="button" id="purchase-confirm">Continuar para pagamento</button>
+      </div>
     </section>
-  </main>
-
-  <div class="session-loader" id="session-loader" role="status" aria-live="polite">
-    <span class="spinner" aria-hidden="true"></span>
-    <span>Carregando seu acesso...</span>
   </div>
 
   <script>
-    (function () {
-      const modules = Array.from(document.querySelectorAll("[data-module]"));
-      const title = document.getElementById("suite-title");
-      const userNameEl = document.getElementById("suite-user-name");
-      const statusEl = document.getElementById("modules-status");
-      const countEl = document.getElementById("available-count");
-      const emptyState = document.getElementById("empty-state");
-      const loader = document.getElementById("session-loader");
-      const billingNotice = document.getElementById("billing-notice");
-      const billingNoticeTitle = document.getElementById("billing-notice-title");
-      const billingNoticeText = document.getElementById("billing-notice-text");
-      const billingNoticeMeta = document.getElementById("billing-notice-meta");
-      const billingRenewalAction = document.getElementById("billing-renewal-action");
-      const hubStatusLabel = document.getElementById("hub-status-label");
-      const subscriptionStatusLabel = document.getElementById("subscription-status-label");
-      let currentSubscription = null;
+    (() => {
+      const state = {
+        overview: null,
+        accountFilter: "all",
+        purchaseModule: null,
+        selectedRenewals: new Set(),
+      };
+      const goRoutes = {
+        ml: "/go/ml",
+        shopee: "/go/shopee",
+        magalu: "/go/magalu",
+        tracking: "/go/tracking",
+        davanttilog: "/go/davanttilog",
+        madeira: "/go/madeiramadeira",
+        madeiramadeira: "/go/madeiramadeira",
+        skuleader: "/go/skuleader",
+        dach_ads: "/go/ads",
+      };
+      const moduleMarks = { ml:"ML",shopee:"SH",magalu:"MG",tracking:"TR",davanttilog:"DL",madeira:"MD",madeiramadeira:"MD",skuleader:"SK",dach_ads:"AD" };
+      const statusMeta = {
+        active:{label:"Ativo",className:"badge--active"},
+        attention:{label:"Atenção",className:"badge--warning"},
+        expiring:{label:"A vencer",className:"badge--warning"},
+        expired:{label:"Vencido",className:"badge--danger"},
+        inactive:{label:"Inativo",className:"badge--danger"},
+        setup_required:{label:"Configuração pendente",className:"badge--info"},
+        no_permission:{label:"Sem permissão",className:""},
+        available:{label:"Disponível",className:""},
+      };
+      const money = new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"});
+      const dateFmt = new Intl.DateTimeFormat("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"});
 
-      function normalizeText(value) {
-        return String(value || "").trim();
+      const $ = (selector) => document.querySelector(selector);
+      const esc = (value) => String(value ?? "").replace(/[&<>"']/g,(char)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+      const digits = (value) => String(value || "").replace(/\D/g,"");
+      function formatDate(value){ if(!value) return "—"; const d=new Date(value); return Number.isFinite(d.getTime())?dateFmt.format(d):"—"; }
+      function formatMoney(cents){ return Number.isFinite(Number(cents)) ? money.format(Number(cents)/100) : "—"; }
+      function firstName(value){ return String(value||"Usuário").trim().split(/\s+/)[0] || "Usuário"; }
+      function greeting(){ const h=new Date().getHours(); return h<12?"Bom dia":h<18?"Boa tarde":"Boa noite"; }
+      function showToast(message,isError=false){ const el=$("#toast"); el.textContent=message; el.classList.toggle("is-error",isError); el.hidden=false; clearTimeout(showToast.timer); showToast.timer=setTimeout(()=>el.hidden=true,4800); }
+      async function api(url,options={}) {
+        const response = await fetch(url,{credentials:"same-origin",headers:{"content-type":"application/json",...(options.headers||{})},...options});
+        const payload = await response.json().catch(()=>({}));
+        if(response.status===401){ window.location.href=payload.redirect||"/login"; throw new Error("unauthorized"); }
+        if(!response.ok || payload.ok===false){ const error=new Error(payload.error||"Falha na operação."); error.payload=payload; throw error; }
+        return payload;
       }
 
-      function firstName(name) {
-        const source = normalizeText(name);
-        return source.split(/\s+/)[0] || "usuario";
+      function setView(name){
+        document.querySelectorAll("[data-view]").forEach(el=>el.classList.toggle("is-active",el.dataset.view===name));
+        document.querySelectorAll("[data-view-target]").forEach(el=>el.classList.toggle("is-active",el.dataset.viewTarget===name));
+        history.replaceState(null,"",name==="home"?"/selecao-plataforma":"/selecao-plataforma#"+name);
       }
 
-      function greeting() {
-        const hour = new Date().getHours();
-        if (hour < 12) return "Bom dia";
-        if (hour < 18) return "Boa tarde";
-        return "Boa noite";
+      function badge(status){
+        const meta=statusMeta[status]||{label:status||"—",className:""};
+        return '<span class="badge '+meta.className+'">'+esc(meta.label)+'</span>';
       }
 
-      function readBootstrap() {
-        try {
-          const bootstrap = JSON.parse(sessionStorage.getItem("suite_session_bootstrap") || "null");
-          const savedAt = Number(bootstrap && bootstrap.savedAt);
-          if (!bootstrap || !Number.isFinite(savedAt) || Date.now() - savedAt > 120000) {
-            sessionStorage.removeItem("suite_session_bootstrap");
-            return null;
-          }
-          return bootstrap;
-        } catch (_) {
-          return null;
+      function moduleActions(module){
+        if(module.installed){
+          const enter = module.can_enter ? '<a class="btn" href="'+esc(goRoutes[module.slug]||("#"+module.slug))+'">Entrar</a>' : "";
+          const manage = module.can_manage ? '<button class="btn btn--ghost" type="button" data-jump-accounts="'+esc(module.slug)+'">Gerenciar</button>' : "";
+          const setup = module.status==="setup_required" ? '<a class="btn" href="'+esc(goRoutes[module.slug]||("#"+module.slug))+'">Vincular conta</a>' : "";
+          const locked = !module.can_enter && module.status==="expired" ? '<button class="btn" type="button" data-jump-plans="'+esc(module.slug)+'">Renovar</button>' : "";
+          return enter+setup+locked+manage;
         }
-      }
-
-      function getUserName(data) {
-        const user = data && data.user ? data.user : {};
-        return user.nome || user.name || user.fullName || user.email || "Usuario";
-      }
-
-      function collectEntitlements(data) {
-        const raw = data && data.entitlements ? data.entitlements : null;
-        const user = data && data.user ? data.user : {};
-        const candidates = [raw, raw && raw.visibleModules, raw && raw.modules, raw && raw.modulos, raw && raw.allowedModules, user.modules, user.modulos, user.allowedModules];
-        const allowed = new Set();
-
-        candidates.forEach((item) => {
-          if (!item) return;
-          if (Array.isArray(item)) {
-            item.forEach((entry) => {
-              if (typeof entry === "string") allowed.add(entry.toLowerCase());
-              else if (entry && typeof entry === "object") {
-                const key = entry.slug || entry.id || entry.key || entry.module || entry.codigo || entry.name;
-                if (key) allowed.add(String(key).toLowerCase());
-              }
-            });
-          } else if (typeof item === "object") {
-            Object.entries(item).forEach(([key, value]) => {
-              if (value === true || value === "true" || value === 1 || value === "active" || value === "ativo" || value === "liberado") {
-                allowed.add(key.toLowerCase());
-              }
-            });
-          }
-        });
-        return allowed;
-      }
-
-      function aliasesFor(slug) {
-        const aliases = {
-          ml: ["ml", "meli", "mercadolivre", "mercado_livre", "mercado-livre", "mercado livre"],
-          shopee: ["shopee"],
-          magalu: ["magalu", "magazine luiza", "magazineluiza"],
-          tracking: ["tracking", "rastreio", "logistica", "logística", "correios", "avantracking"]
-        };
-        return aliases[slug] || [slug];
-      }
-
-      function subscriptionFrom(data) {
-        if (!data) return null;
-        return (data.entitlements && data.entitlements.subscription) || data.subscription || null;
-      }
-
-      function renewalUrlFromSubscription(subscription) {
-        return normalizeText(subscription && subscription.renewal_url) || "/landing";
-      }
-
-      function renewableResourcesFromSubscription(subscription) {
-        const resources = subscription && Array.isArray(subscription.renewable_resources)
-          ? subscription.renewable_resources
-          : [];
-        return resources.filter((item) => item && typeof item === "object" && normalizeText(item.resource_key));
-      }
-
-      function renewableResourcesForModule(subscription, moduleSlug) {
-        const aliases = aliasesFor(moduleSlug);
-        return renewableResourcesFromSubscription(subscription).filter((item) => {
-          const resourceModule = normalizeText(item.module_slug).toLowerCase();
-          return aliases.includes(resourceModule);
-        });
-      }
-
-      function buildRenewalUrlFromResources(resources, fallbackUrl) {
-        const selectable = (Array.isArray(resources) ? resources : [])
-          .filter((item) => item && (item.checkout_ready === true || item.selectable === true) && !item.is_unlimited);
-        const fallback = normalizeText(fallbackUrl) || "/landing";
-        if (!selectable.length) return fallback;
-        if (selectable.length === 1 && normalizeText(selectable[0].renewal_url)) {
-          return normalizeText(selectable[0].renewal_url);
+        if(module.can_purchase && Array.isArray(module.catalog_plans) && module.catalog_plans.length){
+          return '<button class="btn" type="button" data-purchase="'+esc(module.slug)+'">Contratar</button>';
         }
-
-        let url;
-        try {
-          url = new URL(normalizeText(selectable[0].renewal_url) || fallback, window.location.origin);
-        } catch (_) {
-          return fallback;
+        if(!state.overview?.user?.can_manage_billing){
+          return '<button class="btn btn--ghost" type="button" disabled>Solicite ao administrador</button>';
         }
-
-        const modules = Array.from(new Set(selectable.map((item) => normalizeText(item.module_slug).toLowerCase()).filter(Boolean)));
-        const ranges = modules.map((moduleSlug) => {
-          const resource = selectable.find((item) => normalizeText(item.module_slug).toLowerCase() === moduleSlug) || {};
-          return moduleSlug + ":" + (normalizeText(resource.recommended_range_code) || normalizeText(resource.order_range_code) || "from_31_to_200");
-        });
-        const resourceItems = selectable.map((item) => ({
-          billing_resource_key: normalizeText(item.resource_key),
-          billing_module_slug: normalizeText(item.module_slug).toLowerCase(),
-          billing_account_id: normalizeText(item.external_account_id),
-          order_range_code: normalizeText(item.order_range_code),
-          recommended_range_code: normalizeText(item.recommended_range_code),
-          last_closed_period_orders: Number(item.measured_orders)
-        }));
-        ["billing_resource_key", "resource_key", "billing_module_slug", "module_slug", "billing_account_id", "account_id", "order_range_code", "recommended_range_code", "last_closed_period_orders"].forEach((key) => url.searchParams.delete(key));
-        url.searchParams.set("renewal", "1");
-        if (modules.length) url.searchParams.set("modules", modules.join(","));
-        if (ranges.length) url.searchParams.set("ranges", ranges.join(","));
-        url.searchParams.set("resource_items", JSON.stringify(resourceItems));
-        return url.toString();
-      }
-      function escapeHtml(value) {
-        return normalizeText(value)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#39;");
+        return '<button class="btn btn--ghost" type="button" disabled>Consulte o comercial</button>';
       }
 
-      function moduleLabel(moduleSlug) {
-        const labels = { ml: "Mercado Livre", shopee: "Shopee", magalu: "Magalu", tracking: "Rastreio" };
-        const normalized = normalizeText(moduleSlug).toLowerCase();
-        return labels[normalized] || normalized.toUpperCase() || "Modulo";
+      function moduleCard(module){
+        const stats = module.resource_required
+          ? '<div class="module-stats"><span><b>'+Number(module.accounts?.total||0)+'</b> contas</span><span><b>'+Number(module.accounts?.active||0)+'</b> ativas</span>'+(Number(module.accounts?.expiring||0)?'<span><b>'+Number(module.accounts.expiring)+'</b> a vencer</span>':"")+'</div>'
+          : '<div class="module-stats"><span>'+(module.installed?"Produto instalado":"Disponível no catálogo")+'</span></div>';
+        return '<article class="module-card '+(module.installed?"is-installed":"is-available")+'">'+
+          '<div class="module-top"><div class="module-mark">'+esc(moduleMarks[module.slug]||module.slug.slice(0,2).toUpperCase())+'</div>'+badge(module.status)+'</div>'+
+          '<h3>'+esc(module.name)+'</h3><div class="module-desc">'+esc(module.description||"Módulo DACHBYTE Seller.")+'</div>'+stats+
+          '<div class="module-actions">'+moduleActions(module)+'</div></article>';
       }
 
-      function readyRenewalResources(resources) {
-        return (Array.isArray(resources) ? resources : [])
-          .filter((item) => item && (item.checkout_ready === true || item.selectable === true) && !item.is_unlimited);
+      function renderModules(){
+        const modules=state.overview.modules||[];
+        const installed=modules.filter(m=>m.installed);
+        const available=modules.filter(m=>!m.installed);
+        $("#home-installed").innerHTML=installed.length?installed.map(moduleCard).join(""):'<div class="empty">Nenhum módulo contratado ainda.</div>';
+        $("#home-available").innerHTML=available.length?available.map(moduleCard).join(""):'<div class="empty">Todos os módulos disponíveis já estão contratados.</div>';
+        $("#all-modules").innerHTML=modules.map(moduleCard).join("");
+        const s=state.overview.summary||{};
+        $("#module-summary").innerHTML=[
+          ["Contratados",s.installed_modules||0],["Disponíveis",s.available_modules||0],["Contas ativas",s.active_accounts||0],["A vencer",s.expiring_accounts||0],["Vencidas",s.expired_accounts||0]
+        ].map(([l,v])=>'<div class="metric"><span>'+esc(l)+'</span><strong>'+Number(v||0)+'</strong></div>').join("");
       }
 
-      function openRenewalResourceModal(resources, fallbackUrl) {
-        const selectable = readyRenewalResources(resources);
-        if (selectable.length <= 1) return false;
-
-        let modal = document.getElementById("renewal-resource-modal");
-        if (!modal) {
-          modal = document.createElement("div");
-          modal.id = "renewal-resource-modal";
-          modal.className = "renewal-modal";
-          modal.innerHTML = "<div class='renewal-modal__panel' role='dialog' aria-modal='true' aria-labelledby='renewal-resource-title'><div class='renewal-modal__head'><span class='renewal-modal__kicker'>Renovacao por conta</span><h2 class='renewal-modal__title' id='renewal-resource-title'>Escolha as contas para renovar</h2><p class='renewal-modal__copy'>Cada conta sera cobrada pela faixa de pedidos apurada individualmente.</p></div><div class='renewal-modal__body' data-renewal-resource-list></div><div class='renewal-modal__foot'><button class='renewal-modal__button' type='button' data-renewal-cancel>Voltar</button><button class='renewal-modal__button renewal-modal__button--primary' type='button' data-renewal-confirm>Continuar para pagamento</button></div></div>";
-          document.body.appendChild(modal);
-          modal.addEventListener("click", (event) => {
-            if (event.target === modal || event.target.closest("[data-renewal-cancel]")) {
-              modal.classList.remove("is-visible");
-            }
-          });
-        }
-
-        const list = modal.querySelector("[data-renewal-resource-list]");
-        const confirm = modal.querySelector("[data-renewal-confirm]");
-        if (!list || !confirm) return false;
-        list.innerHTML = selectable.map((item, index) => {
-          const detail = [moduleLabel(item.module_slug), normalizeText(item.range_label), Number.isFinite(Number(item.measured_orders)) ? Number(item.measured_orders) + " pedidos no periodo" : "volume nao apurado"].filter(Boolean).join(" - ");
-          return "<label class='renewal-resource'><input type='checkbox' checked data-renewal-resource-index='" + index + "'><span><strong>" + escapeHtml(item.label || item.external_account_id || item.resource_key) + "</strong><span>" + escapeHtml(detail) + "</span></span></label>";
+      function renderAlerts(){
+        const alerts=state.overview.alerts||[];
+        $("#top-alert-count").textContent=alerts.length?alerts.length+" aviso"+(alerts.length===1?"":"s"):"";
+        $("#alerts").innerHTML=alerts.slice(0,4).map(item=>{
+          const cls=item.severity==="critical"?"alert--critical":item.severity==="info"?"alert--info":"";
+          let action="";
+          if(item.action==="renew"&&item.resource_key) action='<button class="btn" type="button" data-renew-one="'+esc(item.resource_key)+'">Renovar</button>';
+          else if(item.module_slug) action='<button class="btn btn--ghost" type="button" data-jump-accounts="'+esc(item.module_slug)+'">Ver</button>';
+          return '<div class="alert '+cls+'"><div><strong>'+esc(item.title)+'</strong><small>'+esc(item.module_name||"DACHBYTE Seller")+'</small></div>'+action+'</div>';
         }).join("");
-        confirm.onclick = () => {
-          const checked = Array.from(list.querySelectorAll("[data-renewal-resource-index]:checked"))
-            .map((input) => selectable[Number(input.getAttribute("data-renewal-resource-index"))])
-            .filter(Boolean);
-          if (!checked.length) {
-            confirm.disabled = true;
-            setTimeout(() => { confirm.disabled = false; }, 700);
-            return;
-          }
-          window.location.href = buildRenewalUrlFromResources(checked, fallbackUrl);
-        };
-        modal.classList.add("is-visible");
-        return true;
-      }
-      function formatSubscriptionDate(value) {
-        if (!value) return "";
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return "";
-        return new Intl.DateTimeFormat("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric"
-        }).format(date);
       }
 
-      function readSubscriptionState(subscription) {
-        const status = normalizeText(subscription && subscription.status).toLowerCase();
-        const isMaster = Boolean(subscription && subscription.is_master === true);
-        const active = subscription && subscription.active === true;
-        const rawDays = subscription && subscription.days_until_expiration;
-        const hasDaysValue = rawDays !== null && rawDays !== undefined && String(rawDays).trim() !== "";
-        const days = hasDaysValue ? Number(rawDays) : null;
-        const hasDays = Number.isFinite(days);
-        const expired = !isMaster && (status === "expired" || (subscription && subscription.active === false) || (hasDays && days < 0));
-        const shouldWarn = !isMaster && !expired && active && hasDays && days >= 0 && days <= 7;
-        return {
-          days,
-          hasDays,
-          isMaster,
-          expired,
-          shouldWarn,
-          renewalUrl: buildRenewalUrlFromResources(renewableResourcesFromSubscription(subscription), renewalUrlFromSubscription(subscription))
-        };
+      function allResources(){
+        return (state.overview.modules||[]).flatMap(module=>(module.resources||[]).map(resource=>({...resource,module_slug:module.slug,module_name:module.name})));
+      }
+      function statusText(status){
+        const meta=statusMeta[status]||{label:status||"—"};
+        const cls=["active"].includes(status)?"status-text--active":["expiring","attention"].includes(status)?"status-text--warning":["expired","inactive"].includes(status)?"status-text--danger":"status-text--muted";
+        return '<span class="status-text '+cls+'">'+esc(meta.label)+'</span>';
+      }
+      function accountAction(resource){
+        if(resource.can_renew && ["expired","expiring"].includes(resource.status)) return '<button class="btn" type="button" data-renew-one="'+esc(resource.resource_key)+'">Renovar</button>';
+        if(resource.can_enter) return '<a class="btn btn--ghost" href="'+esc(goRoutes[resource.module_slug]||"#")+'">Abrir</a>';
+        return '<button class="btn btn--ghost" type="button" data-jump-plans="'+esc(resource.module_slug)+'">Ver plano</button>';
+      }
+      function renderAccounts(){
+        const modules=(state.overview.modules||[]).filter(m=>Array.isArray(m.resources)&&m.resources.length);
+        const filters=['<button class="chip '+(state.accountFilter==="all"?"is-active":"")+'" type="button" data-account-filter="all">Todas</button>'].concat(
+          modules.map(m=>'<button class="chip '+(state.accountFilter===m.slug?"is-active":"")+'" type="button" data-account-filter="'+esc(m.slug)+'">'+esc(m.name)+'</button>')
+        );
+        filters.push('<span class="toolbar__spacer"></span><button class="btn btn--soft" type="button" id="link-account">+ Vincular conta</button>');
+        $("#account-filters").innerHTML=filters.join("");
+        const resources=allResources().filter(r=>state.accountFilter==="all"||r.module_slug===state.accountFilter);
+        $("#accounts-body").innerHTML=resources.map(r=>'<tr>'+
+          '<td><strong>'+esc(r.label||r.external_account_id)+'</strong><small>'+esc(r.resource_key)+'</small></td>'+
+          '<td>'+esc(r.module_name)+'</td><td>'+statusText(r.status)+'</td>'+
+          '<td><strong>'+esc(r.plan?.name||r.plan?.code||"—")+'</strong><small>'+esc(r.plan?.range_label||r.plan?.range_code||"")+'</small></td>'+
+          '<td>'+esc(formatDate(r.access_ends_at))+'</td><td>'+esc(r.measured_orders??"—")+'</td><td>'+accountAction(r)+'</td></tr>').join("");
+        $("#accounts-empty").hidden=resources.length>0;
+        $(".table-wrap").hidden=resources.length===0;
       }
 
-      function applySubscriptionNotice(subscription) {
-        const state = readSubscriptionState(subscription);
-        const shouldShow = state.expired || state.shouldWarn;
-
-        if (hubStatusLabel) hubStatusLabel.textContent = subscription ? "Hub sincronizado" : "Hub ativo";
-        if (subscriptionStatusLabel) {
-          subscriptionStatusLabel.textContent = state.isMaster
-            ? "Master"
-            : state.expired
-              ? "Expirado"
-              : state.shouldWarn
-                ? "A vencer"
-                : "Em dia";
-        }
-
-        if (!billingNotice) return state;
-
-        billingNotice.classList.toggle("is-visible", shouldShow);
-        billingNotice.classList.toggle("is-expired", state.expired);
-        billingNotice.classList.toggle("is-critical", !state.expired && state.shouldWarn && state.hasDays && state.days <= 2);
-
-        if (!shouldShow) return state;
-
-        const safeDays = state.hasDays ? Math.max(0, Math.ceil(state.days)) : 0;
-        const expiresAt = formatSubscriptionDate(subscription && subscription.expires_at);
-
-        if (billingNoticeTitle) {
-          billingNoticeTitle.textContent = state.expired ? "Assinatura expirada" : "Assinatura perto do vencimento";
-        }
-        if (billingNoticeText) {
-          billingNoticeText.textContent = state.expired
-            ? "Renove para reativar seus módulos."
-            : safeDays === 0
-              ? "Sua assinatura vence hoje."
-              : `Sua assinatura vence em ${safeDays} dia${safeDays === 1 ? "" : "s"}.`;
-        }
-        if (billingNoticeMeta) {
-          billingNoticeMeta.textContent = expiresAt
-            ? `Vencimento: ${expiresAt}. Dados recebidos do Hub de pagamento.`
-            : "Dados recebidos do Hub de pagamento.";
-        }
-        if (billingRenewalAction) {
-          billingRenewalAction.href = state.renewalUrl;
-          billingRenewalAction.textContent = state.expired ? "Renovar acesso" : "Renovar agora";
-        }
-
-        return state;
+      function renderPlans(){
+        const installed=(state.overview.modules||[]).filter(m=>m.installed);
+        if(!installed.length){ $("#plans-list").innerHTML='<div class="empty">Nenhum plano contratado ainda.</div>'; return; }
+        $("#plans-list").innerHTML=installed.map(module=>{
+          const resources=module.resources||[];
+          const rows=resources.length?resources.map(r=>{
+            const checkbox=r.can_renew?'<input type="checkbox" data-renew-check="'+esc(r.resource_key)+'" '+(state.selectedRenewals.has(r.resource_key)?"checked":"")+' aria-label="Selecionar '+esc(r.label)+'">':'';
+            return '<div class="plan-row"><div>'+checkbox+'</div>'+
+              '<div><strong>'+esc(r.label)+'</strong><small>'+esc(r.resource_key)+'</small></div>'+
+              '<div><strong>'+esc(r.plan?.name||r.plan?.code||"—")+'</strong><small>'+esc(r.plan?.range_label||r.plan?.range_code||"")+'</small></div>'+
+              '<div>'+statusText(r.status)+'</div><div>'+esc(formatDate(r.access_ends_at))+'</div>'+
+              '<div>'+esc(formatMoney(r.plan?.monthly_price_cents))+'</div>'+
+              '<div class="plan-action">'+(r.can_renew?'<button class="btn btn--ghost" type="button" data-renew-one="'+esc(r.resource_key)+'">Renovar</button>':'<span style="color:var(--muted)">—</span>')+'</div></div>';
+          }).join(""):'<div class="empty" style="margin:14px">Produto instalado sem conta faturável vinculada.</div>';
+          return '<section class="plan-group"><div class="plan-head"><div><h3>'+esc(module.name)+'</h3><small>'+Number(module.accounts?.total||0)+' conta(s)</small></div>'+badge(module.status)+'</div>'+rows+'</section>';
+        }).join("");
+        updateRenewButton();
+      }
+      function updateRenewButton(){
+        const count=state.selectedRenewals.size;
+        $("#renew-selected").disabled=!count;
+        $("#renew-selected-count").textContent=count?count+" conta"+(count===1?"":"s")+" selecionada"+(count===1?"":"s"):"";
       }
 
-      function applySession(data) {
-        const name = getUserName(data);
-        const displayName = firstName(name);
-        if (userNameEl) userNameEl.textContent = name;
-        if (title) title.textContent = `${greeting()}, ${displayName}, qual plataforma deseja acessar?`;
+      function renderCompany(){
+        const o=state.overview,s=o.summary||{};
+        $("#company-summary").innerHTML=[
+          ["Módulos",s.installed_modules||0],["Contas",s.total_accounts||0],["Ativas",s.active_accounts||0],["A vencer",s.expiring_accounts||0],["Vencidas",s.expired_accounts||0]
+        ].map(([l,v])=>'<div class="metric"><span>'+esc(l)+'</span><strong>'+Number(v||0)+'</strong></div>').join("");
+        $("#company-details").innerHTML=[
+          ["Empresa",o.tenant?.name||"—"],["Workspace",o.tenant?.tenant_id||"—"],["Usuário",o.user?.name||"—"],["E-mail",o.user?.email||"—"],["Acesso da empresa",o.tenant?.access_state||"active"]
+        ].map(([l,v])=>'<div class="detail"><span>'+esc(l)+'</span><strong>'+esc(v)+'</strong></div>').join("");
+        $("#billing-permissions").innerHTML=[
+          ["Perfil",o.user?.role||"member"],["Gerenciar cobrança",o.user?.can_manage_billing?"Sim":"Não"],["Perfil de cobrança",o.billing?.profile_complete?"Completo":"Requer dados no checkout"]
+        ].map(([l,v])=>'<div class="detail"><span>'+esc(l)+'</span><strong>'+esc(v)+'</strong></div>').join("");
+      }
 
-        const subscription = subscriptionFrom(data);
-        const subscriptionState = applySubscriptionNotice(subscription);
-        const rawAllowed = data && data.entitlements && Array.isArray(data.entitlements.modules)
-          ? data.entitlements.modules
-          : [];
-        const allowed = new Set(rawAllowed.map((item) => String(item || "").trim().toLowerCase()).filter(Boolean));
-        const accessSet = allowed;
-        let visibleCount = 0;
-        const hasSessionEntitlements = Boolean(data && data.entitlements);
+      function renderHeader(){
+        const o=state.overview;
+        $("#tenant-name").textContent=o.tenant?.name||"DACHBYTE Seller";
+        $("#user-name").textContent=o.user?.name||"Usuário";
+        $("#user-role").textContent=o.user?.role||"";
+        $("#user-avatar").textContent=firstName(o.user?.name||"U").charAt(0).toUpperCase();
+        $("#home-title").textContent=greeting()+", "+firstName(o.user?.name)+".";
+      }
 
-        modules.forEach((card) => {
-          const slug = card.dataset.module;
-          if (!card.dataset.defaultHref) card.dataset.defaultHref = card.getAttribute("href") || "";
-          const badge = card.querySelector(".module-badge");
-          if (badge && !badge.dataset.defaultText) badge.dataset.defaultText = badge.textContent;
+      function renderAll(){
+        renderHeader(); renderAlerts(); renderModules(); renderAccounts(); renderPlans(); renderCompany(); bindDynamicActions();
+      }
 
-          const canAccess = hasSessionEntitlements && aliasesFor(slug).some((key) => accessSet.has(key));
-          card.hidden = !canAccess;
-          card.classList.toggle("is-renewal-required", Boolean(canAccess && subscriptionState.expired));
-          card.setAttribute("aria-disabled", canAccess && !subscriptionState.expired ? "false" : "true");
+      function bindDynamicActions(){
+        document.querySelectorAll("[data-purchase]").forEach(btn=>btn.onclick=()=>openPurchase(btn.dataset.purchase));
+        document.querySelectorAll("[data-renew-one]").forEach(btn=>btn.onclick=()=>renew([btn.dataset.renewOne]));
+        document.querySelectorAll("[data-jump-accounts]").forEach(btn=>btn.onclick=()=>{state.accountFilter=btn.dataset.jumpAccounts||"all";renderAccounts();bindDynamicActions();setView("accounts")});
+        document.querySelectorAll("[data-jump-plans]").forEach(btn=>btn.onclick=()=>setView("plans"));
+        document.querySelectorAll("[data-account-filter]").forEach(btn=>btn.onclick=()=>{state.accountFilter=btn.dataset.accountFilter;renderAccounts();bindDynamicActions()});
+        document.querySelectorAll("[data-renew-check]").forEach(input=>input.onchange=()=>{const key=input.dataset.renewCheck;input.checked?state.selectedRenewals.add(key):state.selectedRenewals.delete(key);updateRenewButton()});
+        const link=$("#link-account"); if(link) link.onclick=()=>{const candidates=(state.overview.modules||[]).filter(m=>m.installed&&m.resource_required); if(candidates.length===1) window.location.href=goRoutes[candidates[0].slug]||"/selecao-plataforma"; else {setView("modules");showToast("Escolha o marketplace e use Gerenciar/Vincular conta.")}};
+      }
 
-          if (canAccess && subscriptionState.expired) {
-            card.href = "#";
-            card.dataset.renewalUrl = buildRenewalUrlFromResources(renewableResourcesForModule(subscription, slug), subscriptionState.renewalUrl);
-            if (badge) badge.textContent = "Regularização pendente";
-          } else {
-            card.href = card.dataset.defaultHref;
-            delete card.dataset.renewalUrl;
-            if (badge && badge.dataset.defaultText) badge.textContent = badge.dataset.defaultText;
-          }
-
-          if (canAccess) visibleCount += 1;
+      function groupPlans(module){
+        const groups=new Map();
+        (module.catalog_plans||[]).forEach(item=>{
+          const key=item.plan_code||"";
+          if(!key)return;
+          if(!groups.has(key)) groups.set(key,{code:key,name:item.plan_name||key,description:item.description||"",ranges:[]});
+          groups.get(key).ranges.push(item);
         });
+        return [...groups.values()];
+      }
+      function openPurchase(slug){
+        const module=(state.overview.modules||[]).find(m=>m.slug===slug);
+        if(!module)return;
+        const plans=groupPlans(module);
+        if(!plans.length){showToast("Este módulo ainda não possui plano publicado para autoatendimento.",true);return}
+        state.purchaseModule=module;
+        $("#purchase-title").textContent="Contratar "+module.name;
+        $("#purchase-plan").innerHTML=plans.map(p=>'<option value="'+esc(p.code)+'">'+esc(p.name)+'</option>').join("");
+        const profile=state.overview.billing?.profile||{};
+        $("#billing-phone").value=profile.phone||"";
+        $("#billing-postal").value=profile.postal_code||"";
+        $("#billing-address").value=profile.address||"";
+        $("#billing-number").value=profile.address_number||"";
+        $("#billing-province").value=profile.province||"";
+        updatePurchaseRanges();
+        $("#purchase-drawer").classList.add("is-open");
+        $("#purchase-drawer").setAttribute("aria-hidden","false");
+      }
+      function closePurchase(){ $("#purchase-drawer").classList.remove("is-open");$("#purchase-drawer").setAttribute("aria-hidden","true");state.purchaseModule=null; }
+      function updatePurchaseRanges(){
+        const module=state.purchaseModule;if(!module)return;
+        const plans=groupPlans(module);
+        const selected=plans.find(p=>p.code===$("#purchase-plan").value)||plans[0];
+        const ranges=selected?.ranges||[];
+        $("#purchase-range").innerHTML=ranges.length?ranges.map(r=>'<option value="'+esc(r.range_code||"")+'">'+esc(r.range_label||r.range_code||"Padrão")+' · '+esc(formatMoney(r.monthly_price_cents))+'</option>').join(""):'<option value="">Faixa padrão</option>';
+        const range=ranges.find(r=>(r.range_code||"")===$("#purchase-range").value)||ranges[0]||null;
+        $("#purchase-summary").innerHTML='<strong>'+esc(module.name)+' · '+esc(selected?.name||"Plano")+'</strong><small>'+esc(selected?.description||module.description||"")+'</small><div class="purchase-price">'+esc(range?formatMoney(range.monthly_price_cents):"Preço definido pelo catálogo")+'<small>/ mês</small></div>';
+      }
+      async function confirmPurchase(){
+        const module=state.purchaseModule;if(!module)return;
+        const button=$("#purchase-confirm");button.disabled=true;button.textContent="Preparando...";
+        try{
+          const result=await api("/api/portal/checkout",{method:"POST",body:JSON.stringify({
+            module:module.slug,
+            plan_code:$("#purchase-plan").value,
+            range_code:$("#purchase-range").value,
+            payment_method:$("#purchase-payment").value,
+            customer_phone:digits($("#billing-phone").value),
+            billing_postal_code:digits($("#billing-postal").value),
+            billing_address:$("#billing-address").value.trim(),
+            billing_address_number:$("#billing-number").value.trim(),
+            billing_province:$("#billing-province").value.trim().toUpperCase(),
+          })});
+          if(result.checkout_url){window.location.href=result.checkout_url;return}
+          throw new Error("Checkout não retornou uma URL.");
+        }catch(error){showToast(error.message||"Não foi possível iniciar a contratação.",true)}
+        finally{button.disabled=false;button.textContent="Continuar para pagamento"}
+      }
+      async function renew(resourceKeys){
+        if(!resourceKeys?.length)return;
+        try{
+          const result=await api("/api/portal/renewal-intent",{method:"POST",body:JSON.stringify({resource_keys:resourceKeys})});
+          if(result.renewal_url){window.location.href=result.renewal_url;return}
+          throw new Error("Renovação indisponível.");
+        }catch(error){showToast(error.message||"Não foi possível preparar a renovação.",true)}
+      }
 
-        if (countEl) countEl.textContent = String(visibleCount);
-        if (statusEl) {
-          statusEl.textContent = subscriptionState.expired
-            ? "Regularize o acesso para continuar"
-            : `${visibleCount} módulo${visibleCount === 1 ? "" : "s"} liberado${visibleCount === 1 ? "" : "s"}`;
+      async function logout(){
+        try{await fetch("/api/auth/logout",{method:"POST",credentials:"same-origin"})}finally{window.location.href="/login"}
+      }
+
+      document.querySelectorAll("[data-view-target]").forEach(btn=>btn.addEventListener("click",()=>setView(btn.dataset.viewTarget)));
+      document.querySelectorAll("[data-close-drawer]").forEach(btn=>btn.addEventListener("click",closePurchase));
+      $("#purchase-plan").addEventListener("change",updatePurchaseRanges);
+      $("#purchase-range").addEventListener("change",updatePurchaseRanges);
+      $("#purchase-confirm").addEventListener("click",confirmPurchase);
+      $("#renew-selected").addEventListener("click",()=>renew([...state.selectedRenewals]));
+      $("#logout-button").addEventListener("click",logout);
+      document.addEventListener("keydown",event=>{if(event.key==="Escape")closePurchase()});
+
+      (async()=>{
+        try{
+          state.overview=await api("/api/portal/overview");
+          renderAll();
+          const hash=location.hash.replace("#","");
+          if(["modules","accounts","plans","company"].includes(hash)) setView(hash);
+        }catch(error){
+          if(error.message!=="unauthorized"){
+            showToast("Não foi possível carregar o portal. Tente novamente em instantes.",true);
+          }
+        }finally{
+          $("#loader").hidden=true;
         }
-        if (emptyState) emptyState.classList.toggle("is-visible", visibleCount === 0);
-      }
-
-      function setupCardLoading() {
-        modules.forEach((card) => {
-          card.addEventListener("click", (event) => {
-            if (card.getAttribute("aria-disabled") === "true") {
-              event.preventDefault();
-              const renewalUrl = card.dataset.renewalUrl || (billingRenewalAction && billingRenewalAction.href);
-              const renewalResources = renewableResourcesForModule(currentSubscription, card.dataset.module);
-              if (openRenewalResourceModal(renewalResources, renewalUrl)) return;
-              if (renewalUrl) {
-                window.location.href = renewalUrl;
-                return;
-              }
-              if (billingNotice) billingNotice.scrollIntoView({ behavior: "smooth", block: "center" });
-              if (billingRenewalAction) billingRenewalAction.focus({ preventScroll: true });
-              return;
-            }
-            if (loader) loader.classList.add("is-visible");
-          });
-        });
-      }
-
-      if (billingRenewalAction) {
-        billingRenewalAction.addEventListener("click", (event) => {
-          const resources = renewableResourcesFromSubscription(currentSubscription);
-          if (openRenewalResourceModal(resources, billingRenewalAction.href)) {
-            event.preventDefault();
-          }
-        });
-      }
-      async function refreshSessionFromHub() {
-        try {
-          const response = await fetch("/api/suite/session", {
-            credentials: "include",
-            cache: "no-store",
-            headers: { Accept: "application/json" }
-          });
-          if (!response.ok) {
-            if (response.status === 401) {
-              window.location.href = "/login";
-            }
-            return;
-          }
-          const payload = await response.json().catch(() => null);
-          if (!payload) return;
-          try {
-            sessionStorage.setItem("suite_session_bootstrap", JSON.stringify(payload));
-          } catch (_) {}
-          applySession(payload);
-        } catch (_) {}
-      }
-
-      applySession(readBootstrap());
-      refreshSessionFromHub();
-      setupCardLoading();
+      })();
     })();
   </script>
 </body>
