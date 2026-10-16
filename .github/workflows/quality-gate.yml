@@ -162,6 +162,8 @@ jobs:
           node --check apps/business/core/src/modules/integrations/jobStore.js
           node --check apps/business/core/src/modules/integrations/outboxStore.js
           node --check apps/seller-shopee/src/app.js
+      - name: Seller portal contract
+        run: node --test tests/seller-portal-home.test.js
       - name: Reject known production safety regressions
         run: |
           node <<'NODE'
