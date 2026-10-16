@@ -540,7 +540,9 @@
         $("#purchase-range").innerHTML=ranges.length?ranges.map(r=>'<option value="'+esc(r.range_code||"")+'">'+esc(r.range_label||r.range_code||"Padrão")+' · '+esc(formatMoney(r.monthly_price_cents))+'</option>').join(""):'<option value="">Faixa padrão</option>';
         const range=ranges.find(r=>(r.range_code||"")===$("#purchase-range").value)||ranges[0]||null;
         const orders=$("#purchase-orders");
-        if(orders && !digits(orders.value) && range && Number.isFinite(Number(range.min_units))) orders.value=String(Number(range.min_units));
+        if(orders && range && Number.isFinite(Number(range.min_units))) {
+          orders.value=state.purchaseResource?.measured_orders??String(Number(range.min_units));
+        }
         const target=state.purchaseResource?state.purchaseResource.label:module.name;
         $("#purchase-summary").innerHTML='<strong>'+esc(target)+' · '+esc(selected?.name||"Plano")+'</strong><small>'+esc(state.purchaseResource?("Conta vinculada em "+module.name+". Escolha o plano para ativar esta conta."):selected?.description||module.description||"")+'</small><div class="purchase-price">'+esc(range?formatMoney(range.monthly_price_cents):"Preço definido pelo catálogo")+'<small>/ mês</small></div>';
       }
