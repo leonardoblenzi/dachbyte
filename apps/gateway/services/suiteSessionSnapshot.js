@@ -9,7 +9,7 @@ function deniedSnapshot(code) {
   return { ok: false, logged: true, code: String(code || "hub_access_denied") };
 }
 
-const SELLER_MODULES = new Set(["ml", "shopee", "magalu", "tracking"]);
+const SELLER_MODULES = new Set(["ml", "shopee", "magalu", "tracking", "davanttilog", "madeira", "madeiramadeira", "skuleader"]);
 
 function platformSnapshot(identity = {}) {
   const allowedModules = normalizedStrings(identity.allowed_modules);
@@ -54,6 +54,61 @@ function createSuiteSessionSnapshotService({ baseUrl, internalToken, fetchImpl =
       if (!hubBaseUrl || !token) return deniedSnapshot("hub_not_configured");
       if (!tenantId || !userId) return deniedSnapshot("suite_identity_incomplete");
       if (tenantId.startsWith("platform-")) return platformSnapshot(identity);
+
+      try {
+        const portalResponse = await fetchImpl(`${hubBaseUrl}/v1/internal/portal/overview`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            user_id: userId,
+          }),
+        });
+        const portal = await portalResponse.json().catch(() => ({}));
+        if (portalResponse.ok && portal?.ok) {
+          const portalModules = Array.isArray(portal.modules) ? portal.modules : [];
+          const visibleModules = normalizedStrings(
+            portalModules
+              .filter((item) => item && item.installed === true)
+              .map((item) => item.slug),
+          ).filter((moduleSlug) => SELLER_MODULES.has(moduleSlug));
+          const allowedModules = normalizedStrings(
+            portalModules
+              .filter((item) => item && item.can_enter === true)
+              .map((item) => item.slug),
+          ).filter((moduleSlug) => SELLER_MODULES.has(moduleSlug));
+          return {
+            ok: true,
+            logged: true,
+            user: {
+              name: String(portal.user?.name || identity.nome || identity.name || identity.email || "Usuário").trim(),
+              email: String(portal.user?.email || identity.email || "").trim(),
+            },
+            entitlements: {
+              modules: allowedModules,
+              seller_modules: allowedModules,
+              visible_modules: visibleModules,
+            },
+            subscription: {
+              status: allowedModules.length ? "active" : "inactive",
+              active: allowedModules.length > 0,
+              expires_at: null,
+              days_until_expiration: null,
+              renewal_url: null,
+              renewable_resources: [],
+            },
+            portal: true,
+          };
+        }
+        if (portalResponse.status !== 404) {
+          return deniedSnapshot(portal?.error || portal?.reason || "portal_access_denied");
+        }
+      } catch (_error) {
+        return deniedSnapshot("hub_unavailable");
+      }
 
       let response;
       let access;
