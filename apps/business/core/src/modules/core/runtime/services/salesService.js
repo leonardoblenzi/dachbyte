@@ -856,6 +856,12 @@ async function updateSale(companyId, saleId, input = {}) {
       if (sale.status === "canceled") {
         throw Object.assign(new Error("Venda cancelada nao pode ser editada"), { statusCode: 409, code: "SALE_CANCELED" });
       }
+      if (sale.status === "pending_delivery") {
+        throw Object.assign(new Error("Pedido aguardando pagamento na entrega nao pode ser editado"), {
+          statusCode: 409,
+          code: "SALE_ORDER_EDIT_RESTRICTED",
+        });
+      }
 
       const settled = await client.query(`
         select id

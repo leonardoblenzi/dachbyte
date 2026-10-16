@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const db = require("../../../db/db");
 
 function source(relativePath) {
   return fs.readFileSync(path.join(__dirname, "..", "..", "..", relativePath), "utf8");
@@ -183,6 +184,37 @@ test("installment engine rejects schedules whose sum differs from the financed a
       ],
     },
   ], 100, "2026-09-09T12:00:00Z"), (error) => error?.code === "PAYMENT_INSTALLMENT_TOTAL_MISMATCH");
+});
+
+test("pending delivery orders cannot enter sale editing financial flow", async () => {
+  const { updateSale } = require("./runtime/services/salesService");
+  const originalWithClient = db.withClient;
+  const calls = [];
+  const client = {
+    async query(sql, params = []) {
+      const text = String(sql).replace(/\s+/g, " ").trim();
+      calls.push({ text, params });
+      if (text === "begin" || text === "commit" || text === "rollback") return { rowCount: 0, rows: [] };
+      if (text.includes("from volt_core.sales") && text.includes("for update")) {
+        return {
+          rowCount: 1,
+          rows: [{ id: "sale-1", number: 12, status: "pending_delivery", total: "100.00", payments: [], soldAt: "2026-10-16T12:00:00.000Z" }],
+        };
+      }
+      return { rowCount: 0, rows: [] };
+    },
+  };
+  db.withClient = async (callback) => callback(client);
+  try {
+    await assert.rejects(
+      () => updateSale("company-1", "sale-1", { actorUserId: "user-1" }),
+      (error) => error.code === "SALE_ORDER_EDIT_RESTRICTED" && error.statusCode === 409,
+    );
+    assert.equal(calls.some(({ text }) => text.includes("volt_core.cash_movements")), false);
+    assert.equal(calls.some(({ text }) => text.includes("volt_core.receivables")), false);
+  } finally {
+    db.withClient = originalWithClient;
+  }
 });
 
 test("canceled orders never render payment as completed in the orders financial column", () => {
