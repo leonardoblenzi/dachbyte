@@ -359,7 +359,11 @@
       function moduleActions(module){
         if(module.installed){
           const enter = module.can_enter ? '<a class="btn" href="'+esc(goRoutes[module.slug]||("#"+module.slug))+'">Entrar</a>' : "";
-          const manage = module.can_manage ? '<button class="btn btn--ghost" type="button" data-jump-accounts="'+esc(module.slug)+'">Gerenciar</button>' : "";
+          const manage = module.can_manage
+            ? ((module.resource_required || Number(module.accounts?.total||0)>0)
+              ? '<button class="btn btn--ghost" type="button" data-jump-accounts="'+esc(module.slug)+'">Gerenciar</button>'
+              : '<button class="btn btn--ghost" type="button" data-jump-plans="'+esc(module.slug)+'">Plano</button>')
+            : "";
           const setup = module.status==="setup_required" ? '<a class="btn" href="'+esc(goRoutes[module.slug]||("#"+module.slug))+'">Vincular conta</a>' : "";
           const locked = !module.can_enter && module.status==="expired" ? '<button class="btn" type="button" data-jump-plans="'+esc(module.slug)+'">Renovar</button>' : "";
           return enter+setup+locked+manage;
