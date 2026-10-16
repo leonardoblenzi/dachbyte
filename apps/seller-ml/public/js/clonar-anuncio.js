@@ -147,6 +147,13 @@
     el.feedback.textContent = message || "";
   }
 
+  function creditSettlementMessage(settlement) {
+    if (!settlement || typeof settlement !== "object") return "";
+    if (settlement.status !== "confirmed") return " Liquidação de créditos ainda não confirmada; confira o extrato.";
+    const fmt = (value) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(Number(value || 0));
+    return ` Créditos: ${fmt(settlement.spent_credits)} c gastos, ${fmt(settlement.released_credits)} c liberados.`;
+  }
+
   function clearInlineErrors() {
     document.querySelectorAll(".field-error-inline").forEach((node) => node.remove());
     document
@@ -2859,30 +2866,19 @@
         `/drafts/${state.currentDraft.id}/credits/quote`,
         { method: "POST" },
       );
-      if (quote?.already_published !== true && quote?.unlimited !== true) {
-        const estimated = Number(quote?.estimated_credits || 0);
-        if (estimated > 0) {
-          const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
-          const lines = [
-            `Custo estimado para publicar este clone: ${fmt.format(estimated)} credito(s).`,
-          ];
-          if (quote?.available_credits != null) {
-            lines.push(
-              `Saldo disponivel: ${fmt.format(Number(quote.available_credits || 0))} credito(s).`,
-            );
-          }
-          if (quote?.sufficient === false) {
-            lines.push("O saldo atual e menor que a estimativa.");
-          }
-          lines.push("Deseja continuar com a publicacao?");
-          if (!window.confirm(lines.join("\n\n"))) return;
-        }
+      if (quote?.already_published !== true) {
+        const confirmed = await window.CreditOperationModal.confirm({
+          quote,
+          title: "Confirmar publicação do clone",
+          description: "A publicação começa após sua confirmação.",
+          quantity: 1,
+          unitLabel: "anúncio",
+        });
+        if (!confirmed) return;
       }
     } catch (quoteError) {
-      console.warn(
-        "[clonar-anuncio] previa de creditos indisponivel; seguindo em shadow:",
-        quoteError?.message || quoteError,
-      );
+      setFeedback(`Não foi possível confirmar os créditos: ${quoteError?.message || quoteError}`, "error");
+      return;
     }
 
     const publishButton = el.btnGoToPublish;
@@ -2923,8 +2919,8 @@
       goToStep(2, { force: true });
       setFeedback(
         itemId
-          ? `Anuncio publicado com sucesso. MLB gerado: ${itemId}.`
-          : "Anuncio publicado com sucesso.",
+          ? `Anuncio publicado com sucesso. MLB gerado: ${itemId}.${creditSettlementMessage(response?.credit_settlement)}`
+          : `Anuncio publicado com sucesso.${creditSettlementMessage(response?.credit_settlement)}`,
         "ok",
       );
     } catch (error) {
@@ -2944,7 +2940,7 @@
         goToStep(2, { force: true });
       }
 
-      setFeedback(error.message || "Falha ao publicar rascunho.", "error");
+      setFeedback(`${error.message || "Falha ao publicar rascunho."}${creditSettlementMessage(error?.payload?.credit_settlement)}`, "error");
     } finally {
       setBusy(publishButton, false);
     }

@@ -17,6 +17,7 @@ const { buildCsv, attachJobReview } = require("./jobReviewHelper");
 const { attachJobContract, backendJobIdFromUid } = require("./jobContract");
 const { recordAuthEvent } = require("./authAuditService");
 const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
+const { summarizeCreditSettlement } = require("./creditSettlementSummary");
 const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 function resolveJobId(value) {
@@ -663,18 +664,28 @@ function initWorker() {
   queue.on("failed", async (job, err) => {
     console.error("[prazo-producao] job failed:", job?.id, err?.message || err);
     const billableUnits = productionTimeBillableUnits(job?.data?.__meta || {});
-    await settleCredits(job?.data?.creditReservation, {
+    const settled = await settleCredits(job?.data?.creditReservation, {
       release: billableUnits <= 0,
       consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
+    const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+    if (summary) {
+      job.data.__meta = { ...(job.data.__meta || {}), credit_settlement: summary };
+      await job.update(job.data);
+    }
   });
   queue.on("completed", async (job) => {
     console.log("[prazo-producao] job completed:", job?.id);
     const billableUnits = productionTimeBillableUnits(job?.data?.__meta || {});
-    await settleCredits(job?.data?.creditReservation, {
+    const settled = await settleCredits(job?.data?.creditReservation, {
       release: billableUnits <= 0,
       consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
+    const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+    if (summary) {
+      job.data.__meta = { ...(job.data.__meta || {}), credit_settlement: summary };
+      await job.update(job.data);
+    }
   });
   console.log("[prazo-producao] worker iniciado");
   return queue;
@@ -1011,6 +1022,7 @@ async function mapPrazoJob(job, { includeRows = false } = {}) {
     account: buildPrazoAccount(job),
     result: returnValue,
     billing_telemetry: productionTimeBillingTelemetry(job, meta),
+    credit_settlement: meta.credit_settlement || null,
   }, {
     basePath: "/anuncios/jobs-prazo",
     hasCsv: results.length > 0 || resultsCount > 0,

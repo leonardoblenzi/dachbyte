@@ -7,6 +7,7 @@ const { attachJobReview } = require("./jobReviewHelper");
 const { attachJobContract, backendJobIdFromUid } = require("./jobContract");
 const { recordAuthEvent } = require("./authAuditService");
 const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
+const { summarizeCreditSettlement } = require("./creditSettlementSummary");
 const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 const QUEUE_NAME = "ml-caracteristicas";
@@ -488,6 +489,7 @@ async function mapJob(job) {
     updated_at: meta.updated_at || new Date(job.timestamp).toISOString(),
     completed,
     billing_telemetry: isWorkbookExport ? null : characteristicsBillingTelemetry(job, meta),
+    credit_settlement: meta.credit_settlement || null,
     account: job.data?.accountKey || job.data?.accountLabel
       ? { key: job.data.accountKey || null, label: job.data.accountLabel || job.data.accountKey }
       : null,
@@ -867,18 +869,22 @@ class CaracteristicasJobsService {
     queue.on("completed", async (job) => {
       const meta = (await readJson(metaKey(job.id))) || {};
       const billableUnits = characteristicsBillableUnits(job?.data || {}, meta);
-      await settleCredits(job?.data?.creditReservation, {
+      const settled = await settleCredits(job?.data?.creditReservation, {
         release: billableUnits <= 0,
         consumedUnits: billableUnits > 0 ? billableUnits : null,
       });
+      const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+      if (summary) await updateMeta(job.id, { credit_settlement: summary });
     });
     queue.on("failed", async (job) => {
       const meta = (await readJson(metaKey(job.id))) || {};
       const billableUnits = characteristicsBillableUnits(job?.data || {}, meta);
-      await settleCredits(job?.data?.creditReservation, {
+      const settled = await settleCredits(job?.data?.creditReservation, {
         release: billableUnits <= 0,
         consumedUnits: billableUnits > 0 ? billableUnits : null,
       });
+      const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+      if (summary) await updateMeta(job.id, { credit_settlement: summary });
     });
     console.log(`[CaracteristicasJobsService] worker iniciado (concurrency=${WORKER_CONCURRENCY})`);
     return queue;

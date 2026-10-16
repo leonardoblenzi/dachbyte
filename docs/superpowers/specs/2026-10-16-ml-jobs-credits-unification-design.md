@@ -15,7 +15,7 @@ Uma operação individual paga, como clonar um anúncio, continua cobrando créd
 | Clonar anúncio | Clonar um anúncio | Não; é individual |
 | Filtro de anúncios | Executar consulta processada/exportação conforme regra atual | Sim, já existe |
 | Criar promoções | Validar, aplicar/reaplicar em lote; SMART | Sim para os lotes existentes |
-| Remover promoções | Remover em lote | Sim, já existe |
+| Remover promoções | Remover em lote, cobrado por remoções bem-sucedidas com `promotions.remove` | Sim, já existe |
 | Modelo em massa | Validar/aplicar em lote | Sim, já existe |
 | Características | Validar/aplicar em lote | Sim, já existe |
 | Validar dimensões | Analisar/aplicar em lote | Sim, já existe |

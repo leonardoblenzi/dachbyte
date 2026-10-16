@@ -1397,41 +1397,16 @@
         throw new Error(quote?.error || `HTTP ${quoteResponse.status}`);
       }
 
-      if (quote?.unlimited !== true) {
-        const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
-        const lines = [];
-        if (quote?.deferred === true) {
-          lines.push(
-            "O custo deste filtro sera definido depois que o sistema identificar quantos anuncios serao processados.",
-          );
-          if (Number(quote?.minimum_estimated_credits || 0) > 0) {
-            lines.push(
-              `Estimativa minima: ${fmt.format(Number(quote.minimum_estimated_credits))} credito(s).`,
-            );
-          }
-          lines.push(
-            `Peso desta consulta: ${Number(quote?.weight || 1)}x conforme os enriquecimentos selecionados.`,
-          );
-        } else if (Number.isFinite(Number(quote?.estimated_credits))) {
-          lines.push(
-            `Custo estimado: ${fmt.format(Number(quote.estimated_credits || 0))} credito(s).`,
-          );
-        }
-        if (quote?.available_credits != null) {
-          lines.push(
-            `Saldo disponivel: ${fmt.format(Number(quote.available_credits || 0))} credito(s).`,
-          );
-        }
-        if (lines.length) {
-          lines.push("Deseja continuar?");
-          if (!window.confirm(lines.join("\n\n"))) return null;
-        }
-      }
+      const confirmed = await window.CreditOperationModal.confirm({
+        quote,
+        title: "Confirmar consulta de anúncios",
+        description: `Peso da consulta: ${Number(quote?.weight || 1)}x conforme os enriquecimentos selecionados.`,
+        quantity: Number(quote?.quantity || 0),
+        unitLabel: "anúncios",
+      });
+      if (!confirmed) return null;
     } catch (quoteError) {
-      console.warn(
-        "[filtro-anuncios] previa de creditos indisponivel; seguindo em shadow:",
-        quoteError?.message || quoteError,
-      );
+      throw new Error(`Não foi possível confirmar os créditos: ${quoteError?.message || quoteError}`);
     }
 
     const r = await fetchWithTimeout(API_JOBS_CREATE, {

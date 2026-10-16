@@ -56,3 +56,37 @@ test("quote insuficiente não expõe ação de confirmação", () => {
   assert.match(html, /Saldo insuficiente/);
   assert.doesNotMatch(html, /data-credit-confirm/);
 });
+
+test("cotação sem estimativa não apresenta zero como custo confirmado", () => {
+  const view = modal.normalizeQuote({ estimated_credits: null, available_credits: 100 });
+  assert.equal(view.mode, "unavailable");
+  assert.equal(view.canConfirm, false);
+});
+
+test("cotação diferida exibe mínimo e avisa que valor final depende da descoberta", () => {
+  const view = modal.normalizeQuote({
+    deferred: true,
+    estimated_credits: null,
+    minimum_estimated_credits: 1,
+    available_credits: 100,
+  });
+  assert.equal(view.mode, "deferred");
+  assert.equal(view.canConfirm, true);
+  const html = modal.render(view, { quantity: 0, unitLabel: "anúncios" });
+  assert.match(html, /Estimativa mínima/);
+  assert.match(html, /quantidade real/);
+  assert.doesNotMatch(html, /0 anúncios/);
+});
+
+test("descoberta diferida sem mínimo pode iniciar, mas não promete crédito zero", () => {
+  const view = modal.normalizeQuote({
+    deferred: true,
+    estimated_credits: null,
+    available_credits: null,
+  });
+  assert.equal(view.mode, "deferred");
+  assert.equal(view.canConfirm, true);
+  const html = modal.render(view, { quantity: 0, unitLabel: "anúncios" });
+  assert.match(html, /custo final será confirmado na reserva/);
+  assert.doesNotMatch(html, /0 c/);
+});

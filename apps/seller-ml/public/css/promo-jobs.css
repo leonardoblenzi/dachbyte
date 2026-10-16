@@ -445,7 +445,8 @@
 }
 
 .chip--ok,
-.chip--err {
+.chip--err,
+.chip--neutral {
   padding: 2px 7px;
   border-radius: 999px;
   font-size: 10px;
@@ -460,6 +461,18 @@
 .chip--err {
   background: rgba(226,75,74,0.13);
   color: #ff8b8a;
+}
+
+.chip--neutral {
+  background: rgba(148,163,184,0.15);
+  color: #cbd5e1;
+}
+
+.job-credit-summary {
+  margin-top: 6px;
+  color: #cbd5e1;
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 .chip-div {

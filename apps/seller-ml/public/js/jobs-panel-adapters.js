@@ -110,7 +110,7 @@
       contractProgress.current ?? raw?.processed ?? raw?.done ?? raw?.ok ?? raw?.count_ok,
     );
     const success = number(
-      raw?.success ?? raw?.succeeded ?? raw?.count_ok ?? raw?.counters?.success,
+      raw?.success ?? (raw?.kind === "atacado" ? raw?.applied : undefined) ?? raw?.succeeded ?? raw?.count_ok ?? raw?.counters?.success,
     );
     const total = number(
       contractProgress.total ?? raw?.total ?? raw?.expected_total ?? raw?.count_total,
@@ -219,6 +219,7 @@
 
     return {
       adapter: adapterName,
+      kind: text(raw?.kind || raw?.job_kind || contract.kind),
       id: uid,
       backendJobId: rawBackendId || backendId(adapterName, uid),
       source: text(raw?.source || raw?.job_source || raw?.source_key || raw?.jobSource),
@@ -233,6 +234,10 @@
       success,
       total,
       errors,
+      skipped: number(raw?.skipped ?? raw?.counters?.skipped, NaN),
+      creditSettlement: raw?.credit_settlement && typeof raw.credit_settlement === "object"
+        ? raw.credit_settlement
+        : null,
       hasErrors,
       progress,
       stateBase,

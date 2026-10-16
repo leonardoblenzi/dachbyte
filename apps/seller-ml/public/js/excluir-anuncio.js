@@ -318,41 +318,6 @@
         confirmText.textContent = `Voce esta prestes a excluir ${countText}. Essa acao e irreversivel e os anuncios nao poderao voltar para ativo.`;
       }
 
-      try {
-        const response = await fetch(withBase("/api/excluir-anuncio/credits/quote"), {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            operation: operation.id,
-            mlb_ids: items,
-          }),
-        });
-        const quote = await response.json().catch(() => ({}));
-        if (!response.ok || quote?.success === false) {
-          throw new Error(quote?.error || `HTTP ${response.status}`);
-        }
-
-        if (quote?.not_priced !== true) {
-          if (quote?.unlimited === true) {
-            confirmText.textContent += " Conta ilimitada/cortesia: sem debito de creditos.";
-          } else if (Number.isFinite(Number(quote?.estimated_credits))) {
-            const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
-            confirmText.textContent += ` Custo estimado em shadow: ${fmt.format(Number(quote.estimated_credits || 0))} credito(s).`;
-            if (quote?.available_credits != null) {
-              confirmText.textContent += ` Saldo disponivel: ${fmt.format(Number(quote.available_credits || 0))}.`;
-            }
-          }
-        }
-      } catch (quoteError) {
-        console.warn(
-          "[gestao-anuncios] previa de creditos indisponivel; seguindo em shadow:",
-          quoteError?.message || quoteError,
-        );
-      }
     }
 
     const needsGate = operation.requireTextForBulk && items.length > 1;
@@ -387,12 +352,33 @@
       return;
     }
 
-    closeConfirmModal();
-
     try {
       if (!window.ExclusaoBulk || typeof window.ExclusaoBulk.enqueue !== "function") {
         throw new Error("Fila de gestao de anuncios nao esta disponivel nesta pagina.");
       }
+
+      const response = await fetch(withBase("/api/excluir-anuncio/credits/quote"), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ operation: operation.id, mlb_ids: itemsToProcess }),
+      });
+      const quote = await response.json().catch(() => ({}));
+      if (!response.ok || quote?.success === false) {
+        throw new Error(quote?.error || `HTTP ${response.status}`);
+      }
+      if (quote?.not_priced !== true) {
+        const confirmed = await window.CreditOperationModal.confirm({
+          quote,
+          title: `Confirmar ${operation.label || "operação"}`,
+          description: "O lote será enviado para processamento após sua confirmação.",
+          quantity: itemsToProcess.length,
+          unitLabel: "anúncios",
+        });
+        if (!confirmed) return;
+      }
+
+      closeConfirmModal();
 
       await window.ExclusaoBulk.enqueue({
         items: itemsToProcess,
@@ -413,6 +399,7 @@
         },
       });
     } catch (error) {
+      if (confirmText) confirmText.textContent = `Não foi possível iniciar: ${error?.message || error}`;
       showResult({ ok: false, error: error?.message || String(error) }, "error");
     }
   }

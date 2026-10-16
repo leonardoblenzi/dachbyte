@@ -899,19 +899,13 @@
   }
 
   function confirmStockApplyQuote(quote) {
-    const estimated = Number(quote?.estimated_credits || 0);
-    if (quote?.unlimited === true || estimated <= 0) return true;
-    const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
-    const lines = [
-      `Atualização de estoque para ${fmt.format(Number(quote?.quantity || 0))} linha(s) pronta(s).`,
-      `Custo estimado: ${fmt.format(estimated)} crédito(s).`,
-    ];
-    if (quote?.available_credits != null) {
-      lines.push(`Saldo disponível: ${fmt.format(Number(quote.available_credits || 0))} crédito(s).`);
-    }
-    if (quote?.sufficient === false) lines.push("O saldo atual é menor que a estimativa.");
-    lines.push("Deseja enviar o lote para o worker?");
-    return window.confirm(lines.join("\n\n"));
+    return window.CreditOperationModal.confirm({
+      quote,
+      title: "Confirmar atualização de estoque",
+      description: "O lote será enviado ao worker após sua confirmação.",
+      quantity: Number(quote?.quantity || 0),
+      unitLabel: "linhas",
+    });
   }
 
   function readyPreviewChanges() {
@@ -938,12 +932,10 @@
         method: "POST",
         body: JSON.stringify({ changes }),
       });
-      if (!confirmStockApplyQuote(quote)) return;
+      if (!(await confirmStockApplyQuote(quote))) return;
     } catch (quoteError) {
-      console.warn(
-        "[estoque] prévia de créditos indisponível; seguindo em shadow:",
-        quoteError?.message || quoteError,
-      );
+      setFeedback(`Não foi possível confirmar os créditos: ${quoteError?.message || quoteError}`, "error");
+      return;
     }
 
     state.jobSubmitting = true;
@@ -1026,12 +1018,10 @@
           method: "POST",
           body: JSON.stringify({ changes: retryChanges }),
         });
-        if (!confirmStockApplyQuote(quote)) return;
+        if (!(await confirmStockApplyQuote(quote))) return;
       } catch (quoteError) {
-        console.warn(
-          "[estoque] prévia de créditos do retry indisponível; seguindo em shadow:",
-          quoteError?.message || quoteError,
-        );
+        setFeedback(`Não foi possível confirmar os créditos: ${quoteError?.message || quoteError}`, "error");
+        return;
       }
     }
 

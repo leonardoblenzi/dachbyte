@@ -7,6 +7,7 @@ const AtacadoService = require("./atacadoService");
 const { attachJobContract, backendJobIdFromUid } = require("./jobContract");
 const { recordAuthEvent } = require("./authAuditService");
 const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
+const { summarizeCreditSettlement } = require("./creditSettlementSummary");
 
 function resolveJobId(value) {
   return backendJobIdFromUid("validar-dimensoes", value);
@@ -722,20 +723,24 @@ function iniciarWorker() {
     console.error(`[validar-dimensoes] Job ${job.id} falhou:`, err?.message || err);
     const meta = (await readMeta(job.id)) || {};
     const billableUnits = dimensionsBillableUnits(job?.data || {}, meta);
-    await settleCredits(job?.data?.creditReservation, {
+    const settled = await settleCredits(job?.data?.creditReservation, {
       release: billableUnits <= 0,
       consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
+    const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+    if (summary) await updateMeta(job, { credit_settlement: summary });
   });
 
   queue.on("completed", async (job) => {
     console.log(`[validar-dimensoes] Job ${job.id} finalizado`);
     const meta = (await readMeta(job.id)) || {};
     const billableUnits = dimensionsBillableUnits(job?.data || {}, meta);
-    await settleCredits(job?.data?.creditReservation, {
+    const settled = await settleCredits(job?.data?.creditReservation, {
       release: billableUnits <= 0,
       consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
+    const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+    if (summary) await updateMeta(job, { credit_settlement: summary });
   });
 
   console.log(
@@ -867,6 +872,7 @@ function mapJob(j, status, meta = null) {
     validated: Math.max(0, Number(currentMeta.validated ?? success ?? 0)),
     applied: Math.max(0, Number(currentMeta.applied || 0)),
     billing_telemetry: dimensionsBillingTelemetry(j, currentMeta),
+    credit_settlement: currentMeta.credit_settlement || null,
     completed: ["concluido", "cancelado", "erro"].includes(stateLabel),
     account: j.data?.accountKey ? { key: j.data.accountKey, label: j.data.accountKey } : null,
     data: {

@@ -161,7 +161,10 @@ function withBase(path) {
       completedAt: Number(job.completedAt || 0),
       processed:
         Number.isFinite(Number(job.processed)) ? Number(job.processed) : undefined,
+      kind: job.kind || null,
       success: Number.isFinite(Number(job.success)) ? Number(job.success) : undefined,
+      skipped: Number.isFinite(Number(job.skipped)) ? Number(job.skipped) : undefined,
+      creditSettlement: job.creditSettlement || null,
       total: Number.isFinite(Number(job.total)) ? Number(job.total) : undefined,
       errors: Number.isFinite(Number(job.errors)) ? Number(job.errors) : undefined,
       error: job.error || job.failedReason || null,
@@ -256,7 +259,10 @@ function withBase(path) {
         };
 
         if (Number.isFinite(Number(raw.processed))) job.processed = Number(raw.processed);
+        if (raw.kind) job.kind = String(raw.kind);
         if (Number.isFinite(Number(raw.success))) job.success = Number(raw.success);
+        if (Number.isFinite(Number(raw.skipped))) job.skipped = Number(raw.skipped);
+        if (raw.creditSettlement && typeof raw.creditSettlement === "object") job.creditSettlement = raw.creditSettlement;
         if (Number.isFinite(Number(raw.total))) job.total = Number(raw.total);
         if (Number.isFinite(Number(raw.errors))) job.errors = Number(raw.errors);
 
@@ -812,33 +818,49 @@ function withBase(path) {
   }
 
   function renderJobChips(job, tone) {
+    if (job?.kind === "atacado") {
+      const processed = Number(job?.processed || 0);
+      const applied = Number(job?.success || 0);
+      const skipped = Number(job?.skipped || 0);
+      const errors = Number(job?.errors || 0);
+      const parts = [
+        `<span class="chip--neutral">${esc(`${formatCount(processed)} processados`)}</span>`,
+        `<span class="chip--ok">${esc(`${formatCount(applied)} aplicados`)}</span>`,
+        `<span class="chip--neutral">${esc(`${formatCount(skipped)} ignorados`)}</span>`,
+        `<span class="chip--err">${esc(`${formatCount(errors)} com erro`)}</span>`,
+      ];
+      return `<div class="job-chips">${parts.join("")}</div>`;
+    }
     const processed = Number(job?.processed);
     const success = Number(job?.success);
+    const skipped = Number(job?.skipped);
     const total = Number(job?.total);
     const errors = Number(job?.errors || 0);
-    const fallbackDone =
-      job?.completed && Number.isFinite(total) && total > 0
-        ? Math.max(0, total - (Number.isFinite(errors) ? errors : 0))
-        : NaN;
     const doneCount =
       Number.isFinite(success)
         ? success
-        : Number.isFinite(processed) && processed > 0
+        : Number.isFinite(processed) && processed > 0 && errors === 0 && !(Number.isFinite(skipped) && skipped > 0)
           ? processed
-          : fallbackDone;
+          : NaN;
     const parts = [];
 
+    if (Number.isFinite(processed) && processed > 0 && (!Number.isFinite(success) || success !== processed)) {
+      parts.push(`<span class="chip--neutral">${esc(`${formatCount(processed)} processados`)}</span>`);
+    }
+
     if (Number.isFinite(doneCount) && doneCount >= 0 && (doneCount > 0 || job?.completed)) {
+      if (parts.length) parts.push(`<span class="chip-div" aria-hidden="true"></span>`);
       parts.push(`<span class="chip--ok">${esc(pluralizeCount(doneCount, "concluido", "concluidos"))}</span>`);
     } else if (tone === "ok") {
       parts.push(`<span class="chip--ok">1 concluido</span>`);
     }
 
-    const hasErrorDetailsAction = !!job?.reviewAction?.url;
-    const showErrorChip =
-      Number.isFinite(errors) &&
-      errors > 0 &&
-      (!job?.completed || hasErrorDetailsAction);
+    if (Number.isFinite(skipped) && skipped > 0) {
+      if (parts.length) parts.push(`<span class="chip-div" aria-hidden="true"></span>`);
+      parts.push(`<span class="chip--neutral">${esc(`${formatCount(skipped)} ignorados`)}</span>`);
+    }
+
+    const showErrorChip = Number.isFinite(errors) && errors > 0;
     if (showErrorChip) {
       if (parts.length) parts.push(`<span class="chip-div" aria-hidden="true"></span>`);
       parts.push(`<span class="chip--err">${esc(`${errors} com erro${errors === 1 ? "" : "s"}`)}</span>`);
@@ -859,10 +881,31 @@ function withBase(path) {
     if (message) {
       return `<div class="job-error-msg">${esc(message)}</div>`;
     }
+    if (job?.kind === "atacado") {
+      return `<div class="job-error-msg">${esc(pluralizeCount(errors, "anuncio teve erro", "anuncios tiveram erro"))}. O XLSX contem os detalhes.</div>`;
+    }
     if (!job?.reviewAction?.url) {
       return `<div class="job-error-msg">${esc(pluralizeCount(errors, "item terminou com erro", "itens terminaram com erro"))}.</div>`;
     }
     return `<div class="job-error-msg">${esc(pluralizeCount(errors, "anuncio nao foi processado", "anuncios nao foram processados"))}. O relatorio contem os detalhes.</div>`;
+  }
+
+  function renderCreditSettlement(job) {
+    if (!job?.creditSettlement) return "";
+    const settlement = job.creditSettlement;
+    const reserved = Number(settlement.reserved_credits);
+    if (!Number.isFinite(reserved)) return "";
+    const credit = (value) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+    if (settlement.status === "unconfirmed") {
+      return `<div class="job-credit-summary">${esc(`${credit(reserved)} c reservados · Liquidação não confirmada; confira o extrato`)}</div>`;
+    }
+    if (settlement.status !== "confirmed") {
+      return `<div class="job-credit-summary">${esc(`${credit(reserved)} c reservados · Liquidação pendente`)}</div>`;
+    }
+    const spent = Number(settlement.spent_credits);
+    const released = Number(settlement.released_credits);
+    if (!Number.isFinite(spent) || !Number.isFinite(released)) return "";
+    return `<div class="job-credit-summary">${esc(`${credit(reserved)} c reservados · ${credit(spent)} c gastos · ${credit(released)} c liberados`)}</div>`;
   }
 
   function renderReviewAction(job) {
@@ -1317,6 +1360,7 @@ function withBase(path) {
       <span class="job-pct">${pct}%</span>
     </div>
     ${renderJobChips(j, tone)}
+    ${renderCreditSettlement(j)}
     ${renderPerformance(j)}
     ${renderRemediationSummary(j)}
     ${renderJobError(j)}
@@ -1952,11 +1996,14 @@ function withBase(path) {
     );
     return {
       adapter: adapterName,
+      kind: String(raw?.kind || ""),
       id: identity.uid,
       backendJobId: identity.backendJobId,
       title: raw?.title || raw?.label || raw?.name || raw?.job_name || "Processo",
       processed,
       success,
+      skipped: Number(raw?.skipped ?? NaN),
+      creditSettlement: raw?.credit_settlement || null,
       total,
       errors,
       hasErrors: Number.isFinite(errors) && errors > 0,
@@ -2119,6 +2166,7 @@ function withBase(path) {
       const job = ensureJob(id, adapterName, normalized?.backendJobId);
       if (!job) return;
       job.adapter = adapterName;
+      job.kind = normalized?.kind || job.kind || null;
       job.backendJobId = normalized?.backendJobId || job.backendJobId || id;
       const apiSource = String(
         normalized?.source || raw?.source || raw?.job_source || raw?.source_key || raw?.jobSource || "",
@@ -2128,6 +2176,10 @@ function withBase(path) {
       job.pending = Number(normalized?.pending ?? 0);
       job.resumeUrl = normalized?.resumeUrl || null;
       job.fullReportUrl = normalized?.fullReportUrl || null;
+      if (normalized?.kind === "atacado") {
+        job.skipped = Number(normalized.skipped || 0);
+        job.creditSettlement = normalized.creditSettlement || null;
+      }
       job.safetyPaused = normalized?.safetyPaused === true;
       job.retryWait = normalized?.retryWait === true;
       job.cancelRequested = normalized?.cancelRequested === true;

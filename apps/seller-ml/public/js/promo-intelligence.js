@@ -459,6 +459,18 @@
     const button = $("btnConfirmSmartOptimization");
     if (button) button.disabled = true;
     try {
+      const quote = await request("/api/promocoes/intelligence/smart/credits/quote", {
+        method: "POST",
+        body: JSON.stringify({ opportunity_ids: [...state.selected] }),
+      });
+      const confirmed = await global.CreditOperationModal.confirm({
+        quote,
+        title: "Confirmar otimização SMART",
+        description: "As oportunidades selecionadas serão processadas em lote.",
+        quantity: Number(quote?.quantity || state.selected.size),
+        unitLabel: "oportunidades",
+      });
+      if (!confirmed) return;
       const data = await request("/api/promocoes/intelligence/smart/optimize", {
         method: "POST",
         body: JSON.stringify({

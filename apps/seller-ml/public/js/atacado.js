@@ -812,6 +812,10 @@
 
   function isActiveJob(job) {
     if (!job) return false;
+    if (job.kind === "atacado" && job.credit_settlement?.status === "pending") {
+      const lastUpdate = Date.parse(job.updated_at || job.created_at || "");
+      if (!Number.isFinite(lastUpdate) || Date.now() - lastUpdate < 5 * 60 * 1000) return true;
+    }
     if (job.completed === true) return false;
     return !isTerminalJobStateText(job.state || job.status || "");
   }

@@ -5,8 +5,11 @@ const { makeBullClient } = require("../lib/redisClient");
 const PromocaoService = require("./removerPromocaoService");
 const { buildCsv, attachJobReview } = require("./jobReviewHelper");
 const { recordAuthEvent } = require("./authAuditService");
+const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
+const { summarizeCreditSettlement } = require("./creditSettlementSummary");
 
 const QUEUE_NAME = "ml-promo-bulk-remove";
+const BILLING_OPERATION_KEY = "promotions.remove";
 
 let queueInstance = null;
 let workerStarted = false;
@@ -61,10 +64,18 @@ function countResultRows(rows, wanted) {
         ? count + 1
         : count;
     }
+    if (wanted === "skipped") return row?.skipped === true || status === "skipped" ? count + 1 : count;
     return row?.success === false || ["error", "failed", "failure"].includes(status)
       ? count + 1
       : count;
   }, 0);
+}
+
+function removeOutcomeFromResponse(response) {
+  const ok = response?.success === true;
+  const changed = ok && response?.tinha_promocao !== false &&
+    Array.isArray(response?.promocoes_removidas) && response.promocoes_removidas.length > 0;
+  return { ok, changed };
 }
 
 function safeText(value, max = 500) {
@@ -119,7 +130,8 @@ function resolveJobMetrics(job, meta = {}) {
   const failedItems = pickArray(meta.failedItems, result.failedItems, result.failed_items);
   const successFromRows = countResultRows(results, "success");
   const failedFromRows = Math.max(countResultRows(results, "failed"), failedItems.length);
-  const processedFromRows = successFromRows + failedFromRows;
+  const skippedFromRows = countResultRows(results, "skipped");
+  const processedFromRows = successFromRows + failedFromRows + skippedFromRows;
   const processed = Math.max(
     positiveNumber(meta.processed),
     positiveNumber(result.processed),
@@ -142,7 +154,9 @@ function resolveJobMetrics(job, meta = {}) {
     failedFromRows,
   );
 
-  return { total, processed, success, failed, results, failedItems };
+  const skipped = Math.max(positiveNumber(meta.skipped), positiveNumber(result.skipped), skippedFromRows);
+
+  return { total, processed, success, failed, skipped, results, failedItems };
 }
 
 function buildAccount(data = {}) {
@@ -182,7 +196,7 @@ async function removeOneDirect({ mlb, mlCreds, accountKey }) {
       logger: console,
     });
     return {
-      ok: !!res?.success,
+      ...removeOutcomeFromResponse(res),
       status: res?.success ? 200 : 400,
       body: res || null,
     };
@@ -204,6 +218,7 @@ async function runJob(job) {
     processed: 0,
     success: 0,
     failed: 0,
+    skipped: 0,
     startedAt: Date.now(),
     updatedAt: Date.now(),
   });
@@ -217,6 +232,7 @@ async function runJob(job) {
 
   let success = 0;
   let failed = 0;
+  let skipped = 0;
   const failedItems = [];
   const results = [];
 
@@ -232,8 +248,9 @@ async function runJob(job) {
     });
     const row = {
       mlb_id: mlbId,
-      status: result?.ok ? "success" : "error",
-      success: !!result?.ok,
+      status: result?.ok ? result?.changed ? "success" : "skipped" : "error",
+      success: !!result?.ok && !!result?.changed,
+      skipped: !!result?.ok && !result?.changed,
       message:
         result?.error ||
         result?.body?.message ||
@@ -242,8 +259,10 @@ async function runJob(job) {
     };
     results.push(row);
 
-    if (result?.ok) {
+    if (result?.ok && result?.changed) {
       success += 1;
+    } else if (result?.ok) {
+      skipped += 1;
     } else {
       failed += 1;
       if (failedItems.length < 200) {
@@ -258,11 +277,12 @@ async function runJob(job) {
       }
     }
 
-    await auditRemoveJobEvent(job, "promotion_item_processed", row.success ? "success" : "warn", {
+    await auditRemoveJobEvent(job, "promotion_item_processed", row.success || row.skipped ? "success" : "warn", {
       mlb_id: mlbId,
       item_index: index + 1,
       total_items: total,
       success: row.success,
+      skipped: row.skipped,
       ml_status: result?.status ?? null,
       message: safeText(row.message),
       ml_body: result?.body || null,
@@ -277,6 +297,7 @@ async function runJob(job) {
       processed,
       success,
       failed,
+      skipped,
       failedItems,
       results,
       updatedAt: Date.now(),
@@ -294,11 +315,13 @@ async function runJob(job) {
     processed: total,
     success,
     failed,
+    skipped,
     failedItems,
     results,
     finishedAt: Date.now(),
     updatedAt: Date.now(),
   });
+  await settleRemoveJob(job, success);
   await job.progress(100);
 
   await auditRemoveJobEvent(job, "promotion_job_completed", failed > 0 ? "warn" : "success", {
@@ -306,6 +329,7 @@ async function runJob(job) {
     processed: total,
     success,
     failed,
+    skipped,
   });
 
   return {
@@ -313,6 +337,7 @@ async function runJob(job) {
     total,
     success,
     failed,
+    skipped,
     failedItems,
     results,
   };
@@ -323,19 +348,19 @@ async function mapJob(job) {
 
   const state = await job.getState().catch(() => "unknown");
   const meta = job.data?.__meta || {};
-  const { total, processed, success, failed, results, failedItems } =
+  const { total, processed, success, failed, skipped, results, failedItems } =
     resolveJobMetrics(job, meta);
   const progress =
     total > 0 ? clampProgress((processed / total) * 100) : clampProgress(job._progress ?? 0);
 
   let status = meta.status || state;
   if (state === "failed") status = "erro";
-  else if (state === "completed" && status !== "concluido") status = "concluido";
+  else if (state === "completed" && !["concluido", "cancelado", "erro"].includes(status)) status = "concluido";
   else if (state === "waiting" || state === "delayed") status = "aguardando";
 
   let stateLabel = status;
   if (status === "concluido") {
-    stateLabel = `concluido: ${success} ok, ${failed} erros`;
+    stateLabel = `concluido: ${success} removidos, ${skipped} sem alteracao, ${failed} erros`;
   } else if (status === "erro") {
     stateLabel = "erro";
   } else if (status === "cancelando") {
@@ -366,13 +391,15 @@ async function mapJob(job) {
     erros: failed,
     success,
     sucessos: success,
+    skipped,
     created_at: new Date(job.timestamp).toISOString(),
     updated_at: new Date(meta.updatedAt || finishedAt || startedAt || job.timestamp).toISOString(),
     iniciado_em: startedAt ? new Date(startedAt).toISOString() : null,
     concluido_em: finishedAt ? new Date(finishedAt).toISOString() : null,
-    completed: status === "concluido" || status === "erro",
+    completed: status === "concluido" || status === "erro" || status === "cancelado",
     account: buildAccount(job.data),
     meta: { successes: success },
+    credit_settlement: meta.credit_settlement || null,
     result: status === "concluido" ? job.returnvalue || null : null,
     failed_items: failedItems,
   }, {
@@ -380,6 +407,25 @@ async function mapJob(job) {
     jobId: `remove:${job.id}`,
     hasCsv: results.length > 0 || failedItems.length > 0,
   });
+}
+
+async function previewRemoveCredits({ mlbIds = [], mlCreds = {} } = {}) {
+  const ids = [...new Set(mlbIds.map((id) => String(id || "").trim().toUpperCase()).filter(Boolean))];
+  if (!ids.length) throw new Error("Nenhum MLB informado.");
+  const quote = await quoteCredits({ mlCreds, operationKey: BILLING_OPERATION_KEY, units: ids.length });
+  return { ...quote, operation_key: BILLING_OPERATION_KEY, quantity: ids.length };
+}
+
+async function settleRemoveJob(job, success, { settle = settleCredits } = {}) {
+  const reservation = job?.data?.creditReservation;
+  if (!reservation || job?.data?.__meta?.credit_settlement?.status === "confirmed") return;
+  const billable = Math.max(0, Math.trunc(Number(success) || 0));
+  const settled = await settle(reservation, {
+    release: billable === 0,
+    consumedUnits: billable === 0 ? null : billable,
+  });
+  const creditSettlement = summarizeCreditSettlement(reservation, settled);
+  if (creditSettlement) await updateMeta(job, { credit_settlement: creditSettlement });
 }
 
 function getJobResults(job) {
@@ -419,7 +465,10 @@ async function startRemoveJob({
   accountLabel = null,
   auditContext = null,
 }) {
-  if (!Array.isArray(mlbIds) || !mlbIds.length) {
+  const uniqueIds = Array.isArray(mlbIds)
+    ? [...new Set(mlbIds.map((id) => String(id || "").trim().toUpperCase()).filter(Boolean))]
+    : [];
+  if (!uniqueIds.length) {
     throw new Error("Nenhum MLB informado.");
   }
   const resolvedAccountKey = normalizeAccountKey(accountKey);
@@ -431,14 +480,23 @@ async function startRemoveJob({
 
   const queue = getQueue();
   const customJobId = makeRemoveJobId();
-  const job = await queue.add(
+  const creditReservation = await reserveCredits({
+    mlCreds,
+    operationKey: BILLING_OPERATION_KEY,
+    units: uniqueIds.length,
+    idempotencyKey: `promotions.remove:${customJobId}`,
+  });
+  let job;
+  try {
+    job = await queue.add(
     {
-      mlbIds,
+      mlbIds: uniqueIds,
       delayMs,
       mlCreds,
       accountKey: resolvedAccountKey,
       accountLabel: resolvedAccountLabel,
       auditContext,
+      creditReservation,
       createdAt: Date.now(),
     },
     {
@@ -447,7 +505,11 @@ async function startRemoveJob({
       removeOnComplete: 30,
       removeOnFail: false,
     },
-  );
+    );
+  } catch (error) {
+    await settleCredits(creditReservation, { release: true });
+    throw error;
+  }
 
   return { id: String(job.id) };
 }
@@ -488,6 +550,7 @@ async function cancelJob(id, { accountKey = null } = {}) {
   }
 
   if (state === "waiting" || state === "delayed") {
+    await settleRemoveJob(job, 0);
     await updateMeta(job, {
       status: "cancelado",
       finishedAt: Date.now(),
@@ -542,6 +605,7 @@ function initWorker() {
       return await runJob(job);
     } catch (error) {
       if (error instanceof JobCancelledError) {
+        await settleRemoveJob(job, Number(job.data?.__meta?.success || 0));
         await updateMeta(job, {
           status: "cancelado",
           finishedAt: Date.now(),
@@ -575,6 +639,7 @@ function initWorker() {
         failed: Number(job.data?.__meta?.failed ?? 0),
         error: safeText(error?.message || String(error)),
       });
+      await settleRemoveJob(job, Number(job.data?.__meta?.success || 0));
       throw error;
     }
   });
@@ -597,4 +662,6 @@ module.exports = {
   cancelJob,
   getJobCsv,
   removeOne,
+  previewRemoveCredits,
+  _test: { settleRemoveJob, removeOutcomeFromResponse },
 };

@@ -384,6 +384,46 @@ function wholesaleBillableUnits(_data = {}, meta = {}) {
   return Math.max(0, Number(meta.applied || 0));
 }
 
+function wholesaleSettlementSummary(reservation = {}, settled = null) {
+  const reserved = Math.max(0, Number(reservation?.reserved_credits || 0));
+  const pending = {
+    status: "pending",
+    reserved_credits: reserved,
+    spent_credits: null,
+    released_credits: null,
+  };
+  if (!settled || !["consumed", "released"].includes(String(settled.status || ""))) return pending;
+  if (settled.reserved_credits == null || settled.consumed_credits == null) return pending;
+  const scale = Math.max(1, Number(settled.credit_unit_scale || reservation.credit_unit_scale || 1));
+  const reservedUnits = Number(settled.reserved_credits);
+  const consumedUnits = Number(settled.consumed_credits);
+  if (!Number.isFinite(reservedUnits) || !Number.isFinite(consumedUnits)) return pending;
+  const spentUnits = settled.status === "released" ? 0 : consumedUnits;
+  if (spentUnits < 0 || spentUnits > reservedUnits) return pending;
+  return {
+    status: "confirmed",
+    reserved_credits: reservedUnits / scale,
+    spent_credits: spentUnits / scale,
+    released_credits: (reservedUnits - spentUnits) / scale,
+  };
+}
+
+async function settleAtacadoJob(job, meta, { release = false, settle = settleCredits, write = writeMeta } = {}) {
+  const reservation = job?.data?.creditReservation;
+  if (!reservation || reservation.bypass || reservation.shadow === true) return;
+  const billableUnits = wholesaleBillableUnits(job.data, meta);
+  const settled = await settle(reservation, {
+    release: release || billableUnits <= 0,
+    consumedUnits: release || billableUnits <= 0 ? null : billableUnits,
+  });
+  const summary = wholesaleSettlementSummary(reservation, settled);
+  await write(job.id, {
+    credit_settlement: summary.status === "confirmed"
+      ? summary
+      : { ...summary, status: "unconfirmed" },
+  });
+}
+
 function explicitAtacadoLifecycleStatus(status) {
   const normalized = String(status || "").trim().toLowerCase();
   if (normalized === "erro") return "failed";
@@ -479,6 +519,7 @@ async function shapeJob(job, { includeResults = false } = {}) {
     progress: terminal ? 100 : progress,
     processed,
     total,
+    success: activeLoad ? loaded || resultTotal : applied,
     loaded: activeLoad ? (loaded || resultTotal) : undefined,
     applied,
     skipped,
@@ -489,6 +530,7 @@ async function shapeJob(job, { includeResults = false } = {}) {
     account: accountFromData(job.data),
     result_total: resultTotal,
     billing_telemetry: activeLoad ? null : telemetryFrom(job, meta),
+    credit_settlement: activeLoad ? null : meta.credit_settlement || null,
     error: meta.error || null,
     queue_reason: meta.queueReason || null,
     heavy_operation_holder: meta.heavyOperationHolder || null,
@@ -1012,22 +1054,14 @@ class AtacadoJobsService {
     queue.on("completed", async (job) => {
       if (isActiveLoadJob(job?.data)) return;
       const meta = (await readMeta(job.id)) || {};
-      const billableUnits = wholesaleBillableUnits(job?.data || {}, meta);
-      await settleCredits(job?.data?.creditReservation, {
-        release: billableUnits <= 0,
-        consumedUnits: billableUnits > 0 ? billableUnits : null,
-      }).catch(() => {});
+      await settleAtacadoJob(job, meta);
     });
 
     queue.on("failed", async (job, error) => {
       console.error("[AtacadoJobsService] job failed:", job?.id, error?.message || error);
       if (isActiveLoadJob(job?.data)) return;
       const meta = (await readMeta(job.id)) || {};
-      const billableUnits = wholesaleBillableUnits(job?.data || {}, meta);
-      await settleCredits(job?.data?.creditReservation, {
-        release: billableUnits <= 0,
-        consumedUnits: billableUnits > 0 ? billableUnits : null,
-      }).catch(() => {});
+      await settleAtacadoJob(job, meta);
     });
 
     console.log(
@@ -1185,6 +1219,10 @@ class AtacadoJobsService {
         applied: 0,
         skipped: 0,
         errors: 0,
+        credit_settlement:
+          creditReservation?.bypass || creditReservation?.shadow
+            ? null
+            : wholesaleSettlementSummary(creditReservation),
         cancelRequested: false,
         created_at: nowISO(),
       });
@@ -1233,7 +1271,7 @@ class AtacadoJobsService {
       cancel_requested: true,
     });
     if (cancelBeforeProcessing) {
-      await settleCredits(job?.data?.creditReservation, { release: true }).catch(() => {});
+      await settleAtacadoJob(job, meta, { release: true });
     }
 
     return {
@@ -1280,6 +1318,8 @@ AtacadoJobsService._test = {
   rejectWholesaleSimulation,
   wholesaleBillingIdempotencyKey,
   wholesaleBillableUnits,
+  wholesaleSettlementSummary,
+  settleAtacadoJob,
   telemetryFrom,
   atacadoResultAction,
   buildAtacadoResultsWorkbook,

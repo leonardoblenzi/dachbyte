@@ -506,7 +506,33 @@ window.FinanceiroMlCosts = (() => {
     setStatus(`Importacao concluida: ${fmtNum(data.updated)} SKU(s) atualizado(s).`, "ok");
   }
 
-  async function pollSync(jobId) {
+  async function resolveSyncAccount() {
+    const response = await fetch(mlUrl("/api/account/current"), {
+      credentials: "include", headers: { accept: "application/json" }, cache: "no-store",
+    });
+    const payload = await response.json().catch(() => null);
+    const key = String(payload?.accountKey || "").trim();
+    if (!response.ok || !key) throw new Error("Selecione uma conta do Mercado Livre para sincronizar custos.");
+    return { key, label: payload?.label || key };
+  }
+
+  function syncStorageKey(accountKey) {
+    return `financeiro-ml-cost-sync:${accountKey}`;
+  }
+
+  function rememberSync(jobId, accountKey) {
+    try { window.sessionStorage.setItem(syncStorageKey(accountKey), String(jobId)); } catch {}
+  }
+
+  function forgetSync(accountKey) {
+    try { window.sessionStorage.removeItem(syncStorageKey(accountKey)); } catch {}
+  }
+
+  function panelSyncId(jobId) {
+    return `finance-ml-sync:${jobId}`;
+  }
+
+  async function pollSync(jobId, account) {
     if (!jobId) return;
     for (;;) {
       const response = await fetch(mlUrl(`/api/financeiro-ml/costs/sync/${encodeURIComponent(jobId)}`), {
@@ -515,10 +541,28 @@ window.FinanceiroMlCosts = (() => {
         cache: "no-store",
       });
       const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.success) throw new Error(data?.error || "Falha ao consultar sincronizacao.");
+      if (!response.ok || !data?.success) {
+        if ([403, 404].includes(response.status)) forgetSync(account.key);
+        throw new Error(data?.error || "Falha ao consultar sincronizacao.");
+      }
       const job = data.job || {};
+      window.JobsPanel?.updateLocalJob?.(panelSyncId(jobId), {
+        title: "Sincronizar custos por SKU",
+        progress: Math.round(Number(job.progress || 0)),
+        state: job.status === "erro" ? "erro" : job.completed ? "concluído" : "processando",
+        completed: Boolean(job.completed),
+        accountKey: account.key,
+        accountLabel: account.label,
+      });
+      window.JobsPanel?.mergeApiJobs?.([{
+        ...job,
+        id: panelSyncId(jobId),
+        title: "Sincronizar custos por SKU",
+        account: { key: account.key, label: account.label },
+      }]);
       setStatus(`Sincronizando SKUs relevantes... ${Math.round(Number(job.progress || 0))}%`, "info");
       if (job.completed) {
+        forgetSync(account.key);
         if (job.status === "erro") throw new Error(job.failedReason || "Sincronizacao falhou.");
         setStatus("Sincronizacao concluida. Atualizando custos...", "ok");
         await loadCosts({ force: true });
@@ -531,6 +575,7 @@ window.FinanceiroMlCosts = (() => {
   async function startSync() {
     if (els.sync) els.sync.disabled = true;
     try {
+      const account = await resolveSyncAccount();
       try {
         const quoteResponse = await fetch(
           mlUrl("/api/financeiro-ml/costs/sync/credits/quote"),
@@ -550,40 +595,19 @@ window.FinanceiroMlCosts = (() => {
             "Ja existe uma sincronizacao em andamento para esta conta. O job atual sera reutilizado sem nova reserva.",
             "info",
           );
-        } else if (quote?.unlimited !== true) {
-          const creditFmt = new Intl.NumberFormat("pt-BR", {
-            maximumFractionDigits: 2,
+        } else {
+          const confirmed = await window.CreditOperationModal.confirm({
+            quote,
+            title: "Confirmar sincronização de custos",
+            description: "Anúncios e pedidos relevantes serão consultados pelo backend.",
+            quantity: Number(quote?.quantity || 0),
+            unitLabel: "anúncios",
           });
-          const lines = [
-            "A sincronizacao consulta anuncios relevantes e pedidos recentes do Mercado Livre.",
-          ];
-          if (quote?.deferred === true) {
-            lines.push(
-              "O custo exato sera calculado depois que o sistema descobrir o volume real desta conta.",
-            );
-            if (Number(quote?.minimum_estimated_credits || 0) > 0) {
-              lines.push(
-                `Estimativa minima: ${creditFmt.format(Number(quote.minimum_estimated_credits))} credito(s).`,
-              );
-            }
-          } else if (Number.isFinite(Number(quote?.estimated_credits))) {
-            lines.push(
-              `Custo estimado: ${creditFmt.format(Number(quote.estimated_credits || 0))} credito(s).`,
-            );
-          }
-          if (quote?.available_credits != null) {
-            lines.push(
-              `Saldo disponivel: ${creditFmt.format(Number(quote.available_credits || 0))} credito(s).`,
-            );
-          }
-          lines.push("Deseja iniciar a sincronizacao?");
-          if (!window.confirm(lines.join("\n\n"))) return;
+          if (!confirmed) return;
         }
       } catch (quoteError) {
-        console.warn(
-          "[financeiro-ml] previa de creditos da sincronizacao indisponivel; seguindo em shadow:",
-          quoteError?.message || quoteError,
-        );
+        setStatus(`Não foi possível confirmar os créditos: ${quoteError?.message || quoteError}`, "error");
+        return;
       }
 
       setStatus("Iniciando sincronizacao dos SKUs relevantes...", "info");
@@ -594,7 +618,15 @@ window.FinanceiroMlCosts = (() => {
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.success) throw new Error(data?.error || "Falha ao iniciar sincronizacao.");
-      await pollSync(data.job_id);
+      const localJobId = window.JobsPanel?.addLocalJob?.({
+        title: "Sincronizar custos por SKU",
+        state: "aguardando",
+        accountKey: account.key,
+        accountLabel: account.label,
+      });
+      if (localJobId) window.JobsPanel?.replaceId?.(localJobId, panelSyncId(data.job_id));
+      rememberSync(data.job_id, account.key);
+      await pollSync(data.job_id, account);
     } finally {
       if (els.sync) els.sync.disabled = false;
     }
@@ -602,6 +634,20 @@ window.FinanceiroMlCosts = (() => {
 
   function init() {
     if (state.initPromise) return state.initPromise;
+    resolveSyncAccount().then((account) => {
+      const pendingId = window.sessionStorage.getItem(syncStorageKey(account.key));
+      if (pendingId) {
+        window.JobsPanel?.mergeApiJobs?.([{
+          id: panelSyncId(pendingId),
+          title: "Sincronizar custos por SKU",
+          state: "processando",
+          progress: 0,
+          completed: false,
+          account: { key: account.key, label: account.label },
+        }]);
+        pollSync(pendingId, account).catch((error) => setStatus(error.message || "Falha ao consultar sincronização.", "error"));
+      }
+    }).catch(() => {});
     els.form?.addEventListener("submit", (event) => {
       event.preventDefault();
       state.page = 1;

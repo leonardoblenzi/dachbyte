@@ -618,25 +618,13 @@
   }
 
   function confirmStockScanQuote(quote) {
-    if (quote?.deferred === true) {
-      return window.confirm(
-        "A quantidade de anúncios será conhecida durante a análise. " +
-        "O custo será calculado com a quantidade real antes da etapa de leitura detalhada. Deseja continuar?",
-      );
-    }
-    const estimated = Number(quote?.estimated_credits || 0);
-    if (quote?.unlimited === true || estimated <= 0) return true;
-    const fmt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
-    const lines = [
-      `Análise estimada para ${fmt.format(Number(quote?.quantity || 0))} anúncio(s).`,
-      `Custo estimado: ${fmt.format(estimated)} crédito(s).`,
-    ];
-    if (quote?.available_credits != null) {
-      lines.push(`Saldo disponível: ${fmt.format(Number(quote.available_credits || 0))} crédito(s).`);
-    }
-    if (quote?.sufficient === false) lines.push("O saldo atual é menor que a estimativa.");
-    lines.push("Deseja continuar?");
-    return window.confirm(lines.join("\n\n"));
+    return window.CreditOperationModal.confirm({
+      quote,
+      title: "Confirmar análise de estoque",
+      description: "A análise começará após sua confirmação.",
+      quantity: Number(quote?.quantity || 0),
+      unitLabel: "anúncios",
+    });
   }
 
   async function loadStored({ scrollToWatchlist = false } = {}) {
@@ -713,12 +701,14 @@
           method: "POST",
           body: JSON.stringify({ source: "sold_period" }),
         });
-        if (!confirmStockScanQuote(quote)) {
+        if (!(await confirmStockScanQuote(quote))) {
           hideJob();
           return;
         }
       } catch (quoteError) {
-        console.warn("[estoque] prévia de créditos indisponível; seguindo em shadow:", quoteError?.message || quoteError);
+        hideJob();
+        setFeedback(`Não foi possível confirmar os créditos: ${quoteError?.message || quoteError}`, "error");
+        return;
       }
 
       const data = await fetchJson("/api/estoque/alerta/analisar-job", {

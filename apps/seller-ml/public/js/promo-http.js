@@ -235,32 +235,15 @@
 
   function confirmCreditQuote(quote, { label = "operacao promocional" } = {}) {
     const data = quote?.data || quote || {};
-    const estimated = Number(data?.estimated_credits || 0);
-    const quantity = Math.max(0, Number(data?.quantity || 0));
-    const unlimited = data?.unlimited === true;
-    const recentRepeat = data?.recent_repeat === true;
-
-    if (unlimited && !recentRepeat) return true;
-    if (estimated <= 0 && !recentRepeat) return true;
-
-    const lines = [
-      `Esta ${label} vai processar aproximadamente ${new Intl.NumberFormat("pt-BR").format(quantity)} anuncio(s).`,
-      estimated > 0
-        ? `Custo estimado: ${new Intl.NumberFormat("pt-BR").format(estimated)} credito(s).`
-        : "Esta conta possui uso ilimitado.",
-    ];
-    if (data?.available_credits != null && !unlimited) {
-      lines.push(
-        `Saldo disponivel: ${new Intl.NumberFormat("pt-BR").format(Number(data.available_credits || 0))} credito(s).`,
-      );
-    }
-    if (recentRepeat) {
-      lines.push(
-        "Atencao: uma operacao identica foi executada recentemente. A reaplicacao usa a tarifa de repeticao para evitar processamento desnecessario.",
-      );
-    }
-    lines.push("Deseja continuar?");
-    return global.confirm(lines.join("\n\n"));
+    return global.CreditOperationModal.confirm({
+      quote: data,
+      title: `Confirmar ${label}`,
+      description: data?.recent_repeat === true
+        ? "Reaplicação recente: a tarifa de repetição será usada."
+        : "O job será criado após sua confirmação.",
+      quantity: Number(data?.quantity || 0),
+      unitLabel: "anúncios",
+    });
   }
 
   const usersPaths = () => ["/api/promocoes/users"];

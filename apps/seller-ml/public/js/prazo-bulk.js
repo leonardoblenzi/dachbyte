@@ -99,25 +99,13 @@ function withBase(path) {
   }
 
   function confirmPrazoCreditQuote(quote, itemCount) {
-    const estimated = Number(quote?.estimated_credits || 0);
-    const unlimited = quote?.unlimited === true;
-    if (unlimited || estimated <= 0) return true;
-
-    const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
-    const lines = [
-      `Atualização de prazo para aproximadamente ${formatter.format(Number(quote?.quantity || itemCount || 0))} anúncio(s).`,
-      `Custo estimado: ${formatter.format(estimated)} crédito(s).`,
-    ];
-    if (quote?.available_credits != null) {
-      lines.push(
-        `Saldo disponível: ${formatter.format(Number(quote.available_credits || 0))} crédito(s).`,
-      );
-    }
-    if (quote?.sufficient === false) {
-      lines.push("O saldo atual é menor que a estimativa informada.");
-    }
-    lines.push("Deseja continuar?");
-    return window.confirm(lines.join("\n\n"));
+    return window.CreditOperationModal.confirm({
+      quote,
+      title: "Confirmar atualização de prazos",
+      description: "O job será criado após sua confirmação.",
+      quantity: Number(quote?.quantity || itemCount || 0),
+      unitLabel: "anúncios",
+    });
   }
 
   // Mapeia conta -> classe CSS do badge
@@ -174,17 +162,6 @@ function withBase(path) {
 
   async function startJob(entry) {
     const badge = await getAccountBadge();
-
-    try {
-      const quote = await fetchPrazoCreditQuote(entry.items);
-      const confirmed = confirmPrazoCreditQuote(quote, entry.items.length);
-      if (confirmed === false) return;
-    } catch (error) {
-      console.warn(
-        "[prazo-bulk] prévia de créditos indisponível; seguindo em shadow:",
-        error?.message || error,
-      );
-    }
 
     const tempId = JobsPanel.addLocalJob({
       title:
@@ -318,8 +295,11 @@ function withBase(path) {
       throw new Error("Dias inválidos. Use inteiro >= 0.");
     }
 
+    const quote = await fetchPrazoCreditQuote(list);
+    if (!(await confirmPrazoCreditQuote(quote, list.length))) return false;
     QUEUE.push({ items: list, days: d, delayMs, title, onJobCreated });
     pump(); // não aguarda
+    return true;
   }
 
   async function verificarStatus() {

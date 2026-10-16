@@ -8,6 +8,7 @@ const TokenService = require("./tokenService");
 const { makeBullClient, getSharedRedis } = require("../lib/redisClient");
 const { recordAuthEvent } = require("./authAuditService");
 const SmartBilling = require("./promoSmartBillingService");
+const { summarizeCreditSettlement } = require("./creditSettlementSummary");
 
 const QUEUE_NAME = "promo-smart-optimizer";
 const ANALYSIS_TTL_MS = Math.max(
@@ -92,16 +93,26 @@ function ensureQueue() {
   queue.on("completed", async (job) => {
     if (job?.data?.kind !== "optimize") return;
     const metrics = resolveJobMetrics(job, "completed");
-    await SmartBilling.settleOptimizationCredits(job?.data?.creditReservation, {
+    const settled = await SmartBilling.settleOptimizationCredits(job?.data?.creditReservation, {
       optimized: metrics.success,
     });
+    const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+    if (summary) {
+      job.data.__meta = { ...(job.data.__meta || {}), credit_settlement: summary };
+      await job.update(job.data);
+    }
   });
   queue.on("failed", async (job, error) => {
     if (job?.data?.kind !== "optimize") return;
     const metrics = resolveJobMetrics(job, "failed");
-    await SmartBilling.settleOptimizationCredits(job?.data?.creditReservation, {
+    const settled = await SmartBilling.settleOptimizationCredits(job?.data?.creditReservation, {
       optimized: metrics.success,
     });
+    const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+    if (summary) {
+      job.data.__meta = { ...(job.data.__meta || {}), credit_settlement: summary };
+      await job.update(job.data);
+    }
     console.error(
       "[PromoSmartOptimizer] billing settle after failure:",
       job?.id,
@@ -1939,6 +1950,7 @@ module.exports = {
       accountLabel: job.data?.accountLabel || job.data?.accountKey || null,
       operation_id: job.data?.operationId || null,
       billing_telemetry: smartBillingTelemetry(job, state),
+      credit_settlement: meta.credit_settlement || null,
       pending: Math.max(0, metrics.total - metrics.processed),
       full_report_url: `/api/promocoes/jobs/${encodeURIComponent(`smart:${job.id}`)}/download.xlsx`,
       updated_at: new Date(meta.updatedAt || job.finishedOn || job.processedOn || job.timestamp || Date.now()).toISOString(),

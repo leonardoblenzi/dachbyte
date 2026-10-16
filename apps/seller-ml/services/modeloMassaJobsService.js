@@ -8,6 +8,7 @@ const { buildCsv, attachJobReview } = require("./jobReviewHelper");
 const { attachJobContract, backendJobIdFromUid } = require("./jobContract");
 const { recordAuthEvent } = require("./authAuditService");
 const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
+const { summarizeCreditSettlement } = require("./creditSettlementSummary");
 const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 const QUEUE_NAME = "ml-modelo-massa";
@@ -291,6 +292,7 @@ async function shapeJob(job, { includeResults = false } = {}) {
     account: accountFromData(job.data),
     result_total: resultsTotal,
     billing_telemetry: telemetryFrom(job, meta),
+    credit_settlement: meta.credit_settlement || null,
     queue_reason: meta.queueReason || null,
     heavy_operation_holder: meta.heavyOperationHolder || null,
     ...(includeResults ? { results: await readResults(job.id) } : {}),
@@ -604,20 +606,24 @@ class ModeloMassaJobsService {
     queue.on("completed", async (job) => {
       const meta = (await readMeta(job.id)) || {};
       const billableUnits = massModelBillableUnits(job?.data || {}, meta);
-      await settleCredits(job?.data?.creditReservation, {
+      const settled = await settleCredits(job?.data?.creditReservation, {
         release: billableUnits <= 0,
         consumedUnits: billableUnits > 0 ? billableUnits : null,
       }).catch(() => {});
+      const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+      if (summary) await writeMeta(job.id, { credit_settlement: summary });
     });
 
     queue.on("failed", async (job, error) => {
       console.error("[ModeloMassaJobsService] job failed:", job?.id, error?.message || error);
       const meta = (await readMeta(job.id)) || {};
       const billableUnits = massModelBillableUnits(job?.data || {}, meta);
-      await settleCredits(job?.data?.creditReservation, {
+      const settled = await settleCredits(job?.data?.creditReservation, {
         release: billableUnits <= 0,
         consumedUnits: billableUnits > 0 ? billableUnits : null,
       }).catch(() => {});
+      const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+      if (summary) await writeMeta(job.id, { credit_settlement: summary });
     });
 
     console.log(

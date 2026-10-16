@@ -6,6 +6,7 @@ const db = require("../db/db");
 const { makeBullClient } = require("../lib/redisClient");
 const TokenService = require("./tokenService");
 const CatalogBilling = require("./financeiroMlCatalogSyncBillingService");
+const { summarizeCreditSettlement } = require("./creditSettlementSummary");
 const { normalizeAttributes } = require("./meliBulk");
 const { successfulBodies, assertCompleteDetails } = require("./financeiroMlCatalogBulk");
 
@@ -787,17 +788,27 @@ function initWorker() {
   queue.on("completed", async (job) => {
     if (String(job?.data?.trigger || "internal").toLowerCase() !== "manual") return;
     const result = job?.returnvalue || {};
-    await CatalogBilling.settleSyncCredits(job?.data?.creditReservation, {
+    const settled = await CatalogBilling.settleSyncCredits(job?.data?.creditReservation, {
       processedItems: Number(result?.total_items || job?.data?.billingProcessedItems || 0),
       ordersRead: Number(job?.data?.billingOrdersRead || 0),
     });
+    const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+    if (summary) {
+      job.data.creditSettlement = summary;
+      await job.update(job.data);
+    }
   });
   queue.on("failed", async (job, error) => {
     if (String(job?.data?.trigger || "internal").toLowerCase() === "manual") {
-      await CatalogBilling.settleSyncCredits(job?.data?.creditReservation, {
+      const settled = await CatalogBilling.settleSyncCredits(job?.data?.creditReservation, {
         processedItems: Number(job?.data?.billingProcessedItems || 0),
         ordersRead: Number(job?.data?.billingOrdersRead || 0),
       });
+      const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+      if (summary) {
+        job.data.creditSettlement = summary;
+        await job.update(job.data);
+      }
     }
     console.error(`[financeiro-ml-sync] Job ${job?.id} falhou:`, error?.message || error);
   });
@@ -896,6 +907,7 @@ async function mapJob(job, state) {
     completed: ["concluido", "erro"].includes(status),
     result,
     operation_id: job?.data?.operationId || null,
+    credit_settlement: job?.data?.creditSettlement || null,
     billing_telemetry:
       result?.billing_telemetry ||
       job?.data?.billingTelemetry ||

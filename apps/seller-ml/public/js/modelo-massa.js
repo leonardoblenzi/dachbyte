@@ -320,26 +320,13 @@
   }
 
   function confirmMassModelCreditQuote(quote, { dryRun = false } = {}) {
-    const estimated = Number(quote?.estimated_credits || 0);
-    const quantity = Math.max(0, Number(quote?.quantity || 0));
-    const unlimited = quote?.unlimited === true;
-    if (unlimited || estimated <= 0) return true;
-
-    const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
-    const lines = [
-      `${dryRun ? "Simulação" : "Aplicação"} de modelo em massa para aproximadamente ${formatter.format(quantity)} anúncio(s).`,
-      `Custo estimado: ${formatter.format(estimated)} crédito(s).`,
-    ];
-    if (quote?.available_credits != null) {
-      lines.push(
-        `Saldo disponível: ${formatter.format(Number(quote.available_credits || 0))} crédito(s).`,
-      );
-    }
-    if (quote?.sufficient === false) {
-      lines.push("O saldo atual é menor que a estimativa informada.");
-    }
-    lines.push("Deseja continuar?");
-    return window.confirm(lines.join("\n\n"));
+    return window.CreditOperationModal.confirm({
+      quote,
+      title: dryRun ? "Confirmar validação de modelos" : "Confirmar aplicação de modelos",
+      description: "O job será criado após sua confirmação.",
+      quantity: Number(quote?.quantity || 0),
+      unitLabel: "anúncios",
+    });
   }
 
   function filteredDefaultModels(searchValue) {
@@ -911,7 +898,7 @@
     const dryRun = currentDryRun();
     try {
       const creditQuote = await fetchMassModelCreditQuote(ids, dryRun);
-      const confirmed = confirmMassModelCreditQuote(creditQuote, { dryRun });
+      const confirmed = await confirmMassModelCreditQuote(creditQuote, { dryRun });
       if (confirmed === false) {
         renderSummary(
           "info",
@@ -922,10 +909,8 @@
         return;
       }
     } catch (error) {
-      console.warn(
-        "[modelo-massa] prévia de créditos indisponível; seguindo em shadow:",
-        error?.message || error,
-      );
+      renderSummary("error", `Não foi possível confirmar os créditos: ${error?.message || error}`);
+      return;
     }
 
     setLoading(true, "Enfileirando job de modelo em massa...");
@@ -1014,13 +999,11 @@
     $("#btnApplyEligible").addEventListener("click", async () => {
       const ids = allEligibleIds();
       if (!ids.length) return;
-      if (!window.confirm(`Aplicar o campo modelo em ${ids.length} anuncio(s) elegiveis?`)) return;
       await enqueueApply(ids);
     });
     $("#btnApplySelected").addEventListener("click", async () => {
       const ids = selectedEligibleIds();
       if (!ids.length) return;
-      if (!window.confirm(`Aplicar o campo modelo em ${ids.length} anuncio(s) selecionados?`)) return;
       await enqueueApply(ids);
     });
     $("#btnSelectEligible").addEventListener("click", () => {

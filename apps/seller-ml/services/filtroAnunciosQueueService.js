@@ -9,6 +9,7 @@ const PromoPricing = require("./mlPromotionPricing");
 const TokenService = require("./tokenService");
 const { applyPromotionSnapshot } = require("./filtroPromoSnapshot");
 const FilterBilling = require("./filtroAnunciosBillingService");
+const { summarizeCreditSettlement } = require("./creditSettlementSummary");
 const {
   reconcileCompletedQueueJob,
   sameCsvExportRequest,
@@ -2996,6 +2997,7 @@ class FiltroAnunciosQueueService {
         currentMeta.billing_telemetry ||
         currentJob?.returnvalue?.billing_telemetry ||
         null,
+      credit_settlement: currentMeta.credit_settlement || null,
       ...variationGtinStatusFields(currentMeta),
       sales_truncated: currentMeta.sales_truncated === true,
       review_action:
@@ -4322,16 +4324,18 @@ class FiltroAnunciosQueueService {
 
     this.queue.on("failed", async (job, err) => {
       console.error("[FiltroAnunciosQueueService] job failed:", job?.id, err?.message || err);
-      await FilterBilling.settleReservation(job?.data?.creditReservation, {
+      const settled = await FilterBilling.settleReservation(job?.data?.creditReservation, {
         filters: job?.data?.filters || {},
         itemCount: Number(job?.data?.billingDiscoveredItems || 0),
         completed: false,
       });
+      const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+      if (summary) await this._writeMeta(job.id, { credit_settlement: summary });
     });
     this.queue.on("completed", async (job) => {
       console.log("[FiltroAnunciosQueueService] job completed:", job?.id);
       const cancelled = job?.returnvalue?.cancelled === true;
-      await FilterBilling.settleReservation(job?.data?.creditReservation, {
+      const settled = await FilterBilling.settleReservation(job?.data?.creditReservation, {
         filters: job?.data?.filters || {},
         itemCount: Number(
           job?.returnvalue?.billing_discovered_items ??
@@ -4340,6 +4344,8 @@ class FiltroAnunciosQueueService {
         ),
         completed: !cancelled,
       });
+      const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+      if (summary) await this._writeMeta(job.id, { credit_settlement: summary });
     });
   }
 
@@ -4580,6 +4586,7 @@ class FiltroAnunciosQueueService {
         meta.billing_telemetry ||
         job?.returnvalue?.billing_telemetry ||
         null,
+      credit_settlement: meta.credit_settlement || null,
       download_csv_url: downloadCsvUrl,
       review_action:
         downloadCsvUrl && status === "concluido"

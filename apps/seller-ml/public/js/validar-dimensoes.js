@@ -326,35 +326,15 @@ function withBase(path) {
   }
 
   function confirmDimensionsCreditQuote(quote, { mode = "analyze", source = "manual_list" } = {}) {
-    if (quote?.deferred === true) {
-      return window.confirm(
-        "A quantidade total de anúncios será conhecida após listar os ativos. " +
-        "O custo será calculado antes da validação individual. Deseja continuar?",
-      );
-    }
-
-    const estimated = Number(quote?.estimated_credits || 0);
-    if (quote?.unlimited === true || estimated <= 0) return true;
-
-    const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
-    const action = mode === "analyze" ? "Validação" : "Correção";
-    const lines = [
-      `${action} de dimensões para aproximadamente ${formatter.format(Number(quote?.quantity || 0))} anúncio(s).`,
-      `Custo estimado: ${formatter.format(estimated)} crédito(s).`,
-    ];
-    if (quote?.available_credits != null) {
-      lines.push(
-        `Saldo disponível: ${formatter.format(Number(quote.available_credits || 0))} crédito(s).`,
-      );
-    }
-    if (quote?.sufficient === false) {
-      lines.push("O saldo atual é menor que a estimativa informada.");
-    }
-    if (source === "active_items") {
-      lines.push("A quantidade real será confirmada após a listagem dos anúncios ativos.");
-    }
-    lines.push("Deseja continuar?");
-    return window.confirm(lines.join("\n\n"));
+    return window.CreditOperationModal.confirm({
+      quote,
+      title: mode === "analyze" ? "Confirmar validação de dimensões" : "Confirmar correção de dimensões",
+      description: source === "active_items"
+        ? "Os anúncios ativos serão listados pelo backend antes do processamento."
+        : "O job será criado após sua confirmação.",
+      quantity: Number(quote?.quantity || 0),
+      unitLabel: "anúncios",
+    });
   }
 
   async function carregarContaAtual() {
@@ -798,12 +778,10 @@ function withBase(path) {
             source,
           }),
         });
-        if (!confirmDimensionsCreditQuote(quote, { mode, source })) return;
+        if (!(await confirmDimensionsCreditQuote(quote, { mode, source }))) return;
       } catch (quoteError) {
-        console.warn(
-          "[validar-dimensoes] prévia de créditos indisponível; seguindo em shadow:",
-          quoteError?.message || quoteError,
-        );
+        notify(`Não foi possível confirmar os créditos: ${quoteError?.message || quoteError}`, "error");
+        return;
       }
 
       notify("Criando job...", "info");

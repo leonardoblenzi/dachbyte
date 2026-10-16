@@ -11,6 +11,7 @@ const {
 const { buildCsv, attachJobReview } = require("./jobReviewHelper");
 const { recordAuthEvent } = require("./authAuditService");
 const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
+const { summarizeCreditSettlement } = require("./creditSettlementSummary");
 const { loadWorkerCredentials } = require("./estoqueAtualizacaoWorkerCredentials");
 
 const QUEUE_NAME = "estoque-atualizacao-queue";
@@ -360,6 +361,7 @@ async function jobToPayload(job) {
     written: Number(meta.written ?? (Number(summary.applied || 0) + Number(summary.divergent || 0))),
     retryable: Number(summary.retryable || 0),
     billing_telemetry: stockApplyTelemetry(job, meta, result),
+    credit_settlement: meta.credit_settlement || null,
     cancel_requested: job.data?.cancel_requested === true,
     completed,
     error: meta.error || job.failedReason || null,
@@ -458,19 +460,29 @@ function initWorker() {
     console.log("[EstoqueAtualizacaoQueue] job completed:", job?.id);
     const meta = job?.data?.__meta || {};
     const billableUnits = stockApplyBillableUnits(meta, job?.returnvalue || null);
-    await settleCredits(job?.data?.creditReservation, {
+    const settled = await settleCredits(job?.data?.creditReservation, {
       release: billableUnits <= 0,
       consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
+    const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+    if (summary) {
+      job.data.__meta = { ...(job.data.__meta || {}), credit_settlement: summary };
+      await job.update(job.data);
+    }
   });
   queue.on("failed", async (job, error) => {
     console.error("[EstoqueAtualizacaoQueue] job failed:", job?.id, error?.message || error);
     const meta = job?.data?.__meta || {};
     const billableUnits = stockApplyBillableUnits(meta, job?.returnvalue || null);
-    await settleCredits(job?.data?.creditReservation, {
+    const settled = await settleCredits(job?.data?.creditReservation, {
       release: billableUnits <= 0,
       consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
+    const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+    if (summary) {
+      job.data.__meta = { ...(job.data.__meta || {}), credit_settlement: summary };
+      await job.update(job.data);
+    }
   });
   queue.on("stalled", (job) => console.warn("[EstoqueAtualizacaoQueue] job stalled:", job?.id));
   console.log("[EstoqueAtualizacaoQueue] worker iniciado");

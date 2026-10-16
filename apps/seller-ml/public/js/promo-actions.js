@@ -577,7 +577,7 @@
       };
       const creditPreview = await global.PromoHttp?.postCreditQuote?.(quotePayload);
       if (creditPreview?.ok) {
-        const confirmed = global.PromoHttp?.confirmCreditQuote?.(creditPreview, {
+        const confirmed = await global.PromoHttp?.confirmCreditQuote?.(creditPreview, {
           label: "aplicacao promocional",
         });
         if (confirmed === false) {
@@ -591,11 +591,8 @@
           window.notifyPromocoes("Aplicacao cancelada antes de criar o job.");
           return false;
         }
-      } else if (creditPreview) {
-        console.warn(
-          "[promo-actions] previa de creditos indisponivel; seguindo em shadow:",
-          creditPreview?.data?.error || creditPreview?.status,
-        );
+      } else {
+        throw new Error(creditPreview?.data?.error || "Não foi possível consultar os créditos. Tente novamente.");
       }
 
       const res = await fetch(endpoint, {

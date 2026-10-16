@@ -5,6 +5,7 @@ const {
   CloneDraftError,
 } = require("../services/clonarAnuncioService");
 const CloneBilling = require("../services/clonarAnuncioBillingService");
+const { summarizeCreditSettlement } = require("../services/creditSettlementSummary");
 const {
   getRequestIp,
   getRequestUserAgent,
@@ -65,6 +66,7 @@ function handleError(res, error) {
       ...(error.billingTelemetry
         ? { billing_telemetry: error.billingTelemetry }
         : {}),
+      ...(error.creditSettlement ? { credit_settlement: error.creditSettlement } : {}),
     });
   }
 
@@ -75,6 +77,7 @@ function handleError(res, error) {
     ...(error?.billingTelemetry
       ? { billing_telemetry: error.billingTelemetry }
       : {}),
+    ...(error?.creditSettlement ? { credit_settlement: error.creditSettlement } : {}),
   });
 }
 
@@ -266,10 +269,11 @@ class ClonarAnuncioController {
       });
 
       const publishedItemId = result?.publication?.item_id || null;
-      await CloneBilling.settleCloneCredits(reservation, {
+      const settled = await CloneBilling.settleCloneCredits(reservation, {
         publishedItemId,
         alreadyPublished: !!result.already_published,
       });
+      const creditSettlement = summarizeCreditSettlement(reservation, settled);
 
       const billingTelemetry = CloneBilling.cloneBillingTelemetry({
         reservation,
@@ -290,6 +294,7 @@ class ClonarAnuncioController {
         published_item_id: publishedItemId,
         already_published: !!result.already_published,
         billing_telemetry: billingTelemetry,
+        credit_settlement: creditSettlement,
       });
 
       return res.json({
@@ -301,6 +306,7 @@ class ClonarAnuncioController {
         publication: result.publication || null,
         draft: result.draft || null,
         billing_telemetry: billingTelemetry,
+        credit_settlement: creditSettlement,
       });
     } catch (error) {
       const publishedItemId =
@@ -308,10 +314,11 @@ class ClonarAnuncioController {
         error?.details?.published_item_id ||
         null;
 
-      await CloneBilling.settleCloneCredits(reservation, {
+      const settled = await CloneBilling.settleCloneCredits(reservation, {
         publishedItemId,
         alreadyPublished: false,
       }).catch(() => {});
+      error.creditSettlement = summarizeCreditSettlement(reservation, settled);
 
       const billingTelemetry = CloneBilling.cloneBillingTelemetry({
         reservation,

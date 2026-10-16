@@ -12,6 +12,7 @@ function resolveJobId(value) {
 }
 const { recordAuthEvent } = require("./authAuditService");
 const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
+const { summarizeCreditSettlement } = require("./creditSettlementSummary");
 const { waitForHeavyOperationLease } = require("./mlHeavyOperationGovernor");
 
 const QUEUE_NAME = "ml-exclusao-lote";
@@ -862,6 +863,7 @@ async function mapJob(job) {
     operation,
     account: buildAccount(job.data),
     billing_telemetry: listingBillingTelemetry(job, meta),
+    credit_settlement: meta.credit_settlement || null,
     result: status === "concluido" ? job.returnvalue || null : null,
     failed_items: failedItems,
   }, {
@@ -1205,19 +1207,23 @@ function initWorker() {
     console.error(`[${SERVICE_LOG_LABEL}] job failed:`, job?.id, err?.message || err);
     const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
     const billableUnits = listingBillableUnits(job, meta);
-    await settleCredits(job?.data?.creditReservation, {
+    const settled = await settleCredits(job?.data?.creditReservation, {
       release: billableUnits <= 0,
       consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
+    const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+    if (summary) await updateMeta(job, { credit_settlement: summary });
   });
   queue.on("completed", async (job) => {
     console.log(`[${SERVICE_LOG_LABEL}] job completed:`, job?.id);
     const meta = (await readJobMeta(job.id)) || job.data?.__meta || {};
     const billableUnits = listingBillableUnits(job, meta);
-    await settleCredits(job?.data?.creditReservation, {
+    const settled = await settleCredits(job?.data?.creditReservation, {
       release: billableUnits <= 0,
       consumedUnits: billableUnits > 0 ? billableUnits : null,
     });
+    const summary = summarizeCreditSettlement(job?.data?.creditReservation, settled);
+    if (summary) await updateMeta(job, { credit_settlement: summary });
   });
 
   console.log(

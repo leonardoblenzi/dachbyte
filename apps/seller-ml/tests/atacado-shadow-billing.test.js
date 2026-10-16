@@ -58,6 +58,61 @@ test("aplicacao cobra somente itens realmente aplicados", () => {
   );
 });
 
+test("resumo financeiro so confirma gasto e liberacao com valores retornados pelo Hub", () => {
+  const reservation = { reserved_credits: 2, credit_unit_scale: 100 };
+  const confirmed = AtacadoJobsService._test.wholesaleSettlementSummary(reservation, {
+    status: "consumed",
+    reserved_credits: 200,
+    consumed_credits: 130,
+    credit_unit_scale: 100,
+  });
+  assert.deepEqual(confirmed, {
+    status: "confirmed",
+    reserved_credits: 2,
+    spent_credits: 1.3,
+    released_credits: 0.7,
+  });
+  assert.deepEqual(AtacadoJobsService._test.wholesaleSettlementSummary(reservation, null), {
+    status: "pending",
+    reserved_credits: 2,
+    spent_credits: null,
+    released_credits: null,
+  });
+  assert.equal(AtacadoJobsService._test.wholesaleSettlementSummary(reservation, {
+    status: "reserved",
+    reserved_credits: 200,
+    consumed_credits: 0,
+    credit_unit_scale: 100,
+  }).status, "pending");
+  assert.equal(AtacadoJobsService._test.wholesaleSettlementSummary(reservation, {
+    status: "consumed",
+    reserved_credits: 200,
+    consumed_credits: null,
+  }).status, "pending");
+});
+
+test("liquidacao do Atacado usa apenas aplicados e registra falha como pendente", async () => {
+  const reservation = { reserved_credits: 2, credit_unit_scale: 100 };
+  const job = { id: "job-1", data: { creditReservation: reservation } };
+  const calls = [];
+  await AtacadoJobsService._test.settleAtacadoJob(job, { applied: 3300, errors: 1701 }, {
+    settle: async (_reservation, options) => {
+      calls.push(options);
+      return { status: "consumed", reserved_credits: 200, consumed_credits: 130, credit_unit_scale: 100 };
+    },
+    write: async (_id, meta) => calls.push(meta),
+  });
+  assert.deepEqual(calls[0], { release: false, consumedUnits: 3300 });
+  assert.equal(calls[1].credit_settlement.spent_credits, 1.3);
+
+  const pending = [];
+  await AtacadoJobsService._test.settleAtacadoJob(job, { applied: 0 }, {
+    settle: async () => null,
+    write: async (_id, meta) => pending.push(meta),
+  });
+  assert.equal(pending[0].credit_settlement.status, "unconfirmed");
+});
+
 test("pedido legado de simulacao nao pode iniciar job de atacado", () => {
   assert.throws(
     () => AtacadoJobsService._test.rejectWholesaleSimulation(true),

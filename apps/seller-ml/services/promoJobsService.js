@@ -20,6 +20,16 @@ const { buildCsv, attachJobReview } = require('./jobReviewHelper');
 const { recordAuthEvent, listAuthEvents } = require('./authAuditService');
 const PromoSelectionStore = require('./promoSelectionStore');
 const { quoteCredits, reserveCredits, settleCredits } = require('./hubCreditsService');
+const { summarizeCreditSettlement } = require('./creditSettlementSummary');
+
+async function settleAndRecordPromotionCredits(job, reservation, options) {
+  const settled = await settleCredits(reservation, options);
+  const summary = summarizeCreditSettlement(reservation, settled);
+  if (summary && job?.update) {
+    await job.update({ ...(job.data || {}), creditSettlement: summary });
+  }
+  return settled;
+}
 const {
   acquireHeavyOperationLease,
   waitForHeavyOperationLease,
@@ -276,7 +286,7 @@ function ensureQueue() {
     }
     if (data?.safetyPaused !== true && data?.resumable !== true) {
       const processed = Math.max(0, Number(data?.counters?.processed || 0));
-      await settleCredits(data?.creditReservation, {
+      await settleAndRecordPromotionCredits(job, data?.creditReservation, {
         release: processed <= 0,
         consumedUnits: processed > 0 ? processed : null,
       });
@@ -299,7 +309,7 @@ function ensureQueue() {
       return;
     }
     const processed = Math.max(0, Number(data?.counters?.processed || 0));
-    await settleCredits(data?.creditReservation, {
+    await settleAndRecordPromotionCredits(job, data?.creditReservation, {
       release: processed <= 0,
       consumedUnits: processed > 0 ? processed : null,
     });
@@ -2029,7 +2039,7 @@ async function settleLogicalOperationResources(job, { releaseCredits = false } =
     await trackLogicalOperation(job, { open: true });
   }
   const processed = Math.max(0, Number(data?.counters?.processed || 0));
-  await settleCredits(data?.creditReservation, {
+  await settleAndRecordPromotionCredits(job, data?.creditReservation, {
     release: Boolean(releaseCredits && processed <= 0),
     consumedUnits: processed > 0 ? processed : null,
   }).catch(() => {});
@@ -5974,7 +5984,7 @@ async function scheduleLogicalPromotionOperation(job, done) {
     };
     await latest.update(canceledData).catch(() => {});
     await storeCanceledTombstone(latest, canceledData).catch(() => {});
-    await settleCredits(canceledData?.creditReservation, {
+    await settleAndRecordPromotionCredits(latest, canceledData?.creditReservation, {
       release: canceledProcessed <= 0,
       consumedUnits: canceledProcessed > 0 ? canceledProcessed : null,
     }).catch(() => {});
@@ -6099,7 +6109,7 @@ async function runPromotionChunkJob(chunkJob, done) {
       }).catch(() => {});
       await storeCanceledTombstone(parentJob, parentJob.data || freshData).catch(() => {});
       const canceledProcessed = Math.max(0, Number(freshData?.counters?.processed || 0));
-      await settleCredits(freshData?.creditReservation, {
+      await settleAndRecordPromotionCredits(parentJob, freshData?.creditReservation, {
         release: canceledProcessed <= 0,
         consumedUnits: canceledProcessed > 0 ? canceledProcessed : null,
       }).catch(() => {});
@@ -6230,7 +6240,7 @@ async function runPromotionChunkJob(chunkJob, done) {
         };
         await latestParent.update(failedData).catch(() => {});
         const failedProcessed = Math.max(0, Number(failedData?.counters?.processed || 0));
-        await settleCredits(failedData?.creditReservation, {
+        await settleAndRecordPromotionCredits(latestParent, failedData?.creditReservation, {
           release: failedProcessed <= 0,
           consumedUnits: failedProcessed > 0 ? failedProcessed : null,
         }).catch(() => {});
@@ -6513,7 +6523,7 @@ async function runBulkJob(job, done) {
     await job.progress(cancellationCoverage).catch(() => {});
     if (logicalOperation) {
       await storeCanceledTombstone(job, cancelledData).catch(() => {});
-      await settleCredits(cancelledData?.creditReservation, {
+      await settleAndRecordPromotionCredits(job, cancelledData?.creditReservation, {
         release: finalProcessed <= 0,
         consumedUnits: finalProcessed > 0 ? finalProcessed : null,
       }).catch(() => {});
@@ -7795,7 +7805,7 @@ async function runBulkJob(job, done) {
     await job.progress(100);
     if (logicalOperation) {
       if (logicalFinalTerminal) {
-        await settleCredits(finalData?.creditReservation, {
+        await settleAndRecordPromotionCredits(job, finalData?.creditReservation, {
           release: processed <= 0,
           consumedUnits: processed > 0 ? processed : null,
         }).catch(() => {});
@@ -8467,6 +8477,7 @@ module.exports = {
               cancel_requested: d.cancelRequested === true,
               operation_id: d.operationId || d.options?.operation_id || null,
               billing_telemetry: d.billingTelemetry || null,
+              credit_settlement: d.creditSettlement || null,
               billing_operation_key:
                 d.billingOperationKey ||
                 d.billingTelemetry?.operation_key ||
@@ -8979,7 +8990,7 @@ module.exports = {
           };
           await j.update(canceledData).catch(() => {});
           await storeCanceledTombstone(j, canceledData).catch(() => {});
-          await settleCredits(canceledData?.creditReservation, { release: true }).catch(() => {});
+          await settleAndRecordPromotionCredits(j, canceledData?.creditReservation, { release: true }).catch(() => {});
           await releaseCampaignGuard(canceledData, String(j.id)).catch(() => {});
           await auditPromoJobEvent(j, 'promotion_job_canceled', 'warn', {
             current_state: state,

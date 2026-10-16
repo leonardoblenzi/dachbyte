@@ -190,6 +190,25 @@
     setBusy(button, true, "Enviando...");
 
     try {
+      const quoteResponse = await fetch(apiUrl("/api/promocoes/jobs/remove/credits/quote"), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ items }),
+      });
+      const quote = await quoteResponse.json().catch(() => null);
+      if (!quoteResponse.ok || !quote?.ok) {
+        throw new Error(quote?.error || "Não foi possível calcular o custo da remoção.");
+      }
+      closeBulkConfirmation();
+      const confirmed = await window.CreditOperationModal.confirm({
+        quote,
+        title: "Confirmar remoção de promoções",
+        description: "Somente anúncios removidos com sucesso consumirão créditos.",
+        quantity: items.length,
+        unitLabel: "anúncios",
+      });
+      if (!confirmed) return;
       await window.RemocaoBulk.enqueue({
         items,
         delayMs: 250,

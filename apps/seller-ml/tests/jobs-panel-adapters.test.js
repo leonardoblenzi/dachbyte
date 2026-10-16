@@ -5,6 +5,30 @@ require("../public/js/jobs-panel-adapters.js");
 
 const normalize = global.JobsPanelAdapters.normalize;
 
+test("atacado separa aplicados de processados e preserva creditos liquidados", () => {
+  const job = normalize("atacado", {
+    id: "WHOLESALE-1",
+    kind: "atacado",
+    status: "concluido",
+    completed: true,
+    processed: 5151,
+    applied: 3300,
+    skipped: 150,
+    errors: 1701,
+    total: 5151,
+    credit_settlement: {
+      status: "confirmed",
+      reserved_credits: 5,
+      spent_credits: 3.2,
+      released_credits: 1.8,
+    },
+  });
+  assert.equal(job.success, 3300);
+  assert.equal(job.processed, 5151);
+  assert.equal(job.skipped, 150);
+  assert.equal(job.creditSettlement.spent_credits, 3.2);
+});
+
 test("promotion remains active when progress reaches 100 before backend completion", () => {
   const job = normalize("promocoes", {
     id: 382,
@@ -148,6 +172,25 @@ test("canceling job remains active", () => {
 
   assert.equal(job.completed, false);
   assert.equal(job.active, true);
+});
+
+test("resumo de créditos confirmado aparece em qualquer job pago", () => {
+  const job = normalize("promocoes", {
+    id: "remove:123",
+    kind: "remove",
+    credit_settlement: { status: "confirmed", reserved_credits: 2, spent_credits: 1, released_credits: 1 },
+  });
+  assert.equal(job.creditSettlement?.spent_credits, 1);
+});
+
+test("contadores genéricos mantêm processados, sucessos, ignorados e erros distintos", () => {
+  const job = normalize("promocoes", {
+    id: "promo:123", processed: 100, success: 70, skipped: 10, errors: 20, total: 100,
+  });
+  assert.equal(job.processed, 100);
+  assert.equal(job.success, 70);
+  assert.equal(job.skipped, 10);
+  assert.equal(job.errors, 20);
 });
 
 test("paused promotion exposes safe resume metadata", () => {

@@ -222,32 +222,13 @@ function withBase(path) {
   }
 
   function confirmProductionTimeQuote(quote, { lookup = false } = {}) {
-    if (quote?.deferred === true) {
-      return window.confirm(
-        "A quantidade total de anúncios será conhecida após listar os ativos. " +
-        "O custo será calculado antes das consultas individuais. Deseja continuar?",
-      );
-    }
-
-    const estimated = Number(quote?.estimated_credits || 0);
-    const unlimited = quote?.unlimited === true;
-    if (unlimited || estimated <= 0) return true;
-
-    const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
-    const lines = [
-      `${lookup ? "Consulta" : "Atualização"} de prazo para aproximadamente ${formatter.format(Number(quote?.quantity || 0))} anúncio(s).`,
-      `Custo estimado: ${formatter.format(estimated)} crédito(s).`,
-    ];
-    if (quote?.available_credits != null) {
-      lines.push(
-        `Saldo disponível: ${formatter.format(Number(quote.available_credits || 0))} crédito(s).`,
-      );
-    }
-    if (quote?.sufficient === false) {
-      lines.push("O saldo atual é menor que a estimativa informada.");
-    }
-    lines.push("Deseja continuar?");
-    return window.confirm(lines.join("\n\n"));
+    return window.CreditOperationModal.confirm({
+      quote,
+      title: lookup ? "Confirmar consulta de prazos" : "Confirmar atualização de prazos",
+      description: "A operação começará após sua confirmação.",
+      quantity: Number(quote?.quantity || 0),
+      unitLabel: "anúncios",
+    });
   }
 
   function setActiveTab(tab) {
@@ -420,12 +401,10 @@ function withBase(path) {
           type: "lookup",
           mlb_ids: mlbs,
         });
-        if (!confirmProductionTimeQuote(quote, { lookup: true })) return;
+        if (!(await confirmProductionTimeQuote(quote, { lookup: true }))) return;
       } catch (quoteError) {
-        console.warn(
-          "[prazo] prévia de créditos indisponível; seguindo em shadow:",
-          quoteError?.message || quoteError,
-        );
+        notify("error", `Não foi possível confirmar os créditos: ${quoteError?.message || quoteError}`);
+        return;
       }
 
       box("info", `Consultando prazo de producao...\n\nItens: ${mlbs.length}`);
@@ -459,12 +438,10 @@ function withBase(path) {
           type: "lookup_active",
           max_items: maxItems,
         });
-        if (!confirmProductionTimeQuote(quote, { lookup: true })) return;
+        if (!(await confirmProductionTimeQuote(quote, { lookup: true }))) return;
       } catch (quoteError) {
-        console.warn(
-          "[prazo] prévia de créditos indisponível; seguindo em shadow:",
-          quoteError?.message || quoteError,
-        );
+        notify("error", `Não foi possível confirmar os créditos: ${quoteError?.message || quoteError}`);
+        return;
       }
 
       box(
@@ -664,7 +641,7 @@ function withBase(path) {
     // Preferência: painel/fila (PrazoBulk + JobsPanel)
 if (window.PrazoBulk && typeof window.PrazoBulk.enqueue === "function") {
       try {
-        await window.PrazoBulk.enqueue({
+        const queued = await window.PrazoBulk.enqueue({
           items: mlbs,
           days,
           delayMs: DEFAULT_DELAY_MS,
@@ -678,11 +655,7 @@ if (window.PrazoBulk && typeof window.PrazoBulk.enqueue === "function") {
             monitorarProgresso(jobId);
           },
         });
-
-        notify(
-          "info",
-          "Processo enviado para o painel (canto inferior direito)."
-        );
+        if (queued) notify("info", "Processo enviado para o painel (canto inferior direito).");
       } catch (e) {
         box("error", `❌ Falha ao enfileirar no painel.\n\n${e.message}`);
         notify("error", `Falha no painel: ${e.message}`);

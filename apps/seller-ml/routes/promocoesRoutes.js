@@ -5610,6 +5610,21 @@ core.get(
   },
 );
 
+core.post("/api/promocoes/jobs/remove/credits/quote", async (req, res) => {
+  try {
+    if (!PromoBulkRemove?.previewRemoveCredits) {
+      return res.status(503).json({ ok: false, error: "Cotacao de remocao indisponivel." });
+    }
+    const accountKey = resolveAccountKeyFromLocals(res);
+    if (!accountKey) return res.status(400).json({ ok: false, error: "Conta selecionada e obrigatoria." });
+    const items = normalizeMlbList(req.body?.items || []);
+    const quote = await PromoBulkRemove.previewRemoveCredits({ mlbIds: items, mlCreds: res.locals.mlCreds || {} });
+    return res.json({ ok: true, ...quote });
+  } catch (error) {
+    return res.status(Number(error?.statusCode) || 503).json({ ok: false, error: error?.message || String(error) });
+  }
+});
+
 // Iniciar job de REMOÇÃO em massa (via seu service -> adapter)
 core.post(
   "/api/promocoes/jobs/remove",
@@ -5671,7 +5686,7 @@ core.post(
     });
   } catch (e) {
     console.error("[/api/promocoes/jobs/remove] erro:", e);
-    return res.status(500).json({ ok: false, error: e.message || String(e) });
+    return res.status(Number(e?.statusCode) || 500).json({ ok: false, error: e.message || String(e) });
   }
   },
 );

@@ -916,7 +916,7 @@ function withBase(path) {
         options,
       });
       if (creditPreview?.ok) {
-        const confirmed = window.PromoHttp?.confirmCreditQuote?.(creditPreview, {
+        const confirmed = await window.PromoHttp?.confirmCreditQuote?.(creditPreview, {
           label: "aplicacao promocional",
         });
         if (confirmed === false) {
@@ -930,11 +930,8 @@ function withBase(path) {
           window.notifyPromocoes("Aplicacao cancelada antes de criar o job.");
           return false;
         }
-      } else if (creditPreview) {
-        console.warn(
-          "[promo-bulk] previa de creditos indisponivel; seguindo em shadow:",
-          creditPreview?.data?.error || creditPreview?.status,
-        );
+      } else {
+        throw new Error(creditPreview?.data?.error || "Não foi possível consultar os créditos. Tente novamente.");
       }
 
       const response = await fetch(withBase("/api/promocoes/jobs/apply-list"), {
@@ -1041,7 +1038,7 @@ function withBase(path) {
           },
         });
         if (creditPreview?.ok) {
-          const confirmed = window.PromoHttp?.confirmCreditQuote?.(creditPreview, {
+          const confirmed = await window.PromoHttp?.confirmCreditQuote?.(creditPreview, {
             label: "aplicacao promocional",
           });
           if (confirmed === false) {
@@ -1055,11 +1052,8 @@ function withBase(path) {
             window.notifyPromocoes?.("Aplicacao cancelada antes de criar o job.");
             return;
           }
-        } else if (creditPreview) {
-          console.warn(
-            "[promo-bulk] previa de creditos indisponivel; seguindo em shadow:",
-            creditPreview?.data?.error || creditPreview?.status,
-          );
+        } else {
+          throw new Error(creditPreview?.data?.error || "Não foi possível consultar os créditos. Tente novamente.");
         }
 
         const r = await fetch(withBase("/api/promocoes/jobs/apply-mass"), {
