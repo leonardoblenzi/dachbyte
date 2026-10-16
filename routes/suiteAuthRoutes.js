@@ -295,6 +295,62 @@ async function refreshSuiteSessionPayload(payload) {
   const email = normalizeEmail(payload?.email);
   if (!tenantId || !userId || !email) return null;
 
+  const portalResult = await callHubWithRetry("/v1/internal/portal/overview", {
+    tenant_id: tenantId,
+    user_id: userId,
+  });
+  if (portalResult?.ok && portalResult.payload?.ok) {
+    const portal = portalResult.payload || {};
+    const portalModules = Array.isArray(portal.modules) ? portal.modules : [];
+    const visibleModules = portalModules
+      .filter((item) => item && item.installed === true)
+      .map((item) => suiteModuleFromHubModule(item.slug))
+      .filter(Boolean);
+    const allowedModules = portalModules
+      .filter((item) => item && item.can_enter === true)
+      .map((item) => suiteModuleFromHubModule(item.slug))
+      .filter(Boolean);
+    const resourceExpirations = portalModules
+      .flatMap((item) => Array.isArray(item?.resources) ? item.resources : [])
+      .map((item) => item?.access_ends_at)
+      .filter(Boolean)
+      .map((value) => new Date(value))
+      .filter((value) => Number.isFinite(value.getTime()))
+      .sort((left, right) => left.getTime() - right.getTime());
+    const expiresAt = resourceExpirations[0]?.toISOString() || null;
+    return {
+      identity: {
+        tenantId: String(portal.tenant?.tenant_id || tenantId).trim(),
+        userId: String(portal.user?.user_id || userId).trim(),
+        email: normalizeEmail(portal.user?.email || email),
+        name: String(portal.user?.name || payload.name || email).trim(),
+      },
+      visibleModules,
+      allowedModules,
+      subscription: {
+        status: allowedModules.length ? "active" : "inactive",
+        active: allowedModules.length > 0,
+        starts_at: null,
+        expires_at: expiresAt,
+        days_until_expiration: daysUntilDate(expiresAt),
+        renewal_url: null,
+        renewable_resources: [],
+      },
+      portal: true,
+    };
+  }
+  if (isTransientHubResult(portalResult)) {
+    return { unavailable: true };
+  }
+  if (
+    Number(portalResult?.status || 0) !== 404 &&
+    !["not_found", "portal_not_found"].includes(
+      String(portalResult?.payload?.error || portalResult?.payload?.reason || "").trim().toLowerCase(),
+    )
+  ) {
+    return null;
+  }
+
   const result = await resolveGlobalIdentityByEmail(email);
 
   if (!result?.ok) {
@@ -443,6 +499,20 @@ function normalizeLoginFailureReason(loginResult) {
 async function verifyLoginWithFallback(email, password) {
   let firstInvalid = null;
   let last = null;
+
+  const portalResult = await callHub("/v1/internal/portal/auth/verify", {
+    email,
+    password,
+  }).catch((error) => ({
+    ok: false,
+    status: 0,
+    payload: { reason: "hub_unreachable", details: error?.message || String(error) },
+  }));
+  last = portalResult;
+  if (portalResult.ok && portalResult.payload?.allow) return portalResult;
+  if (isInvalidCredentialReason(portalResult.payload?.reason)) {
+    firstInvalid = portalResult;
+  }
 
   for (const moduleName of HUB_AUTH_MODULE_CANDIDATES) {
     const result = await callHub("/v1/internal/auth/verify", {
