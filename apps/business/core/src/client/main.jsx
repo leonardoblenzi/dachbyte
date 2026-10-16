@@ -1000,12 +1000,13 @@ function AppShell({ user, onLogout }) {
     },
     lists: runtimeLists,
     configuration: workspace?.configuration,
+    permissions: effectivePermissions,
     notify,
     loadResource: loadRuntimeResource,
     loadReports: loadServerReports,
     reportData,
     reportsLoading: Boolean(runtimeLists.reports?.loading),
-  }), [loadRuntimeResource, loadServerReports, reportData, runtimeLists, selectedCompanyId, user?.email, user?.id, user?.uid, workspace?.configuration]);
+  }), [effectivePermissions, loadRuntimeResource, loadServerReports, reportData, runtimeLists, selectedCompanyId, user?.email, user?.id, user?.uid, workspace?.configuration]);
 
   return (
     <div className="app-shell min-h-screen">
@@ -2255,20 +2256,20 @@ function OrderFinancialModal({ sale, receivables = [], onClose, onAction, onNavi
   </section></div>;
 }
 
-function secondarySaleActions({ sale, canceled, onAction, onDetail }) {
+function secondarySaleActions({ sale, canceled, onAction, onDetail, canCorrect, canCancel, canArchive }) {
   const recordAction = canceled
-    ? {
-      label: "Excluir",
+    ? canArchive ? {
+      label: "Arquivar",
       tone: "danger",
       onClick: () => onAction("confirmAction", confirmRecordPayload({
         collection: "sales",
         record: sale,
         label: sale.id,
         actionKind: "delete",
-        feedback: "Venda cancelada excluida.",
+        feedback: "Venda cancelada arquivada.",
       })),
-    }
-    : {
+    } : null
+    : canCancel ? {
       label: "Cancelar",
       tone: "warning",
       onClick: () => onAction("confirmAction", confirmRecordPayload({
@@ -2278,12 +2279,12 @@ function secondarySaleActions({ sale, canceled, onAction, onDetail }) {
         nextStatus: "Cancelada",
         feedback: "Venda cancelada.",
       })),
-    };
+    } : null;
   return [
     { label: "Detalhes e historico", onClick: () => onDetail(sale) },
-    ...(!canceled ? [{ label: "Editar", onClick: () => onAction("saleEdit", sale) }] : []),
+    ...(!canceled && canCorrect ? [{ label: "Editar", onClick: () => onAction("saleEdit", sale) }] : []),
     recordAction,
-  ];
+  ].filter(Boolean);
 }
 
 function addMonthsToDeliveryDate(value, months) {
@@ -2579,7 +2580,12 @@ function SalesOrders({ sales, receivables = [], onAction, onDirectSubmit, onNavi
                 <span className="row-actions">
                   {canMarkReady ? <button className="table-action table-action--primary" type="button" disabled={markingReadyId === sale.recordId} onClick={() => markReady(sale)}>{markingReadyId === sale.recordId ? "Atualizando..." : "Marcar como pronto"}</button> : null}
                   {readyForDelivery ? <button className="table-action table-action--primary" type="button" onClick={() => setDeliverySale(sale)}>Concluir pedido</button> : null}
-                  <MoreOptionsMenu compact items={secondarySaleActions({ sale, canceled, onAction, onDetail: setSelectedSale })} />
+                  <MoreOptionsMenu compact items={secondarySaleActions({
+                    sale, canceled, onAction, onDetail: setSelectedSale,
+                    canCorrect: runtimeData?.permissions?.includes("*") || runtimeData?.permissions?.includes("sales:correct"),
+                    canCancel: runtimeData?.permissions?.includes("*") || runtimeData?.permissions?.includes("sales:cancel"),
+                    canArchive: runtimeData?.permissions?.includes("*") || runtimeData?.permissions?.includes("sales:archive"),
+                  })} />
                 </span>
               </td>
             </tr>

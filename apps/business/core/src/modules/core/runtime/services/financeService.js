@@ -1,11 +1,13 @@
 "use strict";
 
+const crypto = require("crypto");
 const db = require("../../../../../db/db");
 const { createId } = require("../../id");
 const { listPaymentMethods: listDefaultPaymentMethods } = require("../../paymentMethods");
 const { validateCustomFields } = require("../../configuration/customFields");
 const { getCompanyConfiguration, getCompanyConfigurationWithClient } = require("./configurationService");
 const { resolveOpenCashSessionWithClient } = require("./cashService");
+const { resolveOperationalTimestamp } = require("./operationalTimestamp");
 const { insertAuditWithClient, insertEventWithClient, nextOperationalNumber, recordEvent } = require("./persistenceHelpers");
 
 function parseMoneyValue(value) {
@@ -53,6 +55,14 @@ function normalizePaymentMethod(method) {
     cheque: "check", check: "check", boleto: "boleto", transferencia: "bank_transfer", transfer: "bank_transfer", bank_transfer: "bank_transfer",
   };
   return aliases[normalized] || normalized;
+}
+
+function receivableSettlementFingerprint(input = {}) {
+  return crypto.createHash("sha256").update(JSON.stringify({
+    amount: input.amount == null ? null : toMoney(input.amount),
+    paymentMethod: normalizePaymentMethod(input.paymentMethod || "pix"),
+    operationalAt: input.operationalAt || input.operational_at || input.receivedAt || null,
+  })).digest("hex");
 }
 
 function normalizeDateInput(value) {
@@ -203,6 +213,23 @@ async function receiveReceivable(companyId, receivableId, input = {}) {
       }
 
       const row = receivable.rows[0];
+      const idempotencyKey = String(input.idempotencyKey || input.requestId || "").trim();
+      const fingerprint = idempotencyKey ? receivableSettlementFingerprint(input) : null;
+      if (idempotencyKey) {
+        const prior = await client.query(`
+          select id, idempotency_fingerprint as "idempotencyFingerprint"
+          from volt_core.cash_movements
+          where company_id = $1 and source_type = 'receivable' and source_id = $2 and idempotency_key = $3
+          limit 1;
+        `, [companyId, receivableId, idempotencyKey]);
+        if (prior.rowCount) {
+          if (prior.rows[0].idempotencyFingerprint !== fingerprint) {
+            throw Object.assign(new Error("Esta chave de recebimento ja foi usada com outros dados"), { statusCode: 409, code: "RECEIVABLE_IDEMPOTENCY_KEY_REUSED" });
+          }
+          await client.query("commit");
+          return row;
+        }
+      }
       if (["paid", "received", "compensated", "canceled"].includes(row.status)) {
         throw Object.assign(new Error("Recebivel nao esta aberto para baixa"), { statusCode: 409, code: "RECEIVABLE_NOT_OPEN" });
       }
@@ -213,7 +240,7 @@ async function receiveReceivable(companyId, receivableId, input = {}) {
       }
       const nextPaid = toMoney(Number(row.paidAmount || 0) + receivedAmount);
       const nextStatus = nextPaid >= Number(row.amount) ? "paid" : "partial";
-      const operationalAt = input.operationalAt || input.operational_at || input.receivedAt || new Date().toISOString();
+      const operationalAt = resolveOperationalTimestamp(input.operationalAt || input.operational_at || input.receivedAt);
       const configuration = await getCompanyConfigurationWithClient(client, companyId);
       const cashSession = await resolveOpenCashSessionWithClient(client, companyId, configuration.settings || {});
 
@@ -229,9 +256,10 @@ async function receiveReceivable(companyId, receivableId, input = {}) {
 
       await client.query(`
         insert into volt_core.cash_movements (
-          id, company_id, session_id, type, source_type, source_id, payment_method, amount, description, actor_user_id, operational_at
+          id, company_id, session_id, type, source_type, source_id, payment_method, amount, description, actor_user_id, operational_at,
+          idempotency_key, idempotency_fingerprint
         )
-        values ($1, $2, $3, 'entry', 'receivable', $4, $5, $6, $7, $8, $9);
+        values ($1, $2, $3, 'entry', 'receivable', $4, $5, $6, $7, $8, $9, $10, $11);
       `, [
         createId("mov"),
         companyId,
@@ -242,6 +270,8 @@ async function receiveReceivable(companyId, receivableId, input = {}) {
         row.description || "Baixa de recebivel",
         input.actorUserId || null,
         operationalAt,
+        idempotencyKey || null,
+        fingerprint,
       ]);
 
       await client.query(`
@@ -519,7 +549,7 @@ async function payExpense(companyId, expenseId, input = {}) {
       if (["paid", "canceled"].includes(expense.status)) throw Object.assign(new Error("Despesa nao esta aberta"), { statusCode: 409, code: "EXPENSE_NOT_OPEN" });
       const amount = assertPositive(toMoney(input.amount ?? expense.remaining_amount), "Valor pago deve ser maior que zero", "EXPENSE_PAYMENT_INVALID");
       if (amount > Number(expense.remaining_amount)) throw Object.assign(new Error("Pagamento maior que o saldo da despesa"), { statusCode: 400, code: "EXPENSE_PAYMENT_EXCEEDS_BALANCE" });
-      const operationalAt = input.operationalAt || input.operational_at || input.paidAt || new Date().toISOString();
+      const operationalAt = resolveOperationalTimestamp(input.operationalAt || input.operational_at || input.paidAt);
       const remaining = toMoney(Number(expense.remaining_amount) - amount);
       const status = remaining === 0 ? "paid" : "partial";
       const configuration = await getCompanyConfigurationWithClient(client, companyId);
@@ -572,6 +602,7 @@ async function savePaymentMethod(companyId, input = {}) {
   return result.rows[0];
 }
 module.exports = {
+  __test: { receivableSettlementFingerprint },
   cancelExpense, cancelReceivable, createExpense, createReceivable, depositCheckReceivable,
   listCompanyPaymentMethods, listExpenses, listReceivables, payExpense, receiveReceivable,
   returnCheckReceivable, savePaymentMethod, updateExpense, updateReceivableDueDate,

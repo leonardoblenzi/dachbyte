@@ -12,7 +12,10 @@ const permissions = Object.freeze([
   { key: "inventory:read", label: "Visualizar estoque", moduleKey: "inventory", module: "Estoque" },
   { key: "inventory:write", label: "Movimentar estoque", moduleKey: "inventory", module: "Estoque" },
   { key: "sales:read", label: "Visualizar vendas", moduleKey: "sales", module: "Vendas" },
-  { key: "sales:write", label: "Criar e cancelar vendas", moduleKey: "sales", module: "Vendas" },
+  { key: "sales:write", label: "Criar vendas", moduleKey: "sales", module: "Vendas" },
+  { key: "sales:correct", label: "Corrigir vendas e pagamentos", moduleKey: "sales", module: "Vendas" },
+  { key: "sales:cancel", label: "Cancelar vendas", moduleKey: "sales", module: "Vendas" },
+  { key: "sales:archive", label: "Arquivar vendas canceladas", moduleKey: "sales", module: "Vendas" },
   { key: "payments:read", label: "Visualizar pagamentos", moduleKey: "payments", module: "Pagamentos" },
   { key: "payments:write", label: "Configurar pagamentos", moduleKey: "payments", module: "Pagamentos" },
   { key: "receivables:read", label: "Visualizar recebiveis", moduleKey: "receivables", module: "Recebiveis" },
@@ -47,7 +50,7 @@ const rolePresets = Object.freeze({
   manager: {
     permissions: [
       "dashboard:read", "customers:read", "customers:write", "products:read", "products:write",
-      "inventory:read", "inventory:write", "sales:read", "sales:write", "payments:read", "payments:write",
+      "inventory:read", "inventory:write", "sales:read", "sales:write", "sales:correct", "sales:cancel", "sales:archive", "payments:read", "payments:write",
       "receivables:read", "receivables:write", "cash_register:read", "cash_register:write", "receipts:read",
       "expenses:read", "expenses:write", "reports:read", "reports:export", "imports:write", "settings:read",
       "settings:write", "services:read", "service_orders:read", "service_orders:write",

@@ -58,8 +58,10 @@ test("dashboard UI preserves quick actions while keeping the panel compact", () 
   assert.match(main, /Acoes rapidas/);
   assert.match(main, /Nova venda/);
   assert.match(main, /Novo cliente/);
-  assert.match(main, /Receber produtos/);
-  assert.match(main, /primaryOperation/);
+  assert.match(main, /Receber venda/);
+  assert.match(main, /Produtos e servicos/);
+  assert.match(main, /Recibo de venda/);
+  assert.match(main, /label: "Pedidos", icon: ClipboardList, page: "sales", intent: \{ tab: "orders" \}/);
   assert.match(main, /Precisa de atencao/);
   assert.match(main, /function DashboardFinanceWidget/);
   assert.match(main, /function DashboardInventorySummary/);

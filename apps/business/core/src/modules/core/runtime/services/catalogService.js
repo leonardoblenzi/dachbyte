@@ -215,6 +215,20 @@ async function updateProduct(companyId, productId, input = {}) {
       const hasBrand = Object.prototype.hasOwnProperty.call(input, "brand");
       const ean = normalizeEan(input.ean);
       if (hasEan) await assertProductEanAvailable(companyId, ean, productId, client);
+      if (input.trackStock === false) {
+        const current = await client.query(
+          "select track_stock as \"trackStock\" from volt_core.products where company_id = $1 and id = $2 for update",
+          [companyId, productId],
+        );
+        if (!current.rowCount) throw Object.assign(new Error("Produto nao encontrado"), { statusCode: 404, code: "PRODUCT_NOT_FOUND" });
+        if (current.rows[0].trackStock) {
+          const reservation = await client.query(
+            "select id from volt_core.stock_reservations where company_id = $1 and product_id = $2 and status = 'active' limit 1",
+            [companyId, productId],
+          );
+          if (reservation.rowCount) throw Object.assign(new Error("Produto possui reservas ativas"), { statusCode: 409, code: "STOCK_TRACKING_HAS_ACTIVE_RESERVATIONS" });
+        }
+      }
       const result = await client.query(`
         update volt_core.products set
           sku = coalesce($3, sku), ean = case when $14 then $4 else ean end, name = coalesce($5, name), category = coalesce($6, category),

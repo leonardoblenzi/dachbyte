@@ -196,7 +196,7 @@ async function listSalesPage(companyId, input = {}) {
   const filterPredicate = await resolveSaleFilterPredicate(companyId, filter, configuration);
   const params = [companyId, query.search, query.dateFrom, query.dateTo];
   const where = `
-    s.company_id=$1
+    s.company_id=$1 and s.archived_at is null
     and ($2='' or lower(concat_ws(' ', s.number::text, c.name, c.document, s.status, s.payments::text)) like '%'||lower($2)||'%' or exists (
       select 1 from volt_core.sale_items sx where sx.company_id=s.company_id and sx.sale_id=s.id and lower(sx.description) like '%'||lower($2)||'%'
     ))

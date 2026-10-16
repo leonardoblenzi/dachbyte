@@ -5,6 +5,16 @@ import { productStatus, recordKey, updateByKey } from "../../core/records";
 import { addAuditEvent, buildCompanyPath, makeSaleId } from "../utils";
 import { buildExtensionPayloads } from "../../extensions/registry";
 import { SALE_MUTATION_REFRESH_RESOURCES, STOCK_MUTATION_REFRESH_RESOURCES } from "../../runtime/runtimeListState.mjs";
+import { companyLocalDateTimeToISOString } from "../../core/companyDateTime";
+
+function saleInstant(value, timezone) {
+  if (!value) return null;
+  const iso = /(?:Z|[+-]\d{2}:\d{2})$/i.test(value)
+    ? new Date(value).toISOString()
+    : companyLocalDateTimeToISOString(value, timezone);
+  if (new Date(iso).getTime() > Date.now()) throw new Error("A data/hora da venda nao pode ser futura.");
+  return iso;
+}
 
 function collectDynamicCustomFields(values = {}) {
   return Object.fromEntries(
@@ -374,7 +384,7 @@ export function createCatalogSubmitHandlers(context) {
             payments: values.payments,
             paymentTiming: values.paymentTiming || "immediate",
             promisedDeliveryDate: values.promisedDeliveryDate || null,
-            soldAt: values.soldAt ? new Date(values.soldAt).toISOString() : null,
+            soldAt: saleInstant(values.soldAt, workspace?.configuration?.timezone),
             notes: values.notes,
             customFields: collectDynamicCustomFields(values),
             ...(values.extensions && Object.keys(values.extensions).length ? { extensions: values.extensions } : {}),
@@ -421,7 +431,7 @@ export function createCatalogSubmitHandlers(context) {
         body: JSON.stringify({
           customerId: values.customerId || null,
           customer: values.customer || "Cliente avulso",
-          soldAt: values.soldAt || null,
+          soldAt: saleInstant(values.soldAt, workspace?.configuration?.timezone),
           notes: values.notes || null,
           payments: values.payments || [],
           customFields: collectDynamicCustomFields(values),

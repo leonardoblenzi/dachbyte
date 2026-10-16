@@ -6,6 +6,7 @@ const { createId } = require("../../id");
 const { validateCustomFields } = require("../../configuration/customFields");
 const { getCompanyConfigurationWithClient } = require("./configurationService");
 const { resolveOpenCashSessionWithClient } = require("./cashService");
+const { resolveOperationalTimestamp } = require("./operationalTimestamp");
 const { insertAuditWithClient, insertEventWithClient, nextOperationalNumber } = require("./persistenceHelpers");
 const { extensionRegistry } = require("../../../../platform/extensions/extensionRegistry");
 const {
@@ -139,11 +140,7 @@ function normalizeDateInput(value) {
 }
 
 function resolveSaleTimestamp(value, now = new Date().toISOString()) {
-  const reference = new Date(now);
-  const resolved = String(value || "").trim() ? new Date(value) : reference;
-  if (Number.isNaN(resolved.getTime())) throw Object.assign(new Error("Informe uma data/hora de venda valida"), { statusCode: 400, code: "SALE_DATE_INVALID" });
-  if (resolved.getTime() > reference.getTime()) throw Object.assign(new Error("A data/hora da venda nao pode ser futura"), { statusCode: 400, code: "SALE_DATE_IN_FUTURE" });
-  return resolved.toISOString();
+  return resolveOperationalTimestamp(value, now);
 }
 
 function deliveryError(message, code) {
@@ -396,7 +393,7 @@ async function listSales(companyId) {
     from volt_core.sales s
     left join volt_core.customers c on c.id = s.customer_id and c.company_id = s.company_id
     left join volt_core.sale_items i on i.sale_id = s.id and i.company_id = s.company_id
-    where s.company_id = $1
+    where s.company_id = $1 and s.archived_at is null
     group by s.id, c.id, c.name, c.document, c.phone, c.email
     order by s.sold_at desc, s.created_at desc
     limit 100;
@@ -528,7 +525,9 @@ async function createSale(companyId, input = {}) {
       }
       const preparedItems = [];
 
-      for (const item of rawItems) {
+      const orderedItems = [...rawItems].sort((left, right) =>
+        String(left.productId || left.product || "").localeCompare(String(right.productId || right.product || "")));
+      for (const item of orderedItems) {
         const product = await findProductWithClient(client, companyId, item.productId, item.product, true);
         if (!product) {
           const error = new Error("Produto da venda nao encontrado");
@@ -578,7 +577,7 @@ async function createSale(companyId, input = {}) {
       const discountTotal = toMoney(preparedItems.reduce((sum, item) => sum + item.discount, 0));
       const total = toMoney(subtotal - discountTotal);
       if (total <= 0) throw Object.assign(new Error("Total da venda deve ser maior que zero"), { statusCode: 400, code: "SALE_TOTAL_INVALID" });
-      const soldAt = resolveSaleTimestamp(input.soldAt || input.sold_at);
+      const soldAt = resolveOperationalTimestamp(input.soldAt || input.sold_at);
       const normalizedPayments = deliveryPayment ? [] : normalizeSalePayments(payments, total, soldAt);
       if (!customer && normalizedPayments.some((payment) => CUSTOMER_REQUIRED_PAYMENT_METHODS.has(payment.method))) {
         throw Object.assign(new Error("Venda a prazo exige cliente cadastrado"), { statusCode: 400, code: "RECEIVABLE_CUSTOMER_REQUIRED" });
@@ -891,7 +890,7 @@ async function updateSale(companyId, saleId, input = {}) {
       if (customerWasRequested && !customer) {
         throw Object.assign(new Error("Cliente informado nao foi encontrado"), { statusCode: 404, code: "SALE_CUSTOMER_NOT_FOUND" });
       }
-      const soldAt = resolveSaleTimestamp(input.soldAt || input.sold_at || sale.soldAt);
+      const soldAt = resolveOperationalTimestamp(input.soldAt || input.sold_at || sale.soldAt);
       const payments = Array.isArray(input.payments) && input.payments.length ? input.payments : sale.payments;
       const normalizedPayments = normalizeSalePayments(payments, toMoney(sale.total), soldAt);
       if (!customer && normalizedPayments.some((payment) => CUSTOMER_REQUIRED_PAYMENT_METHODS.has(payment.method))) {
@@ -1017,7 +1016,6 @@ async function cancelSale(companyId, saleId, input = {}) {
 
       const companyConfiguration = await getCompanyConfigurationWithClient(client, companyId);
       const operationalRules = companyConfiguration.settings || {};
-      const cashSession = await resolveOpenCashSessionWithClient(client, companyId, operationalRules);
 
       await releaseSaleReservationsWithClient(client, companyId, saleId, input.actorUserId, "sale_canceled");
 
@@ -1037,6 +1035,10 @@ async function cancelSale(companyId, saleId, input = {}) {
           and source_type in ('sale', 'sale_edit', 'sale_edit_reversal')
         group by payment_method;
       `, [companyId, saleId]);
+      const hasCashToReverse = cash.rows.some((movement) => Math.abs(Number(movement.amount || 0)) >= 0.01);
+      const cashSession = hasCashToReverse
+        ? await resolveOpenCashSessionWithClient(client, companyId, operationalRules)
+        : null;
       for (const movement of cash.rows) {
         const amount = Number(movement.amount || 0);
         if (Math.abs(amount) < 0.01) continue;
@@ -1075,7 +1077,7 @@ async function deleteCanceledSale(companyId, saleId, input = {}) {
     await client.query("begin");
     try {
       const saleResult = await client.query(
-        "select id, number, status, total, cancel_reason as \"cancelReason\" from volt_core.sales where company_id = $1 and id = $2 for update",
+        "select id, number, status, total, cancel_reason as \"cancelReason\", archived_at as \"archivedAt\" from volt_core.sales where company_id = $1 and id = $2 for update",
         [companyId, saleId],
       );
       if (!saleResult.rowCount) throw Object.assign(new Error("Venda nao encontrada"), { statusCode: 404, code: "SALE_NOT_FOUND" });
@@ -1086,11 +1088,10 @@ async function deleteCanceledSale(companyId, saleId, input = {}) {
 
       const companyConfiguration = await getCompanyConfigurationWithClient(client, companyId);
       await extensionRegistry.runHook("sale.beforeDeleteCanceled", { client, companyId, saleId, sale, input }, companyConfiguration);
-      await client.query("delete from volt_core.receipts where company_id = $1 and sale_id = $2", [companyId, saleId]);
-      await client.query("delete from volt_core.receivables where company_id = $1 and sale_id = $2 and status = 'canceled'", [companyId, saleId]);
-      await client.query("delete from volt_core.sales where company_id = $1 and id = $2", [companyId, saleId]);
-      await insertEventWithClient(client, companyId, "sale.deleted", { saleId, saleNumber: sale.number });
-      await insertAuditWithClient(client, companyId, input.actorUserId, "sale.deleted", "sale", saleId, sale, null, { reason: input.reason });
+      if (sale.archivedAt) throw Object.assign(new Error("Venda ja arquivada"), { statusCode: 409, code: "SALE_ALREADY_ARCHIVED" });
+      await client.query("update volt_core.sales set archived_at = now(), archived_by = $3, updated_at = now() where company_id = $1 and id = $2", [companyId, saleId, input.actorUserId || null]);
+      await insertEventWithClient(client, companyId, "sale.archived", { saleId, saleNumber: sale.number });
+      await insertAuditWithClient(client, companyId, input.actorUserId, "sale.archived", "sale", saleId, sale, { ...sale, archived: true }, { reason: input.reason });
       await client.query("commit");
       return sale;
     } catch (error) {

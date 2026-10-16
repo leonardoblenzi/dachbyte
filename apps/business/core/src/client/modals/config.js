@@ -27,6 +27,7 @@ import { formatCurrency, formatMoneyInput, parseMoney } from "../core/formatters
 import { recordKey } from "../core/records";
 import { createEmptySalePayment, saleDefaultDueDate } from "../core/sales";
 import { createRequestId } from "../core/ids";
+import { formatCompanyDateTimeLocal } from "../core/companyDateTime";
 
 const NEW_PRODUCT_BRAND_VALUE = "__new_product_brand__";
 
@@ -129,6 +130,7 @@ function receivableSummary(payload = {}) {
 }
 
 function buildModalConfig(type, data, payload, workspace) {
+  const companyTimezone = workspace?.configuration?.timezone || "America/Sao_Paulo";
   const firstProduct = data.products[0]?.name || "";
   const firstProductPrice = parseMoney(data.products[0]?.price || 0);
   const customerOptions = ["Cliente avulso", ...data.customers.map((customer) => customer.name)];
@@ -322,7 +324,7 @@ function buildModalConfig(type, data, payload, workspace) {
         { name: "customer", label: "Cliente", type: "search", options: customerOptions, wide: true },
         { name: "product", label: "Produto", type: "search", options: productOptions, required: true },
         { name: "quantity", label: "Quantidade", type: "number", min: "0", step: "0.001", required: true },
-        { name: "soldAt", label: "Data/hora da venda", type: "datetime-local" },
+        { name: "soldAt", label: "Data/hora da venda", type: "datetime-local", max: formatCompanyDateTimeLocal(companyTimezone) },
         ...saleDynamicFields,
         { name: "notes", label: "Observacao", type: "textarea", wide: true },
       ],
@@ -335,7 +337,7 @@ function buildModalConfig(type, data, payload, workspace) {
         items: Array.isArray(payload.items) ? payload.items : [],
         customerId: payload.customerId || "",
         payments: Array.isArray(payload.payments) ? payload.payments : [createEmptySalePayment(Number(payload.total || 0) || firstProductPrice)],
-        soldAt: payload.soldAt || "",
+        soldAt: payload.soldAt || formatCompanyDateTimeLocal(companyTimezone),
         ...buildDynamicDefaults(saleDynamicFields, payload.customFields),
         notes: "",
       },
@@ -347,7 +349,7 @@ function buildModalConfig(type, data, payload, workspace) {
       submitLabel: "Salvar alteracoes",
       fields: [
         { name: "customer", label: "Cliente", type: "customer_lookup", resource: "customers", options: customerOptions, idField: "customerId", wide: true },
-        { name: "soldAt", label: "Data/hora da venda", type: "datetime-local" },
+        { name: "soldAt", label: "Data/hora da venda", type: "datetime-local", max: formatCompanyDateTimeLocal(companyTimezone) },
         ...saleDynamicFields,
         { name: "notes", label: "Observacao", type: "textarea", wide: true },
       ],
@@ -355,7 +357,7 @@ function buildModalConfig(type, data, payload, workspace) {
         saleId: payload.recordId || payload.saleId || "",
         customer: payload.customer || "Cliente avulso",
         customerId: payload.customerId || "",
-        soldAt: String(payload.soldAt || "").slice(0, 16),
+        soldAt: payload.soldAt ? formatCompanyDateTimeLocal(companyTimezone, new Date(payload.soldAt)) : formatCompanyDateTimeLocal(companyTimezone),
         total: payload.total || "0",
         payments: Array.isArray(payload.payments) ? payload.payments : [createEmptySalePayment(parseMoney(payload.total || 0))],
         ...buildDynamicDefaults(saleDynamicFields, payload.customFields),
@@ -580,6 +582,7 @@ function buildModalConfig(type, data, payload, workspace) {
       ],
       defaults: {
         ...editMeta,
+        idempotencyKey: payload.idempotencyKey || createRequestId("receive"),
         receivableId: payload.id || payload.receivableId || recordKey(payload),
         amount: payload.value || "",
         paymentMethod: "pix",

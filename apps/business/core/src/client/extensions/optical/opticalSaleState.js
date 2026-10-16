@@ -1,5 +1,6 @@
 import { formatCurrency, formatMoneyInput, parseMoney } from "../../core/formatters";
 import { createRequestId } from "../../core/ids";
+import { companyLocalDateTimeToISOString, formatCompanyDateTimeLocal } from "../../core/companyDateTime";
 import {
   DUE_DATE_SALE_PAYMENTS,
   INSTALLMENT_SALE_PAYMENTS,
@@ -8,7 +9,7 @@ import {
 
 const OPTICAL_SALE_CATEGORIES = ["Todos", "Armacoes", "Lentes", "Servicos", "Acessorios"];
 
-function createEmptyOpticalSaleDraft() {
+function createEmptyOpticalSaleDraft(timezone = "America/Sao_Paulo") {
   return {
     idempotencyKey: createRequestId("sale"),
     customerId: "",
@@ -21,7 +22,7 @@ function createEmptyOpticalSaleDraft() {
     laboratoryId: "",
     promisedDate: "",
     paymentTiming: "immediate",
-    soldAt: "",
+    soldAt: formatCompanyDateTimeLocal(timezone),
     discountType: "amount",
     discount: "",
     payments: [{ method: "pix", amount: "", installments: "1", dueDate: "", dueDateAuto: true }],
@@ -267,7 +268,7 @@ function buildPrescriptionPayload(prescription = {}) {
   };
 }
 
-function buildOpticalSaleSubmitPayload({ draft, customer, discount, optical, payments }) {
+function buildOpticalSaleSubmitPayload({ draft, customer, discount, optical, payments, timezone = "America/Sao_Paulo" }) {
   return {
     idempotencyKey: draft.idempotencyKey,
     customer: customer?.name || "Cliente avulso",
@@ -290,7 +291,7 @@ function buildOpticalSaleSubmitPayload({ draft, customer, discount, optical, pay
     paymentTiming: draft.paymentTiming || "immediate",
     promisedDeliveryDate: draft.paymentTiming === "delivery" ? draft.promisedDate : null,
     payments: draft.paymentTiming === "delivery" ? [] : payments,
-    soldAt: draft.soldAt ? new Date(draft.soldAt).toISOString() : null,
+    soldAt: draft.soldAt ? companyLocalDateTimeToISOString(draft.soldAt, timezone) : null,
     notes: draft.notes,
     ...(optical ? {
       extensions: {

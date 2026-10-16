@@ -25,16 +25,18 @@ import {
 } from "./opticalSaleState";
 
 export default function OpticalSalesPdv({ data, onSubmit, onAction, runtimeData }) {
+  const timezone = runtimeData?.configuration?.timezone || "America/Sao_Paulo";
   const draftScope = runtimeData?.draftScope || {};
   const storage = typeof window === "undefined" ? null : window.sessionStorage;
   const scopeKey = opticalSaleDraftKey(draftScope);
   const restoreDraft = (scope) => {
     const stored = readOpticalSaleDraft(storage, scope);
-    const empty = createEmptyOpticalSaleDraft();
+    const empty = createEmptyOpticalSaleDraft(timezone);
     if (!stored) return empty;
     return {
       ...empty,
       ...stored,
+      soldAt: stored.soldAt || empty.soldAt,
       cart: Array.isArray(stored.cart) ? stored.cart : empty.cart,
       payments: Array.isArray(stored.payments) && stored.payments.length ? stored.payments : empty.payments,
       prescription: stored.prescription && typeof stored.prescription === "object" ? stored.prescription : empty.prescription,
@@ -111,7 +113,7 @@ export default function OpticalSalesPdv({ data, onSubmit, onAction, runtimeData 
   function resetDraft() {
     clearOpticalSaleDraft(storage, draftScope);
     skipNextPersistRef.current = true;
-    setDraft(createEmptyOpticalSaleDraft());
+    setDraft(createEmptyOpticalSaleDraft(timezone));
     setProductQuery("");
     setCustomerQuery("");
     setReviewing(false);
@@ -137,13 +139,14 @@ export default function OpticalSalesPdv({ data, onSubmit, onAction, runtimeData 
     const payments = prepareOpticalSalePayments(draft, change);
     setSaving(true);
     try {
-      await onSubmit("sale", buildOpticalSaleSubmitPayload({ draft, customer, discount, optical, payments }));
+      await onSubmit("sale", buildOpticalSaleSubmitPayload({ draft, customer, discount, optical, payments, timezone }));
       resetDraft();
     } catch (submitError) { setError(submitError?.message || "Nao foi possivel concluir a venda."); }
     finally { setSaving(false); }
   }
 
   return <OpticalSalesPdvView
+    timezone={timezone}
     canClearDraft={Boolean(draft.customerId || draft.productId || draft.cart.length || draft.notes || draft.promisedDate)}
     cartItemCount={cartItemCount} change={change} customer={customer} customers={customers} customerQuery={customerQuery}
     data={data} draft={draft} error={error} isOptical={optical} isPaymentOnDelivery={isPaymentOnDelivery} needsCustomerForOptical={needsCustomerForOptical}

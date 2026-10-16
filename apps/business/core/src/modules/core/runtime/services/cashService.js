@@ -3,6 +3,7 @@
 const db = require("../../../../../db/db");
 const { createId } = require("../../id");
 const { insertAuditWithClient, insertEventWithClient, nextOperationalNumber } = require("./persistenceHelpers");
+const { resolveOperationalTimestamp } = require("./operationalTimestamp");
 
 function parseMoneyValue(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -238,7 +239,7 @@ async function closeCashSession(companyId, sessionId, input = {}) {
 async function createCashMovement(companyId, input = {}) {
   const type = ["exit", "saida", "sangria"].includes(String(input.type || "").toLowerCase()) ? "exit" : "entry";
   const amount = assertPositive(toMoney(input.amount), "Valor do movimento deve ser maior que zero", "CASH_AMOUNT_INVALID");
-  const operationalAt = input.operationalAt || input.operational_at || new Date().toISOString();
+  const operationalAt = resolveOperationalTimestamp(input.operationalAt || input.operational_at);
   const id = createId("mov");
   return db.withClient(async (client) => {
     await client.query("begin");

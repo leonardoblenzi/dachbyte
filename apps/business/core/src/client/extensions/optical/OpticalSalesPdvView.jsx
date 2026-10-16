@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { formatCurrency, formatMoneyInput, formatShortDate, parseMoney } from "../../core/formatters";
+import { formatCompanyDateTimeLocal } from "../../core/companyDateTime";
 import {
   DUE_DATE_SALE_PAYMENTS,
   INSTALLMENT_SALE_PAYMENTS,
@@ -667,6 +668,7 @@ function OpticalSaleReview({ cart, draft, error, isOptical, isPaymentOnDelivery,
 }
 
 function OpticalSalesPdvView({
+  timezone,
   canClearDraft,
   cartItemCount,
   change,
@@ -758,6 +760,7 @@ function OpticalSalesPdvView({
             <span>Data/hora da venda</span>
             <input
               type="datetime-local"
+              max={formatCompanyDateTimeLocal(timezone)}
               value={draft.soldAt}
               onInput={(event) => onFieldChange("soldAt", event.currentTarget.value)}
               onChange={(event) => onFieldChange("soldAt", event.currentTarget.value)}

@@ -93,10 +93,10 @@ router.delete("/runtime/companies/:companyId/products/:productId", requireRuntim
 router.post("/runtime/companies/:companyId/inventory/movements", requireRuntimePermission("inventory:write"), asyncHandler(RuntimeController.createInventoryMovement));
 router.post("/runtime/companies/:companyId/sales", requireRuntimePermission("sales:write"), asyncHandler(RuntimeController.createSale));
 router.get("/runtime/companies/:companyId/sales/:saleId/history", requireRuntimePermission("sales:read"), asyncHandler(RuntimeController.getSaleHistory));
-router.patch("/runtime/companies/:companyId/sales/:saleId", requireRuntimePermission("sales:write"), asyncHandler(RuntimeController.updateSale));
+router.patch("/runtime/companies/:companyId/sales/:saleId", requireRuntimePermission("sales:correct"), asyncHandler(RuntimeController.updateSale));
 router.post("/runtime/companies/:companyId/sales/:saleId/complete-delivery", requireRuntimePermission("sales:write"), asyncHandler(RuntimeController.completeSaleDelivery));
-router.post("/runtime/companies/:companyId/sales/:saleId/cancel", requireRuntimePermission("sales:write"), asyncHandler(RuntimeController.cancelSale));
-router.delete("/runtime/companies/:companyId/sales/:saleId", requireRuntimePermission("sales:write"), asyncHandler(RuntimeController.deleteCanceledSale));
+router.post("/runtime/companies/:companyId/sales/:saleId/cancel", requireRuntimePermission("sales:cancel"), asyncHandler(RuntimeController.cancelSale));
+router.delete("/runtime/companies/:companyId/sales/:saleId", requireRuntimePermission("sales:archive"), asyncHandler(RuntimeController.deleteCanceledSale));
 router.post("/runtime/companies/:companyId/cash/sessions", requireRuntimePermission("cash_register:write"), asyncHandler(RuntimeController.openCashSession));
 router.post("/runtime/companies/:companyId/cash/sessions/:sessionId/close", requireRuntimePermission("cash_register:write"), asyncHandler(RuntimeController.closeCashSession));
 router.post("/runtime/companies/:companyId/cash/movements", requireRuntimePermission("cash_register:write"), asyncHandler(RuntimeController.createCashMovement));
