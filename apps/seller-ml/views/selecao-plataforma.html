@@ -277,6 +277,7 @@
         <div class="purchase-summary" id="purchase-summary"></div>
         <div class="field"><label for="purchase-plan">Plano</label><select id="purchase-plan"></select></div>
         <div class="field"><label for="purchase-range">Faixa</label><select id="purchase-range"></select></div>
+        <div class="field"><label for="purchase-orders">Pedidos estimados</label><input id="purchase-orders" inputmode="numeric" placeholder="Ex.: 700" /></div>
         <div class="field"><label for="purchase-payment">Pagamento</label><select id="purchase-payment"><option value="credit_card">Cartão de crédito</option><option value="pix">PIX</option></select></div>
         <div class="form-grid">
           <div class="field"><label for="billing-phone">Telefone</label><input id="billing-phone" inputmode="numeric" placeholder="44999999999" /></div>
@@ -300,6 +301,7 @@
         overview: null,
         accountFilter: "all",
         purchaseModule: null,
+        purchaseResource: null,
         selectedRenewals: new Set(),
       };
       const goRoutes = {
@@ -416,6 +418,7 @@
       }
       function accountAction(resource){
         if(resource.can_renew && ["expired","expiring"].includes(resource.status)) return '<button class="btn" type="button" data-renew-one="'+esc(resource.resource_key)+'">Renovar</button>';
+        if(resource.can_activate) return '<button class="btn" type="button" data-activate-resource="'+esc(resource.resource_key)+'" data-activate-module="'+esc(resource.module_slug)+'">Contratar plano</button>';
         if(resource.can_enter) return '<a class="btn btn--ghost" href="'+esc(goRoutes[resource.module_slug]||"#")+'">Abrir</a>';
         return '<button class="btn btn--ghost" type="button" data-jump-plans="'+esc(resource.module_slug)+'">Ver plano</button>';
       }
@@ -448,7 +451,7 @@
               '<div><strong>'+esc(r.plan?.name||r.plan?.code||"—")+'</strong><small>'+esc(r.plan?.range_label||r.plan?.range_code||"")+'</small></div>'+
               '<div>'+statusText(r.status)+'</div><div>'+esc(formatDate(r.access_ends_at))+'</div>'+
               '<div>'+esc(formatMoney(r.plan?.monthly_price_cents))+'</div>'+
-              '<div class="plan-action">'+(r.can_renew?'<button class="btn btn--ghost" type="button" data-renew-one="'+esc(r.resource_key)+'">Renovar</button>':'<span style="color:var(--muted)">—</span>')+'</div></div>';
+              '<div class="plan-action">'+(r.can_renew?'<button class="btn btn--ghost" type="button" data-renew-one="'+esc(r.resource_key)+'">Renovar</button>':r.can_activate?'<button class="btn" type="button" data-activate-resource="'+esc(r.resource_key)+'" data-activate-module="'+esc(module.slug)+'">Contratar plano</button>':'<span style="color:var(--muted)">—</span>')+'</div></div>';
           }).join(""):'<div class="empty" style="margin:14px">Produto instalado sem conta faturável vinculada.</div>';
           return '<section class="plan-group"><div class="plan-head"><div><h3>'+esc(module.name)+'</h3><small>'+Number(module.accounts?.total||0)+' conta(s)</small></div>'+badge(module.status)+'</div>'+rows+'</section>';
         }).join("");
@@ -488,6 +491,7 @@
 
       function bindDynamicActions(){
         document.querySelectorAll("[data-purchase]").forEach(btn=>btn.onclick=()=>openPurchase(btn.dataset.purchase));
+        document.querySelectorAll("[data-activate-resource]").forEach(btn=>btn.onclick=()=>openPurchase(btn.dataset.activateModule,btn.dataset.activateResource));
         document.querySelectorAll("[data-renew-one]").forEach(btn=>btn.onclick=()=>renew([btn.dataset.renewOne]));
         document.querySelectorAll("[data-jump-accounts]").forEach(btn=>btn.onclick=()=>{state.accountFilter=btn.dataset.jumpAccounts||"all";renderAccounts();bindDynamicActions();setView("accounts")});
         document.querySelectorAll("[data-jump-plans]").forEach(btn=>btn.onclick=()=>setView("plans"));
@@ -506,13 +510,15 @@
         });
         return [...groups.values()];
       }
-      function openPurchase(slug){
+      function openPurchase(slug,resourceKey=null){
         const module=(state.overview.modules||[]).find(m=>m.slug===slug);
         if(!module)return;
+        const resource=resourceKey?(module.resources||[]).find(item=>item.resource_key===resourceKey)||null:null;
         const plans=groupPlans(module);
         if(!plans.length){showToast("Este módulo ainda não possui plano publicado para autoatendimento.",true);return}
         state.purchaseModule=module;
-        $("#purchase-title").textContent="Contratar "+module.name;
+        state.purchaseResource=resource;
+        $("#purchase-title").textContent=resource?"Ativar "+resource.label:"Contratar "+module.name;
         $("#purchase-plan").innerHTML=plans.map(p=>'<option value="'+esc(p.code)+'">'+esc(p.name)+'</option>').join("");
         const profile=state.overview.billing?.profile||{};
         $("#billing-phone").value=profile.phone||"";
@@ -520,11 +526,12 @@
         $("#billing-address").value=profile.address||"";
         $("#billing-number").value=profile.address_number||"";
         $("#billing-province").value=profile.province||"";
+        $("#purchase-orders").value=resource?.measured_orders??"";
         updatePurchaseRanges();
         $("#purchase-drawer").classList.add("is-open");
         $("#purchase-drawer").setAttribute("aria-hidden","false");
       }
-      function closePurchase(){ $("#purchase-drawer").classList.remove("is-open");$("#purchase-drawer").setAttribute("aria-hidden","true");state.purchaseModule=null; }
+      function closePurchase(){ $("#purchase-drawer").classList.remove("is-open");$("#purchase-drawer").setAttribute("aria-hidden","true");state.purchaseModule=null;state.purchaseResource=null; }
       function updatePurchaseRanges(){
         const module=state.purchaseModule;if(!module)return;
         const plans=groupPlans(module);
@@ -532,7 +539,10 @@
         const ranges=selected?.ranges||[];
         $("#purchase-range").innerHTML=ranges.length?ranges.map(r=>'<option value="'+esc(r.range_code||"")+'">'+esc(r.range_label||r.range_code||"Padrão")+' · '+esc(formatMoney(r.monthly_price_cents))+'</option>').join(""):'<option value="">Faixa padrão</option>';
         const range=ranges.find(r=>(r.range_code||"")===$("#purchase-range").value)||ranges[0]||null;
-        $("#purchase-summary").innerHTML='<strong>'+esc(module.name)+' · '+esc(selected?.name||"Plano")+'</strong><small>'+esc(selected?.description||module.description||"")+'</small><div class="purchase-price">'+esc(range?formatMoney(range.monthly_price_cents):"Preço definido pelo catálogo")+'<small>/ mês</small></div>';
+        const orders=$("#purchase-orders");
+        if(orders && !digits(orders.value) && range && Number.isFinite(Number(range.min_units))) orders.value=String(Number(range.min_units));
+        const target=state.purchaseResource?state.purchaseResource.label:module.name;
+        $("#purchase-summary").innerHTML='<strong>'+esc(target)+' · '+esc(selected?.name||"Plano")+'</strong><small>'+esc(state.purchaseResource?("Conta vinculada em "+module.name+". Escolha o plano para ativar esta conta."):selected?.description||module.description||"")+'</small><div class="purchase-price">'+esc(range?formatMoney(range.monthly_price_cents):"Preço definido pelo catálogo")+'<small>/ mês</small></div>';
       }
       async function confirmPurchase(){
         const module=state.purchaseModule;if(!module)return;
@@ -540,8 +550,10 @@
         try{
           const result=await api("/api/portal/checkout",{method:"POST",body:JSON.stringify({
             module:module.slug,
+            resource_key:state.purchaseResource?.resource_key||undefined,
             plan_code:$("#purchase-plan").value,
             range_code:$("#purchase-range").value,
+            declared_orders:digits($("#purchase-orders").value)||undefined,
             payment_method:$("#purchase-payment").value,
             customer_phone:digits($("#billing-phone").value),
             billing_postal_code:digits($("#billing-postal").value),
