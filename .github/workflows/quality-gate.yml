@@ -35,7 +35,11 @@ jobs:
       - name: Install
         run: npm ci
       - name: Restore Linux Rolldown optional binding
-        run: npm install --no-save --package-lock=false @rolldown/binding-linux-x64-gnu@1.1.2
+        run: |
+          package_file="$(npm pack @rolldown/binding-linux-x64-gnu@1.1.2 --silent)"
+          mkdir -p node_modules/@rolldown/binding-linux-x64-gnu
+          tar -xzf "$package_file" --strip-components=1 -C node_modules/@rolldown/binding-linux-x64-gnu
+          rm -f "$package_file"
       - name: Test
         run: npm test
 
