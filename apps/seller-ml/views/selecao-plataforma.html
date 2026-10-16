@@ -62,6 +62,12 @@
     .section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin:28px 0 13px}
     .section-head h2{margin:0;font-family:"Rajdhani",sans-serif;font-size:1.25rem;font-weight:700}
     .section-head p{margin:4px 0 0;color:var(--muted);font-size:.78rem}
+    .home-module-filters{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+    .home-module-filter{appearance:none;border:1px solid var(--line);background:#10151c;color:#9da8b6;border-radius:999px;padding:7px 10px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;font:700 .68rem "Share Tech Mono",monospace;transition:.16s ease}
+    .home-module-filter:hover{border-color:#465466;color:#e4e8ed;background:#151b24}
+    .home-module-filter.is-active{border-color:#86512f;background:#21170f;color:#ffd1ae;box-shadow:inset 0 0 0 1px rgba(255,138,61,.08)}
+    .home-module-filter__count{min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#1d2530;border:1px solid #344052;display:inline-grid;place-items:center;font-size:.62rem;color:#cbd3dc}
+    .home-module-filter.is-active .home-module-filter__count{background:#3a2416;border-color:#704326;color:#ffd1ae}
     .summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:23px 0}
     .metric{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
     .metric span{font:700 .63rem "Share Tech Mono",monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
@@ -220,7 +226,14 @@
           <h1 id="home-title">Bem-vindo.</h1>
           <p class="lead">Entre nos seus módulos, acompanhe contas vinculadas e resolva planos e renovações sem sair do portal.</p>
           <div class="alerts" id="alerts"></div>
-          <div class="section-head"><div><h2>Meus módulos</h2><p>Produtos contratados e prontos para sua operação.</p></div></div>
+          <div class="section-head">
+            <div><h2>Meus módulos</h2><p>Produtos contratados e prontos para sua operação.</p></div>
+            <div class="home-module-filters" aria-label="Filtrar módulos contratados">
+              <button class="home-module-filter is-active" type="button" data-home-module-filter="operational">Ativos + atenção <span class="home-module-filter__count" data-home-module-count="operational">0</span></button>
+              <button class="home-module-filter" type="button" data-home-module-filter="all">Todos <span class="home-module-filter__count" data-home-module-count="all">0</span></button>
+              <button class="home-module-filter" type="button" data-home-module-filter="inactive">Inativos <span class="home-module-filter__count" data-home-module-count="inactive">0</span></button>
+            </div>
+          </div>
           <div class="modules-grid" id="home-installed"></div>
           <div class="section-head"><div><h2>Explore outros módulos</h2><p>Produtos disponíveis para ampliar sua operação.</p></div></div>
           <div class="modules-grid" id="home-available"></div>
@@ -349,6 +362,7 @@
       const state = {
         overview: null,
         accountFilter: "all",
+        homeModuleFilter: "operational",
         purchaseModule: null,
         purchaseResource: null,
         purchasePurpose: null,
@@ -438,13 +452,45 @@
           '<div class="module-actions">'+moduleActions(module)+'</div></article>';
       }
 
+      function homeModuleStatusWeight(status){
+        const weights={attention:0,active:1,setup_required:2,expired:3,inactive:4,no_permission:5};
+        return weights[status]??20;
+      }
+      function isOperationalHomeModule(module){
+        return ["active","attention"].includes(String(module?.status||""));
+      }
+      function homeFilteredInstalledModules(installed){
+        const sorted=[...installed].sort((a,b)=>{
+          const byStatus=homeModuleStatusWeight(a.status)-homeModuleStatusWeight(b.status);
+          if(byStatus!==0)return byStatus;
+          return String(a.name||"").localeCompare(String(b.name||""),"pt-BR");
+        });
+        if(state.homeModuleFilter==="all")return sorted;
+        if(state.homeModuleFilter==="inactive")return sorted.filter(module=>!isOperationalHomeModule(module));
+        return sorted.filter(isOperationalHomeModule);
+      }
+      function updateHomeModuleFilters(installed){
+        const counts={
+          operational:installed.filter(isOperationalHomeModule).length,
+          all:installed.length,
+          inactive:installed.filter(module=>!isOperationalHomeModule(module)).length,
+        };
+        document.querySelectorAll("[data-home-module-count]").forEach(el=>{
+          el.textContent=String(counts[el.dataset.homeModuleCount]??0);
+        });
+        document.querySelectorAll("[data-home-module-filter]").forEach(button=>{
+          button.classList.toggle("is-active",button.dataset.homeModuleFilter===state.homeModuleFilter);
+        });
+      }
       function renderModules(){
         const modules=state.overview.modules||[];
         const installed=modules.filter(m=>m.installed);
+        const visibleInstalled=homeFilteredInstalledModules(installed);
         const available=modules.filter(m=>!m.installed);
-        $("#home-installed").innerHTML=installed.length?installed.map(moduleCard).join(""):'<div class="empty">Nenhum módulo contratado ainda.</div>';
+        $("#home-installed").innerHTML=visibleInstalled.length?visibleInstalled.map(moduleCard).join(""):'<div class="empty">Nenhum módulo encontrado neste filtro.</div>';
         $("#home-available").innerHTML=available.length?available.map(moduleCard).join(""):'<div class="empty">Todos os módulos disponíveis já estão contratados.</div>';
         $("#all-modules").innerHTML=modules.map(moduleCard).join("");
+        updateHomeModuleFilters(installed);
         const s=state.overview.summary||{};
         $("#module-summary").innerHTML=[
           ["Contratados",s.installed_modules||0],["Disponíveis",s.available_modules||0],["Contas ativas",s.active_accounts||0],["A vencer",s.expiring_accounts||0],["Vencidas",s.expired_accounts||0]
@@ -753,6 +799,11 @@
         try{await fetch("/api/auth/logout",{method:"POST",credentials:"same-origin"})}finally{window.location.href="/login"}
       }
 
+      document.querySelectorAll("[data-home-module-filter]").forEach(btn=>btn.addEventListener("click",()=>{
+        state.homeModuleFilter=btn.dataset.homeModuleFilter||"operational";
+        renderModules();
+        bindDynamicActions();
+      }));
       document.querySelectorAll("[data-view-target]").forEach(btn=>btn.addEventListener("click",()=>setView(btn.dataset.viewTarget)));
       document.querySelectorAll("[data-close-drawer]").forEach(btn=>btn.addEventListener("click",closePurchase));
       document.querySelectorAll("[data-close-account-drawer]").forEach(btn=>btn.addEventListener("click",closeAccountDrawer));
