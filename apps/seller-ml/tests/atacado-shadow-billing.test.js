@@ -2,21 +2,33 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 process.env.ML_DATABASE_URL ||= "postgres://test:test@127.0.0.1:5432/test";
 process.env.REDIS_URL ||= "redis://127.0.0.1:6379";
 
 const AtacadoJobsService = require("../services/atacadoJobsService");
 
-test("atacado separa validacao barata de aplicacao real", () => {
-  assert.equal(
-    AtacadoJobsService._test.wholesaleBillingOperationKey(true),
-    "wholesale.validate",
-  );
-  assert.equal(
-    AtacadoJobsService._test.wholesaleBillingOperationKey(false),
-    "wholesale.apply",
-  );
+test("atacado usa modal compartilhado de créditos em vez de confirmação nativa", () => {
+  const clientSource = fs.readFileSync(path.join(__dirname, "../public/js/atacado.js"), "utf8");
+  const viewSource = fs.readFileSync(path.join(__dirname, "../views/atacado.html"), "utf8");
+
+  assert.match(clientSource, /CreditOperationModal\.confirm/);
+  assert.doesNotMatch(clientSource, /window\.confirm\(/);
+  assert.match(viewSource, /credit-operation-modal\.js/);
+  assert.match(viewSource, /credit-operation-modal\.css/);
+});
+
+test("atacado não inicia aplicação quando a cotação de créditos falha", () => {
+  const clientSource = fs.readFileSync(path.join(__dirname, "../public/js/atacado.js"), "utf8");
+
+  assert.doesNotMatch(clientSource, /seguindo em shadow/);
+  assert.match(clientSource, /Falha ao consultar o custo.*tente novamente/i);
+});
+
+test("atacado usa apenas a operacao de aplicacao real", () => {
+  assert.equal(AtacadoJobsService._test.wholesaleBillingOperationKey(), "wholesale.apply");
 });
 
 test("aplicacao cobra somente itens realmente aplicados", () => {
@@ -37,13 +49,10 @@ test("aplicacao cobra somente itens realmente aplicados", () => {
   );
 });
 
-test("dryRun cobra validacao pelos itens efetivamente processados", () => {
-  assert.equal(
-    AtacadoJobsService._test.wholesaleBillableUnits(
-      { dryRun: true },
-      { processed: 80, applied: 0, skipped: 75, errors: 5 },
-    ),
-    80,
+test("pedido legado de simulacao nao pode iniciar job de atacado", () => {
+  assert.throws(
+    () => AtacadoJobsService._test.rejectWholesaleSimulation(true),
+    /simulação.*não.*disponível/i,
   );
 });
 
@@ -131,7 +140,7 @@ test("preview do atacado deduplica MLBs e envia a operacao correta ao Hub", asyn
             quote: {
               operation_key: body.operation_key,
               quantity: body.quantity,
-              estimated_credits: body.operation_key === "wholesale.validate" ? 1 : 2,
+              estimated_credits: 2,
               available_credits: 100,
               sufficient: true,
               unlimited: false,
@@ -146,34 +155,20 @@ test("preview do atacado deduplica MLBs e envia a operacao correta ao Hub", asyn
   try {
     const applyQuote = await AtacadoJobsService.previewCredits({
       itemIds: ["MLB1", "mlb1", "MLB2"],
-      dryRun: false,
       mlCreds: {
         meli_user_id: "wholesale_test",
         tenant_id: "tenant_wholesale_test",
       },
     });
-    const validationQuote = await AtacadoJobsService.previewCredits({
-      itemIds: ["MLB1", "MLB2"],
-      dryRun: true,
-      mlCreds: {
-        meli_user_id: "wholesale_test",
-        tenant_id: "tenant_wholesale_test",
-      },
-    });
-
     assert.equal(applyQuote.operation_key, "wholesale.apply");
     assert.equal(applyQuote.quantity, 2);
-    assert.equal(validationQuote.operation_key, "wholesale.validate");
-    assert.equal(validationQuote.quantity, 2);
 
     const quoteCalls = calls.filter(
       (call) => call.pathname === "/v1/internal/resources/credits/quote",
     );
-    assert.equal(quoteCalls.length, 2);
+    assert.equal(quoteCalls.length, 1);
     assert.equal(quoteCalls[0].body.operation_key, "wholesale.apply");
     assert.equal(quoteCalls[0].body.quantity, 2);
-    assert.equal(quoteCalls[1].body.operation_key, "wholesale.validate");
-    assert.equal(quoteCalls[1].body.quantity, 2);
   } finally {
     if (previous.baseUrl === undefined) delete process.env.HUB_BASE_URL;
     else process.env.HUB_BASE_URL = previous.baseUrl;

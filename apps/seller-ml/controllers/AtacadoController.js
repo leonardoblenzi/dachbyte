@@ -90,7 +90,7 @@ class AtacadoController {
     try {
       const quote = await AtacadoJobsService.previewCredits({
         itemIds: req.body?.item_ids,
-        dryRun: req.body?.dry_run === true,
+        dryRun: req.body?.dry_run,
         mlCreds: res.locals?.mlCreds || {},
         account: res.locals?.account || null,
       });

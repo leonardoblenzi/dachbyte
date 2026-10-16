@@ -71,7 +71,6 @@ router.post(
       tier_configs: Array.isArray(req.body?.tier_configs) ? req.body.tier_configs : null,
       tier_count: Array.isArray(req.body?.tier_configs) ? req.body.tier_configs.length : 1,
       promo_only: req.body?.promo_only !== false,
-      dry_run: req.body?.dry_run === true,
     }),
   }),
   AtacadoController.apply,

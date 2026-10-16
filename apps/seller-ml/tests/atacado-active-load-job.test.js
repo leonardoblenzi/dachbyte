@@ -27,7 +27,7 @@ test("botao de ativos enfileira carga no backend em vez de paginar no navegador"
 test("carga de ativos usa a fila do atacado como job somente de leitura", () => {
   assert.match(jobsSource, /kind: "atacado-load-active"/);
   assert.match(jobsSource, /"wholesale-active-load"/);
-  assert.match(jobsSource, /activeLoad \|\| job\.data\?\.dryRun === true \? "read" : "write"/);
+  assert.match(jobsSource, /lane: activeLoad \? "read" : "write"/);
   assert.match(jobsSource, /activeLoad \? await runActiveLoadJob\(job\) : await runJob\(job\)/);
 });
 

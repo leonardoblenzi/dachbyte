@@ -469,6 +469,7 @@ class AtacadoService {
   }
 
   static async applyWholesaleForItem(state, itemId, options) {
+    if (options?.dry_run === true) throw new Error("Simulação de atacado não está disponível.");
     const tierConfigs = normalizeTierConfigs(
       options.tier_configs,
       asNonNegativeInteger(options.min_purchase_unit, 2) || 2,
@@ -500,9 +501,6 @@ class AtacadoService {
 
     let prepared = await prepareAttempt();
     if (prepared.result) return prepared.result;
-    if (options.dry_run) {
-      return { id: itemId, status: "dry_run", reason: "Simulação validada com o ML.", row: prepared.row, payload };
-    }
 
     const apply = async () => {
       const version = await this.fetchPriceVersion(state, itemId);
@@ -576,6 +574,7 @@ class AtacadoService {
   }
 
   static async applyWholesale(mlCreds, options = {}) {
+    if (options?.dry_run === true) throw new Error("Simulação de atacado não está disponível.");
     const state = await this.prepareState(mlCreds);
     const ids = Array.from(
       new Set((options.item_ids || []).map(normalizeItemId).filter(Boolean)),
@@ -594,7 +593,6 @@ class AtacadoService {
         asPositiveNumber(options.extra_discount_percent, 1),
       ),
       promo_only: options.promo_only !== false,
-      dry_run: options.dry_run === true,
     };
 
     const results = await mapLimit(ids, 4, async (itemId) => {
@@ -614,7 +612,6 @@ class AtacadoService {
       applied: results.filter((item) => item.status === "applied").length,
       skipped: results.filter((item) => item.status === "skipped").length,
       errors: results.filter((item) => item.status === "error").length,
-      dry_run: results.filter((item) => item.status === "dry_run").length,
     };
 
     return {

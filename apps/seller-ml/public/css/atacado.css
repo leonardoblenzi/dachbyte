@@ -588,8 +588,7 @@ button:disabled {
   background: #fef2f2;
 }
 
-.result-item--skipped,
-.result-item--dry_run {
+.result-item--skipped {
   border-color: #fde68a;
   background: #fffbeb;
 }

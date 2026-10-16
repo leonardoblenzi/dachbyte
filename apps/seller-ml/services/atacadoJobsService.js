@@ -217,7 +217,7 @@ async function buildAtacadoResultsWorkbook(rows = [], context = {}) {
     ["Operação", String(context.operationId || "")],
     ["Conta", String(context.accountLabel || "")],
     ["Status", String(context.status || "")],
-    ["Tipo", context.dryRun ? "Simulação" : "Aplicação"],
+    ["Tipo", "Aplicação"],
     ["Total", Number(context.total || 0)],
     ["Processados", Number(context.processed || 0)],
     ["Aplicados", Number(context.applied || 0)],
@@ -366,8 +366,12 @@ function isActiveLoadJob(data = {}) {
   return String(data?.kind || "").trim() === "atacado-load-active";
 }
 
-function wholesaleBillingOperationKey(dryRun = false) {
-  return dryRun === true ? "wholesale.validate" : "wholesale.apply";
+function rejectWholesaleSimulation(dryRun) {
+  if (dryRun === true) throw new Error("Simulação de atacado não está disponível.");
+}
+
+function wholesaleBillingOperationKey() {
+  return "wholesale.apply";
 }
 
 function wholesaleBillingIdempotencyKey(operationId) {
@@ -376,10 +380,7 @@ function wholesaleBillingIdempotencyKey(operationId) {
   return `wholesale:${id}`;
 }
 
-function wholesaleBillableUnits(data = {}, meta = {}) {
-  if (data?.dryRun === true) {
-    return Math.max(0, Number(meta.processed || 0));
-  }
+function wholesaleBillableUnits(_data = {}, meta = {}) {
   return Math.max(0, Number(meta.applied || 0));
 }
 
@@ -417,7 +418,7 @@ function telemetryFrom(job, meta = {}) {
     selected: Number(meta.total || job?.data?.itemIds?.length || 0),
     processed: Number(meta.processed || 0),
     applied: Number(meta.applied || 0),
-    validated: job?.data?.dryRun === true ? Number(meta.processed || 0) : 0,
+    validated: 0,
     skipped: Number(meta.skipped || 0),
     errors: Number(meta.errors || 0),
     billable_units: billableUnits,
@@ -463,7 +464,7 @@ async function shapeJob(job, { includeResults = false } = {}) {
       job.data?.title ||
       (activeLoad
         ? "Carregar ativos do Atacado"
-        : `${job.data?.dryRun ? "Simular" : "Aplicar"} Atacado - ${total} item(ns)`),
+        : `Aplicar Atacado - ${total} item(ns)`),
     state:
       status === "concluido"
         ? activeLoad
@@ -482,7 +483,6 @@ async function shapeJob(job, { includeResults = false } = {}) {
     applied,
     skipped,
     errors,
-    dry_run: job.data?.dryRun === true,
     created_at: new Date(job.timestamp).toISOString(),
     updated_at: meta.updated_at || new Date(job.processedOn || job.timestamp).toISOString(),
     completed: terminal,
@@ -700,6 +700,7 @@ async function runActiveLoadJob(job) {
 
 async function runJob(job) {
   const data = job.data || {};
+  rejectWholesaleSimulation(data.dryRun);
   const initialMeta = (await readMeta(job.id)) || {};
   if (initialMeta.cancelRequested === true || initialMeta.status === "cancelado") {
     throw new AtacadoJobCancelledError();
@@ -713,13 +714,11 @@ async function runJob(job) {
   );
   if (!ids.length) throw new Error("Nenhum anuncio informado para o job de atacado.");
 
-  const dryRun = data.dryRun === true;
   const applyOptions = {
     extra_discount_percent: data.extraDiscountPercent,
     min_purchase_unit: data.minPurchaseUnit,
     tier_configs: data.tierConfigs,
     promo_only: data.promoOnly !== false,
-    dry_run: dryRun,
   };
   const requestedTierSummary = tierSummaryFromConfigs(
     Array.isArray(data.tierConfigs) && data.tierConfigs.length
@@ -748,7 +747,6 @@ async function runJob(job) {
   await auditAtacadoEvent(data, job.id, "wholesale_price_job_started", "success", {
     total_items: ids.length,
     sample_ids: ids.slice(0, 20),
-    dry_run: dryRun,
     promo_only: data.promoOnly !== false,
     extra_discount_percent: Number(data.extraDiscountPercent),
     min_purchase_unit: Number(data.minPurchaseUnit),
@@ -800,7 +798,7 @@ async function runJob(job) {
       data,
       job.id,
       "wholesale_price_item_processed",
-      result.status === "applied" || result.status === "dry_run"
+      result.status === "applied"
         ? "success"
         : result.status === "skipped"
           ? "warn"
@@ -813,7 +811,6 @@ async function runJob(job) {
         item_status: result.status,
         message: safeText(result.reason || result.message || ""),
         promo_only: data.promoOnly !== false,
-        dry_run: dryRun,
         promo_active: result?.row?.promo_active ?? null,
         promo_percent: result?.row?.promo_percent ?? null,
         item_price: result?.row?.item_price ?? null,
@@ -828,7 +825,7 @@ async function runJob(job) {
     );
 
     if (result.status === "applied") applied += 1;
-    else if (result.status === "skipped" || result.status === "dry_run") skipped += 1;
+    else if (result.status === "skipped") skipped += 1;
     else errors += 1;
 
     if (resultBuffer.length >= RESULT_FLUSH_EVERY) {
@@ -875,7 +872,6 @@ async function runJob(job) {
       applied,
       skipped,
       errors,
-      dry_run: dryRun,
       promo_only: data.promoOnly !== false,
       wholesale_tier_count: requestedTierSummary.tier_count,
       wholesale_tiers: requestedTierSummary.tiers,
@@ -907,18 +903,13 @@ class AtacadoJobsService {
       try {
         heavyLease = await waitForHeavyOperationLease({
           accountKey: job.data?.accountKey,
-          kind: activeLoad
-            ? "wholesale-active-load"
-            : job.data?.dryRun === true
-              ? "wholesale-validation"
-              : "wholesale",
+          kind: activeLoad ? "wholesale-active-load" : "wholesale",
           ownerId: `${activeLoad ? "wholesale-load" : "wholesale"}:${job.id}`,
           metadata: {
             job_id: String(job.id),
-            dry_run: job.data?.dryRun === true,
             active_load: activeLoad,
           },
-          lane: activeLoad || job.data?.dryRun === true ? "read" : "write",
+          lane: activeLoad ? "read" : "write",
           onWait: async (holder) => {
             await writeMeta(job.id, {
               status: "aguardando",
@@ -1051,6 +1042,7 @@ class AtacadoJobsService {
     mlCreds = {},
     account = null,
   } = {}) {
+    rejectWholesaleSimulation(dryRun);
     const ids = Array.from(
       new Set(
         (itemIds || [])
@@ -1059,7 +1051,7 @@ class AtacadoJobsService {
       ),
     );
     if (!ids.length) throw new Error("Nenhum anuncio informado para calcular o custo do atacado.");
-    const operationKey = wholesaleBillingOperationKey(dryRun);
+    const operationKey = wholesaleBillingOperationKey();
     const quote = await quoteCredits({
       mlCreds,
       account,
@@ -1136,6 +1128,7 @@ class AtacadoJobsService {
     accountLabel = null,
     auditContext = null,
   }) {
+    rejectWholesaleSimulation(dryRun);
     const ids = Array.from(
       new Set(
         (itemIds || [])
@@ -1148,7 +1141,7 @@ class AtacadoJobsService {
     if (!normalizedAccount) throw new Error("Conta obrigatoria para iniciar job de atacado.");
 
     const operationId = `WHOLESALE-${crypto.randomUUID()}`;
-    const billingOperationKey = wholesaleBillingOperationKey(dryRun);
+    const billingOperationKey = wholesaleBillingOperationKey();
     const creditReservation = await reserveCredits({
       mlCreds,
       operationKey: billingOperationKey,
@@ -1164,13 +1157,12 @@ class AtacadoJobsService {
           kind: "atacado",
           operationId,
           billingOperationKey,
-          title: `${dryRun ? "Simular" : "Aplicar"} Atacado - ${ids.length} item(ns)`,
+          title: `Aplicar Atacado - ${ids.length} item(ns)`,
           itemIds: ids,
           extraDiscountPercent: Number(extraDiscountPercent),
           minPurchaseUnit: Number(minPurchaseUnit),
           tierConfigs: Array.isArray(tierConfigs) ? tierConfigs : null,
           promoOnly: promoOnly !== false,
-          dryRun: dryRun === true,
           mlCreds,
           accountKey: normalizedAccount,
           accountLabel: accountLabel || normalizedAccount,
@@ -1266,7 +1258,6 @@ class AtacadoJobsService {
         operationId: job.data?.operationId,
         accountLabel: job.data?.accountLabel || job.data?.accountKey,
         status,
-        dryRun: job.data?.dryRun === true,
         total: meta.total || job.data?.itemIds?.length,
         processed: meta.processed,
         applied: meta.applied,
@@ -1286,6 +1277,7 @@ AtacadoJobsService._test = {
   attachAtacadoJobContract,
   scanActiveLoadPages,
   wholesaleBillingOperationKey,
+  rejectWholesaleSimulation,
   wholesaleBillingIdempotencyKey,
   wholesaleBillableUnits,
   telemetryFrom,

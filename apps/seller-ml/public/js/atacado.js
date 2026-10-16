@@ -506,39 +506,29 @@
     return payload;
   }
 
-  async function fetchWholesaleCreditQuote(itemIds, dryRun) {
+  async function fetchWholesaleCreditQuote(itemIds) {
     return fetchJson(mlUrl("/api/atacado/credits/quote"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         item_ids: itemIds,
-        dry_run: dryRun === true,
       }),
     });
   }
 
-  function confirmWholesaleCreditQuote(quote, { dryRun = false } = {}) {
-    const estimated = Number(quote?.estimated_credits || 0);
-    const quantity = Math.max(0, Number(quote?.quantity || 0));
-    const unlimited = quote?.unlimited === true;
-
-    if (unlimited || estimated <= 0) return true;
-
-    const formatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
-    const lines = [
-      `${dryRun ? "Simulação" : "Aplicação"} de atacado para aproximadamente ${formatter.format(quantity)} anúncio(s).`,
-      `Custo estimado: ${formatter.format(estimated)} crédito(s).`,
-    ];
-    if (quote?.available_credits != null) {
-      lines.push(
-        `Saldo disponível: ${formatter.format(Number(quote.available_credits || 0))} crédito(s).`,
-      );
+  async function confirmWholesaleCreditQuote(quote, quantity) {
+    if (!window.CreditOperationModal?.confirm) {
+      renderApplySummary("Não foi possível abrir a confirmação de créditos. Recarregue a página.", "error");
+      return false;
     }
-    if (quote?.sufficient === false) {
-      lines.push("O saldo atual é menor que a estimativa informada.");
-    }
-    lines.push("Deseja continuar?");
-    return window.confirm(lines.join("\n\n"));
+    return window.CreditOperationModal.confirm({
+      title: "Confirmar aplicação de atacado",
+      description: "As faixas configuradas serão enviadas ao Mercado Livre.",
+      quantity,
+      unitLabel: "anúncios",
+      quote,
+      confirmLabel: "Confirmar e aplicar",
+    });
   }
 
   function setLoading(loading, message) {
@@ -987,7 +977,6 @@
             `Ignorados: ${finalJob.skipped || 0}`,
             `Erros: ${finalJob.errors || 0}`,
           ];
-          if (finalJob.dry_run) summaryParts.push("Simulação");
 
           renderApplySummary(
             summaryParts.join(" • "),
@@ -1040,40 +1029,29 @@
     const tierCount = tierConfigs.length;
     const extraDiscountPercent = currentExtraDiscountPercent();
     const promoOnly = currentPromoOnly();
-    const dryRun = Boolean($("#dryRun")?.checked);
     const account = window.__ACCOUNT__ || {};
     const accountLabel = readShellAccountLabel() || account.label || null;
 
     try {
-      const creditQuote = await fetchWholesaleCreditQuote(unique, dryRun);
-      const confirmed = confirmWholesaleCreditQuote(creditQuote, { dryRun });
+      const creditQuote = await fetchWholesaleCreditQuote(unique);
+      const confirmed = await confirmWholesaleCreditQuote(creditQuote, unique.length);
       if (confirmed === false) {
-        renderApplySummary(
-          dryRun
-            ? "Simulação cancelada antes de criar o job."
-            : "Aplicação cancelada antes de criar o job.",
-          "info",
-        );
+        renderApplySummary("Aplicação cancelada antes de criar o job.", "info");
         return;
       }
     } catch (error) {
-      console.warn(
-        "[atacado] prévia de créditos indisponível; seguindo em shadow:",
-        error?.message || error,
-      );
+      console.warn("[atacado] prévia de créditos indisponível:", error?.message || error);
+      renderApplySummary("Falha ao consultar o custo dos créditos. Atualize a página e tente novamente.", "error");
+      return;
     }
 
     setLoading(true, "Enfileirando job de atacado...");
-    renderApplySummary(
-      dryRun
-        ? "Criando job de simulação do atacado..."
-        : "Criando job de aplicação do atacado...",
-    );
+    renderApplySummary("Criando job de aplicação do atacado...");
     $("#applyResults").innerHTML = "";
 
     const localJobId =
       window.JobsPanel?.addLocalJob?.({
-        title: `${dryRun ? "Simular" : "Aplicar"} Atacado • ${unique.length} item(ns)`,
+        title: `Aplicar Atacado • ${unique.length} item(ns)`,
         accountKey: account.key || null,
         accountLabel,
       }) || null;
@@ -1088,7 +1066,6 @@
           min_purchase_unit: minPurchaseUnit,
           tier_configs: tierConfigs,
           promo_only: promoOnly,
-          dry_run: dryRun,
         }),
       });
 
@@ -1187,18 +1164,10 @@
     $("#btnApplySelected").addEventListener("click", async () => {
       const ids = selectedIds();
       if (!ids.length) return;
-      if (!window.confirm(`Aplicar atacado em ${ids.length} anúncio(s)?`)) return;
       await enqueueWholesaleJob(ids);
     });
     $("#btnApplyFiltered").addEventListener("click", async () => {
       if (!state.filtered.length) return;
-      if (
-        !window.confirm(
-          `Aplicar atacado em ${state.filtered.length} anúncio(s) filtrados?`,
-        )
-      ) {
-        return;
-      }
       await enqueueWholesaleJob(state.filtered.map((row) => row.id));
     });
   }

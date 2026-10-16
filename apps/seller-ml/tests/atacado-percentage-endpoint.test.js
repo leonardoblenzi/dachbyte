@@ -4,6 +4,13 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const AtacadoService = require("../services/atacadoService");
 
+test("servico de atacado rejeita simulacao antiga antes de consultar o ML", async () => {
+  await assert.rejects(
+    () => AtacadoService.applyWholesaleForItem({}, "MLB123", { dry_run: true }),
+    /simulação.*não.*disponível/i,
+  );
+});
+
 test("atacado mantém desconto sobre preço promocional e usa PxQ percentual", async () => {
   const originals = {
     fetchSingleItem: AtacadoService.fetchSingleItem,
@@ -51,7 +58,6 @@ test("atacado mantém desconto sobre preço promocional e usa PxQ percentual", a
       "MLB123",
       {
         promo_only: true,
-        dry_run: false,
         min_purchase_unit: 2,
         extra_discount_percent: 5,
         tier_configs: [{ min_purchase_unit: 2, discount_percent: 5 }],
