@@ -14,6 +14,7 @@ test("gateway exposes authenticated Seller portal endpoints", () => {
   assert.match(gateway, /\/api\/portal\/overview/);
   assert.match(gateway, /\/api\/portal\/checkout/);
   assert.match(gateway, /\/api\/portal\/renewal-intent/);
+  assert.match(gateway, /\/api\/portal\/accounts\/unlink/);
   assert.match(gateway, /readSuitePayload\(req\)/);
 });
 
@@ -33,5 +34,10 @@ test("platform selection is a navigable SaaS shell instead of a hidden-card sele
   assert.match(portal, /\/api\/portal\/overview/);
   assert.match(portal, /data-activate-resource/);
   assert.match(portal, /Contratar plano/);
+  assert.match(portal, /data-manage-account/);
+  assert.match(portal, /id="account-drawer"/);
+  assert.match(portal, /Alterar plano/);
+  assert.match(portal, /Desvincular conta/);
+  assert.match(portal, /\/api\/portal\/accounts\/unlink/);
   assert.doesNotMatch(portal, /class="module-card"[^>]+data-module=/);
 });
