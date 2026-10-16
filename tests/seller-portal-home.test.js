@@ -29,6 +29,12 @@ test("platform selection is a navigable SaaS shell instead of a hidden-card sele
   }
   assert.match(portal, /Meus módulos/);
   assert.match(portal, /Explore outros módulos/);
+  assert.match(portal, /data-home-module-filter="operational"/);
+  assert.match(portal, /Ativos \+ atenção/);
+  assert.match(portal, /data-home-module-filter="all"/);
+  assert.match(portal, /data-home-module-filter="inactive"/);
+  assert.match(portal, /homeModuleFilter: "operational"/);
+  assert.match(portal, /function homeFilteredInstalledModules/);
   assert.match(portal, /Contas vinculadas/);
   assert.match(portal, /Planos e cobrança/);
   assert.match(portal, /\/api\/portal\/overview/);
