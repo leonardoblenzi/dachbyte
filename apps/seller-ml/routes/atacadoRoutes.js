@@ -16,9 +16,13 @@ router.get(
   AtacadoController.jobDetail,
 );
 router.get(
-  "/jobs/:job_id/download.csv",
+  "/jobs/:job_id/download.xlsx",
   requireAtacadoAccess,
-  AtacadoController.downloadCsv,
+  createAuditAction({
+    evento: "wholesale_price_job_xlsx_downloaded",
+    metadata: (req) => ({ job_id: String(req.params?.job_id || "").trim() || null }),
+  }),
+  AtacadoController.downloadXlsx,
 );
 router.post(
   "/jobs/:job_id/cancel",

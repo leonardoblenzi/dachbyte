@@ -254,9 +254,25 @@
   }
 
   function validateTierConfigs(configs) {
+    const firstDiscount = Number($("#extraDiscountPercent")?.value);
+    const firstMinUnit = Number($("#minPurchaseUnit")?.value);
+    if (!Number.isFinite(firstDiscount) || firstDiscount <= 0 || firstDiscount >= 100) {
+      throw new Error("A faixa 1 precisa ter desconto maior que 0% e menor que 100%.");
+    }
+    if (!Number.isInteger(firstMinUnit) || firstMinUnit < 1 || firstMinUnit > 100) {
+      throw new Error("A faixa 1 precisa ter quantidade entre 1 e 100.");
+    }
     for (let index = 1; index < configs.length; index += 1) {
       const previous = configs[index - 1];
       const current = configs[index];
+      const tier = index + 1;
+      const rawDiscount = Number(document.querySelector(`[data-tier-discount="${tier}"]`)?.value);
+      if (!Number.isInteger(current.min_purchase_unit) || current.min_purchase_unit > 100) {
+        throw new Error(`A faixa ${tier} precisa ter quantidade entre 1 e 100.`);
+      }
+      if (!Number.isFinite(rawDiscount) || rawDiscount <= 0 || rawDiscount >= 100) {
+        throw new Error(`A faixa ${tier} precisa ter desconto maior que 0% e menor que 100%.`);
+      }
       if (current.min_purchase_unit <= previous.min_purchase_unit) {
         throw new Error(
           `A faixa ${index + 1} precisa ter quantidade minima maior que a faixa ${index}.`,
@@ -751,8 +767,8 @@
     return isTerminalJobStateText(job.state || job.status || "");
   }
 
-  function atacadoJobCsvUrl(jobId) {
-    return `/api/atacado/jobs/${encodeURIComponent(String(jobId || "").trim())}/download.csv`;
+  function atacadoJobXlsxUrl(jobId) {
+    return `/api/atacado/jobs/${encodeURIComponent(String(jobId || "").trim())}/download.xlsx`;
   }
 
   function resolveAtacadoReviewAction(job, jobId, completed) {
@@ -761,22 +777,15 @@
     const explicit =
       job?.review_action && job.review_action.url
         ? {
-            label: job.review_action.label || "Baixar CSV",
+            label: "Baixar XLSX",
             url: job.review_action.url,
           }
         : null;
     if (explicit) return explicit;
-    const directUrl = String(job?.download_csv_url || "").trim();
-    if (directUrl) {
-      return {
-        label: Number(job?.errors || 0) > 0 ? "Ver e corrigir" : "Baixar CSV",
-        url: directUrl,
-      };
-    }
-    if (!completed) return null;
+    if (!completed || Number(job?.result_total || 0) <= 0) return null;
     return {
-      label: Number(job?.errors || 0) > 0 ? "Ver e corrigir" : "Baixar CSV",
-      url: atacadoJobCsvUrl(jobId),
+      label: "Baixar XLSX",
+      url: atacadoJobXlsxUrl(jobId),
     };
   }
 
@@ -918,7 +927,7 @@
             : `processando ${Number(job.processed || 0)}/${Number(job.total || 0)}`),
         completed,
         reviewAction,
-        downloadCsvUrl: reviewAction?.url || null,
+        downloadCsvUrl: null,
       });
 
       if (completed) {

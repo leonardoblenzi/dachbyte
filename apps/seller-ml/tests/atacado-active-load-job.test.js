@@ -163,8 +163,8 @@ test("carga cancelada nao e apresentada como carga concluida", () => {
   assert.match(uiSource, /Ativos parciais/);
 });
 
-test("job de leitura dos ativos nunca oferece CSV de aplicacao", () => {
-  assert.match(jobsSource, /hasCsv: !activeLoad && resultTotal > 0/);
+test("job de leitura dos ativos nunca oferece XLSX de aplicação", () => {
+  assert.match(jobsSource, /kind === "atacado-load-active"/);
   assert.match(
     uiSource,
     /if \(isActiveLoadJobPayload\(job\)\) return null;/,

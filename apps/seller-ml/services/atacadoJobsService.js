@@ -2,9 +2,9 @@
 
 const Bull = require("bull");
 const crypto = require("crypto");
+const ExcelJS = require("exceljs");
 const AtacadoService = require("./atacadoService");
 const { makeBullClient, getSharedRedis } = require("../lib/redisClient");
-const { buildCsv, attachJobReview } = require("./jobReviewHelper");
 const { attachJobContract, backendJobIdFromUid } = require("./jobContract");
 const { recordAuthEvent } = require("./authAuditService");
 const { quoteCredits, reserveCredits, settleCredits } = require("./hubCreditsService");
@@ -163,18 +163,23 @@ function tierSummaryFromConfigs(tierConfigs = []) {
 
 function tierSummaryFromResult(result = {}) {
   const baseAmount = Number(result?.row?.sale_price || 0) || null;
-  const prices = Array.isArray(result?.payload?.prices) ? result.payload.prices : [];
+  const prices = Array.isArray(result?.payload?.price_per_quantity)
+    ? result.payload.price_per_quantity
+    : Array.isArray(result?.payload?.prices) ? result.payload.prices : [];
   const tiers = prices.map((price) => {
-    const amount = Number(price?.amount || 0) || null;
-    const discount =
-      baseAmount && amount
-        ? round2(100 * (1 - amount / baseAmount))
+    const absoluteAmount = Number(price?.amount);
+    const discount = price?.percentage != null
+      ? Number(price.percentage)
+      : baseAmount && absoluteAmount > 0
+        ? round2(100 * (1 - absoluteAmount / baseAmount))
         : null;
     return {
       min_purchase_unit: Number(price?.conditions?.min_purchase_unit || 0) || null,
-      amount,
-      discount_percent: discount,
-      currency_id: price?.currency_id || result?.row?.currency_id || "BRL",
+      amount: absoluteAmount > 0 ? absoluteAmount : baseAmount && Number.isFinite(discount)
+        ? round2(baseAmount * (1 - discount / 100))
+        : null,
+      discount_percent: discount != null && Number.isFinite(discount) ? discount : null,
+      currency_id: result?.row?.currency_id || "BRL",
     };
   });
   const discounts = tiers
@@ -187,6 +192,120 @@ function tierSummaryFromResult(result = {}) {
     max_discount_percent: discounts.length ? Math.max(...discounts) : null,
     base_price: baseAmount,
   };
+}
+
+function atacadoResultAction({ id, kind, status, resultTotal }) {
+  if (kind === "atacado-load-active" || !["concluido", "cancelado", "erro"].includes(status) || resultTotal <= 0) {
+    return null;
+  }
+  return {
+    type: "download_xlsx",
+    label: "Baixar XLSX",
+    url: `/api/atacado/jobs/${encodeURIComponent(String(id))}/download.xlsx`,
+    download: true,
+  };
+}
+
+async function buildAtacadoResultsWorkbook(rows = [], context = {}) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "DACHBYTE Seller";
+  workbook.created = new Date();
+  const summary = workbook.addWorksheet("Resumo do job");
+  summary.columns = [{ header: "Campo", key: "field", width: 27 }, { header: "Valor", key: "value", width: 55 }];
+  [
+    ["Job", String(context.jobId || "")],
+    ["Operação", String(context.operationId || "")],
+    ["Conta", String(context.accountLabel || "")],
+    ["Status", String(context.status || "")],
+    ["Tipo", context.dryRun ? "Simulação" : "Aplicação"],
+    ["Total", Number(context.total || 0)],
+    ["Processados", Number(context.processed || 0)],
+    ["Aplicados", Number(context.applied || 0)],
+    ["Ignorados", Number(context.skipped || 0)],
+    ["Erros", Number(context.errors || 0)],
+    ["Iniciado em", String(context.startedAt || "")],
+    ["Finalizado em", String(context.finishedAt || "")],
+  ].forEach(([field, value]) => summary.addRow({ field, value }));
+
+  const results = workbook.addWorksheet("Resultados");
+  results.columns = [
+    { header: "MLB", key: "mlb", width: 20 },
+    { header: "Status", key: "status", width: 16 },
+    { header: "Motivo", key: "reason", width: 65 },
+    { header: "Título", key: "title", width: 55 },
+    { header: "SKU", key: "sku", width: 24 },
+    { header: "Preço do anúncio", key: "itemPrice", width: 21 },
+    { header: "Preço vigente", key: "salePrice", width: 21 },
+    { header: "Promoção ativa", key: "promoActive", width: 17 },
+    { header: "Desconto promoção", key: "promoPercent", width: 21 },
+    { header: "Faixas solicitadas", key: "tierCount", width: 20 },
+  ];
+  const tiers = workbook.addWorksheet("Faixas");
+  tiers.columns = [
+    { header: "MLB", key: "mlb", width: 20 },
+    { header: "Quantidade mínima", key: "quantity", width: 22 },
+    { header: "Desconto solicitado", key: "discount", width: 23 },
+    { header: "Preço vigente", key: "salePrice", width: 21 },
+    { header: "Preço estimado por unidade", key: "unitPrice", width: 29 },
+    { header: "Status do item", key: "status", width: 19 },
+  ];
+  const optionalNumber = (value) => value == null || value === "" || !Number.isFinite(Number(value))
+    ? null : Number(value);
+  for (const result of rows) {
+    const row = result?.row || {};
+    const basePrice = optionalNumber(row.sale_price);
+    const storedPrices = Array.isArray(result?.payload?.price_per_quantity)
+      ? result.payload.price_per_quantity
+      : Array.isArray(result?.payload?.prices) ? result.payload.prices : null;
+    const priceTiers = storedPrices
+      ? storedPrices.map((price) => ({
+          quantity: optionalNumber(price?.conditions?.min_purchase_unit),
+          discount: price?.percentage != null
+            ? optionalNumber(price.percentage)
+            : basePrice && optionalNumber(price?.amount) != null
+              ? round2(100 * (1 - Number(price.amount) / basePrice))
+              : null,
+        }))
+      : (Array.isArray(context.tierConfigs) ? context.tierConfigs : []).map((tier) => ({
+          quantity: optionalNumber(tier?.min_purchase_unit),
+          discount: optionalNumber(tier?.discount_percent),
+        }));
+    results.addRow({
+      mlb: String(result?.id || ""), status: String(result?.status || ""),
+      reason: String(result?.reason || result?.message || ""),
+      title: String(row.title || ""), sku: String(row.seller_custom_field || ""),
+      itemPrice: optionalNumber(row.item_price), salePrice: basePrice,
+      promoActive: row.promo_active == null ? "" : row.promo_active ? "Sim" : "Não",
+      promoPercent: optionalNumber(row.promo_percent) == null ? null : Number(row.promo_percent) / 100,
+      tierCount: priceTiers.length,
+    });
+    for (const tier of priceTiers) {
+      tiers.addRow({
+        mlb: String(result?.id || ""), quantity: tier.quantity,
+        discount: tier.discount == null ? null : tier.discount / 100,
+        salePrice: basePrice,
+        unitPrice: basePrice == null || tier.discount == null
+          ? null : round2(basePrice * (1 - tier.discount / 100)),
+        status: String(result?.status || ""),
+      });
+    }
+  }
+  for (const sheet of [summary, results, tiers]) {
+    sheet.views = [{ state: "frozen", ySplit: 1 }];
+    sheet.getRow(1).eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF183153" } };
+      cell.alignment = { vertical: "middle" };
+    });
+    sheet.getRow(1).height = 25;
+  }
+  for (const column of ["F", "G"]) results.getColumn(column).numFmt = '"R$" #,##0.00';
+  results.getColumn("I").numFmt = "0.00%";
+  tiers.getColumn("C").numFmt = "0.00%";
+  for (const column of ["D", "E"]) tiers.getColumn(column).numFmt = '"R$" #,##0.00';
+  results.autoFilter = { from: "A1", to: "J1" };
+  tiers.autoFilter = { from: "A1", to: "F1" };
+  return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
 function auditBase(data = {}, jobId = null) {
@@ -375,12 +494,17 @@ async function shapeJob(job, { includeResults = false } = {}) {
     heavy_operation_holder: meta.heavyOperationHolder || null,
     ...(includeResults ? { results: await readResults(job.id) } : {}),
   };
-  return attachAtacadoJobContract(
-    attachJobReview(publicJob, {
-      basePath: "/api/atacado/jobs",
-      hasCsv: !activeLoad && resultTotal > 0,
-    }),
-  );
+  const action = atacadoResultAction({
+    id: job.id,
+    kind: publicJob.kind,
+    status,
+    resultTotal,
+  });
+  const contracted = attachAtacadoJobContract(action
+    ? { ...publicJob, review_action: action }
+    : publicJob);
+  if (action) contracted.job_contract.actions = { download_xlsx: action };
+  return contracted;
 }
 
 async function scanActiveLoadPages({
@@ -1126,47 +1250,32 @@ class AtacadoJobsService {
     };
   }
 
-  static async getJobCsv(id, { accountKey = null } = {}) {
+  static async getJobXlsx(id, { accountKey = null } = {}) {
     const job = await getQueue().getJob(resolveJobId(id));
-    if (!job || !canAccessJob(job, accountKey)) return null;
+    if (!job || !canAccessJob(job, accountKey) || isActiveLoadJob(job.data)) return null;
+    const meta = (await readMeta(job.id)) || {};
+    const bullState = await job.getState().catch(() => "unknown");
+    const status = String(meta.status || (bullState === "completed" ? "concluido" : bullState === "failed" ? "erro" : "processando"));
+    if (!["concluido", "cancelado", "erro"].includes(status)) return null;
     const rows = await readResults(job.id);
-    const csv = buildCsv(
-      rows.map((row) => {
-        const summary = tierSummaryFromResult(row);
-        return [
-          row?.id || "",
-          row?.status || "",
-          row?.reason || row?.message || "",
-          row?.row?.promo_active ?? "",
-          row?.row?.promo_percent ?? "",
-          row?.row?.item_price ?? "",
-          row?.row?.sale_price ?? "",
-          summary.base_price ?? "",
-          summary.tier_count ?? "",
-          summary.min_discount_percent ?? "",
-          summary.max_discount_percent ?? "",
-          JSON.stringify(summary.tiers || []),
-        ];
-      }),
-      [
-        "mlb_id",
-        "status",
-        "message",
-        "promo_ativa",
-        "promo_percentual",
-        "preco_item",
-        "preco_promocional",
-        "preco_base_atacado",
-        "qtd_faixas",
-        "menor_percentual_faixa",
-        "maior_percentual_faixa",
-        "faixas_json",
-      ],
-    );
-
+    if (!rows.length) return null;
     return {
-      filename: `atacado_${job.id}.csv`,
-      csv: `\ufeff${csv}`,
+      filename: `atacado_${job.id}.xlsx`,
+      buffer: await buildAtacadoResultsWorkbook(rows, {
+        jobId: job.id,
+        operationId: job.data?.operationId,
+        accountLabel: job.data?.accountLabel || job.data?.accountKey,
+        status,
+        dryRun: job.data?.dryRun === true,
+        total: meta.total || job.data?.itemIds?.length,
+        processed: meta.processed,
+        applied: meta.applied,
+        skipped: meta.skipped,
+        errors: meta.errors,
+        startedAt: meta.started_at,
+        finishedAt: meta.finished_at,
+        tierConfigs: job.data?.tierConfigs,
+      }),
     };
   }
 }
@@ -1180,6 +1289,8 @@ AtacadoJobsService._test = {
   wholesaleBillingIdempotencyKey,
   wholesaleBillableUnits,
   telemetryFrom,
+  atacadoResultAction,
+  buildAtacadoResultsWorkbook,
 };
 
 module.exports = AtacadoJobsService;

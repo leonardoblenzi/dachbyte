@@ -40,17 +40,17 @@
         <section class="panel">
           <div class="panel-head"><div><h2>2. Configuração do atacado</h2><p class="small-muted">Defina a faixa principal e, se necessário, adicione até quatro faixas extras.</p></div><span class="badge badge-accent">Aplicação</span></div>
           <div class="form-grid">
-            <label>Desconto da faixa 1 (%)<input id="extraDiscountPercent" type="number" min="0.1" step="0.1" value="1" /></label>
-            <label>Quantidade mínima da faixa 1<input id="minPurchaseUnit" type="number" min="2" step="1" value="2" /></label>
+            <label>Desconto da faixa 1 (%)<input id="extraDiscountPercent" type="number" min="0.1" max="99.99" step="0.1" value="1" /></label>
+            <label>Quantidade mínima da faixa 1<input id="minPurchaseUnit" type="number" min="2" max="100" step="1" value="2" /></label>
             <label>Número de faixas<select id="extraTierCount"><option value="0" selected>1 faixa</option><option value="1">2 faixas</option><option value="2">3 faixas</option><option value="3">4 faixas</option><option value="4">5 faixas</option></select></label>
           </div>
           <div class="tier-config">
             <div class="tier-config__head"><strong>Faixas adicionais</strong><span id="tierSummary" class="small-muted">Cada faixa usa seu próprio desconto sobre o preço vigente atual.</span></div>
             <div id="extraTierRows" class="tier-rows">
-              <label class="tier-row is-hidden" data-tier-row="2"><span>Qtd. mín. faixa 2</span><input data-tier-min="2" type="number" min="3" step="1" value="3" /><span>Desconto faixa 2 (%)</span><input data-tier-discount="2" type="number" min="0.1" step="0.1" value="2" /></label>
-              <label class="tier-row is-hidden" data-tier-row="3"><span>Qtd. mín. faixa 3</span><input data-tier-min="3" type="number" min="4" step="1" value="4" /><span>Desconto faixa 3 (%)</span><input data-tier-discount="3" type="number" min="0.1" step="0.1" value="3" /></label>
-              <label class="tier-row is-hidden" data-tier-row="4"><span>Qtd. mín. faixa 4</span><input data-tier-min="4" type="number" min="5" step="1" value="5" /><span>Desconto faixa 4 (%)</span><input data-tier-discount="4" type="number" min="0.1" step="0.1" value="4" /></label>
-              <label class="tier-row is-hidden" data-tier-row="5"><span>Qtd. mín. faixa 5</span><input data-tier-min="5" type="number" min="6" step="1" value="6" /><span>Desconto faixa 5 (%)</span><input data-tier-discount="5" type="number" min="0.1" step="0.1" value="5" /></label>
+              <label class="tier-row is-hidden" data-tier-row="2"><span>Qtd. mín. faixa 2</span><input data-tier-min="2" type="number" min="3" max="100" step="1" value="3" /><span>Desconto faixa 2 (%)</span><input data-tier-discount="2" type="number" min="0.1" max="99.99" step="0.1" value="2" /></label>
+              <label class="tier-row is-hidden" data-tier-row="3"><span>Qtd. mín. faixa 3</span><input data-tier-min="3" type="number" min="4" max="100" step="1" value="4" /><span>Desconto faixa 3 (%)</span><input data-tier-discount="3" type="number" min="0.1" max="99.99" step="0.1" value="3" /></label>
+              <label class="tier-row is-hidden" data-tier-row="4"><span>Qtd. mín. faixa 4</span><input data-tier-min="4" type="number" min="5" max="100" step="1" value="5" /><span>Desconto faixa 4 (%)</span><input data-tier-discount="4" type="number" min="0.1" max="99.99" step="0.1" value="4" /></label>
+              <label class="tier-row is-hidden" data-tier-row="5"><span>Qtd. mín. faixa 5</span><input data-tier-min="5" type="number" min="6" max="100" step="1" value="6" /><span>Desconto faixa 5 (%)</span><input data-tier-discount="5" type="number" min="0.1" max="99.99" step="0.1" value="5" /></label>
             </div>
           </div>
           <div class="checks"><label><input id="promoOnly" type="checkbox" checked /> Somente anúncios em promoção</label><label><input id="dryRun" type="checkbox" /> Simular sem aplicar</label></div>
@@ -84,6 +84,6 @@
   <div id="bulkJobsPanel" class="processos-panel"></div>
   <script src="/ml/js/jobs-panel-adapters.js?v=2026080701" defer></script>
   <script src="/ml/js/jobs-panel.js?v=2026080701" defer></script>
-  <script src="/ml/js/atacado.js?v=2026080702" defer></script>
+  <script src="/ml/js/atacado.js?v=2026101602" defer></script>
 </body>
 </html>

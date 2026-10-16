@@ -205,25 +205,25 @@ class AtacadoController {
     }
   }
 
-  static async downloadCsv(req, res) {
+  static async downloadXlsx(req, res) {
     try {
-      const file = await AtacadoJobsService.getJobCsv(req.params?.job_id, {
+      const file = await AtacadoJobsService.getJobXlsx(req.params?.job_id, {
         accountKey: res.locals?.accountKey || null,
       });
-      if (!file?.csv) {
+      if (!file?.buffer) {
         return res.status(404).json({
           success: false,
-          error: "CSV do job de atacado nao encontrado.",
+          error: "XLSX do job de atacado indisponível ou ainda não concluído.",
         });
       }
 
-      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
-      return res.send(file.csv);
+      return res.send(file.buffer);
     } catch (error) {
       return res.status(500).json({
         success: false,
-        error: error?.message || "Erro ao baixar CSV do job.",
+        error: error?.message || "Erro ao baixar XLSX do job.",
       });
     }
   }

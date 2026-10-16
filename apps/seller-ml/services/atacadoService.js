@@ -49,15 +49,13 @@ function normalizeTierConfigs(values, fallbackFirstUnit = 2, fallbackDiscountPer
         discount_percent: fallbackDiscountPercent,
       }];
 
-  const configs = source.slice(0, 5).map((value, index) => {
-    const minUnit = asNonNegativeInteger(
-      value?.min_purchase_unit,
-      index === 0 ? fallbackFirstUnit : 0,
-    );
-    const discountPercent = asPositiveNumber(
-      value?.discount_percent,
-      fallbackDiscountPercent,
-    );
+  if (source.length > 5) {
+    throw new Error("O atacado permite no máximo 5 faixas.");
+  }
+
+  const configs = source.map((value) => {
+    const minUnit = Number(value?.min_purchase_unit);
+    const discountPercent = Number(value?.discount_percent);
 
     return {
       min_purchase_unit: minUnit,
@@ -65,13 +63,13 @@ function normalizeTierConfigs(values, fallbackFirstUnit = 2, fallbackDiscountPer
     };
   });
 
-  if (!configs.length || configs[0].min_purchase_unit <= 0) {
-    throw new Error("A faixa 1 do atacado precisa ter quantidade minima valida.");
-  }
-
   for (let index = 0; index < configs.length; index += 1) {
-    if (!(configs[index].discount_percent > 0)) {
-      throw new Error("Todas as faixas de atacado precisam ter desconto valido.");
+    const config = configs[index];
+    if (!Number.isInteger(config.min_purchase_unit) || config.min_purchase_unit < 1 || config.min_purchase_unit > 100) {
+      throw new Error(`A faixa ${index + 1} precisa ter quantidade mínima entre 1 e 100.`);
+    }
+    if (!Number.isFinite(config.discount_percent) || !(round2(config.discount_percent) > 0 && round2(config.discount_percent) < 100)) {
+      throw new Error(`A faixa ${index + 1} precisa ter desconto maior que 0% e menor que 100%.`);
     }
   }
 
@@ -97,6 +95,40 @@ function buildPercentagePrices(tierConfigs) {
       eligible: true,
     },
   }));
+}
+
+function validatePriceRecommendations(result, tierConfigs, standardAmount) {
+  if (result === null) return; // HTTP 204: o ML não aplica validação de recomendação.
+  const recommendations = result?.recommendations;
+  if (!Array.isArray(recommendations)) {
+    throw new Error("O ML não retornou recomendações válidas para as faixas de atacado.");
+  }
+  const saleAmount = Number(result?.price?.sale_price_amount);
+  const baseAmount = saleAmount > 0 ? saleAmount : Number(standardAmount);
+  for (const config of tierConfigs) {
+    const recommendation = recommendations.find((entry) => Number(entry?.quantity) === config.min_purchase_unit);
+    if (!recommendation || !Number.isFinite(Number(recommendation.amount))) {
+      throw new Error(`O ML não recomendou preço para a quantidade ${config.min_purchase_unit}.`);
+    }
+    if (recommendation.is_incoherent_quantity === true) {
+      throw new Error(`A quantidade ${config.min_purchase_unit} foi marcada como incoerente pelo ML.`);
+    }
+    const configuredAmount = round2(baseAmount * (1 - round2(config.discount_percent) / 100));
+    if (configuredAmount > Number(recommendation.amount) + 0.005) {
+      throw new Error(`O desconto da quantidade ${config.min_purchase_unit} resulta em preço acima do recomendado pelo ML.`);
+    }
+  }
+}
+
+function confirmsPercentagePrices(prices, tierConfigs) {
+  const configured = prices?.price_per_quantity;
+  if (!Array.isArray(configured) || configured.length !== tierConfigs.length) return false;
+  return tierConfigs.every((config) => configured.some((price) =>
+    price?.type === "discount_percentage"
+    && Number(price?.conditions?.min_purchase_unit) === config.min_purchase_unit
+    && Math.abs(Number(price?.percentage) - round2(config.discount_percent)) < 0.001
+    && DEFAULT_BUSINESS_CONTEXTS.every((context) => price?.conditions?.context_restrictions?.includes(context))
+  ));
 }
 
 function buildRow(item, salePriceAmount, extraDiscountPercent) {
@@ -421,73 +453,56 @@ class AtacadoService {
         payload?.message || payload?.error || `Falha ao consultar recomendações de atacado: HTTP ${response.status}`,
       );
     }
+    return response.status === 204 ? null : payload;
+  }
+
+  static async fetchConfiguredPrices(state, itemId) {
+    const response = await this.authFetch(state, `${API_BASE}/items/${encodeURIComponent(itemId)}/prices`, {
+      headers: { "show-all-prices": "true" },
+    });
+    const text = await response.text().catch(() => "");
+    const payload = parseJsonSafe(text);
+    if (!response.ok) {
+      throw new Error(payload?.message || payload?.error || `Falha ao confirmar preços de atacado: HTTP ${response.status}`);
+    }
     return payload;
   }
 
   static async applyWholesaleForItem(state, itemId, options) {
-    const liveItem = await this.fetchSingleItem(state, itemId);
-    const liveSalePrice = await this.fetchSalePrice(state, itemId);
     const tierConfigs = normalizeTierConfigs(
       options.tier_configs,
       asNonNegativeInteger(options.min_purchase_unit, 2) || 2,
       asPositiveNumber(options.extra_discount_percent, 1),
     );
 
-    const row = buildRow(
-      liveItem,
-      liveSalePrice,
-      Number(options.extra_discount_percent || 0),
-    );
-
-    if (String(liveItem?.status || "").toLowerCase() !== "active") {
-      return {
-        id: itemId,
-        status: "skipped",
-        reason: "Anúncio não está ativo no momento da aplicação.",
-        row,
-      };
-    }
-
-    if (options.promo_only && !row.promo_active) {
-      return {
-        id: itemId,
-        status: "skipped",
-        reason: "Anúncio sem promoção ativa no momento da aplicação.",
-        row,
-      };
-    }
-
-    const amount = row.sale_price;
-    if (!(Number(amount) > 0)) {
-      return {
-        id: itemId,
-        status: "error",
-        reason: "Não foi possível calcular o preço de atacado.",
-        row,
-      };
-    }
-
     const payload = {
       price_per_quantity: buildPercentagePrices(tierConfigs),
     };
+    const prepareAttempt = async () => {
+      const liveItem = await this.fetchSingleItem(state, itemId);
+      const liveSalePrice = await this.fetchSalePrice(state, itemId);
+      const row = buildRow(liveItem, liveSalePrice, Number(options.extra_discount_percent || 0));
+      if (String(liveItem?.status || "").toLowerCase() !== "active") {
+        return { result: { id: itemId, status: "skipped", reason: "Anúncio não está ativo no momento da aplicação.", row } };
+      }
+      if (options.promo_only && !row.promo_active) {
+        return { result: { id: itemId, status: "skipped", reason: "Anúncio sem promoção ativa no momento da aplicação.", row } };
+      }
+      if (!(Number(row.sale_price) > 0)) {
+        return { result: { id: itemId, status: "error", reason: "Não foi possível calcular o preço de atacado.", row } };
+      }
+      const recommendation = await this.fetchPriceRecommendations(
+        state, itemId, tierConfigs, row.item_price || row.sale_price, row.currency_id,
+      );
+      validatePriceRecommendations(recommendation, tierConfigs, row.sale_price);
+      return { row };
+    };
 
+    let prepared = await prepareAttempt();
+    if (prepared.result) return prepared.result;
     if (options.dry_run) {
-      return {
-        id: itemId,
-        status: "dry_run",
-        reason: "Simulação concluída.",
-        row,
-        payload,
-      };
+      return { id: itemId, status: "dry_run", reason: "Simulação validada com o ML.", row: prepared.row, payload };
     }
-
-    await this.fetchPriceRecommendations(
-      state,
-      itemId,
-      tierConfigs,
-      row.item_price || amount,
-      row.currency_id,
-    );
 
     const apply = async () => {
       const version = await this.fetchPriceVersion(state, itemId);
@@ -506,7 +521,11 @@ class AtacadoService {
     };
 
     let response = await apply();
-    if (response.status === 409) response = await apply();
+    if (response.status === 409) {
+      prepared = await prepareAttempt();
+      if (prepared.result) return prepared.result;
+      response = await apply();
+    }
 
     const text = await response.text().catch(() => "");
     const parsed = parseJsonSafe(text);
@@ -519,8 +538,30 @@ class AtacadoService {
           parsed?.message ||
           parsed?.error ||
           `Falha ao aplicar atacado: HTTP ${response.status}`,
-        row,
+        row: prepared.row,
         payload,
+      };
+    }
+
+    try {
+      let confirmed = false;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
+        const configured = await this.fetchConfiguredPrices(state, itemId);
+        if (confirmsPercentagePrices(configured, tierConfigs)) {
+          confirmed = true;
+          break;
+        }
+      }
+      if (!confirmed) throw new Error("As faixas retornadas pelo ML não correspondem às solicitadas.");
+    } catch (error) {
+      return {
+        id: itemId,
+        status: "error",
+        reason: `O ML aceitou a gravação, mas não foi possível confirmar as faixas. Verifique o anúncio antes de tentar novamente. ${error?.message || ""}`.trim(),
+        row: prepared.row,
+        payload,
+        response: parsed,
       };
     }
 
@@ -528,7 +569,7 @@ class AtacadoService {
       id: itemId,
       status: "applied",
       reason: "Atacado aplicado com sucesso.",
-      row,
+      row: prepared.row,
       payload,
       response: parsed,
     };
