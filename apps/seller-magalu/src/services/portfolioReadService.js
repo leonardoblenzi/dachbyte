@@ -28,11 +28,12 @@ async function listSkus(accountId, dachTenantId, {
   limit = env.MAGALU_SYNC_PAGE_SIZE,
   status = null,
   groupId = null,
+  sort = "updated_at:asc",
 } = {}) {
   const params = new URLSearchParams();
   params.set("_offset", String(Math.max(0, Number(offset) || 0)));
   params.set("_limit", String(Math.min(100, Math.max(1, Number(limit) || env.MAGALU_SYNC_PAGE_SIZE))));
-  params.set("_sort", "updated_at:asc");
+  params.set("_sort", sort === "updated_at:desc" ? sort : "updated_at:asc");
   if (status) params.set("status", String(status));
   if (groupId) params.set("group_id", String(groupId));
   return requestRead(

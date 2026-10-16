@@ -735,10 +735,15 @@
     }
   }
 
-  function syncStatusDescription(status, error) {
+  function syncStatusDescription(status, error, run = null) {
     if (status === "queued") return ["queued", "Sincronização na fila", "Aguardando o worker Magalu iniciar a leitura."];
-    if (status === "running") return ["running", "Sincronização em andamento", "SKU, preço e estoque estão sendo atualizados em segundo plano."];
-    if (status === "success") return ["success", "Sincronização concluída", "O espelho local está atualizado."];
+    if (status === "running") {
+      const result = run?.result && typeof run.result === "object" ? run.result : {};
+      const count = Number(run?.scanned_count || 0).toLocaleString("pt-BR");
+      const stage = result.stage === "known_sku_refresh" ? "Atualizando SKUs já salvos" : "Descobrindo SKUs nas páginas disponíveis";
+      return ["running", "Sincronização em andamento", `${stage} · ${count} processado(s). Pode sair desta tela; o trabalho continua em segundo plano.`];
+    }
+    if (status === "success") return ["success", "Sincronização concluída", `Base atualizada: ${Number(run?.updated_count || 0).toLocaleString("pt-BR")} SKU(s) atualizados e ${Number(run?.created_count || 0).toLocaleString("pt-BR")} novo(s).`];
     if (status === "partial") return ["warning", "Sincronização concluída com avisos", error || "Algumas leituras de detalhe não puderam ser atualizadas."];
     if (status === "failed") return ["failed", "Falha na sincronização", error || "Abra o diagnóstico para identificar o endpoint que falhou."];
     return ["idle", "Aguardando sincronização", "Nenhuma execução ativa para a conta selecionada."];
@@ -773,13 +778,13 @@
     if (state.syncPolling) return;
     state.syncPolling = true;
     try {
-      for (let attempt = 0; attempt < 60; attempt += 1) {
+      while (true) {
         if (Number(selected()?.id) !== Number(accountId)) return;
         const data = await fetchJson(`/magalu/api/catalog/status?account_id=${accountId}`, { loading: "none" });
         state.catalogStatus = data;
         renderStats(data);
         const status = String(data.account?.catalog_sync_status || "idle");
-        const [tone, title, copy] = syncStatusDescription(status, data.account?.catalog_last_error);
+        const [tone, title, copy] = syncStatusDescription(status, data.account?.catalog_last_error, data.latest_run);
         setSyncBanner(tone, title, copy);
         if (!["queued", "running"].includes(status)) {
           if (status === "success") showAlert("Sincronização concluída com sucesso.");
@@ -789,9 +794,8 @@
           window.dispatchEvent(new CustomEvent("magalu:catalogsynced", { detail: { accountId, status } }));
           return;
         }
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, 5000));
       }
-      showAlert("A sincronização continua em segundo plano. Abra Sincronização para acompanhar.", "warning", { sticky: true });
     } catch (error) {
       showAlert(`Não foi possível acompanhar a sincronização: ${error.message}`, "danger", { sticky: true });
     } finally {
@@ -835,7 +839,7 @@
       renderSyncAccount(status);
       renderRuns(runs.runs || []);
       const syncState = String(status.account?.catalog_sync_status || "idle");
-      const [tone, title, copy] = syncStatusDescription(syncState, status.account?.catalog_last_error);
+      const [tone, title, copy] = syncStatusDescription(syncState, status.account?.catalog_last_error, status.latest_run);
       setSyncBanner(tone, title, copy);
       renderProbes(state.diagnostics);
     } catch (error) {
@@ -932,7 +936,8 @@
       const row = document.createElement("article");
       row.className = "mg-run-row";
       row.dataset.status = run.status;
-      row.innerHTML = `<div class="mg-run-row__status"><i></i><span><strong>${escapeHtml(run.status || "—")}</strong><small>${escapeHtml(formatDate(run.started_at))}</small></span></div><div><span>Itens</span><strong>${escapeHtml(run.scanned_count ?? 0)}</strong></div><div><span>Páginas</span><strong>${escapeHtml(result.pages ?? 0)}</strong></div><div><span>Falhas</span><strong>${escapeHtml(run.failed_count ?? 0)}</strong></div><div class="mg-run-row__detail"><span>Detalhe</span><strong>${escapeHtml(run.error_message || failedEndpoint || "Execução concluída")}</strong>${failedEndpoint ? `<small>${escapeHtml(failedEndpoint)}${result.http_status ? ` · HTTP ${escapeHtml(result.http_status)}` : ""}</small>` : ""}${requestId ? `<small>request-id: ${escapeHtml(requestId)}</small>` : ""}</div>`;
+      const detail = run.error_message || (result.discovery_partial_statuses?.length ? `Descoberta parcial em ${result.discovery_partial_statuses.join(", ")}.` : null) || (run.status === "running" ? `Etapa: ${result.stage || "iniciando"}` : null) || "Execução concluída";
+      row.innerHTML = `<div class="mg-run-row__status"><i></i><span><strong>${escapeHtml(run.status || "—")}</strong><small>${escapeHtml(formatDate(run.started_at))}</small></span></div><div><span>Itens</span><strong>${escapeHtml(run.scanned_count ?? 0)}</strong></div><div><span>Novos</span><strong>${escapeHtml(run.created_count ?? 0)}</strong></div><div><span>Falhas</span><strong>${escapeHtml(run.failed_count ?? 0)}</strong></div><div class="mg-run-row__detail"><span>Detalhe</span><strong>${escapeHtml(detail)}</strong><small>${escapeHtml(result.known_refreshed ?? 0)} conhecido(s) atualizados · ${escapeHtml(result.known_missing ?? 0)} ausência(s) confirmada(s) · ${escapeHtml(result.pages ?? 0)} página(s)</small>${failedEndpoint ? `<small>${escapeHtml(failedEndpoint)}${result.http_status ? ` · HTTP ${escapeHtml(result.http_status)}` : ""}</small>` : ""}${requestId ? `<small>request-id: ${escapeHtml(requestId)}</small>` : ""}</div>`;
       host.append(row);
     }
   }

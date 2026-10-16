@@ -170,6 +170,21 @@ async function reconcileSku(accountId, sku, { topic = "manual", dachTenantId = n
   return result;
 }
 
+async function refreshKnownSku(account, sku) {
+  try {
+    const response = await portfolioReadService.getSku(account.id, account.dach_tenant_id, sku);
+    await catalogRepository.upsertSku(account.id, response.data, { seenAt: new Date(), httpStatus: response.status });
+  } catch (error) {
+    if (Number(error?.status) !== 404) throw error;
+    await catalogRepository.markSkuMissing(account.id, sku, {
+      httpStatus: 404, error: "SKU não encontrado no Portfólio Magalu.",
+    });
+    return { missing: true };
+  }
+  const [price, stock] = await Promise.all([syncPrice(account, sku), syncStock(account, sku)]);
+  return { missing: false, price_ok: price.ok, stock_ok: stock.ok };
+}
+
 async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = {}) {
   const account = await accountRepository.findAccountById(accountId);
   if (!account || account.status !== "active") {
@@ -197,6 +212,20 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
   let currentStage = "sku_list";
   let currentEndpoint = "/seller/v1/portfolios/skus";
   let sellerProfile = { status: "not_checked" };
+  let knownRefreshed = 0;
+  let knownProcessed = 0;
+  let knownMissing = 0;
+  const discoveryPartialStatuses = [];
+  const fullyScannedStatuses = [];
+  const progress = async (stage) => {
+    if (typeof syncRunRepository.updateRunProgress !== "function") return;
+    await syncRunRepository.updateRunProgress(run.id, {
+      scannedCount: scanned + knownProcessed, createdCount: created,
+      updatedCount: updated + knownRefreshed, failedCount: failed,
+      result: { stage, pages, known_processed: knownProcessed, known_refreshed: knownRefreshed, known_missing: knownMissing,
+        discovery_partial_statuses: discoveryPartialStatuses },
+    });
+  };
 
   try {
     // Seller profile is enrichment only. Some tenants can access portfolio SKUs while
@@ -227,14 +256,25 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
 
     for (const statusFilter of CATALOG_SYNC_STATUSES) {
       let offset = 0;
+      let partitionComplete = false;
       while (true) {
         currentStage = "sku_list";
         currentEndpoint = `/seller/v1/portfolios/skus?_offset=${offset}&_limit=${env.MAGALU_SYNC_PAGE_SIZE}&status=${statusFilter}`;
-        const page = await portfolioReadService.listSkus(account.id, account.dach_tenant_id, {
-          offset,
-          limit: env.MAGALU_SYNC_PAGE_SIZE,
-          status: statusFilter,
-        });
+        let page;
+        try {
+          page = await portfolioReadService.listSkus(account.id, account.dach_tenant_id, {
+            offset,
+            limit: env.MAGALU_SYNC_PAGE_SIZE,
+            status: statusFilter,
+            sort: "updated_at:desc",
+          });
+        } catch (error) {
+          if (Number(error?.status) === 422 && offset >= MAX_SKU_LIST_OFFSET) {
+            discoveryPartialStatuses.push(statusFilter);
+            break;
+          }
+          throw error;
+        }
         const payload = page.data && typeof page.data === "object" ? page.data : {};
         const rows = Array.isArray(payload.results) ? payload.results : [];
         pages += 1;
@@ -262,35 +302,75 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
           if (!price.ok) failed += 1;
           if (!stock.ok) failed += 1;
         });
+        await progress(`list:${statusFilter}`);
 
         const fallbackNext = offset + rows.length;
         const nextOffset = nextOffsetFromLink(payload?.meta?.links?.next, fallbackNext);
         lastCursor = `${statusFilter}:${fallbackNext}`;
-        if (nextOffset === null || rows.length === 0) break;
+        if (nextOffset === null || rows.length === 0) {
+          partitionComplete = true;
+          break;
+        }
         if (nextOffset > MAX_SKU_LIST_OFFSET) {
-          const error = new Error(`O status ${statusFilter} ultrapassou o limite de 20.000 SKUs por paginação Magalu. A sincronização parcial não removeu SKUs.`);
-          error.code = "MAGALU_CATALOG_PAGE_LIMIT";
-          throw error;
+          discoveryPartialStatuses.push(statusFilter);
+          break;
         }
         offset = nextOffset;
       }
+      if (partitionComplete) fullyScannedStatuses.push(statusFilter);
+    }
+
+    // SKUs outside the accessible list window remain in the local mirror. Refresh
+    // each known item by its direct endpoint; a confirmed 404 can safely mark it missing.
+    let afterId = 0;
+    while (true) {
+      const batch = typeof catalogRepository.listSkusNotSeenSince === "function"
+        ? await catalogRepository.listSkusNotSeenSince(account.id, startedAt, afterId, 100)
+        : [];
+      if (!batch.length) break;
+      afterId = Number(batch[batch.length - 1].id);
+      currentStage = "known_sku_refresh";
+      currentEndpoint = "/seller/v1/portfolios/skus/:sku + price + stock";
+      await mapWithConcurrency(batch, env.MAGALU_SYNC_DETAIL_CONCURRENCY, async ({ sku }) => {
+        try {
+          const result = await refreshKnownSku(account, sku);
+          if (result.missing) knownMissing += 1;
+          else if (result.price_ok === false || result.stock_ok === false) {
+            if (result.price_ok === false) failed += 1;
+            if (result.stock_ok === false) failed += 1;
+          } else knownRefreshed += 1;
+        } catch (error) {
+          failed += 1;
+          console.warn("[seller-magalu:catalog] known SKU refresh failed", { accountId: account.id, sku, error: apiErrorText(error) });
+        } finally {
+          knownProcessed += 1;
+        }
+      });
+      await progress("known_sku_refresh");
     }
 
     currentStage = "finalize";
     currentEndpoint = null;
-    const missing = await catalogRepository.markUnseenSkusMissing(account.id, startedAt, CATALOG_SYNC_STATUSES);
-    const status = failed > 0 ? "partial" : "success";
+    // Offset pages can shift while the remote catalog changes. Only a direct 404
+    // marks a saved SKU missing; never infer deletion from an incomplete list.
+    const missing = knownMissing;
+    const status = failed > 0 || discoveryPartialStatuses.length ? "partial" : "success";
     const finishedAt = new Date();
 
     await syncRunRepository.finishRun(run.id, {
       status,
       cursorOut: lastCursor,
-      scannedCount: scanned,
+      scannedCount: scanned + knownProcessed,
       createdCount: created,
-      updatedCount: updated,
+      updatedCount: updated + knownRefreshed,
       failedCount: failed,
       result: {
         pages,
+        known_processed: knownProcessed,
+        known_refreshed: knownRefreshed,
+        known_missing: knownMissing,
+        discovery_partial_statuses: discoveryPartialStatuses,
+        fully_scanned_statuses: fullyScannedStatuses,
         missing_marked: missing,
         reason,
         job_id: jobId || null,
@@ -299,22 +379,28 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
     });
     await accountRepository.setCatalogSyncState(account.id, {
       status,
-      error: failed ? `${failed} leitura(s) de preço/estoque falharam; consulte o histórico.` : null,
+      error: [discoveryPartialStatuses.length ? `Descoberta parcial em ${discoveryPartialStatuses.join(", ")}: a API limita a paginação a 20.000. SKUs salvos: ${knownRefreshed} atualizados, ${knownMissing} ausentes confirmados.` : null,
+        failed ? `${failed} leitura(s) falharam; consulte o histórico.` : null].filter(Boolean).join(" ") || null,
       syncedAt: finishedAt.toISOString(),
     });
 
-    return { status, scanned, created, updated, failed, pages, missingMarked: missing, sellerProfile };
+    return { status, scanned: scanned + knownProcessed, created, updated: updated + knownRefreshed,
+      knownProcessed, knownRefreshed, knownMissing, discoveryPartialStatuses, failed, pages, missingMarked: missing, sellerProfile };
   } catch (error) {
     const remote = remoteErrorMeta(error, currentEndpoint, currentStage);
     await syncRunRepository.finishRun(run.id, {
       status: "failed",
       cursorOut: lastCursor,
-      scannedCount: scanned,
+      scannedCount: scanned + knownProcessed,
       createdCount: created,
-      updatedCount: updated,
+      updatedCount: updated + knownRefreshed,
       failedCount: failed + 1,
       result: {
         pages,
+        known_processed: knownProcessed,
+        known_refreshed: knownRefreshed,
+        known_missing: knownMissing,
+        discovery_partial_statuses: discoveryPartialStatuses,
         reason,
         job_id: jobId || null,
         seller_profile: sellerProfile,

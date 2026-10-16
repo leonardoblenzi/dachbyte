@@ -34,6 +34,14 @@ async function markUnseenSkusMissing(accountId, syncStartedAt, scannedStatuses) 
     and (last_seen_at is null or last_seen_at < $2::timestamptz) and status = any($3::text[])`,[Number(accountId),syncStartedAt,scannedStatuses]);
   return result.rowCount||0;
 }
+async function listSkusNotSeenSince(accountId, syncStartedAt, afterId = 0, limit = 100) {
+  const { rows } = await db.query(`select id, sku from magalu.skus
+    where account_id=$1 and id>$2
+      and (last_seen_at is null or last_seen_at<$3::timestamptz)
+    order by id asc limit $4`,
+  [Number(accountId), Number(afterId)||0, syncStartedAt, Math.min(500,Math.max(1,Number(limit)||100))]);
+  return rows;
+}
 async function upsertPrice(accountId, sku, payload, { httpStatus=200,error=null,present=true }={}) {
   const fields=priceFields(payload);
   const {rows}=await db.query(`insert into magalu.prices
@@ -96,5 +104,5 @@ async function stats(accountId) {
     left join magalu.stocks st on st.account_id=s.account_id and st.sku=s.sku where s.account_id=$1`,[Number(accountId)]);
   return row||{sku_count:0,published_count:0,zero_stock_count:0,priced_count:0};
 }
-module.exports={upsertSku,markSkuMissing,markUnseenSkusMissing,upsertPrice,upsertStock,markPriceMissing,markStockMissing,
+module.exports={upsertSku,markSkuMissing,markUnseenSkusMissing,listSkusNotSeenSince,upsertPrice,upsertStock,markPriceMissing,markStockMissing,
   recordPriceError,recordStockError,listCatalog,getCatalogItem,stats};
