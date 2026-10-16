@@ -90,7 +90,7 @@
       items: [
         { id: "painel", label: "Painel", path: "/painel", icon: "grid" },
         { id: "projecao-mensal", label: "Projeção Mensal", path: "/projecao-mensal", aliases: ["/dashboard"], icon: "home" },
-        { id: "reputacao", label: "Reputação", path: "/reputacao", icon: "shield", badge: "BETA" },
+        { id: "reputacao", label: "Reputação", path: "/reputacao", icon: "shield" },
       ],
     },
     {
@@ -101,10 +101,10 @@
       items: [
         { id: "consulta-anuncios", label: "Consulta de anúncios", path: "/filtro-anuncios", icon: "search", credits: true },
         { id: "cadastro-anuncios", label: "Cadastro", path: "/anuncios/cadastro", icon: "edit" },
-        { id: "estoque-alerta", label: "Estoque", path: "/estoque", icon: "warning", badge: "BETA", credits: true },
+        { id: "estoque-alerta", label: "Estoque", path: "/estoque", icon: "warning", credits: true },
         { id: "ranking-anuncios", label: "Ranking", path: "/ranking-anuncios", icon: "chart" },
-        { id: "full", label: "Full", path: "/full", icon: "box", badge: "BETA" },
-        { id: "estrategicos", label: "Estratégicos", path: "/estrategicos", icon: "brain", badge: "BETA" },
+        { id: "full", label: "Full", path: "/full", icon: "box" },
+        { id: "estrategicos", label: "Estratégicos", path: "/estrategicos", icon: "brain" },
       ],
     },
     {
@@ -115,7 +115,7 @@
       items: [
         { id: "excluir-massa", label: "Gestão de anúncios", path: "/gestao-anuncios", icon: "edit", credits: true },
         { id: "modelo-massa", label: "Modelo em massa", path: "/modelo-massa", icon: "layers", credits: true },
-        { id: "caracteristicas", label: "Características", path: "/caracteristicas", icon: "edit", badge: "BETA", credits: true },
+        { id: "caracteristicas", label: "Características", path: "/caracteristicas", icon: "edit", credits: true },
         { id: "validar-dimensoes", label: "Validar dimensões", path: "/validar-dimensoes", icon: "ruler", credits: true },
         { id: "prazo-producao", label: "Prazo de produção", path: "/prazo", icon: "clock", credits: true },
         { id: "atacado", label: "Atacado", path: "/atacado", icon: "ticket", credits: true },
@@ -165,7 +165,7 @@
       hint: "Comercial e logística",
       icon: "operations",
       items: [
-        { id: "logistica", label: "Logistica", path: "/logistica", aliases: ["/fiscal/vendas"], icon: "chart", badge: "BETA" },
+        { id: "logistica", label: "Logistica", path: "/logistica", aliases: ["/fiscal/vendas"], icon: "chart" },
       ],
     },
     {

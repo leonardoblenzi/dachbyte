@@ -31,10 +31,6 @@ body {
   font: 14px/1.55 "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-.atacado-page {
-  padding: 18px 0 28px;
-}
-
 .atacado-page .container.atacado-shell {
   max-width: 1440px;
   margin: 0 auto;
@@ -627,10 +623,6 @@ button:disabled {
 }
 
 @media (max-width: 768px) {
-  .atacado-page {
-    padding-top: 14px;
-  }
-
   .hero-actions,
   .toolbar {
     width: 100%;

@@ -55,7 +55,7 @@ body.ops-app .ex-page,
 body.ops-app .pz-page{
   width:min(100%,1720px)!important;
   max-width:1720px!important;
-  margin:84px auto 44px!important;
+  margin:32px auto 44px!important;
   padding:0 18px 36px!important;
   min-height:calc(100vh - 110px);
 }

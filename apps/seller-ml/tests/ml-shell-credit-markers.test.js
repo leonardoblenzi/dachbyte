@@ -105,3 +105,7 @@ test("cards de conta descrevem acesso ilimitado sem chamar creditos de ilimitado
   assert.match(contaContasJs, /Acesso ilimitado/);
   assert.match(shellJs, /acesso ilimitado/);
 });
+
+test("menu do Seller ML nao exibe selos BETA", () => {
+  assert.doesNotMatch(shellJs, /badge:\s*["']BETA["']/i);
+});
