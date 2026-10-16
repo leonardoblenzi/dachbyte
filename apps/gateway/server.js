@@ -11,6 +11,7 @@ const { loadRuntimeEnv } = require("../../lib/runtimeEnv");
 const { createSupportWidgetInjector } = require("../../lib/supportWidgetInjector");
 const { DACHBYTE_BRAND } = require("../../lib/dachbyteBrand");
 const { createSuiteSessionSnapshotService } = require("./services/suiteSessionSnapshot");
+const { createSellerPortalService } = require("./services/sellerPortalService");
 
 loadRuntimeEnv({
   defaultCandidates: [
@@ -166,6 +167,11 @@ function hubConfig() {
 function suiteSessionSnapshotService() {
   const { baseUrl, token } = hubConfig();
   return createSuiteSessionSnapshotService({ baseUrl, internalToken: token });
+}
+
+function sellerPortalService() {
+  const { baseUrl, token } = hubConfig();
+  return createSellerPortalService({ baseUrl, internalToken: token });
 }
 
 async function checkSuiteModuleAccess(payload, moduleId) {
@@ -778,6 +784,30 @@ async function main() {
     res.json({ ok: true, app: "davanttiSuite", brand: DACHBYTE_BRAND.name }),
   );
 
+  app.get("/api/portal/overview", async (req, res) => {
+    const payload = readSuitePayload(req);
+    res.set("cache-control", "no-store, max-age=0");
+    if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
+    const result = await sellerPortalService().overview(payload);
+    return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
+  });
+
+  app.post("/api/portal/checkout", async (req, res) => {
+    const payload = readSuitePayload(req);
+    res.set("cache-control", "no-store, max-age=0");
+    if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
+    const result = await sellerPortalService().checkout(payload, req.body || {});
+    return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
+  });
+
+  app.post("/api/portal/renewal-intent", async (req, res) => {
+    const payload = readSuitePayload(req);
+    res.set("cache-control", "no-store, max-age=0");
+    if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
+    const result = await sellerPortalService().renewalIntent(payload, req.body?.resource_keys);
+    return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
+  });
+
   app.get("/api/suite/session", async (req, res) => {
     const payload = readSuitePayload(req);
     res.set("cache-control", "no-store, max-age=0");
@@ -867,7 +897,10 @@ async function main() {
     },
   );
 
-  app.get("/selecao-plataforma", (_req, res) => {
+  app.get("/selecao-plataforma", (req, res) => {
+    const payload = readSuitePayload(req);
+    if (!payload) return res.redirect("/login");
+    res.set("cache-control", "no-store, max-age=0");
     return res.sendFile(
       path.join(__dirname, "..", "seller-ml", "views", "selecao-plataforma.html"),
     );
