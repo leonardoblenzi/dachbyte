@@ -1201,17 +1201,18 @@ button {
   background: #eff6ff;
 }
 
-.more-options--compact .more-options__menu {
+.more-options__menu--compact {
   min-width: 170px;
 }
 
 .more-options__menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 25;
+  position: fixed;
+  z-index: 1000;
   display: grid;
   min-width: 230px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #ffffff;
@@ -3791,12 +3792,6 @@ button.dashboard-alert:hover {
 
   .more-options__trigger {
     justify-content: center;
-  }
-
-  .more-options__menu {
-    left: 0;
-    right: 0;
-    min-width: 0;
   }
 
   .report-grid {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createRoot } from "react-dom/client";
+import { createPortal, createRoot } from "react-dom/client";
 import {
   ArrowRight,
   AlertTriangle,
@@ -51,6 +51,7 @@ import {
   normalizeUiRole,
 } from "./core/access";
 import { apiFetch } from "./core/api";
+import { positionMenu } from "./core/menuPosition";
 import { downloadCsv } from "./core/csv";
 import {
   customerImportColumns,
@@ -5956,6 +5957,34 @@ function MoreOptionsMenu({ items, compact = false }) {
   const [open, setOpen] = useState(false);
   const [pendingLabel, setPendingLabel] = useState("");
   const [error, setError] = useState("");
+  const [position, setPosition] = useState(null);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const updatePosition = () => {
+      if (!triggerRef.current || !menuRef.current) return;
+      setPosition(positionMenu(triggerRef.current.getBoundingClientRect(), menuRef.current.getBoundingClientRect(), {
+        width: window.innerWidth, height: window.innerHeight,
+      }));
+    };
+    const closeOnOutsideClick = (event) => {
+      if (!triggerRef.current?.contains(event.target) && !menuRef.current?.contains(event.target)) setOpen(false);
+    };
+    const closeOnEscape = (event) => { if (event.key === "Escape") setOpen(false); };
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
 
   async function runAction(item) {
     setError("");
@@ -5972,19 +6001,19 @@ function MoreOptionsMenu({ items, compact = false }) {
 
   return (
     <div className={`more-options ${compact ? "more-options--compact" : ""}`}>
-      <button className="more-options__trigger" type="button" aria-expanded={open} onClick={() => setOpen((current) => !current)} disabled={Boolean(pendingLabel)}>
+      <button ref={triggerRef} className="more-options__trigger" type="button" aria-expanded={open} onClick={() => { setPosition(null); setOpen((current) => !current); }} disabled={Boolean(pendingLabel)}>
         <MoreVertical size={16} />
         {pendingLabel ? "Processando..." : "Mais opcoes"}
       </button>
-      {open ? (
-        <div className="more-options__menu">
+      {open ? createPortal(
+        <div ref={menuRef} className={`more-options__menu ${compact ? "more-options__menu--compact" : ""}`} style={position ? { left: position.left, top: position.top } : { visibility: "hidden" }}>
           {items.map((item) => (
             <button className={item.tone ? `more-options__item--${item.tone}` : ""} key={item.label} type="button" onClick={() => runAction(item)} disabled={Boolean(pendingLabel)}>
               {pendingLabel === item.label ? "Processando..." : item.label}
             </button>
           ))}
           {error ? <span className="more-options__error">{error}</span> : null}
-        </div>
+        </div>, document.body,
       ) : null}
     </div>
   );
