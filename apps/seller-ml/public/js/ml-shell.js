@@ -782,9 +782,12 @@
     const valueNode = document.getElementById("shell-credits-value");
     if (!button || !valueNode) return;
 
-    button.addEventListener("click", () => {
-      window.location.href = window.mlUrl("/conta/creditos");
-    });
+    if (button.dataset.creditWalletBound !== "true") {
+      button.dataset.creditWalletBound = "true";
+      button.addEventListener("click", () => {
+        window.location.href = window.mlUrl("/conta/creditos");
+      });
+    }
 
     try {
       const response = await window.fetch(window.mlUrl("/api/billing/credits"), {
@@ -819,6 +822,10 @@
       button.title = "Creditos indisponiveis no momento";
     }
   }
+
+  window.addEventListener("ml:credits-changed", () => {
+    void hydrateCreditWallet();
+  });
 
   async function hydrateAccountMenu() {
     const list = document.getElementById("shell-account-list");

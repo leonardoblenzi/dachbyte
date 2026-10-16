@@ -541,6 +541,24 @@ button:disabled {
   color: #334155;
 }
 
+.page-btn--direction {
+  padding: 0 12px;
+}
+
+.page-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.pagination-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  color: var(--at-text-soft);
+  font-weight: 800;
+}
+
 .page-btn.active {
   background: var(--at-blue);
   border-color: var(--at-blue);

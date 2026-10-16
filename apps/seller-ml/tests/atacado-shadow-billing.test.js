@@ -27,6 +27,15 @@ test("atacado não inicia aplicação quando a cotação de créditos falha", ()
   assert.match(clientSource, /Falha ao consultar o custo.*tente novamente/i);
 });
 
+test("atacado notifica o shell quando a reserva é criada e quando o job termina", () => {
+  const clientSource = fs.readFileSync(path.join(__dirname, "../public/js/atacado.js"), "utf8");
+  const shellSource = fs.readFileSync(path.join(__dirname, "../public/js/ml-shell.js"), "utf8");
+
+  assert.match(clientSource, /function notifyCreditWalletChanged/);
+  assert.match(clientSource, /new CustomEvent\("ml:credits-changed"\)/);
+  assert.match(shellSource, /addEventListener\("ml:credits-changed"/);
+});
+
 test("atacado usa apenas a operacao de aplicacao real", () => {
   assert.equal(AtacadoJobsService._test.wholesaleBillingOperationKey(), "wholesale.apply");
 });

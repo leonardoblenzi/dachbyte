@@ -371,26 +371,56 @@
     return state.filtered.slice(start, start + state.pageSize);
   }
 
+  function notifyCreditWalletChanged({ settlePending = false } = {}) {
+    window.dispatchEvent(new CustomEvent("ml:credits-changed"));
+    if (settlePending) {
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("ml:credits-changed"));
+      }, 1500);
+    }
+  }
+
   function renderPagination() {
     const host = pagination();
     host.innerHTML = "";
 
-    const totalPages = Math.max(
-      1,
-      Math.ceil(state.filtered.length / state.pageSize),
-    );
+    const model = window.CompactPagination?.buildCompactPagination?.({
+      currentPage: state.page,
+      totalPages: Math.ceil(state.filtered.length / state.pageSize),
+    });
+    if (!model || model.totalPages <= 1) return;
+    state.page = model.currentPage;
 
-    for (let page = 1; page <= totalPages; page += 1) {
+    const addPageButton = (label, page, { active = false, direction = false } = {}) => {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = `page-btn${page === state.page ? " active" : ""}`;
-      button.textContent = String(page);
+      button.className = `page-btn${active ? " active" : ""}${direction ? " page-btn--direction" : ""}`;
+      button.textContent = label;
+      button.disabled = !page;
+      if (!page) button.setAttribute("aria-disabled", "true");
       button.addEventListener("click", () => {
+        if (!page) return;
         state.page = page;
         renderTable();
       });
       host.appendChild(button);
+    };
+
+    addPageButton("Anterior", model.previousPage, { direction: true });
+    for (const item of model.items) {
+      if (item.type === "ellipsis") {
+        const ellipsis = document.createElement("span");
+        ellipsis.className = "pagination-ellipsis";
+        ellipsis.setAttribute("aria-hidden", "true");
+        ellipsis.textContent = "…";
+        host.appendChild(ellipsis);
+        continue;
+      }
+      addPageButton(String(item.page), item.page, {
+        active: item.page === model.currentPage,
+      });
     }
+    addPageButton("Próxima", model.nextPage, { direction: true });
   }
 
   function renderTable() {
@@ -432,7 +462,8 @@
       tbody.appendChild(tr);
     }
 
-    $("#tableInfo").textContent = `${state.filtered.length} resultado(s) • página ${state.page}`;
+    const totalPages = Math.max(1, Math.ceil(state.filtered.length / state.pageSize));
+    $("#tableInfo").textContent = `${state.filtered.length} resultado(s) • página ${state.page} de ${totalPages}`;
     renderPagination();
     updateStats();
   }
@@ -991,6 +1022,7 @@
         state.currentJobKind = null;
         setLoading(false, "Job finalizado.");
         stopJobsPolling();
+        notifyCreditWalletChanged({ settlePending: true });
       }
     } catch (error) {
       console.warn("Falha ao consultar job atual:", error.message);
@@ -1071,6 +1103,7 @@
 
       state.currentJobId = String(payload?.job_id || "");
       state.currentJobKind = "atacado";
+      notifyCreditWalletChanged();
       if (localJobId && state.currentJobId) {
         window.JobsPanel?.replaceId?.(localJobId, state.currentJobId);
         window.JobsPanel?.updateLocalJob?.(state.currentJobId, {
