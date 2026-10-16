@@ -800,6 +800,14 @@ async function main() {
     return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
   });
 
+  app.post("/api/portal/accounts/unlink", async (req, res) => {
+    const payload = readSuitePayload(req);
+    res.set("cache-control", "no-store, max-age=0");
+    if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
+    const result = await sellerPortalService().unlinkAccount(payload, req.body || {});
+    return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
+  });
+
   app.post("/api/portal/renewal-intent", async (req, res) => {
     const payload = readSuitePayload(req);
     res.set("cache-control", "no-store, max-age=0");
