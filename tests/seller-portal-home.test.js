@@ -31,5 +31,7 @@ test("platform selection is a navigable SaaS shell instead of a hidden-card sele
   assert.match(portal, /Contas vinculadas/);
   assert.match(portal, /Planos e cobrança/);
   assert.match(portal, /\/api\/portal\/overview/);
+  assert.match(portal, /data-activate-resource/);
+  assert.match(portal, /Contratar plano/);
   assert.doesNotMatch(portal, /class="module-card"[^>]+data-module=/);
 });
