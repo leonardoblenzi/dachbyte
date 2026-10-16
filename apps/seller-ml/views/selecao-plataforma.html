@@ -107,6 +107,22 @@
     tr:last-child td{border-bottom:0}
     td strong{font-size:.79rem}td small{display:block;color:var(--muted);margin-top:3px}
     .status-text{font-weight:800}.status-text--active{color:var(--green)}.status-text--warning{color:var(--yellow)}.status-text--danger{color:var(--red)}.status-text--muted{color:var(--muted)}
+    .account-actions{display:flex;align-items:center;gap:7px;white-space:nowrap}
+    .icon-btn{appearance:none;width:34px;height:34px;border:1px solid var(--line-strong);border-radius:8px;background:#151b23;color:#c8d0da;display:grid;place-items:center;cursor:pointer;font-size:1rem;font-weight:800;line-height:1}
+    .icon-btn:hover{background:#1c2430;border-color:#465365;color:#fff}
+    .account-hero{display:grid;grid-template-columns:52px 1fr;gap:13px;align-items:center;border:1px solid var(--line);border-radius:11px;background:#12171e;padding:14px}
+    .account-hero__mark{width:52px;height:52px;border-radius:11px;border:1px solid #364150;background:#171d26;display:grid;place-items:center;font:700 1.05rem "Rajdhani",sans-serif}
+    .account-hero h3{margin:0;font:700 1.15rem "Rajdhani",sans-serif}.account-hero small{display:block;color:var(--muted);margin-top:4px}
+    .account-details{border:1px solid var(--line);border-radius:11px;background:#11161d;padding:0 14px}
+    .account-details .detail{padding:11px 0}
+    .account-management{display:grid;gap:9px}
+    .account-management .btn{width:100%;display:flex;justify-content:center;align-items:center}
+    .management-note{border:1px solid #3a4554;border-radius:10px;background:#111821;color:#aeb8c5;padding:11px 12px;font-size:.72rem;line-height:1.55}
+    .management-note--warn{border-color:#584724;background:#1b170f;color:#d6c392}
+    .danger-zone{margin-top:4px;border:1px solid #512e31;border-radius:11px;background:#1a1113;padding:14px}
+    .danger-zone h3{margin:0;color:#ffaaaa;font:700 1rem "Rajdhani",sans-serif}.danger-zone p{margin:6px 0 12px;color:#b99da0;font-size:.72rem;line-height:1.55}
+    .unlink-confirm{display:grid;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid #4a292c}
+    .ack-row{display:flex;gap:9px;align-items:flex-start;color:#d8c7c9;font-size:.72rem;line-height:1.45}.ack-row input{margin-top:2px;accent-color:var(--red)}
     .plans{display:grid;gap:12px}
     .plan-group{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
     .plan-head{padding:14px 16px;background:#11161d;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:16px;align-items:center}
@@ -266,6 +282,39 @@
   <div class="loader" id="loader"><div class="loader__box"><span class="spinner"></span><span>Carregando seu workspace...</span></div></div>
   <div class="toast" id="toast" hidden></div>
 
+  <div class="drawer" id="account-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close-account-drawer></div>
+    <section class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="account-drawer-title">
+      <div class="drawer__head">
+        <div><div class="kicker">Conta vinculada</div><h2 id="account-drawer-title">Gerenciar conta</h2></div>
+        <button class="close" type="button" data-close-account-drawer aria-label="Fechar">×</button>
+      </div>
+      <div class="drawer__body">
+        <div class="account-hero">
+          <div class="account-hero__mark" id="account-drawer-mark">ML</div>
+          <div><h3 id="account-drawer-name">Conta</h3><small id="account-drawer-platform">Marketplace</small></div>
+        </div>
+        <div class="account-details" id="account-drawer-details"></div>
+        <div class="management-note" id="account-plan-note" hidden></div>
+        <div class="account-management" id="account-drawer-actions"></div>
+        <div class="danger-zone" id="account-danger-zone" hidden>
+          <h3>Desvincular conta</h3>
+          <p>A conta perde o acesso operacional e as credenciais OAuth são removidas do módulo. O histórico permanece no Hub.</p>
+          <button class="btn btn--danger" type="button" id="unlink-start">Desvincular conta</button>
+          <div class="unlink-confirm" id="unlink-confirm" hidden>
+            <div class="management-note management-note--warn" id="unlink-billing-warning"></div>
+            <label class="ack-row" id="unlink-ack-row"><input type="checkbox" id="unlink-ack" /> <span>Entendi que desvincular a conta não cancela automaticamente o plano ou cobranças recorrentes.</span></label>
+            <div class="field"><label for="unlink-reason">Motivo</label><input id="unlink-reason" placeholder="Ex.: conta não será mais utilizada" /></div>
+            <button class="btn btn--danger" type="button" id="unlink-confirm-button">Confirmar desvinculação</button>
+          </div>
+        </div>
+      </div>
+      <div class="drawer__foot">
+        <button class="btn btn--ghost" type="button" data-close-account-drawer>Fechar</button>
+      </div>
+    </section>
+  </div>
+
   <div class="drawer" id="purchase-drawer" aria-hidden="true">
     <div class="drawer__backdrop" data-close-drawer></div>
     <section class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
@@ -302,6 +351,8 @@
         accountFilter: "all",
         purchaseModule: null,
         purchaseResource: null,
+        purchasePurpose: null,
+        managedResourceKey: null,
         selectedRenewals: new Set(),
       };
       const goRoutes = {
@@ -420,11 +471,14 @@
         const cls=["active"].includes(status)?"status-text--active":["expiring","attention"].includes(status)?"status-text--warning":["expired","inactive"].includes(status)?"status-text--danger":"status-text--muted";
         return '<span class="status-text '+cls+'">'+esc(meta.label)+'</span>';
       }
-      function accountAction(resource){
+      function accountPrimaryAction(resource){
         if(resource.can_renew && ["expired","expiring"].includes(resource.status)) return '<button class="btn" type="button" data-renew-one="'+esc(resource.resource_key)+'">Renovar</button>';
         if(resource.can_activate) return '<button class="btn" type="button" data-activate-resource="'+esc(resource.resource_key)+'" data-activate-module="'+esc(resource.module_slug)+'">Contratar plano</button>';
         if(resource.can_enter) return '<a class="btn btn--ghost" href="'+esc(goRoutes[resource.module_slug]||"#")+'">Abrir</a>';
-        return '<button class="btn btn--ghost" type="button" data-jump-plans="'+esc(resource.module_slug)+'">Ver plano</button>';
+        return '<button class="btn btn--ghost" type="button" data-manage-account="'+esc(resource.resource_key)+'">Ver plano</button>';
+      }
+      function accountAction(resource){
+        return '<div class="account-actions">'+accountPrimaryAction(resource)+'<button class="icon-btn" type="button" data-manage-account="'+esc(resource.resource_key)+'" aria-label="Gerenciar '+esc(resource.label||"conta")+'">⋯</button></div>';
       }
       function renderAccounts(){
         const modules=(state.overview.modules||[]).filter(m=>Array.isArray(m.resources)&&m.resources.length);
@@ -455,7 +509,7 @@
               '<div><strong>'+esc(r.plan?.name||r.plan?.code||"—")+'</strong><small>'+esc(r.plan?.range_label||r.plan?.range_code||"")+'</small></div>'+
               '<div>'+statusText(r.status)+'</div><div>'+esc(formatDate(r.access_ends_at))+'</div>'+
               '<div>'+esc(formatMoney(r.plan?.monthly_price_cents))+'</div>'+
-              '<div class="plan-action">'+(r.can_renew?'<button class="btn btn--ghost" type="button" data-renew-one="'+esc(r.resource_key)+'">Renovar</button>':r.can_activate?'<button class="btn" type="button" data-activate-resource="'+esc(r.resource_key)+'" data-activate-module="'+esc(module.slug)+'">Contratar plano</button>':'<span style="color:var(--muted)">—</span>')+'</div></div>';
+              '<div class="plan-action">'+(r.can_renew?'<button class="btn btn--ghost" type="button" data-renew-one="'+esc(r.resource_key)+'">Renovar</button>':r.can_activate?'<button class="btn" type="button" data-activate-resource="'+esc(r.resource_key)+'" data-activate-module="'+esc(module.slug)+'">Contratar plano</button>':r.can_change_plan?'<button class="btn btn--ghost" type="button" data-change-plan="'+esc(r.resource_key)+'" data-change-module="'+esc(module.slug)+'">Alterar plano</button>':'<button class="btn btn--ghost" type="button" data-manage-account="'+esc(r.resource_key)+'">Gerenciar</button>')+'</div></div>';
           }).join(""):'<div class="empty" style="margin:14px">Produto instalado sem conta faturável vinculada.</div>';
           return '<section class="plan-group"><div class="plan-head"><div><h3>'+esc(module.name)+'</h3><small>'+Number(module.accounts?.total||0)+' conta(s)</small></div>'+badge(module.status)+'</div>'+rows+'</section>';
         }).join("");
@@ -495,13 +549,113 @@
 
       function bindDynamicActions(){
         document.querySelectorAll("[data-purchase]").forEach(btn=>btn.onclick=()=>openPurchase(btn.dataset.purchase));
-        document.querySelectorAll("[data-activate-resource]").forEach(btn=>btn.onclick=()=>openPurchase(btn.dataset.activateModule,btn.dataset.activateResource));
+        document.querySelectorAll("[data-activate-resource]").forEach(btn=>btn.onclick=()=>openPurchase(btn.dataset.activateModule,btn.dataset.activateResource,"activate"));
+        document.querySelectorAll("[data-change-plan]").forEach(btn=>btn.onclick=()=>openPurchase(btn.dataset.changeModule,btn.dataset.changePlan,"change_plan"));
+        document.querySelectorAll("[data-manage-account]").forEach(btn=>btn.onclick=()=>openAccountDrawer(btn.dataset.manageAccount));
         document.querySelectorAll("[data-renew-one]").forEach(btn=>btn.onclick=()=>renew([btn.dataset.renewOne]));
         document.querySelectorAll("[data-jump-accounts]").forEach(btn=>btn.onclick=()=>{state.accountFilter=btn.dataset.jumpAccounts||"all";renderAccounts();bindDynamicActions();setView("accounts")});
         document.querySelectorAll("[data-jump-plans]").forEach(btn=>btn.onclick=()=>setView("plans"));
         document.querySelectorAll("[data-account-filter]").forEach(btn=>btn.onclick=()=>{state.accountFilter=btn.dataset.accountFilter;renderAccounts();bindDynamicActions()});
         document.querySelectorAll("[data-renew-check]").forEach(input=>input.onchange=()=>{const key=input.dataset.renewCheck;input.checked?state.selectedRenewals.add(key):state.selectedRenewals.delete(key);updateRenewButton()});
         const link=$("#link-account"); if(link) link.onclick=()=>{const candidates=(state.overview.modules||[]).filter(m=>m.installed&&m.resource_required); if(candidates.length===1) window.location.href=goRoutes[candidates[0].slug]||"/selecao-plataforma"; else {setView("modules");showToast("Escolha o marketplace e use Gerenciar/Vincular conta.")}};
+      }
+
+      function managedResource(){
+        return allResources().find(resource=>resource.resource_key===state.managedResourceKey)||null;
+      }
+      function planChangeBlockedText(resource){
+        if(resource?.plan_change_blocked_reason==="pending_checkout") return "Já existe um checkout pendente para esta conta. Finalize ou aguarde esse checkout antes de trocar o plano.";
+        if(resource?.plan_change_blocked_reason==="recurring_contract") return "Esta conta possui cobrança recorrente ativa. Para evitar duas assinaturas simultâneas, a troca de plano não é iniciada por um novo checkout enquanto esse contrato estiver ativo.";
+        return "A troca de plano não está disponível para esta conta no momento.";
+      }
+      function closeAccountDrawer(){
+        $("#account-drawer").classList.remove("is-open");
+        $("#account-drawer").setAttribute("aria-hidden","true");
+        state.managedResourceKey=null;
+        $("#unlink-confirm").hidden=true;
+        $("#unlink-ack").checked=false;
+        $("#unlink-reason").value="";
+      }
+      function openAccountDrawer(resourceKey){
+        const resource=allResources().find(item=>item.resource_key===resourceKey);
+        if(!resource)return;
+        state.managedResourceKey=resourceKey;
+        $("#account-drawer-title").textContent=resource.label||"Gerenciar conta";
+        $("#account-drawer-name").textContent=resource.label||resource.external_account_id||"Conta";
+        $("#account-drawer-platform").textContent=resource.module_name+" · "+resource.resource_key;
+        $("#account-drawer-mark").textContent=moduleMarks[resource.module_slug]||resource.module_slug.slice(0,2).toUpperCase();
+        $("#account-drawer-details").innerHTML=[
+          ["Status",statusMeta[resource.status]?.label||resource.status||"—"],
+          ["Plano",resource.plan?.name||resource.plan?.code||"Sem plano"],
+          ["Faixa",resource.plan?.range_label||resource.plan?.range_code||"—"],
+          ["Vencimento",formatDate(resource.access_ends_at)],
+          ["Pedidos medidos",resource.measured_orders??"—"],
+          ["Próxima cobrança",formatDate(resource.billing_contract?.next_due_at)]
+        ].map(([label,value])=>'<div class="detail"><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong></div>').join("");
+
+        const actions=[];
+        if(resource.can_enter) actions.push('<a class="btn btn--soft" href="'+esc(goRoutes[resource.module_slug]||"#")+'">Abrir conta</a>');
+        if(resource.can_renew) actions.push('<button class="btn" type="button" data-drawer-renew>Renovar plano</button>');
+        if(resource.can_activate) actions.push('<button class="btn" type="button" data-drawer-activate>Contratar plano</button>');
+        if(resource.can_change_plan) actions.push('<button class="btn btn--ghost" type="button" data-drawer-change-plan>Alterar plano</button>');
+        $("#account-drawer-actions").innerHTML=actions.join("")||'<div class="empty">Nenhuma ação comercial disponível para esta conta.</div>';
+
+        const note=$("#account-plan-note");
+        if(resource.plan_change_blocked_reason){
+          note.hidden=false;
+          note.textContent=planChangeBlockedText(resource);
+        }else{
+          note.hidden=true;
+          note.textContent="";
+        }
+
+        $("#account-danger-zone").hidden=!resource.can_unlink;
+        $("#unlink-confirm").hidden=true;
+        $("#unlink-ack").checked=false;
+        $("#unlink-reason").value="";
+        const paid=String(resource.access_policy||"").toLowerCase()==="paid";
+        $("#unlink-ack-row").hidden=!paid;
+        $("#unlink-billing-warning").textContent=paid
+          ?"Desvincular remove o acesso operacional, mas não cancela automaticamente o plano ou uma cobrança recorrente já contratada."
+          :"A desvinculação remove as credenciais operacionais desta conta. O histórico comercial permanece preservado.";
+        $("#unlink-billing-warning").classList.toggle("management-note--warn",paid);
+
+        const renewButton=document.querySelector("[data-drawer-renew]");
+        if(renewButton) renewButton.onclick=()=>renew([resource.resource_key]);
+        const activateButton=document.querySelector("[data-drawer-activate]");
+        if(activateButton) activateButton.onclick=()=>{closeAccountDrawer();openPurchase(resource.module_slug,resource.resource_key,"activate")};
+        const changeButton=document.querySelector("[data-drawer-change-plan]");
+        if(changeButton) changeButton.onclick=()=>{closeAccountDrawer();openPurchase(resource.module_slug,resource.resource_key,"change_plan")};
+
+        $("#account-drawer").classList.add("is-open");
+        $("#account-drawer").setAttribute("aria-hidden","false");
+      }
+      async function confirmUnlink(){
+        const resource=managedResource();
+        if(!resource)return;
+        const paid=String(resource.access_policy||"").toLowerCase()==="paid";
+        if(paid&&!$("#unlink-ack").checked){
+          showToast("Confirme que você entendeu que a desvinculação não cancela o plano.",true);
+          return;
+        }
+        const button=$("#unlink-confirm-button");
+        button.disabled=true;
+        button.textContent="Desvinculando...";
+        try{
+          await api("/api/portal/accounts/unlink",{method:"POST",body:JSON.stringify({
+            resource_key:resource.resource_key,
+            reason:$("#unlink-reason").value.trim()||"customer_portal_unlink",
+            acknowledge_billing:paid?$("#unlink-ack").checked:true
+          })});
+          closeAccountDrawer();
+          await refreshOverview();
+          showToast("Conta desvinculada. O histórico foi preservado no Hub.");
+        }catch(error){
+          showToast(error.message||"Não foi possível desvincular a conta.",true);
+        }finally{
+          button.disabled=false;
+          button.textContent="Confirmar desvinculação";
+        }
       }
 
       function groupPlans(module){
@@ -514,15 +668,17 @@
         });
         return [...groups.values()];
       }
-      function openPurchase(slug,resourceKey=null){
+      function openPurchase(slug,resourceKey=null,purpose=null){
         const module=(state.overview.modules||[]).find(m=>m.slug===slug);
         if(!module)return;
         const resource=resourceKey?(module.resources||[]).find(item=>item.resource_key===resourceKey)||null:null;
         const plans=groupPlans(module);
         if(!plans.length){showToast("Este módulo ainda não possui plano publicado para autoatendimento.",true);return}
+        if(resource&&purpose==="change_plan"&&!resource.can_change_plan){showToast(planChangeBlockedText(resource),true);return}
         state.purchaseModule=module;
         state.purchaseResource=resource;
-        $("#purchase-title").textContent=resource?"Ativar "+resource.label:"Contratar "+module.name;
+        state.purchasePurpose=resource?(purpose||"activate"):null;
+        $("#purchase-title").textContent=!resource?"Contratar "+module.name:state.purchasePurpose==="change_plan"?"Alterar plano de "+resource.label:"Ativar "+resource.label;
         $("#purchase-plan").innerHTML=plans.map(p=>'<option value="'+esc(p.code)+'">'+esc(p.name)+'</option>').join("");
         const profile=state.overview.billing?.profile||{};
         $("#billing-phone").value=profile.phone||"";
@@ -535,7 +691,7 @@
         $("#purchase-drawer").classList.add("is-open");
         $("#purchase-drawer").setAttribute("aria-hidden","false");
       }
-      function closePurchase(){ $("#purchase-drawer").classList.remove("is-open");$("#purchase-drawer").setAttribute("aria-hidden","true");state.purchaseModule=null;state.purchaseResource=null; }
+      function closePurchase(){ $("#purchase-drawer").classList.remove("is-open");$("#purchase-drawer").setAttribute("aria-hidden","true");state.purchaseModule=null;state.purchaseResource=null;state.purchasePurpose=null; }
       function updatePurchaseRanges(){
         const module=state.purchaseModule;if(!module)return;
         const plans=groupPlans(module);
@@ -548,7 +704,12 @@
           orders.value=state.purchaseResource?.measured_orders??String(Number(range.min_units));
         }
         const target=state.purchaseResource?state.purchaseResource.label:module.name;
-        $("#purchase-summary").innerHTML='<strong>'+esc(target)+' · '+esc(selected?.name||"Plano")+'</strong><small>'+esc(state.purchaseResource?("Conta vinculada em "+module.name+". Escolha o plano para ativar esta conta."):selected?.description||module.description||"")+'</small><div class="purchase-price">'+esc(range?formatMoney(range.monthly_price_cents):"Preço definido pelo catálogo")+'<small>/ mês</small></div>';
+        const resourceCopy=state.purchaseResource
+          ? state.purchasePurpose==="change_plan"
+            ? "Escolha o novo plano para esta conta. O checkout só é permitido quando não há uma assinatura recorrente ativa que possa gerar cobrança duplicada."
+            : "Conta vinculada em "+module.name+". Escolha o plano para ativar esta conta."
+          : selected?.description||module.description||"";
+        $("#purchase-summary").innerHTML='<strong>'+esc(target)+' · '+esc(selected?.name||"Plano")+'</strong><small>'+esc(resourceCopy)+'</small><div class="purchase-price">'+esc(range?formatMoney(range.monthly_price_cents):"Preço definido pelo catálogo")+'<small>/ mês</small></div>';
       }
       async function confirmPurchase(){
         const module=state.purchaseModule;if(!module)return;
@@ -557,6 +718,7 @@
           const result=await api("/api/portal/checkout",{method:"POST",body:JSON.stringify({
             module:module.slug,
             resource_key:state.purchaseResource?.resource_key||undefined,
+            purpose:state.purchasePurpose||undefined,
             plan_code:$("#purchase-plan").value,
             range_code:$("#purchase-range").value,
             declared_orders:digits($("#purchase-orders").value)||undefined,
@@ -581,23 +743,31 @@
         }catch(error){showToast(error.message||"Não foi possível preparar a renovação.",true)}
       }
 
+      async function refreshOverview(){
+        state.overview=await api("/api/portal/overview");
+        renderAll();
+        return state.overview;
+      }
+
       async function logout(){
         try{await fetch("/api/auth/logout",{method:"POST",credentials:"same-origin"})}finally{window.location.href="/login"}
       }
 
       document.querySelectorAll("[data-view-target]").forEach(btn=>btn.addEventListener("click",()=>setView(btn.dataset.viewTarget)));
       document.querySelectorAll("[data-close-drawer]").forEach(btn=>btn.addEventListener("click",closePurchase));
+      document.querySelectorAll("[data-close-account-drawer]").forEach(btn=>btn.addEventListener("click",closeAccountDrawer));
+      $("#unlink-start").addEventListener("click",()=>{$("#unlink-confirm").hidden=false});
+      $("#unlink-confirm-button").addEventListener("click",confirmUnlink);
       $("#purchase-plan").addEventListener("change",updatePurchaseRanges);
       $("#purchase-range").addEventListener("change",updatePurchaseRanges);
       $("#purchase-confirm").addEventListener("click",confirmPurchase);
       $("#renew-selected").addEventListener("click",()=>renew([...state.selectedRenewals]));
       $("#logout-button").addEventListener("click",logout);
-      document.addEventListener("keydown",event=>{if(event.key==="Escape")closePurchase()});
+      document.addEventListener("keydown",event=>{if(event.key==="Escape"){closePurchase();closeAccountDrawer()}});
 
       (async()=>{
         try{
-          state.overview=await api("/api/portal/overview");
-          renderAll();
+          await refreshOverview();
           const hash=location.hash.replace("#","");
           if(["modules","accounts","plans","company"].includes(hash)) setView(hash);
         }catch(error){
