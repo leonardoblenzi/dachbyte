@@ -106,6 +106,7 @@ test("manual cash movement is transactionally attached to the open session", asy
       const text = String(sql).replace(/\s+/g, " ").trim();
       calls.push({ text, params });
       if (text === "begin" || text === "commit" || text === "rollback") return { rowCount: 0, rows: [] };
+      if (text.includes("from volt_core.company_configurations")) return { rowCount: 1, rows: [{ settings: { requireOpenCashSession: true } }] };
       if (text.includes("from volt_core.cash_sessions") && text.includes("for update")) {
         assert.deepEqual(params, ["company-a", "cas-open"]);
         return { rowCount: 1, rows: [{ id: "cas-open" }] };
@@ -139,7 +140,7 @@ test("manual cash movement is transactionally attached to the open session", asy
   }
 });
 
-test("manual cash movement is rejected when there is no open session", async () => {
+test("manual cash movement is rejected without a session when the company requires one", async () => {
   const cashService = require("./runtime/services/cashService");
   const originalWithClient = db.withClient;
   let inserted = false;
@@ -149,6 +150,7 @@ test("manual cash movement is rejected when there is no open session", async () 
       const text = String(sql).replace(/\s+/g, " ").trim();
       if (text === "begin") return { rowCount: 0, rows: [] };
       if (text === "rollback") { rolledBack = true; return { rowCount: 0, rows: [] }; }
+      if (text.includes("from volt_core.company_configurations")) return { rowCount: 1, rows: [{ settings: { requireOpenCashSession: true } }] };
       if (text.includes("from volt_core.cash_sessions") && text.includes("for update")) return { rowCount: 0, rows: [] };
       if (text.startsWith("insert into volt_core.cash_movements")) inserted = true;
       return { rowCount: 0, rows: [] };
@@ -159,10 +161,38 @@ test("manual cash movement is rejected when there is no open session", async () 
   try {
     await assert.rejects(
       () => cashService.createCashMovement("company-a", { amount: "20,00", type: "entry" }),
-      (error) => error.code === "CASH_SESSION_NOT_OPEN" && error.statusCode === 409,
+      (error) => error.code === "OPEN_CASH_SESSION_REQUIRED" && error.statusCode === 409,
     );
     assert.equal(inserted, false);
     assert.equal(rolledBack, true);
+  } finally {
+    db.withClient = originalWithClient;
+  }
+});
+
+test("manual cash movement without a required session remains unbound", async () => {
+  const cashService = require("./runtime/services/cashService");
+  const originalWithClient = db.withClient;
+  let insertedSessionId;
+  const client = {
+    async query(sql, params = []) {
+      const text = String(sql).replace(/\s+/g, " ").trim();
+      if (["begin", "commit", "rollback"].includes(text)) return { rowCount: 0, rows: [] };
+      if (text.includes("from volt_core.company_configurations")) return { rowCount: 1, rows: [{ settings: { requireOpenCashSession: false } }] };
+      if (text.includes("from volt_core.cash_sessions") && text.includes("for update")) return { rowCount: 0, rows: [] };
+      if (text.startsWith("insert into volt_core.cash_movements")) {
+        insertedSessionId = params[2];
+        return { rowCount: 1, rows: [{ id: params[0], sessionId: params[2] }] };
+      }
+      if (text.startsWith("insert into volt_core.events") || text.startsWith("insert into volt_core.integration_outbox_events")) return { rowCount: 1, rows: [] };
+      throw new Error(`Unexpected SQL in optional cash session test: ${text}`);
+    },
+  };
+  db.withClient = async (fn) => fn(client);
+  try {
+    const movement = await cashService.createCashMovement("company-a", { amount: "20,00", type: "entry" });
+    assert.equal(insertedSessionId, null);
+    assert.equal(movement.sessionId, null);
   } finally {
     db.withClient = originalWithClient;
   }

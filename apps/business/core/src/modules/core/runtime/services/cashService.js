@@ -27,6 +27,27 @@ function normalizePaymentMethod(method) {
   return aliases[normalized] || normalized;
 }
 
+async function resolveOpenCashSessionWithClient(client, companyId, settings = {}) {
+  const result = await client.query(`
+    select id
+    from volt_core.cash_sessions
+    where company_id = $1
+      and status = 'open'
+      and ($2::text is null or id = $2)
+    order by opened_at desc
+    limit 1
+    for update;
+  `, [companyId, settings.sessionId || null]);
+  if (result.rowCount) return result.rows[0];
+  if (settings.requireOpenCashSession === true) {
+    throw Object.assign(new Error("Abra o caixa antes de registrar esta operacao"), {
+      statusCode: 409,
+      code: "OPEN_CASH_SESSION_REQUIRED",
+    });
+  }
+  return null;
+}
+
 async function calculateSessionSummaryWithClient(client, companyId, session) {
   const movementResult = await client.query(`
     select
@@ -138,6 +159,9 @@ async function openCashSession(companyId, input = {}) {
       return result.rows[0];
     } catch (error) {
       await client.query("rollback").catch(() => {});
+      if (error.code === "23505") {
+        throw Object.assign(new Error("Ja existe um caixa aberto"), { statusCode: 409, code: "CASH_SESSION_ALREADY_OPEN" });
+      }
       throw error;
     }
   });
@@ -219,21 +243,16 @@ async function createCashMovement(companyId, input = {}) {
   return db.withClient(async (client) => {
     await client.query("begin");
     try {
-      const sessionResult = await client.query(`
-        select id
-        from volt_core.cash_sessions
-        where company_id = $1
-          and status = 'open'
-          and ($2::text is null or id = $2)
-        order by opened_at desc
-        limit 1
-        for update;
-      `, [companyId, input.sessionId || null]);
-      if (!sessionResult.rowCount) {
-        throw Object.assign(new Error("Abra o caixa antes de registrar uma movimentacao"), { statusCode: 409, code: "CASH_SESSION_NOT_OPEN" });
+      const rules = await client.query("select settings from volt_core.company_configurations where company_id = $1", [companyId]);
+      const session = await resolveOpenCashSessionWithClient(client, companyId, {
+        sessionId: input.sessionId || null,
+        requireOpenCashSession: rules.rows[0]?.settings?.requireOpenCashSession === true,
+      });
+      if (input.sessionId && (!session || session.id !== input.sessionId)) {
+        throw Object.assign(new Error("O caixa informado nao esta aberto"), { statusCode: 409, code: "CASH_SESSION_NOT_OPEN" });
       }
 
-      const sessionId = sessionResult.rows[0].id;
+      const sessionId = session?.id || null;
       const result = await client.query(`
         insert into volt_core.cash_movements (
           id, company_id, session_id, type, source_type, payment_method, amount, description, actor_user_id, operational_at
@@ -263,4 +282,4 @@ async function createCashMovement(companyId, input = {}) {
     }
   });
 }
-module.exports = { closeCashSession, createCashMovement, getCashSummary, listCashMovements, listCashSessions, openCashSession, __test: { calculateSessionSummaryWithClient } };
+module.exports = { closeCashSession, createCashMovement, getCashSummary, listCashMovements, listCashSessions, openCashSession, resolveOpenCashSessionWithClient, __test: { calculateSessionSummaryWithClient, resolveOpenCashSessionWithClient } };

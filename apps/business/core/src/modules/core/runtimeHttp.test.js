@@ -406,6 +406,24 @@ test("persistent payment rules keep credit card immediate and reject non-positiv
   );
 });
 
+test("cash session integrity links automatic movements to the locked open session", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const root = path.resolve(__dirname, "../../..");
+  const cashService = fs.readFileSync(path.join(root, "src/modules/core/runtime/services/cashService.js"), "utf8");
+  const salesService = fs.readFileSync(path.join(root, "src/modules/core/runtime/services/salesService.js"), "utf8");
+  const financeService = fs.readFileSync(path.join(root, "src/modules/core/runtime/services/financeService.js"), "utf8");
+  const migration = fs.readFileSync(path.join(root, "db/017_cash_session_integrity.sql"), "utf8");
+
+  assert.match(migration, /create unique index.*cash_sessions.*company_id.*where status = 'open'/is);
+  assert.match(cashService, /async function resolveOpenCashSessionWithClient\(client, companyId, settings = \{\}\)/);
+  assert.match(cashService, /status = 'open'[\s\S]*for update/i);
+  assert.match(salesService, /resolveOpenCashSessionWithClient/);
+  assert.match(salesService, /session_id, type, source_type/);
+  assert.match(financeService, /resolveOpenCashSessionWithClient/);
+  assert.match(financeService, /session_id, type, source_type/);
+});
+
 test("optical laboratory creation requires optical write permission", async () => {
   await withServer(async (baseUrl) => {
     const authToken = token({

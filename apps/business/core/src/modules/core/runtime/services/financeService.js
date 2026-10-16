@@ -5,6 +5,7 @@ const { createId } = require("../../id");
 const { listPaymentMethods: listDefaultPaymentMethods } = require("../../paymentMethods");
 const { validateCustomFields } = require("../../configuration/customFields");
 const { getCompanyConfiguration, getCompanyConfigurationWithClient } = require("./configurationService");
+const { resolveOpenCashSessionWithClient } = require("./cashService");
 const { insertAuditWithClient, insertEventWithClient, nextOperationalNumber, recordEvent } = require("./persistenceHelpers");
 
 function parseMoneyValue(value) {
@@ -213,6 +214,8 @@ async function receiveReceivable(companyId, receivableId, input = {}) {
       const nextPaid = toMoney(Number(row.paidAmount || 0) + receivedAmount);
       const nextStatus = nextPaid >= Number(row.amount) ? "paid" : "partial";
       const operationalAt = input.operationalAt || input.operational_at || input.receivedAt || new Date().toISOString();
+      const configuration = await getCompanyConfigurationWithClient(client, companyId);
+      const cashSession = await resolveOpenCashSessionWithClient(client, companyId, configuration.settings || {});
 
       const updated = await client.query(`
         update volt_core.receivables
@@ -226,12 +229,13 @@ async function receiveReceivable(companyId, receivableId, input = {}) {
 
       await client.query(`
         insert into volt_core.cash_movements (
-          id, company_id, type, source_type, source_id, payment_method, amount, description, actor_user_id, operational_at
+          id, company_id, session_id, type, source_type, source_id, payment_method, amount, description, actor_user_id, operational_at
         )
-        values ($1, $2, 'entry', 'receivable', $3, $4, $5, $6, $7, $8);
+        values ($1, $2, $3, 'entry', 'receivable', $4, $5, $6, $7, $8, $9);
       `, [
         createId("mov"),
         companyId,
+        cashSession?.id || null,
         receivableId,
         normalizePaymentMethod(input.paymentMethod || "pix"),
         receivedAmount,
@@ -518,14 +522,16 @@ async function payExpense(companyId, expenseId, input = {}) {
       const operationalAt = input.operationalAt || input.operational_at || input.paidAt || new Date().toISOString();
       const remaining = toMoney(Number(expense.remaining_amount) - amount);
       const status = remaining === 0 ? "paid" : "partial";
+      const configuration = await getCompanyConfigurationWithClient(client, companyId);
+      const cashSession = await resolveOpenCashSessionWithClient(client, companyId, configuration.settings || {});
       const updated = await client.query(`update volt_core.expenses set paid_amount = paid_amount + $3, remaining_amount = $4,
         status = $5, payment_method = $6, paid_at = case when $5 = 'paid' then now() else paid_at end, updated_at = now()
         where company_id = $1 and id = $2 returning id, name, amount, paid_amount as "paidAmount", remaining_amount as "remainingAmount", status;`,
       [companyId, expenseId, amount, remaining, status, normalizePaymentMethod(input.paymentMethod || "cash")]);
       await client.query(`insert into volt_core.cash_movements
-        (id, company_id, type, source_type, source_id, payment_method, amount, description, actor_user_id, operational_at)
-        values ($1,$2,'exit','expense',$3,$4,$5,$6,$7,$8);`,
-      [createId("mov"), companyId, expenseId, normalizePaymentMethod(input.paymentMethod || "cash"), amount,
+        (id, company_id, session_id, type, source_type, source_id, payment_method, amount, description, actor_user_id, operational_at)
+        values ($1,$2,$3,'exit','expense',$4,$5,$6,$7,$8,$9);`,
+      [createId("mov"), companyId, cashSession?.id || null, expenseId, normalizePaymentMethod(input.paymentMethod || "cash"), amount,
         `Pagamento ${expense.name}`, input.actorUserId || null, operationalAt]);
       await insertEventWithClient(client, companyId, "expense.paid", { expenseId, amount, status });
       await client.query("commit");

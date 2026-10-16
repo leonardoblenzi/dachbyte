@@ -5,6 +5,7 @@ const db = require("../../../../../db/db");
 const { createId } = require("../../id");
 const { validateCustomFields } = require("../../configuration/customFields");
 const { getCompanyConfigurationWithClient } = require("./configurationService");
+const { resolveOpenCashSessionWithClient } = require("./cashService");
 const { insertAuditWithClient, insertEventWithClient, nextOperationalNumber } = require("./persistenceHelpers");
 const { extensionRegistry } = require("../../../../platform/extensions/extensionRegistry");
 const {
@@ -273,15 +274,15 @@ function normalizeSalePayments(payments, total, soldAt) {
   return normalizedPayments;
 }
 
-async function createSaleFinancialRecords(client, companyId, sale, customer, payments, soldAt, actorUserId, sourceType = "sale") {
+async function createSaleFinancialRecords(client, companyId, sale, customer, payments, soldAt, actorUserId, sourceType = "sale", cashSessionId = null) {
   for (const payment of payments) {
     if (isImmediatePayment(payment.method)) {
       await client.query(`
         insert into volt_core.cash_movements (
-          id, company_id, type, source_type, source_id, payment_method, amount, description, actor_user_id, operational_at
-        ) values ($1, $2, 'entry', $3, $4, $5, $6, $7, $8, $9);
+          id, company_id, session_id, type, source_type, source_id, payment_method, amount, description, actor_user_id, operational_at
+        ) values ($1, $2, $3, 'entry', $4, $5, $6, $7, $8, $9, $10);
       `, [
-        createId("mov"), companyId, sourceType, sale.id, payment.method, payment.amount,
+        createId("mov"), companyId, cashSessionId, sourceType, sale.id, payment.method, payment.amount,
         `Venda #${sale.number}`, actorUserId || null, soldAt,
       ]);
     } else if (RECEIVABLE_PAYMENT_METHODS.has(payment.method)) {
@@ -518,11 +519,9 @@ async function createSale(companyId, input = {}) {
       const customer = await findCustomerWithClient(client, companyId, input.customerId, input.customer);
       const operationalRules = companyConfiguration.settings || {};
       const promisedDeliveryDate = normalizeDateInput(input.promisedDeliveryDate || input.promised_delivery_date);
+      const cashSession = deliveryPayment ? null : await resolveOpenCashSessionWithClient(client, companyId, operationalRules);
       if (deliveryPayment) {
         assertDeliveryOrderInput({ customer, promisedDeliveryDate });
-      } else if (operationalRules.requireOpenCashSession === true) {
-        const openCash = await client.query("select id from volt_core.cash_sessions where company_id=$1 and status='open' limit 1", [companyId]);
-        if (!openCash.rowCount) throw Object.assign(new Error("Abra o caixa antes de finalizar a venda"), { statusCode: 409, code: "OPEN_CASH_SESSION_REQUIRED" });
       }
       if (!customer && operationalRules.allowAnonymousCustomer === false) {
         throw Object.assign(new Error("Esta empresa exige cliente identificado na venda"), { statusCode: 400, code: "SALE_CUSTOMER_REQUIRED" });
@@ -669,6 +668,8 @@ async function createSale(companyId, input = {}) {
           normalizedPayments,
           soldAt,
           input.actorUserId,
+          "sale",
+          cashSession?.id || null,
         );
       }
 
@@ -746,12 +747,7 @@ async function completeSaleDelivery(companyId, saleId, input = {}) {
 
       const companyConfiguration = await getCompanyConfigurationWithClient(client, companyId);
       const operationalRules = companyConfiguration.settings || {};
-      if (operationalRules.requireOpenCashSession === true) {
-        const openCash = await client.query("select id from volt_core.cash_sessions where company_id=$1 and status='open' limit 1", [companyId]);
-        if (!openCash.rowCount) {
-          throw Object.assign(new Error("Abra o caixa antes de concluir a retirada"), { statusCode: 409, code: "OPEN_CASH_SESSION_REQUIRED" });
-        }
-      }
+      const cashSession = await resolveOpenCashSessionWithClient(client, companyId, operationalRules);
 
       const customer = await findCustomerWithClient(client, companyId, sale.customerId);
       if (!customer) throw deliveryError("Pedido com pagamento na entrega exige cliente cadastrado", "DELIVERY_CUSTOMER_REQUIRED");
@@ -814,7 +810,7 @@ async function completeSaleDelivery(companyId, saleId, input = {}) {
         input.actorUserId,
         deliveryAt,
       );
-      await createSaleFinancialRecords(client, companyId, updatedSale, customer, normalizedPayments, deliveryAt, input.actorUserId);
+      await createSaleFinancialRecords(client, companyId, updatedSale, customer, normalizedPayments, deliveryAt, input.actorUserId, "sale", cashSession?.id || null);
       const receipt = await createReceiptWithClient(client, companyId, updatedSale, {
         companyName: companyConfiguration.name,
         customer,
@@ -878,6 +874,8 @@ async function updateSale(companyId, saleId, input = {}) {
       }
 
       const companyConfiguration = await getCompanyConfigurationWithClient(client, companyId);
+      const operationalRules = companyConfiguration.settings || {};
+      const cashSession = await resolveOpenCashSessionWithClient(client, companyId, operationalRules);
       await extensionRegistry.runHook("sale.beforeUpdated", {
         client,
         companyId,
@@ -937,10 +935,10 @@ async function updateSale(companyId, saleId, input = {}) {
         if (Math.abs(amount) < 0.01) continue;
         await client.query(`
           insert into volt_core.cash_movements (
-            id, company_id, type, source_type, source_id, payment_method, amount, description, actor_user_id, operational_at
-          ) values ($1, $2, $3, 'sale_edit_reversal', $4, $5, $6, $7, $8, $9);
+            id, company_id, session_id, type, source_type, source_id, payment_method, amount, description, actor_user_id, operational_at
+          ) values ($1, $2, $3, $4, 'sale_edit_reversal', $5, $6, $7, $8, $9, $10);
         `, [
-          createId("mov"), companyId, amount > 0 ? "exit" : "entry", saleId, movement.paymentMethod,
+          createId("mov"), companyId, cashSession?.id || null, amount > 0 ? "exit" : "entry", saleId, movement.paymentMethod,
           Math.abs(amount), `Correcao venda #${sale.number}`, input.actorUserId || null, soldAt,
         ]);
       }
@@ -972,6 +970,7 @@ async function updateSale(companyId, saleId, input = {}) {
         soldAt,
         input.actorUserId,
         "sale_edit",
+        cashSession?.id || null,
       );
       const receipt = await createReceiptWithClient(client, companyId, updatedSale, {
         companyName: companyConfiguration.name,
@@ -1016,6 +1015,10 @@ async function cancelSale(companyId, saleId, input = {}) {
         and (paid_amount > 0 or status in ('paid','received','compensated')) limit 1;`, [companyId, saleId]);
       if (settled.rowCount) throw Object.assign(new Error("Venda possui recebimento baixado e nao pode ser cancelada"), { statusCode: 409, code: "SALE_HAS_SETTLED_RECEIVABLE" });
 
+      const companyConfiguration = await getCompanyConfigurationWithClient(client, companyId);
+      const operationalRules = companyConfiguration.settings || {};
+      const cashSession = await resolveOpenCashSessionWithClient(client, companyId, operationalRules);
+
       await releaseSaleReservationsWithClient(client, companyId, saleId, input.actorUserId, "sale_canceled");
 
       const inventory = await client.query("select product_id, quantity from volt_core.inventory_movements where company_id = $1 and source_type = 'sale' and source_id = $2", [companyId, saleId]);
@@ -1038,15 +1041,14 @@ async function cancelSale(companyId, saleId, input = {}) {
         const amount = Number(movement.amount || 0);
         if (Math.abs(amount) < 0.01) continue;
         await client.query(`insert into volt_core.cash_movements
-          (id, company_id, type, source_type, source_id, payment_method, amount, description, actor_user_id)
-          values ($1,$2,$3,'sale_reversal',$4,$5,$6,$7,$8);`,
-        [createId("mov"), companyId, amount > 0 ? "exit" : "entry", saleId, movement.payment_method, Math.abs(amount),
+          (id, company_id, session_id, type, source_type, source_id, payment_method, amount, description, actor_user_id)
+          values ($1,$2,$3,$4,'sale_reversal',$5,$6,$7,$8,$9);`,
+        [createId("mov"), companyId, cashSession?.id || null, amount > 0 ? "exit" : "entry", saleId, movement.payment_method, Math.abs(amount),
           `Estorno venda #${sale.number}`, input.actorUserId || null]);
       }
 
       await client.query("update volt_core.receivables set status = 'canceled', updated_at = now() where company_id = $1 and sale_id = $2", [companyId, saleId]);
 
-      const companyConfiguration = await getCompanyConfigurationWithClient(client, companyId);
       await extensionRegistry.runHook("sale.beforeCanceled", {
         client,
         companyId,
