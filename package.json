@@ -28,7 +28,7 @@
     "ml:infra:up": "docker compose -f docker-compose.ml.yml up -d",
     "ml:infra:down": "docker compose -f docker-compose.ml.yml down",
     "hub:shopee-resources:migrate": "node scripts/migrate-shopee-resources-to-hub.js",
-    "test:architecture": "node --test tests/app-layout-contract.test.js tests/gateway-product-boundary.test.js tests/runtime-start-express-app.test.js tests/vps-compose-contract.test.js tests/vps-session-forwarding.test.js",
+    "test:architecture": "node --test tests/app-layout-contract.test.js tests/gateway-product-boundary.test.js tests/runtime-start-express-app.test.js tests/vps-compose-contract.test.js tests/vps-session-forwarding.test.js tests/seller-portal-home.test.js",
     "vps:config": "docker compose --env-file infra/env/compose.env -f infra/compose.vps.yml config --quiet",
     "ads:start": "node apps/ads/start.js",
     "ads:worker": "node apps/ads/worker.js",
