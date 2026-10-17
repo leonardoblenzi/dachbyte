@@ -295,6 +295,26 @@ async function refreshSuiteSessionPayload(payload) {
   const email = normalizeEmail(payload?.email);
   if (!tenantId || !userId || !email) return null;
 
+  if (tenantId === `platform-${userId}` && payload?.subscription?.is_master === true) {
+    let allowedModules;
+    try {
+      allowedModules = await resolveAllowedModules({ tenantId, userId });
+    } catch (_error) {
+      return { unavailable: true };
+    }
+    return {
+      identity: {
+        tenantId,
+        userId,
+        email,
+        name: String(payload.name || email).trim(),
+      },
+      visibleModules: allowedModules,
+      allowedModules,
+      subscription: buildMasterSubscriptionSession(payload.subscription),
+    };
+  }
+
   const portalResult = await callHubWithRetry("/v1/internal/portal/overview", {
     tenant_id: tenantId,
     user_id: userId,
@@ -845,13 +865,18 @@ router.post("/login", express.json({ limit: "200kb" }), async (req, res) => {
     if (isMaster) {
       subscription = buildMasterSubscriptionSession(subscription);
     }
+    const platformMaster = isMaster && isPlatformIdentityPayload(login.payload);
     const allowedModules = subscription.active
-      ? isMaster
-        ? visibleModules
-        : await resolveAllowedModules(identity)
+      ? platformMaster
+        ? await resolveAllowedModules(identity)
+        : isMaster
+          ? visibleModules
+          : await resolveAllowedModules(identity)
       : [];
-    const sessionVisibleModules = isMaster
-      ? visibleModules
+    const sessionVisibleModules = platformMaster
+      ? allowedModules
+      : isMaster
+        ? visibleModules
       : visibleModules.length
         ? visibleModules
         : allowedModules;

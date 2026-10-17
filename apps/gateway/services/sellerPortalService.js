@@ -11,6 +11,21 @@ function normalizeIdentity(identity = {}) {
   };
 }
 
+const PLATFORM_SELLER_MODULES = [
+  { slug: "ml", name: "Mercado Livre" },
+  { slug: "shopee", name: "Shopee" },
+  { slug: "magalu", name: "Magalu" },
+  { slug: "tracking", name: "Tracking" },
+  { slug: "davanttilog", name: "DACHBYTE Log" },
+  { slug: "madeira", name: "Madeira" },
+  { slug: "skuleader", name: "SKU Tracker" },
+];
+
+function isPlatformMaster(identity, resolved) {
+  return resolved.tenant_id === `platform-${resolved.user_id}` &&
+    identity?.subscription?.is_master === true;
+}
+
 function createSellerPortalService({ baseUrl, internalToken, fetchImpl = fetch }) {
   const hubBaseUrl = normalizeBaseUrl(baseUrl);
   const token = String(internalToken || "").trim();
@@ -56,6 +71,61 @@ function createSellerPortalService({ baseUrl, internalToken, fetchImpl = fetch }
           ok: false,
           status: 401,
           payload: { ok: false, error: "suite_identity_incomplete" },
+        };
+      }
+      if (isPlatformMaster(identity, resolved)) {
+        const checks = await Promise.all(PLATFORM_SELLER_MODULES.map(async (module) => ({
+          module,
+          result: await post("/v1/access/check", {
+            ...resolved,
+            module: module.slug,
+            action: "PORTAL_OVERVIEW",
+          }),
+        })));
+        const failed = checks.find(({ result }) => !result.ok);
+        if (failed) return failed.result;
+        const allowed = checks
+          .filter(({ result }) => result.payload?.allow === true)
+          .map(({ module }) => ({
+            slug: module.slug,
+            name: module.name,
+            installed: true,
+            user_allowed: true,
+            resource_required: false,
+            status: "active",
+            can_enter: true,
+            can_purchase: false,
+            can_manage: false,
+            accounts: { total: 0, active: 0, expiring: 0, expired: 0, inactive: 0 },
+            resources: [],
+            catalog_plans: [],
+          }));
+        return {
+          ok: true,
+          status: 200,
+          payload: {
+            ok: true,
+            platform_operator: true,
+            tenant: { tenant_id: resolved.tenant_id, name: "DACHBYTE Seller", access_state: "active" },
+            user: {
+              user_id: resolved.user_id,
+              name: String(identity.name || identity.email || "Usuário").trim(),
+              email: String(identity.email || "").trim(),
+              role: "master",
+              can_manage_billing: false,
+            },
+            billing: { profile_complete: false, profile: {} },
+            modules: allowed,
+            alerts: [],
+            summary: {
+              installed_modules: allowed.length,
+              available_modules: 0,
+              total_accounts: 0,
+              active_accounts: 0,
+              expiring_accounts: 0,
+              expired_accounts: 0,
+            },
+          },
         };
       }
       return post("/v1/internal/portal/overview", resolved);

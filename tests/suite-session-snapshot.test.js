@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 
 const { createSuiteSessionSnapshotService } = require("../apps/gateway/services/suiteSessionSnapshot");
 
-test("builds a fresh Seller-only snapshot from Hub access", async () => {
+test("builds a fresh Seller-only snapshot from the Hub portal overview", async () => {
   const requests = [];
   const service = createSuiteSessionSnapshotService({
     baseUrl: "https://paymentcontrol.example",
@@ -15,17 +15,13 @@ test("builds a fresh Seller-only snapshot from Hub access", async () => {
       return {
         ok: true,
         json: async () => ({
-          allow: true,
-          name: "Drossi",
-          email: "cadastro4drossi@gmail.com",
-          modules: ["ml", "magalu", "dach_ads"],
-          seller_modules: ["ml", "magalu"],
-          subscription_status: "active",
-          subscription_active: true,
-          expires_at: "2026-10-24T00:00:00.000Z",
-          days_until_expiration: 30,
-          renewal_url: "https://hub.example/renew",
-          renewable_resources: [],
+          ok: true,
+          user: { name: "Drossi", email: "cadastro4drossi@gmail.com" },
+          modules: [
+            { slug: "ml", installed: true, can_enter: true },
+            { slug: "magalu", installed: true, can_enter: true },
+            { slug: "dach_ads", installed: true, can_enter: true },
+          ],
         }),
       };
     },
@@ -42,24 +38,27 @@ test("builds a fresh Seller-only snapshot from Hub access", async () => {
     ok: true,
     logged: true,
     user: { name: "Drossi", email: "cadastro4drossi@gmail.com" },
-    entitlements: { modules: ["ml", "magalu"], seller_modules: ["ml", "magalu"] },
+    entitlements: {
+      modules: ["ml", "magalu"],
+      seller_modules: ["ml", "magalu"],
+      visible_modules: ["ml", "magalu"],
+    },
     subscription: {
       status: "active",
       active: true,
-      expires_at: "2026-10-24T00:00:00.000Z",
-      days_until_expiration: 30,
-      renewal_url: "https://hub.example/renew",
+      expires_at: null,
+      days_until_expiration: null,
+      renewal_url: null,
       renewable_resources: [],
     },
+    portal: true,
   });
   assert.equal(requests.length, 1);
-  assert.equal(requests[0].url, "https://paymentcontrol.example/v1/access/check");
+  assert.equal(requests[0].url, "https://paymentcontrol.example/v1/internal/portal/overview");
   assert.equal(requests[0].options.headers.authorization, "Bearer test-internal-token");
   assert.deepEqual(JSON.parse(requests[0].options.body), {
     tenant_id: "tenant-drossi",
     user_id: "user-drossi",
-    module: "suite",
-    action: "SESSION",
   });
 });
 
@@ -82,16 +81,18 @@ test("fails closed when the Hub denies the suite session", async () => {
   });
 });
 
-test("keeps Seller modules active when Hub authorizes the suite but omits optional billing fields", async () => {
+test("keeps Seller modules active when the portal omits optional billing fields", async () => {
   const service = createSuiteSessionSnapshotService({
     baseUrl: "https://paymentcontrol.example",
     internalToken: "test-internal-token",
     fetchImpl: async () => ({
       ok: true,
       json: async () => ({
-        allow: true,
-        status: "active",
-        seller_modules: ["ml", "magalu"],
+        ok: true,
+        modules: [
+          { slug: "ml", installed: true, can_enter: true },
+          { slug: "magalu", installed: true, can_enter: true },
+        ],
       }),
     }),
   });

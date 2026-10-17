@@ -21,6 +21,9 @@ test("gateway exposes authenticated Seller portal endpoints", () => {
 test("suite authentication tries identity-level portal login before module fallback", () => {
   assert.match(auth, /\/v1\/internal\/portal\/auth\/verify/);
   assert.match(auth, /\/v1\/internal\/portal\/overview/);
+  assert.match(auth, /tenantId === `platform-\$\{userId\}`/);
+  assert.match(auth, /const platformMaster = isMaster && isPlatformIdentityPayload\(login\.payload\)/);
+  assert.match(auth, /platformMaster\s*\? await resolveAllowedModules\(identity\)/);
 });
 
 test("platform selection is a navigable SaaS shell instead of a hidden-card selector", () => {
