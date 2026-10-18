@@ -2949,6 +2949,10 @@ function CustomerDetailPage({ customer, data, onAction, onBack, configuration, r
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountError, setAccountError] = useState("");
   const [accountRevision, setAccountRevision] = useState(0);
+  useEffect(() => {
+    if (!customer?.id || !runtimeData?.loadResource) return;
+    void runtimeData.loadResource("prescriptions", { page: 1, pageSize: 50, customerId: customer.id }, { silent: true });
+  }, [customer?.id, runtimeData?.loadResource]);
   const localSales = customerSales(customer, data);
   const sales = account
     ? ((account.access?.sales === false ? [] : (account.sales || []).map(mapCustomerAccountSale)))

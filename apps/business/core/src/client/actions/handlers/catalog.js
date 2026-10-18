@@ -392,7 +392,7 @@ export function createCatalogSubmitHandlers(context) {
         });
         const opticalSale = Boolean(values.extensions?.["vertical.optical"]);
         await refreshRuntimeWorkspace({
-          resources: opticalSale ? ["serviceOrders", "opticalOrders"] : [],
+          resources: opticalSale ? ["serviceOrders", "opticalOrders", "prescriptions"] : [],
         });
         notify(values.paymentTiming === "delivery"
           ? "Pedido criado. O pagamento sera informado na retirada."
@@ -411,7 +411,7 @@ export function createCatalogSubmitHandlers(context) {
         products: current.products.map((item) => {
           const saleItem = saleItems.find((candidate) => candidate.product.sku === item.sku);
           if (!saleItem || (item.type === "Servico" || item.category === "Servico")) return item;
-          const nextStock = Math.max(0, Number(item.stock || 0) - saleItem.quantity);
+          const nextStock = Number(item.stock || 0) - saleItem.quantity;
           const next = { ...item, stock: nextStock };
           return { ...next, status: productStatus(next) };
         }),

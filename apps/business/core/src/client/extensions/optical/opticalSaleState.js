@@ -74,7 +74,7 @@ function deriveOpticalSaleState({ data, draft, productQuery, saleFilter }) {
   const paymentTotal = draft.payments.reduce((sum, payment) => sum + parseMoney(payment.amount), 0);
   const remaining = Math.max(0, total - paymentTotal);
   const change = draft.payments.some((payment) => payment.method === "cash") ? Math.max(0, paymentTotal - total) : 0;
-  const optical = isOpticalSaleCart(draft.cart);
+  const optical = isOpticalSaleCart(draft.cart) || draft.prescriptionMode === "now" || draft.prescriptionMode === "existing";
   const cartItemCount = draft.cart.reduce((sum, item) => sum + item.quantity, 0);
   const needsCustomerForOptical = optical && !customer;
   const isPaymentOnDelivery = draft.paymentTiming === "delivery";

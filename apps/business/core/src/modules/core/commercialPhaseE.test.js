@@ -319,7 +319,7 @@ test("phase E optical sale and cancellation refresh OP and OS instead of keeping
   const client = fs.readFileSync(path.join(__dirname, "..", "..", "client", "main.jsx"), "utf8");
   const saleBlock = catalog.slice(catalog.indexOf("async sale(values)"));
   assert.match(saleBlock, /values\.extensions\?\.\["vertical\.optical"\]/);
-  assert.match(saleBlock, /refreshRuntimeWorkspace\(\{\s*resources:\s*opticalSale \? \["serviceOrders",\s*"opticalOrders"\] : \[\],?\s*\}\)/);
+  assert.match(saleBlock, /refreshRuntimeWorkspace\(\{\s*resources:\s*opticalSale \? \["serviceOrders",\s*"opticalOrders",\s*"prescriptions"\] : \[\],?\s*\}\)/);
   assert.match(shared, /applyConfirmedSaleCancellation/);
   assert.match(shared, /resources:\s*values\.collection === "sales" \? SALE_MUTATION_REFRESH_RESOURCES : \[\]/);
   assert.match(client, /async function refreshRuntimeWorkspace\(\{ resources = \[\] \} = \{\}\)/);

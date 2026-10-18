@@ -10,7 +10,6 @@ const { resolveOperationalTimestamp } = require("./operationalTimestamp");
 const { insertAuditWithClient, insertEventWithClient, nextOperationalNumber } = require("./persistenceHelpers");
 const { extensionRegistry } = require("../../../../platform/extensions/extensionRegistry");
 const {
-  assertAvailableStockWithClient,
   consumeSaleReservationsWithClient,
   createSaleReservationsWithClient,
   releaseSaleReservationsWithClient,
@@ -558,20 +557,6 @@ async function createSale(companyId, input = {}) {
         companyId,
         rows: preparedItems.map((entry) => entry.product),
       }, companyConfiguration);
-
-      const requestedStock = new Map();
-      for (const item of preparedItems.filter((entry) => entry.product.trackStock)) {
-        requestedStock.set(item.product.id, (requestedStock.get(item.product.id) || 0) + item.quantity);
-      }
-      for (const [productId, requested] of requestedStock) {
-        await assertAvailableStockWithClient(
-          client,
-          companyId,
-          productId,
-          requested,
-          "Estoque disponivel insuficiente para finalizar a venda",
-        );
-      }
 
       const subtotal = toMoney(preparedItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0));
       const discountTotal = toMoney(preparedItems.reduce((sum, item) => sum + item.discount, 0));
