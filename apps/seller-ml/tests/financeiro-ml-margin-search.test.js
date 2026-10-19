@@ -52,6 +52,38 @@ test("SKU lookup includes every matching listing and not unrelated snapshot item
   assert.deepEqual(rows.map((row) => row.item_id), ["MLB2222222222", "MLB3333333333"]);
 });
 
+test("single search term unites exact SKU, exact EAN and product-title matches", () => {
+  const snapshotItems = [
+    { item_id: "MLB1111111111", seller_id: 123, reference_sku: "ABC-10", title: "Mesa" },
+    { item_id: "MLB2222222222", seller_id: 123, eans: ["7891234567890"], title: "Sofá" },
+    { item_id: "MLB3333333333", seller_id: 123, title: "Mesa ABC-10" },
+    { item_id: "MLB4444444444", seller_id: 456, title: "Mesa ABC-10" },
+    { item_id: "MLB5555555555", seller_id: 123, title: "Código 7891234567890 sem EAN" },
+  ];
+  assert.deepEqual(service._test.selectMarginCandidates({
+    query: "ABC-10", sellerId: 123, snapshotItems,
+  }).map((item) => item.item_id), ["MLB1111111111", "MLB3333333333"]);
+  assert.deepEqual(service._test.selectMarginCandidates({
+    query: "7891234567890", sellerId: 123, snapshotItems,
+  }).map((item) => item.item_id), ["MLB2222222222"]);
+  assert.deepEqual(service._test.selectMarginCandidates({
+    query: "789123456789", sellerId: 123, snapshotItems,
+  }), []);
+});
+
+test("EAN lookup scopes catalog matches by account and seller", async () => {
+  let captured;
+  const rows = await service._test.lookupMarginEanMatches("drossi", 123, "7891234567890", async (sql, values) => {
+    captured = { sql, values };
+    return { rows: [{ mlb: "MLB1111111111", variation_id: "2" }] };
+  });
+  assert.deepEqual(captured.values, ["drossi", "123", "7891234567890"]);
+  assert.match(captured.sql, /account_key\s*=\s*\$1/);
+  assert.match(captured.sql, /seller_id\s*=\s*\$2/);
+  assert.match(captured.sql, /eans\s*\?\s*\$3/);
+  assert.deepEqual(rows, [{ mlb: "MLB1111111111", variation_id: "2" }]);
+});
+
 test("margin candidate resolution loads an MLB outside the snapshot", async () => {
   const calls = [];
   const candidates = await service._test.resolveMarginCandidates({
@@ -75,6 +107,140 @@ test("margin candidate resolution propagates direct lookup failures", async () =
     context: {},
     targetedLookup: async () => { throw new Error("ML unavailable"); },
   }), /ML unavailable/);
+});
+
+test("exact MLB keeps sold orders in scope when listing lookup has no candidate", async () => {
+  const itemIds = service._test.resolveMarginOrderItemIds("MLB6827582394", []);
+  const result = await service._test.buildOrderFinancials({
+    state: {}, seller: { id: 123 }, range: {}, itemIds,
+    itemFilterActive: true, limit: 10, itemsById: new Map(), costMap: new Map(),
+    taxPct: 0, accountKey: null, includeGrossAdjustments: false,
+    ordersOverride: [{ id: 1, order_items: [
+      { item: { id: "MLB6827582394", seller_sku: "111915-110193" }, quantity: 1, unit_price: 517.73 },
+      { item: { id: "MLB9999999999" }, quantity: 1, unit_price: 200 },
+    ] }],
+  });
+  assert.equal(result.orders.length, 1);
+  assert.deepEqual(result.orders[0].order_items.map((row) => row.mlb), ["MLB6827582394"]);
+});
+
+test("historical SKU and product title match order items without listing candidates", async () => {
+  const ordersOverride = [{ id: 1, order_items: [
+    { item: { id: "MLB1111111111", title: "Painel Luana Fendi", seller_sku: "ABC-10" }, quantity: 1, unit_price: 100 },
+    { item: { id: "MLB2222222222", title: "Mesa Retrô", seller_sku: "XYZ-20" }, quantity: 1, unit_price: 200 },
+  ] }];
+  const base = {
+    state: {}, seller: { id: 123 }, range: {}, itemIds: [], itemFilterActive: true,
+    limit: 10, itemsById: new Map(), costMap: new Map(), taxPct: 0,
+    accountKey: null, includeGrossAdjustments: false, ordersOverride,
+  };
+  const bySku = await service._test.buildOrderFinancials({ ...base, searchTerm: "ABC-10" });
+  assert.deepEqual(bySku.orders[0].order_items.map((row) => row.mlb), ["MLB1111111111"]);
+  const byName = await service._test.buildOrderFinancials({ ...base, searchTerm: "luana" });
+  assert.deepEqual(byName.orders[0].order_items.map((row) => row.mlb), ["MLB1111111111"]);
+  const missing = await service._test.buildOrderFinancials({ ...base, searchTerm: "inexistente" });
+  assert.deepEqual(missing.orders, []);
+  const statusScoped = await service._test.buildOrderFinancials({
+    ...base, searchTerm: "luana", status: "active",
+  });
+  assert.deepEqual(statusScoped.orders, []);
+});
+
+test("EAN catalog match limits orders to the identified variation", async () => {
+  const result = await service._test.buildOrderFinancials({
+    state: {}, seller: { id: 123 }, range: {}, itemIds: [], itemFilterActive: true,
+    searchTerm: "7891234567890",
+    eanMatches: [{ mlb: "MLB1111111111", variation_id: "1" }],
+    limit: 10, itemsById: new Map(), costMap: new Map(), taxPct: 0,
+    accountKey: null, includeGrossAdjustments: false,
+    ordersOverride: [{ id: 1, order_items: [
+      { item: { id: "MLB1111111111", variation_id: "1" }, quantity: 1, unit_price: 100 },
+      { item: { id: "MLB1111111111", variation_id: "2" }, quantity: 1, unit_price: 200 },
+    ] }],
+  });
+  assert.deepEqual(result.orders[0].order_items.map((row) => row.variation_id), ["1"]);
+  assert.equal(result.summary.period_revenue, 100);
+});
+
+test("historical EAN without a catalog or listing link does not infer another product", async () => {
+  const result = await service._test.buildOrderFinancials({
+    state: {}, seller: { id: 123 }, range: {}, itemIds: [], itemFilterActive: true,
+    searchTerm: "7891234567890", eanMatches: [], limit: 10,
+    itemsById: new Map(), costMap: new Map(), taxPct: 0,
+    accountKey: null, includeGrossAdjustments: false,
+    ordersOverride: [{ id: 1, order_items: [
+      { item: { id: "MLB1111111111", seller_sku: "ABC-10" }, quantity: 1, unit_price: 100 },
+    ] }],
+  });
+  assert.deepEqual(result.orders, []);
+});
+
+test("EAN from listing detail selects only its matching variation", async () => {
+  const detail = {
+    item_id: "MLB1111111111", eans: ["7891234567890"], item_eans: [],
+    variation_eans: [{ variation_id: "1", eans: ["7891234567890"] }],
+  };
+  const result = await service._test.buildOrderFinancials({
+    state: {}, seller: { id: 123 }, range: {}, itemIds: [detail.item_id],
+    itemFilterActive: true, searchTerm: "7891234567890", limit: 10,
+    itemsById: new Map([[detail.item_id, detail]]), costMap: new Map(),
+    taxPct: 0, accountKey: null, includeGrossAdjustments: false,
+    ordersOverride: [{ id: 1, order_items: [
+      { item: { id: detail.item_id, variation_id: "1" }, quantity: 1, unit_price: 100 },
+      { item: { id: detail.item_id, variation_id: "2" }, quantity: 1, unit_price: 200 },
+    ] }],
+  });
+  assert.deepEqual(result.orders[0].order_items.map((row) => row.variation_id), ["1"]);
+});
+
+test("SKU and product-title union keeps both pricing rows", () => {
+  const result = service._test.selectMarginPricingCandidates([
+    { item_id: "MLB1111111111", reference_sku: "ABC-10", title: "Mesa" },
+    { item_id: "MLB2222222222", reference_sku: "XYZ-20", title: "Mesa ABC-10" },
+  ], "ABC-10");
+  assert.deepEqual(result.rows.map((row) => row.item_id), ["MLB1111111111", "MLB2222222222"]);
+});
+
+test("EAN pricing keeps only the matching variation", () => {
+  const result = service._test.selectMarginPricingCandidates([{
+    item_id: "MLB1111111111", reference_sku: "", title: "Sofá", eans: ["7891234567890"],
+    item_eans: [],
+    variation_skus: [
+      { variation_id: "1", reference_sku: "SOFA-A" },
+      { variation_id: "2", reference_sku: "SOFA-B" },
+    ],
+    variation_eans: [{ variation_id: "1", eans: ["7891234567890"] }],
+  }], "7891234567890");
+  assert.deepEqual(result.rows.map((row) => row.variation_id), ["1"]);
+});
+
+test("EAN pricing keeps the matching variation when the listing also has a common SKU", () => {
+  const result = service._test.selectMarginPricingCandidates([{
+    item_id: "MLB1111111111", reference_sku: "SOFA", title: "Sofá",
+    eans: ["7891234567890"], item_eans: [],
+    variation_skus: [
+      { variation_id: "1", reference_sku: "SOFA-A", price: 100 },
+      { variation_id: "2", reference_sku: "SOFA-B", price: 200 },
+    ],
+    variation_eans: [{ variation_id: "2", eans: ["7891234567890"] }],
+  }], "7891234567890");
+  assert.deepEqual(result.rows.map((row) => row.variation_id), ["2"]);
+});
+
+test("margin XLSX reuses the same identifier search", async () => {
+  const original = service.listMargin;
+  let forwarded;
+  try {
+    service.listMargin = async (query) => {
+      forwarded = query;
+      return { filters: { date_from: "2026-10-13", date_to: "2026-10-19" }, period_rows: [] };
+    };
+    const file = await service.exportMargin({ view: "period", q: "MLB6827582394" }, {});
+    assert.equal(forwarded.q, "MLB6827582394");
+    assert.equal(file.contentType, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  } finally {
+    service.listMargin = original;
+  }
 });
 
 test("an active margin search with no matching IDs never includes unrelated orders", async () => {

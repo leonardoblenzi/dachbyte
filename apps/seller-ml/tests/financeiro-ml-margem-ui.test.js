@@ -18,6 +18,18 @@ const css = fs.readFileSync(
   "utf8",
 );
 
+test("margin page loads the shared jobs panel stylesheet", () => {
+  assert.match(html, /<link rel="stylesheet" href="\/ml\/css\/promo-jobs\.css\?v=[^"]+"\s*\/>/);
+});
+
+test("margin search advertises all supported identifiers and product name", () => {
+  assert.match(html, /name="q"[^>]*placeholder="MLB, SKU, EAN ou produto"/);
+});
+
+test("margin explains when a historical sale has no listing estimate", () => {
+  assert.match(js, /Pedidos encontrados; nenhuma estimativa de anuncio disponivel para este recorte\./);
+});
+
 test("margin search reports no results instead of a generic loaded status", () => {
   assert.match(js, /Nenhum resultado para a busca e os filtros selecionados\./);
   assert.match(js, /Anuncio encontrado, mas sem pedidos no periodo selecionado\./);
@@ -135,7 +147,7 @@ test("keeps nowrap styles aligned with period result columns", () => {
 });
 
 test("bumps the margin assets cache keys", () => {
-  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=20/);
+  assert.match(html, /\/ml\/js\/financeiro-ml-margem\.js\?v=21/);
   assert.match(html, /\/ml\/css\/financeiro-ml\.css\?v=2026100103/);
 });
 

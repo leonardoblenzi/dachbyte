@@ -919,6 +919,8 @@
         setStatus("Nenhum resultado para a busca e os filtros selecionados.", "info");
       } else if (hasSearch && !state.periodRows.length && !Number(data.summary?.orders_matched || 0)) {
         setStatus("Anuncio encontrado, mas sem pedidos no periodo selecionado.", "info");
+      } else if (hasSearch && state.periodRows.length && !state.equilibriumRows.length) {
+        setStatus("Pedidos encontrados; nenhuma estimativa de anuncio disponivel para este recorte.", "info");
       } else if (data.meta?.partial) {
         setStatus("Vendas carregadas; a precificacao usa um recorte de anuncios da conta.", "info");
       } else {

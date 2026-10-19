@@ -205,11 +205,20 @@ function classifyMarginSearch(value) {
   return /\s/.test(term) ? "text" : "sku_or_text";
 }
 
+function isProductCodeSearch(value) {
+  return /^\d{8,14}$/.test(normalizeString(value));
+}
+
 function itemHasExactSku(item = {}, value = "") {
   const sku = normalizeSku(value);
   return Boolean(sku) && [item.reference_sku, ...(item.reference_skus || []),
     ...(item.variation_skus || []).map((row) => row.reference_sku)]
     .some((candidate) => normalizeSku(candidate) === sku);
+}
+
+function itemHasExactEan(item = {}, value = "") {
+  const wanted = normalizeString(value);
+  return Boolean(wanted) && (item.eans || []).some((ean) => normalizeString(ean) === wanted);
 }
 
 function selectMarginCandidates({ query = "", sellerId = null, status = "all", snapshotItems = [], targetedItems = [] } = {}) {
@@ -224,15 +233,10 @@ function selectMarginCandidates({ query = "", sellerId = null, status = "all", s
   const unique = (items) => Array.from(new Map(items.map((item) => [normalizeMlb(item.item_id), item])).values());
   if (kind === "none") return unique(snapshot);
   if (kind === "mlb") return unique([...snapshot, ...targeted].filter((item) => normalizeMlb(item.item_id) === normalizeMlb(term)));
-  if (kind === "sku_or_text") {
-    const matches = unique([...snapshot, ...targeted].filter((item) => itemHasExactSku(item, term)));
-    if (matches.length) return matches;
-  }
   const q = term.toLowerCase();
-  return unique(snapshot.filter((item) => textIncludes(item.item_id, q) ||
-    textIncludes(item.reference_sku, q) ||
-    (item.reference_skus || []).some((value) => textIncludes(value, q)) ||
-    textIncludes(item.title, q) || textIncludes(item.category_id, q)));
+  return unique([...snapshot, ...targeted].filter((item) =>
+    itemHasExactSku(item, term) || itemHasExactEan(item, term) ||
+    (!isProductCodeSearch(term) && textIncludes(item.title, q))));
 }
 
 function parseDateOnly(value) {
@@ -441,6 +445,18 @@ function extractProductIdentifiers(item = {}) {
   return Array.from(ids);
 }
 
+function extractVariationIdentifiers(item = {}) {
+  return (Array.isArray(item.variations) ? item.variations : []).map((variation) => ({
+    variation_id: normalizeString(variation?.id),
+    eans: extractProductIdentifiers({
+      attributes: [
+        ...(Array.isArray(variation?.attributes) ? variation.attributes : []),
+        ...(Array.isArray(variation?.attribute_combinations) ? variation.attribute_combinations : []),
+      ],
+    }),
+  })).filter((row) => row.variation_id && row.eans.length);
+}
+
 async function fetchItemDetails(state, ids = [], context = {}, { strict = false } = {}) {
   const out = [];
   const cleanIds = Array.from(
@@ -485,6 +501,8 @@ async function fetchItemDetails(state, ids = [], context = {}, { strict = false 
         reference_skus: extractReferenceSkuValues(body),
         variation_skus: extractVariationSkuRows(body),
         eans: extractProductIdentifiers(body),
+        item_eans: extractProductIdentifiers({ attributes: body.attributes }),
+        variation_eans: extractVariationIdentifiers(body),
         thumbnail: body.secure_thumbnail || body.thumbnail || null,
         price: numberOrZero(body.price),
         original_price: numberOrZero(body.original_price),
@@ -639,6 +657,7 @@ async function fetchTargetedCostLookupItems(context = {}, query = {}, seller = {
 
 async function resolveMarginCandidates({
   query = {}, snapshot = {}, context = {}, targetedLookup = fetchTargetedCostLookupItems,
+  extraTargetedItems = [],
 } = {}) {
   const kind = classifyMarginSearch(query.q);
   const targetedItems = kind === "mlb" || kind === "sku_or_text"
@@ -653,8 +672,33 @@ async function resolveMarginCandidates({
     sellerId: snapshot.seller?.id,
     status: query.status,
     snapshotItems: snapshot.items || [],
-    targetedItems,
+    targetedItems: [...targetedItems, ...extraTargetedItems],
   });
+}
+
+async function lookupMarginEanMatches(accountKey, sellerId, term, queryFn = db.query.bind(db)) {
+  const code = normalizeString(term);
+  if (!accountKey || !sellerId || !/^\d{8,14}$/.test(code)) return [];
+  const result = await queryFn(
+    `select distinct mlb, variation_id
+       from ml.mercadolivre_sku_catalog_items
+      where account_key = $1 and seller_id = $2 and eans ? $3`,
+    [String(accountKey), String(sellerId), code],
+  );
+  return result.rows.map((row) => ({
+    mlb: normalizeMlb(row.mlb), variation_id: normalizeString(row.variation_id),
+  })).filter((row) => row.mlb);
+}
+
+function resolveMarginOrderItemIds(search, candidates = [], status = "all") {
+  const ids = candidates.map((item) => normalizeMlb(item.item_id)).filter(Boolean);
+  // Pedidos podem continuar existindo depois que o anuncio sai do snapshot/lookup.
+  // O MLB exato informado pelo usuario ainda identifica esses pedidos sem abrir
+  // o recorte para outros anuncios da conta.
+  if (normalizeStatus(status) === "all" && classifyMarginSearch(search) === "mlb") {
+    ids.push(normalizeMlb(search));
+  }
+  return Array.from(new Set(ids));
 }
 
 function inventoryCacheKey(accountKey, status, maxItems) {
@@ -2604,6 +2648,7 @@ async function fetchOrdersByStatuses(state, sellerId, range, limit, dateField, s
 
 function summarizeOrderRevenue(orders = [], {
   itemIds = [], itemFilterActive = false, skuFilter = "", itemsById = new Map(),
+  searchTerm = "", eanMatches = [], status = "all",
 } = {}) {
   const orderIds = new Set();
   const idSet = new Set(itemIds.map(normalizeMlb));
@@ -2613,6 +2658,9 @@ function summarizeOrderRevenue(orders = [], {
   let units = 0;
   for (const order of orders) {
     const items = extractOrderItems(order).filter((row) => {
+      if (searchTerm) return matchesMarginOrderItem(row, itemsById.get(row.item_id), {
+        searchTerm, idSet, eanMatches, status,
+      });
       if (hasItemFilter && !idSet.has(row.item_id)) return false;
       if (!skuFilter) return true;
       return resolveOrderItemSkuCandidates(row, itemsById.get(row.item_id))
@@ -2630,6 +2678,29 @@ function summarizeOrderRevenue(orders = [], {
     units: Number(units.toFixed(0)),
     available: hasItemFilter ? orderIds.size || matchedOrders : numberOrZero(orders.total_available) || orders.length,
   };
+}
+
+function matchesMarginOrderItem(row = {}, detail = {}, {
+  searchTerm = "", idSet = new Set(), eanMatches = [], status = "all",
+} = {}) {
+  const term = normalizeString(searchTerm);
+  if (!term) return false;
+  if (normalizeStatus(status) !== "all" && !idSet.has(row.item_id)) return false;
+  if (classifyMarginSearch(term) === "mlb") return row.item_id === normalizeMlb(term);
+
+  if (resolveOrderItemSkuCandidates(row, detail).includes(normalizeSku(term))) return true;
+  if (!isProductCodeSearch(term) &&
+    (textIncludes(row.title, term.toLowerCase()) || textIncludes(detail?.title, term.toLowerCase()))) return true;
+
+  const variationId = normalizeString(row.variation_id);
+  if ((Array.isArray(detail?.item_eans) ? detail.item_eans :
+    Array.isArray(detail?.variation_eans) ? [] : detail?.eans || [])
+    .some((ean) => normalizeString(ean) === term)) return true;
+  if ((detail?.variation_eans || []).some((entry) =>
+    normalizeString(entry.variation_id) === variationId &&
+    (entry.eans || []).some((ean) => normalizeString(ean) === term))) return true;
+  return eanMatches.some((entry) => normalizeMlb(entry.mlb) === row.item_id &&
+    (!normalizeString(entry.variation_id) || normalizeString(entry.variation_id) === variationId));
 }
 
 async function fetchGrossAdjustmentSummary(state, sellerId, range, limit, dateField = "closed", itemFilter = {}) {
@@ -2724,6 +2795,8 @@ async function buildOrderFinancials({
   itemIds,
   itemFilterActive = false,
   skuFilter = "",
+  searchTerm = "",
+  eanMatches = [],
   limit,
   itemsById,
   costMap,
@@ -2789,6 +2862,7 @@ async function buildOrderFinancials({
     includeGrossAdjustments
       ? fetchGrossAdjustmentSummary(state, seller.id, range, limit, dateField, {
         itemIds, itemFilterActive, skuFilter, itemsById: detailMap,
+        searchTerm, eanMatches, status,
       }).catch(() => emptyAdjustments)
       : Promise.resolve(emptyAdjustments),
   ]);
@@ -2801,6 +2875,9 @@ async function buildOrderFinancials({
   for (const order of orders) {
     const allItems = extractOrderItems(order);
     const items = allItems.filter((row) => {
+      if (searchTerm) return matchesMarginOrderItem(row, detailMap.get(row.item_id), {
+        searchTerm, idSet, eanMatches, status,
+      });
       if (hasItemFilter && !idSet.has(row.item_id)) return false;
       if (!skuFilter) return true;
       return resolveOrderItemSkuCandidates(row, detailMap.get(row.item_id))
@@ -3160,19 +3237,25 @@ function calculateTargetPrice({ fixedCosts, commissionRate, taxRate, targetMargi
   return roundNumber(Math.max(0, numberOrZero(fixedCosts)) / denominator, 2);
 }
 
-function expandItemsForPricing(items = []) {
+function expandItemsForPricing(items = [], eanQuery = "") {
   const rows = [];
   for (const item of items) {
     const directSku = normalizeSku(item?.reference_sku);
     const variations = Array.isArray(item?.variation_skus) ? item.variation_skus : [];
-    if (directSku || !variations.length) {
+    const matchingVariationIds = new Set((item?.variation_eans || [])
+      .filter((entry) => (entry.eans || []).some((ean) => normalizeString(ean) === eanQuery))
+      .map((entry) => normalizeString(entry.variation_id)));
+    const eanIsVariationOnly = matchingVariationIds.size > 0 &&
+      !(item?.item_eans || []).some((ean) => normalizeString(ean) === eanQuery);
+    if ((directSku && !eanIsVariationOnly) || !variations.length) {
       rows.push({ ...item, reference_sku: directSku, variation_id: "" });
       continue;
     }
     for (const variation of variations) {
+      if (eanIsVariationOnly && !matchingVariationIds.has(normalizeString(variation.variation_id))) continue;
       rows.push({
         ...item,
-        reference_sku: normalizeSku(variation.reference_sku),
+        reference_sku: normalizeSku(variation.reference_sku) || directSku,
         variation_id: normalizeString(variation.variation_id),
         price: numberOrZero(variation.price) || numberOrZero(item.price),
         stock: numberOrZero(variation.stock),
@@ -3185,8 +3268,19 @@ function expandItemsForPricing(items = []) {
 function selectMarginPricingCandidates(candidates = [], query = "") {
   const exactSkuSearch = classifyMarginSearch(query) === "sku_or_text" &&
     candidates.some((item) => itemHasExactSku(item, query));
-  const rows = expandItemsForPricing(candidates)
-    .filter((item) => !exactSkuSearch || normalizeSku(item.reference_sku) === normalizeSku(query));
+  const exactEanSearch = candidates.some((item) => itemHasExactEan(item, query));
+  const term = normalizeString(query);
+  const rows = expandItemsForPricing(candidates, term)
+    .filter((item) => {
+      if (!exactSkuSearch && !exactEanSearch) return true;
+      if (normalizeSku(item.reference_sku) === normalizeSku(term)) return true;
+      if (!isProductCodeSearch(term) && textIncludes(item.title, term.toLowerCase())) return true;
+      if ((item.item_eans || (item.variation_eans ? [] : item.eans || []))
+        .some((ean) => normalizeString(ean) === term)) return true;
+      return (item.variation_eans || []).some((entry) =>
+        normalizeString(entry.variation_id) === normalizeString(item.variation_id) &&
+        (entry.eans || []).some((ean) => normalizeString(ean) === term));
+    });
   return { rows, exactSkuSearch };
 }
 
@@ -4278,14 +4372,23 @@ class FinanceiroMlService {
       max_items: query.max_items,
     });
     const q = normalizeString(query.q).toLowerCase();
-    let candidates = await resolveMarginCandidates({ query, snapshot, context });
+    const eanMatches = await lookupMarginEanMatches(context.accountKey, snapshot.seller.id, q);
+    const eanIds = Array.from(new Set(eanMatches.map((row) => row.mlb)));
+    const snapshotIds = new Set(snapshot.items.map((item) => normalizeMlb(item.item_id)));
+    const eanDetails = eanIds.length
+      ? await fetchItemDetails(await prepareAuth(context), eanIds.filter((id) => !snapshotIds.has(id)), context)
+      : [];
+    let candidates = await resolveMarginCandidates({
+      query, snapshot, context, extraTargetedItems: eanDetails,
+    });
     if (query.only_full === "true") candidates = candidates.filter((item) => item.full);
     if (query.catalog === "with_catalog") candidates = candidates.filter((item) => item.catalog);
     if (query.catalog === "without_catalog") candidates = candidates.filter((item) => !item.catalog);
 
     const scopeTruncated = candidates.length > scopeLimit;
     candidates = candidates.slice(0, scopeLimit);
-    const { rows: pricingCandidates, exactSkuSearch } = selectMarginPricingCandidates(candidates, q);
+    const orderItemIds = q ? resolveMarginOrderItemIds(q, candidates, query.status) : [];
+    const { rows: pricingCandidates } = selectMarginPricingCandidates(candidates, q);
     const costMap = await getSkuCostMap(
       context.accountKey,
       pricingCandidates.map((item) => item.reference_sku),
@@ -4299,9 +4402,11 @@ class FinanceiroMlService {
       state,
       seller: snapshot.seller,
       range,
-      itemIds: q ? candidates.map((item) => item.item_id) : [],
+      itemIds: orderItemIds,
       itemFilterActive: Boolean(q),
-      skuFilter: exactSkuSearch ? q : "",
+      skuFilter: "",
+      searchTerm: q,
+      eanMatches,
       limit: ordersLimit,
       itemsById: itemById,
       costMap,
@@ -4349,9 +4454,11 @@ class FinanceiroMlService {
       state,
       seller: snapshot.seller,
       range,
-      itemIds: q ? candidates.map((item) => item.item_id) : [],
+      itemIds: orderItemIds,
       itemFilterActive: Boolean(q),
-      skuFilter: exactSkuSearch ? q : "",
+      skuFilter: "",
+      searchTerm: q,
+      eanMatches,
       limit: ordersLimit,
       itemsById: itemById,
       costMap,
@@ -4484,6 +4591,8 @@ FinanceiroMlService._test = {
   classifyMarginSearch,
   selectMarginCandidates,
   resolveMarginCandidates,
+  lookupMarginEanMatches,
+  resolveMarginOrderItemIds,
   selectMarginPricingCandidates,
   fetchTargetedCostLookupItems,
   extractReferenceSkuValues,
