@@ -50,3 +50,7 @@ test("platform selection is a navigable SaaS shell instead of a hidden-card sele
   assert.match(portal, /\/api\/portal\/accounts\/unlink/);
   assert.doesNotMatch(portal, /class="module-card"[^>]+data-module=/);
 });
+
+test("account drawer keeps bottom spacing on its last billing detail", () => {
+  assert.match(portal, /\.account-details \.detail:last-child\s*\{[^}]*padding-bottom:\s*11px/);
+});
