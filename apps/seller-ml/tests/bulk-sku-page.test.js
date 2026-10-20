@@ -22,6 +22,8 @@ test("SKU page is reachable from Ads and exposes the bulk workflow", () => {
   assert.match(html, /jobs-panel\.js/);
   assert.match(html, /promo-jobs\.css/);
   assert.match(html, /Baixar relat[oó]rio \(\.xlsx\)/);
+  assert.match(html, /credit-operation-modal\.js/);
+  assert.match(html, /credit-operation-modal\.css/);
   assert.match(html, /id="exportStatus"/);
 });
 
@@ -30,9 +32,12 @@ test("page requests active-account context and only confirms a preview", () => {
   const js = fs.readFileSync(path.join(root, "public/js/alteracao-skus.js"), "utf8");
   const routes = fs.readFileSync(path.join(root, "routes/bulkSkuRoutes.js"), "utf8");
   assert.match(routes, /router\.get\("\/context", Controller\.getContext\)/);
+  assert.match(routes, /router\.post\("\/jobs\/:id\/credits\/quote", editAccess, Controller\.quoteJob\)/);
   assert.match(js, /api\("\/context"\)/);
   assert.match(js, /\/api\/bulk-sku\/preview/);
   assert.match(js, /\/api\/bulk-sku\/jobs/);
+  assert.match(js, /CreditOperationModal\?\.confirm/);
+  assert.match(js, /\/credits\/quote/);
   assert.match(js, /JobsPanel\?\.mergeApiJobs/);
   assert.doesNotMatch(js, /accountKey\s*:/);
 });

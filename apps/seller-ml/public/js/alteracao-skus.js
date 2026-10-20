@@ -10,6 +10,7 @@
   let previewOffset = 0;
   let previewTotal = 0;
   let currentExportId = "";
+  const settledJobs = new Set();
   const api = (path) => fetch(`/api/bulk-sku${path}`, { credentials: "same-origin" });
 
   function notice(message, kind = "info") {
@@ -76,6 +77,10 @@
     $("downloadReport").href = window.mlUrl(`/api/bulk-sku/jobs/${encodeURIComponent(job.id)}/report.xlsx`);
     $("downloadReport").hidden = !finished;
     if (finished && pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+    if (finished && !settledJobs.has(job.id)) {
+      settledJobs.add(job.id);
+      window.dispatchEvent(new CustomEvent("ml:credits-changed"));
+    }
     return finished;
   }
   async function poll(id) {
@@ -119,6 +124,9 @@
     try { notice(""); await callback(); } catch (error) { notice(error.message, "error"); }
     finally { busy = false; button.disabled = false; }
   }
+  $("skuFile").addEventListener("change", () => {
+    $("skuFileName").textContent = $("skuFile").files?.[0]?.name || "Nenhuma planilha selecionada";
+  });
   $("downloadTemplate").addEventListener("click", () => withBusy($("downloadTemplate"), async () => {
     const { job } = await responseJson(await fetch("/api/bulk-sku/exports", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: $("exportStatus").value }) }));
     currentExportId = job.id;
@@ -148,7 +156,19 @@
   $("confirmCosts").addEventListener("change", () => { $("confirmButton").disabled = !readyCount || !$("confirmCosts").checked; });
   $("confirmButton").addEventListener("click", () => withBusy($("confirmButton"), async () => {
     if (!previewId) return;
+    const { quote } = await responseJson(await fetch(`/api/bulk-sku/jobs/${encodeURIComponent(previewId)}/credits/quote`, { method: "POST", credentials: "same-origin" }));
+    if (!window.CreditOperationModal?.confirm) throw new Error("Confirmação de créditos indisponível. Recarregue a página.");
+    const confirmed = await window.CreditOperationModal.confirm({
+      title: "Confirmar alteração de SKUs",
+      description: "Somente os SKUs alterados com sucesso serão cobrados.",
+      quantity: Number(quote.quantity || readyCount),
+      unitLabel: "SKUs prontos",
+      quote,
+      confirmLabel: "Confirmar e aplicar",
+    });
+    if (!confirmed) return;
     const result = await responseJson(await fetch("/api/bulk-sku/jobs", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ previewId }) }));
+    window.dispatchEvent(new CustomEvent("ml:credits-changed"));
     $("confirmButton").disabled = true;
     $("previewSection").hidden = true;
     if (storageKey) localStorage.setItem(storageKey, result.job.id);

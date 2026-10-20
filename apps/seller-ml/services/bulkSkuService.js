@@ -3,6 +3,7 @@
 const { variationName, gtinValues, sellerSku } = require("./bulkSkuPreviewService");
 const { itemsBulkPath, normalizeBulkResponse } = require("./meliBulk");
 const { targetKey, classifyRows } = require("./bulkSkuPreviewService");
+const bulkSkuBilling = require("./bulkSkuBillingService");
 const { exportWorkbook, parseWorkbook, MAX_ROWS } = require("./bulkSkuWorkbookService");
 const crypto = require("node:crypto");
 const mlApi = require("./anuncioCadastro/mercadoLivreApi");
@@ -156,10 +157,26 @@ async function exportRows(ctx, ml = mlApi) {
   return exportWorkbook(rows);
 }
 
-async function confirmPreview(id, ctx, db = require("../db/db"), enqueue = (jobId) => require("./bulkSkuQueueService").enqueueBulkSkuJob(jobId)) {
+async function quotePreview(id, ctx, db = require("../db/db"), billing = bulkSkuBilling) {
+  assertAccount(ctx);
+  const actor = String(ctx.requestedBy || ctx.userId || "").trim();
+  const result = await db.query(`select j.status, count(r.job_id)::integer as ready
+    from ml.bulk_sku_jobs j left join ml.bulk_sku_job_rows r on r.job_id = j.id and r.state = 'ready'
+    where j.id = $1 and j.account_key = $2 and j.requested_by = $3
+    group by j.id`, [id, String(ctx.accountKey), actor]);
+  const row = result.rows[0];
+  if (!row) throw Object.assign(new Error("Previa nao encontrada."), { status: 404 });
+  if (row.status !== "preview") throw Object.assign(new Error("Previa ja confirmada ou encerrada."), { status: 409 });
+  const ready = Number(row.ready || 0);
+  if (!ready) throw Object.assign(new Error("Nenhuma linha pronta para alterar."), { status: 409 });
+  return billing.quoteSkuCredits({ mlCreds: ctx.mlCreds, units: ready });
+}
+
+async function confirmPreview(id, ctx, db = require("../db/db"), enqueue = (jobId) => require("./bulkSkuQueueService").enqueueBulkSkuJob(jobId), billing = bulkSkuBilling) {
   assertAccount(ctx);
   const actor = String(ctx.requestedBy || ctx.userId || "").trim();
   if (!actor) throw Object.assign(new Error("Usuario nao identificado."), { status: 403 });
+  let reservation = null;
   const result = await db.withClient(async (client) => {
     await client.query("begin");
     try {
@@ -170,15 +187,25 @@ async function confirmPreview(id, ctx, db = require("../db/db"), enqueue = (jobI
       const count = await client.query("select count(*)::integer as count from ml.bulk_sku_job_rows where job_id = $1 and state = 'ready'", [id]);
       const ready = Number(count.rows[0]?.count || 0);
       if (!ready) throw Object.assign(new Error("Nenhuma linha pronta para alterar."), { status: 409 });
-      await client.query("update ml.bulk_sku_jobs set status = 'queued', total_rows = $2 where id = $1", [id, ready]);
+      reservation = await billing.reserveSkuCredits({ mlCreds: ctx.mlCreds, jobId: id, units: ready });
+      await client.query("update ml.bulk_sku_jobs set status = 'queued', total_rows = $2, credit_reservation = $3::jsonb, credit_settlement = null where id = $1", [id, ready, JSON.stringify(reservation)]);
       await client.query("commit");
-      return { id, status: "queued", total: ready };
-    } catch (error) { await client.query("rollback"); throw error; }
+      return { id, status: "queued", total: ready, credit_settlement: reservation?.bypass || reservation?.shadow ? null : { status: "pending", reserved_credits: Number(reservation?.reserved_credits || 0) } };
+    } catch (error) {
+      await client.query("rollback");
+      if (reservation) {
+        const settled = await billing.settleSkuCredits(reservation, 0);
+        if (settled?.status === "pending") {
+          await client.query("update ml.bulk_sku_jobs set status = 'failed', finished_at = now(), credit_reservation = $2::jsonb, credit_settlement = $3::jsonb where id = $1 and status = 'preview'", [id, JSON.stringify(reservation), JSON.stringify(settled)]);
+        }
+      }
+      throw error;
+    }
   });
   try { await enqueue(id); }
   catch (error) {
-    await db.query("update ml.bulk_sku_jobs set status = 'preview' where id = $1 and account_key = $2 and status = 'queued'", [id, String(ctx.accountKey)]);
-    throw error;
+    console.error("[BulkSku] Fila indisponivel; lote aguardando nova tentativa:", id, error?.message || error);
+    return { ...result, enqueue_pending: true };
   }
   return result;
 }
@@ -255,6 +282,9 @@ async function listJobs(ctx, db = require("../db/db")) {
     skipped: countsByJob.get(String(job.id)).unchanged,
     errors: countsByJob.get(String(job.id)).errors,
     total: job.total_rows,
+    credit_settlement: job.credit_settlement || (job.credit_reservation && !job.credit_reservation.bypass && !job.credit_reservation.shadow
+      ? { status: "pending", reserved_credits: Number(job.credit_reservation.reserved_credits || 0) }
+      : null),
     accountKey: job.account_key, accountLabel: job.account_label,
     updated_at: job.finished_at || job.created_at, error: job.error_message,
     review_action: ["finished", "failed"].includes(job.status) || (job.status === "preview" && countsByJob.get(String(job.id)).errors > 0)
@@ -262,6 +292,17 @@ async function listJobs(ctx, db = require("../db/db")) {
       : null,
   }));
   return [...exportJobs, ...changeJobs].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, 40);
+}
+
+async function settleJobCredits(id, db = require("../db/db"), billing = bulkSkuBilling) {
+  const found = await db.query("select credit_reservation, credit_settlement from ml.bulk_sku_jobs where id = $1", [id]);
+  const job = found.rows[0];
+  if (!job?.credit_reservation) return null;
+  if (job.credit_settlement?.status === "confirmed") return job.credit_settlement;
+  const applied = await db.query("select count(*)::integer as count from ml.bulk_sku_job_rows where job_id = $1 and state = 'applied'", [id]);
+  const summary = await billing.settleSkuCredits(job.credit_reservation, Number(applied.rows[0]?.count || 0));
+  if (summary) await db.query("update ml.bulk_sku_jobs set credit_settlement = $2::jsonb where id = $1", [id, JSON.stringify(summary)]);
+  return summary;
 }
 
 async function applyJob(id, {
@@ -310,6 +351,8 @@ async function applyJob(id, {
         cursor = mlb;
         }
       }
+      const settlement = await settleJobCredits(id, client);
+      if (settlement?.status === "pending") throw new Error("Liquidacao de creditos pendente; o job sera retomado.");
       await client.query("update ml.bulk_sku_jobs set status = 'finished', finished_at = now() where id = $1", [id]);
       return { id, processed };
     } finally { await client.query("select pg_advisory_unlock(hashtext($1))", [lockKey]); }
@@ -342,4 +385,4 @@ async function previewWorkbook(buffer, ctx, ml = mlApi, db = require("../db/db")
   return { id, rows, ready: rows.filter((row) => row.state === "ready").length, total: rows.length };
 }
 
-module.exports = { assertAccount, rowsFromItem, replaceSku, planSkuPayload, applyGroup, applyJob, loadLiveItems, buildPreviewRows, exportRows, previewWorkbook, confirmPreview, getJob, reportJob, listJobs };
+module.exports = { assertAccount, rowsFromItem, replaceSku, planSkuPayload, applyGroup, applyJob, settleJobCredits, loadLiveItems, buildPreviewRows, exportRows, previewWorkbook, quotePreview, confirmPreview, getJob, reportJob, listJobs };

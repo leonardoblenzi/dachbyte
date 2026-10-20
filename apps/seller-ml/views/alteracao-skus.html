@@ -7,7 +7,8 @@
   <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
   <link rel="stylesheet" href="/ml/css/anuncios.css?v=2026080802" />
   <link rel="stylesheet" href="/ml/css/promo-jobs.css?v=2026101601" />
-  <link rel="stylesheet" href="/ml/css/alteracao-skus.css?v=2" />
+  <link rel="stylesheet" href="/ml/css/alteracao-skus.css?v=3" />
+  <link rel="stylesheet" href="/ml/css/credit-operation-modal.css?v=2026101601" />
   <script src="/ml/js/ml-base.js?v=8"></script>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
@@ -34,8 +35,12 @@
       <section class="ads-card sku-card" aria-labelledby="sku-import-title">
         <span class="sku-kicker">Etapa 02</span><h2 id="sku-import-title">Importar e conferir</h2>
         <p>Escolha uma planilha, mesmo com mais de 5.000 SKUs. A conferência e a aplicação serão processadas em lotes no backend.</p>
-        <label class="sku-file-label" for="skuFile">Planilha .xlsx</label>
-        <input id="skuFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+        <span class="sku-file-label">Planilha .xlsx</span>
+        <label for="skuFile" class="sku-file-picker">
+          <span class="sku-file-picker__action"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0 4 4m-4-4L8 8"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>Escolher planilha</span>
+          <span id="skuFileName" class="sku-file-picker__name">Nenhuma planilha selecionada</span>
+          <input id="skuFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-describedby="skuFileName" />
+        </label>
         <button id="previewButton" type="button" class="sku-button sku-button-secondary">Conferir alterações</button>
       </section>
     </div>
@@ -58,6 +63,7 @@
   <div id="bulkJobsPanel" class="processos-panel"></div>
   <script src="/ml/js/jobs-panel-adapters.js?v=2026101601" defer></script>
   <script src="/ml/js/jobs-panel.js?v=2026101601" defer></script>
-  <script src="/ml/js/alteracao-skus.js?v=3"></script>
+  <script src="/ml/js/credit-operation-modal.js?v=2026101602" defer></script>
+  <script src="/ml/js/alteracao-skus.js?v=4"></script>
 </body>
 </html>

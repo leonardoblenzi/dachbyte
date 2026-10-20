@@ -32,6 +32,7 @@ router.get("/exports/:id", Controller.getExport);
 router.get("/exports/:id/download.xlsx", Controller.downloadExport);
 router.post("/preview", receiveWorkbook, Controller.preview);
 router.get("/jobs", Controller.listJobs);
+router.post("/jobs/:id/credits/quote", editAccess, Controller.quoteJob);
 router.post("/jobs", editAccess, Controller.createJob);
 router.get("/jobs/:id", Controller.getJob);
 router.get("/jobs/:id/report.xlsx", Controller.report);

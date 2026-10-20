@@ -13,6 +13,7 @@ function context(req, res) {
     accountKey: String(res.locals?.accountKey || "").trim(),
     accountLabel: String(res.locals?.accountLabel || res.locals?.account?.nickname || active.sellerId || "").trim(),
     requestedBy: String(req.user?.uid || req.user?.id || req.user?.usuario_id || "").trim(),
+    mlCreds: res.locals?.mlCreds || {},
   };
 }
 
@@ -62,6 +63,10 @@ module.exports = {
   },
   async createJob(req, res) {
     try { return res.json({ ok: true, job: await service.confirmPreview(String(req.body?.previewId || ""), context(req, res)) }); }
+    catch (error) { return fail(res, error); }
+  },
+  async quoteJob(req, res) {
+    try { return res.json({ ok: true, quote: await service.quotePreview(String(req.params.id || ""), context(req, res)) }); }
     catch (error) { return fail(res, error); }
   },
   async getJob(req, res) {

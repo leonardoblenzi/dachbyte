@@ -65,11 +65,80 @@ test("confirmation requires the same account and user and queues only ready rows
     return { rows: [], rowCount: 0 };
   } }) };
   const queued = [];
-  const job = await confirmPreview("preview-1", { accountKey: "12", sellerId: 99, accessToken: "token", requestedBy: "7" }, db, async (id) => queued.push(id));
+  const billing = { reserveSkuCredits: async ({ units }) => ({ reserved_credits: 1, operation_quantity: units }), settleSkuCredits: async () => null };
+  const job = await confirmPreview("preview-1", { accountKey: "12", sellerId: 99, accessToken: "token", requestedBy: "7", mlCreds: { meli_user_id: 99 } }, db, async (id) => queued.push(id), billing);
   assert.equal(job.id, "preview-1");
   assert.deepEqual(queued, ["preview-1"]);
   assert.ok(statements.some((entry) => /status = 'queued'/i.test(entry.sql)));
-  await assert.rejects(confirmPreview("preview-1", { accountKey: "13", sellerId: 99, accessToken: "token", requestedBy: "7" }, db, async () => {}), /nao encontrada/);
+  assert.ok(statements.some((entry) => /credit_reservation/i.test(entry.sql)));
+  await assert.rejects(confirmPreview("preview-1", { accountKey: "13", sellerId: 99, accessToken: "token", requestedBy: "7" }, db, async () => {}, billing), /nao encontrada/);
+});
+
+test("SKU quote usa somente linhas prontas da previa autorizada", async () => {
+  const { quotePreview } = require("../services/bulkSkuService");
+  let units = 0;
+  const db = { query: async () => ({ rows: [{ status: "preview", ready: 2 }] }) };
+  const result = await quotePreview("job-1", { accountKey: "12", sellerId: 99, accessToken: "token", requestedBy: "7", mlCreds: { meli_user_id: 99 } }, db, {
+    quoteSkuCredits: async (input) => { units = input.units; return { quantity: input.units, estimated_credits: 1 }; },
+  });
+  assert.equal(units, 2);
+  assert.equal(result.estimated_credits, 1);
+});
+
+test("saldo insuficiente impede enfileirar a alteração de SKUs", async () => {
+  let enqueued = false;
+  const db = { withClient: async (fn) => fn({ query: async (sql) => {
+    if (/select .* from ml\.bulk_sku_jobs/i.test(sql)) return { rows: [{ status: "preview" }] };
+    if (/count\(\*\)/i.test(sql)) return { rows: [{ count: 3 }] };
+    return { rows: [] };
+  } }) };
+  await assert.rejects(confirmPreview("job-1", { accountKey: "12", sellerId: 99, accessToken: "token", requestedBy: "7" }, db, async () => { enqueued = true; }, {
+    reserveSkuCredits: async () => { throw new Error("Credito insuficiente"); },
+    settleSkuCredits: async () => null,
+  }), /Credito insuficiente/);
+  assert.equal(enqueued, false);
+});
+
+test("falha ambígua da fila mantém reserva e job para reenvio idempotente", async () => {
+  const statements = [];
+  const db = {
+    withClient: async (fn) => fn({ query: async (sql) => {
+      if (/select .* from ml\.bulk_sku_jobs/i.test(sql)) return { rows: [{ status: "preview" }] };
+      if (/count\(\*\)/i.test(sql)) return { rows: [{ count: 3 }] };
+      statements.push(sql); return { rows: [] };
+    } }),
+    query: async (sql) => { statements.push(sql); return { rows: [] }; },
+  };
+  let released = false;
+  const originalError = console.error;
+  console.error = () => {};
+  let result;
+  try { result = await confirmPreview("job-1", { accountKey: "12", sellerId: 99, accessToken: "token", requestedBy: "7" }, db, async () => { throw new Error("Fila indisponivel"); }, {
+    reserveSkuCredits: async () => ({ reserved_credits: 1 }),
+    settleSkuCredits: async () => { released = true; return { status: "confirmed" }; },
+  }); } finally { console.error = originalError; }
+  assert.equal(result.enqueue_pending, true);
+  assert.equal(released, false);
+  assert.ok(statements.some((sql) => /status = 'queued'/i.test(sql)));
+});
+
+test("liquidação do job usa somente estados applied e persiste resumo", async () => {
+  const { settleJobCredits } = require("../services/bulkSkuService");
+  const statements = [];
+  const db = { query: async (sql, params) => {
+    statements.push({ sql, params });
+    if (/select credit_reservation/i.test(sql)) return { rows: [{ credit_reservation: { idempotency_key: "reserve-1", reserved_credits: 2 }, credit_settlement: null }] };
+    if (/count\(\*\)/i.test(sql)) return { rows: [{ count: 2 }] };
+    return { rows: [] };
+  } };
+  let applied = 0;
+  const result = await settleJobCredits("job-1", db, { settleSkuCredits: async (_reservation, count) => {
+    applied = count;
+    return { status: "confirmed", spent_credits: 1, released_credits: 1 };
+  } });
+  assert.equal(applied, 2);
+  assert.equal(result.status, "confirmed");
+  assert.ok(statements.some(({ sql }) => /credit_settlement =/i.test(sql)));
 });
 
 test("preview persists results under the authenticated account and actor", async () => {

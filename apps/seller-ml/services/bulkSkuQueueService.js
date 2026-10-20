@@ -2,13 +2,37 @@
 
 const Bull = require("bull");
 const { makeBullClient } = require("../lib/redisClient");
-const { applyJob } = require("./bulkSkuService");
+const { applyJob, settleJobCredits } = require("./bulkSkuService");
 const { runExport } = require("./bulkSkuExportService");
 const { runPreview } = require("./bulkSkuPreviewJobService");
 
 const QUEUE_NAME = "bulk-sku-queue";
 let queueInstance = null;
 let workerStarted = false;
+let settlementTimer = null;
+
+async function reconcilePendingSettlements(db = require("../db/db")) {
+  const jobs = await db.query(`select id from ml.bulk_sku_jobs
+    where status in ('finished', 'failed') and credit_reservation is not null
+      and coalesce((credit_reservation->>'bypass')::boolean, false) = false
+      and coalesce((credit_reservation->>'shadow')::boolean, false) = false
+      and (credit_settlement is null or credit_settlement->>'status' = 'pending')
+    order by finished_at limit 100`);
+  for (const job of jobs.rows) {
+    try { await settleJobCredits(job.id, db); }
+    catch (error) { console.error("[BulkSkuQueue] Conciliacao de creditos:", job.id, error?.message || error); }
+  }
+}
+
+async function reconcileQueuedApplications(db = require("../db/db"), enqueue = enqueueBulkSkuJob) {
+  const jobs = await db.query(`select id from ml.bulk_sku_jobs
+    where status = 'queued' and credit_reservation is not null
+    order by created_at limit 100`);
+  for (const job of jobs.rows) {
+    try { await enqueue(job.id); }
+    catch (error) { console.error("[BulkSkuQueue] Reenfileirar lote:", job.id, error?.message || error); }
+  }
+}
 
 function getQueue() {
   if (!queueInstance) {
@@ -49,12 +73,21 @@ function initWorker(queue = getQueue()) {
           const fs = require("node:fs");
           const { importPath } = require("./bulkSkuPreviewJobService");
           try { fs.unlinkSync(importPath(job.data.jobId)); } catch (_) {}
+        } else if (job.name === "bulk-sku-apply") {
+          await settleJobCredits(job.data.jobId, db);
         }
       }
     } catch (databaseError) { console.error("[BulkSkuQueue] Falha ao registrar erro:", databaseError?.message || databaseError); }
     console.error("[BulkSkuQueue] Lote falhou:", job?.id, error?.message || error);
   });
+  reconcilePendingSettlements().catch((error) => console.error("[BulkSkuQueue] Conciliacao inicial:", error?.message || error));
+  reconcileQueuedApplications().catch((error) => console.error("[BulkSkuQueue] Fila inicial:", error?.message || error));
+  settlementTimer = setInterval(() => {
+    reconcilePendingSettlements().catch((error) => console.error("[BulkSkuQueue] Conciliacao:", error?.message || error));
+    reconcileQueuedApplications().catch((error) => console.error("[BulkSkuQueue] Reenfileirar:", error?.message || error));
+  }, 60_000);
+  settlementTimer.unref?.();
   return queue;
 }
 
-module.exports = { enqueueBulkSkuJob, enqueueExportJob, enqueuePreviewJob, initWorker };
+module.exports = { enqueueBulkSkuJob, enqueueExportJob, enqueuePreviewJob, reconcilePendingSettlements, reconcileQueuedApplications, initWorker };
