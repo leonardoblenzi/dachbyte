@@ -3,9 +3,10 @@
 
 const express = require("express");
 const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 const db = require("../db/db");
 const { createAuditAction } = require("../middleware/auditAction");
-const { oauthRateLimiter } = require("../middleware/security");
+const { oauthRateLimiter, validateStrongPassword } = require("../middleware/security");
 const { canEncryptTokens, encryptToken } = require("../services/tokenCrypto");
 const {
   setDefaultAccountForUser,
@@ -19,11 +20,15 @@ const {
   claimTrialOAuthCallback,
   saveTrialOAuthCredentials,
   prepareTrialEmailVerification,
+  inspectTrialEmailVerification,
   loadConfirmedTrialOAuthSession,
   assertMlAccountAvailable,
 } = require("../services/publicTrialOAuthSession");
 const { resolveTrialEmail, lookupHubEmail } = require("../services/publicTrialEmailResolution");
 const { sendTrialVerificationEmail } = require("../services/inviteEmailService");
+const { stageVerifiedMlTrialIdentity } = require("../services/publicTrialIdentityStage");
+const { activateMlTrialInHub } = require("../services/hubTrialActivation");
+const { finalizeConfirmedMlTrial } = require("../services/publicTrialFinalization");
 
 const router = express.Router();
 
@@ -945,6 +950,57 @@ router.post(
       if (code === "trial_oauth_session_not_confirmed") return res.status(409).json({ ok: false, error: code });
       console.error("ML public trial email failed:", code);
       return res.status(503).json({ ok: false, error: "trial_email_unavailable" });
+    }
+  },
+);
+
+router.post(
+  "/oauth/trial/activate",
+  oauthRateLimiter,
+  express.json({ limit: "50kb" }),
+  async (req, res) => {
+    if (!trialOnboardingEnabled()) return res.status(404).json({ ok: false, error: "not_found" });
+    const token = String(req.body?.token || "").trim();
+    const fullName = String(req.body?.full_name || "").trim();
+    const companyName = String(req.body?.company_name || "").trim();
+    const password = String(req.body?.password || "");
+    if (!token || !fullName || !companyName) {
+      return res.status(400).json({ ok: false, error: "trial_activation_fields_required" });
+    }
+    const passwordCheck = validateStrongPassword(password);
+    if (!passwordCheck.ok) return res.status(400).json({ ok: false, error: passwordCheck.error });
+    try {
+      const candidate = await inspectTrialEmailVerification(db, token);
+      if (!candidate) return res.status(410).json({ ok: false, error: "trial_activation_invalid_or_expired" });
+      if (candidate.status !== "identity_staged") {
+        const existingHubEmail = await lookupHubEmail(candidate.email);
+        if (existingHubEmail.exists) {
+          return res.status(409).json({ ok: false, error: "trial_email_login_required" });
+        }
+      }
+      const staged = await stageVerifiedMlTrialIdentity(db.pool, {
+        token, fullName, companyName, passwordHash: await bcrypt.hash(password, 10),
+      });
+      const activation = await activateMlTrialInHub({
+        tenantId: staged.tenantId, companyName: staged.companyName,
+        userId: staged.globalUserId, fullName: staged.fullName,
+        email: staged.email, mlUserId: staged.mlUserId,
+      });
+      const finalized = await finalizeConfirmedMlTrial(db.pool, {
+        sessionId: staged.sessionId, tenantId: staged.tenantId,
+        mlUserId: staged.mlUserId, activation,
+      });
+      return res.json({ ok: true, action: "activated", account_id: finalized.accountId });
+    } catch (error) {
+      const code = String(error?.message || "");
+      if (code === "trial_email_login_required" || code === "trial_ml_account_already_linked") {
+        return res.status(409).json({ ok: false, error: code });
+      }
+      if (code === "trial_activation_invalid_or_expired") {
+        return res.status(410).json({ ok: false, error: code });
+      }
+      console.error("ML public trial activation failed:", code);
+      return res.status(503).json({ ok: false, error: "trial_activation_pending_retry" });
     }
   },
 );

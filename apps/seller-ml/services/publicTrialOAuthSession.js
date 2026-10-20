@@ -134,12 +134,28 @@ async function claimTrialEmailVerification(client, input) {
   return result.rows[0] || null;
 }
 
+async function inspectTrialEmailVerification(client, token) {
+  const value = String(token || "").trim();
+  if (!value) return null;
+  const result = await client.query(
+    `SELECT id, email, status
+       FROM public_trial_oauth_sessions
+      WHERE activation_token_hash = $1
+        AND ((status IN ('email_pending', 'activation_pending') AND activation_expires_at > NOW())
+          OR (status = 'identity_staged' AND recovery_expires_at > NOW()))
+      LIMIT 1`,
+    [digest(value)]
+  );
+  return result.rows[0] || null;
+}
+
 module.exports = {
   createTrialOAuthSession,
   claimTrialOAuthCallback,
   saveTrialOAuthCredentials,
   prepareTrialEmailVerification,
   claimTrialEmailVerification,
+  inspectTrialEmailVerification,
   loadConfirmedTrialOAuthSession,
   assertMlAccountAvailable,
 };

@@ -10,6 +10,7 @@ const {
   saveTrialOAuthCredentials,
   prepareTrialEmailVerification,
   claimTrialEmailVerification,
+  inspectTrialEmailVerification,
   loadConfirmedTrialOAuthSession,
   assertMlAccountAvailable,
 } = require("../services/publicTrialOAuthSession");
@@ -118,6 +119,20 @@ test("verified email token can be claimed only while pending and not expired", a
   assert.match(statement, /status\s*=\s*'email_pending'/i);
   assert.match(statement, /activation_expires_at\s*>\s*NOW\(\)/i);
   assert.match(statement, /status\s*=\s*'activation_pending'/i);
+});
+
+test("activation can inspect a verified token without consuming it or exposing OAuth credentials", async () => {
+  let statement = "";
+  const client = { query: async (sql, values) => {
+    statement = sql;
+    assert.notEqual(values[0], "email-secret");
+    return { rows: [{ id: "session-1", email: "new@example.test", status: "email_pending" }] };
+  } };
+  const row = await inspectTrialEmailVerification(client, "email-secret");
+  assert.equal(row.email, "new@example.test");
+  assert.match(statement, /activation_token_hash = \$1/i);
+  assert.match(statement, /email_pending/);
+  assert.doesNotMatch(statement, /access_token_enc|refresh_token_enc/i);
 });
 
 test("email lookup is gated by a confirmed OAuth session bound to the browser", async () => {

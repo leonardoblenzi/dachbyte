@@ -16,13 +16,19 @@ CREATE TABLE IF NOT EXISTS public_trial_oauth_sessions (
   activation_expires_at TIMESTAMPTZ NULL,
   activation_token_hash TEXT UNIQUE,
   email TEXT NULL,
+  empresa_id BIGINT NULL REFERENCES empresas(id),
+  usuario_id BIGINT NULL REFERENCES usuarios(id),
+  meli_conta_id BIGINT NULL REFERENCES meli_contas(id),
+  tenant_global_id TEXT NULL,
+  user_global_id TEXT NULL,
+  recovery_expires_at TIMESTAMPTZ NULL,
   claimed_at TIMESTAMPTZ NULL,
   activated_at TIMESTAMPTZ NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT public_trial_oauth_sessions_status_check CHECK (
     status IN ('issued', 'claimed', 'oauth_confirmed', 'email_pending',
-      'awaiting_login', 'activation_pending', 'activated', 'expired')
+      'awaiting_login', 'activation_pending', 'identity_staged', 'activated', 'expired')
   )
 );
 
