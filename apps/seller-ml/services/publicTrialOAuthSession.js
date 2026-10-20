@@ -74,6 +74,15 @@ async function saveTrialOAuthCredentials(client, input) {
   return result.rows[0];
 }
 
+async function assertMlAccountAvailable(client, mlUserId) {
+  const id = Number(mlUserId);
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error("trial_ml_account_invalid");
+  const result = await client.query(
+    `SELECT id FROM meli_contas WHERE meli_user_id = $1 LIMIT 1`, [id]
+  );
+  if (result.rows[0]) throw new Error("trial_ml_account_already_linked");
+}
+
 async function prepareTrialEmailVerification(client, input) {
   const browserNonce = String(input.browserNonce || "").trim();
   const email = normalizeEmail(input.email);
@@ -86,13 +95,28 @@ async function prepareTrialEmailVerification(client, input) {
   const result = await client.query(
     `UPDATE public_trial_oauth_sessions
         SET status = $2, email = $3, activation_token_hash = $4, updated_at = NOW()
-      WHERE browser_nonce_hash = $1 AND status = 'oauth_confirmed'
+      WHERE browser_nonce_hash = $1
+        AND (status = 'oauth_confirmed' OR (status = 'email_pending' AND email = $3))
         AND activation_expires_at > NOW()
       RETURNING id, email, activation_expires_at`,
     [digest(browserNonce), status, email, token ? digest(token) : null]
   );
   if (!result.rows[0]) throw new Error("trial_oauth_session_not_confirmed");
   return { ...result.rows[0], action, token };
+}
+
+async function loadConfirmedTrialOAuthSession(client, browserNonce) {
+  const nonce = String(browserNonce || "").trim();
+  if (!nonce) return null;
+  const result = await client.query(
+    `SELECT id, ml_user_id, email, status
+       FROM public_trial_oauth_sessions
+      WHERE browser_nonce_hash = $1 AND status IN ('oauth_confirmed', 'email_pending')
+        AND activation_expires_at > NOW()
+      LIMIT 1`,
+    [digest(nonce)]
+  );
+  return result.rows[0] || null;
 }
 
 async function claimTrialEmailVerification(client, input) {
@@ -116,4 +140,6 @@ module.exports = {
   saveTrialOAuthCredentials,
   prepareTrialEmailVerification,
   claimTrialEmailVerification,
+  loadConfirmedTrialOAuthSession,
+  assertMlAccountAvailable,
 };

@@ -10,6 +10,8 @@ const {
   saveTrialOAuthCredentials,
   prepareTrialEmailVerification,
   claimTrialEmailVerification,
+  loadConfirmedTrialOAuthSession,
+  assertMlAccountAvailable,
 } = require("../services/publicTrialOAuthSession");
 
 test("public trial OAuth stores only hashes of the browser binding and state", async () => {
@@ -75,6 +77,7 @@ test("public OAuth remains disabled until the complete onboarding journey is rea
   assert.match(source, /SELLER_TRIAL_ONBOARDING_ENABLED/);
   assert.match(source, /if \(!trialOnboardingEnabled\(\)\) return res\.status\(404\)/);
   assert.match(source, /\[trial-redacted\]/);
+  assert.match(source, /trial_public_origin_unavailable/);
 });
 
 test("migration keeps provisional OAuth separate from live marketplace accounts", () => {
@@ -115,4 +118,26 @@ test("verified email token can be claimed only while pending and not expired", a
   assert.match(statement, /status\s*=\s*'email_pending'/i);
   assert.match(statement, /activation_expires_at\s*>\s*NOW\(\)/i);
   assert.match(statement, /status\s*=\s*'activation_pending'/i);
+});
+
+test("email lookup is gated by a confirmed OAuth session bound to the browser", async () => {
+  let statement = "";
+  const client = { query: async (sql) => {
+    statement = sql;
+    return { rows: [{ id: "session-1", ml_user_id: 123 }] };
+  } };
+  const row = await loadConfirmedTrialOAuthSession(client, "browser-secret");
+  assert.equal(row.id, "session-1");
+  assert.match(statement, /browser_nonce_hash\s*=\s*\$1/i);
+  assert.match(statement, /activation_expires_at\s*>\s*NOW\(\)/i);
+  assert.match(statement, /oauth_confirmed/);
+});
+
+test("an ML account already linked to any company cannot enter public trial staging", async () => {
+  const client = { query: async (sql, values) => {
+    assert.match(sql, /FROM meli_contas/i);
+    assert.equal(values[0], 123);
+    return { rows: [{ id: 9 }] };
+  } };
+  await assert.rejects(assertMlAccountAvailable(client, 123), /trial_ml_account_already_linked/);
 });

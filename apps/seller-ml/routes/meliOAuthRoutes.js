@@ -18,7 +18,12 @@ const {
   createTrialOAuthSession,
   claimTrialOAuthCallback,
   saveTrialOAuthCredentials,
+  prepareTrialEmailVerification,
+  loadConfirmedTrialOAuthSession,
+  assertMlAccountAvailable,
 } = require("../services/publicTrialOAuthSession");
+const { resolveTrialEmail, lookupHubEmail } = require("../services/publicTrialEmailResolution");
+const { sendTrialVerificationEmail } = require("../services/inviteEmailService");
 
 const router = express.Router();
 
@@ -895,6 +900,55 @@ router.post(
   },
 );
 
+router.post(
+  "/oauth/trial/email",
+  oauthRateLimiter,
+  express.json({ limit: "50kb" }),
+  async (req, res) => {
+    if (!trialOnboardingEnabled()) return res.status(404).json({ ok: false, error: "not_found" });
+    const browserNonce = String(req.cookies?.[COOKIE_TRIAL_OAUTH_NONCE] || "").trim();
+    if (!browserNonce) return res.status(403).json({ ok: false, error: "trial_oauth_session_missing" });
+    try {
+      const session = await loadConfirmedTrialOAuthSession(db, browserNonce);
+      if (!session) return res.status(403).json({ ok: false, error: "trial_oauth_session_missing" });
+      const resolution = await resolveTrialEmail(req.body?.email, {
+        findLocalUser: async (email) => {
+          const result = await db.query(
+            `SELECT id FROM usuarios WHERE LOWER(TRIM(email)) = $1 LIMIT 1`, [email]
+          );
+          return result.rows[0] || null;
+        },
+        lookupHubEmail,
+      });
+      const prepared = await prepareTrialEmailVerification(db, {
+        browserNonce, email: resolution.email, action: resolution.action,
+      });
+      if (resolution.action === "login_required") {
+        return res.json({ ok: true, action: "login_required" });
+      }
+      if (!String(ML_PUBLIC_ORIGIN_ENV || "").trim()) {
+        return res.status(503).json({ ok: false, error: "trial_public_origin_unavailable" });
+      }
+      const activationLink = buildAbsoluteUrl(req, `/ativar-teste?token=${encodeURIComponent(prepared.token)}`);
+      const delivery = await sendTrialVerificationEmail({
+        toEmail: resolution.email,
+        activationLink,
+        expiresAt: new Date(prepared.activation_expires_at).toLocaleString("pt-BR", {
+          timeZone: "America/Sao_Paulo"
+        }),
+      });
+      if (!delivery.sent) return res.status(503).json({ ok: false, error: "trial_email_delivery_unavailable" });
+      return res.json({ ok: true, action: "verification_sent" });
+    } catch (error) {
+      const code = String(error?.message || "");
+      if (code === "trial_email_invalid") return res.status(400).json({ ok: false, error: code });
+      if (code === "trial_oauth_session_not_confirmed") return res.status(409).json({ ok: false, error: code });
+      console.error("ML public trial email failed:", code);
+      return res.status(503).json({ ok: false, error: "trial_email_unavailable" });
+    }
+  },
+);
+
 async function handleTrialOAuthCallback(req, res, { code, state, redirectUri }) {
   const browserNonce = String(req.cookies?.[COOKIE_TRIAL_OAUTH_NONCE] || "").trim();
   const session = await claimTrialOAuthCallback(db, { state, browserNonce });
@@ -915,6 +969,14 @@ async function handleTrialOAuthCallback(req, res, { code, state, redirectUri }) 
   const token = await response.json().catch(() => null);
   if (!response.ok || !token?.access_token || !token?.refresh_token || !token?.user_id) {
     return res.status(502).send("Mercado Livre nao confirmou a autorizacao. Inicie novamente.");
+  }
+  try {
+    await assertMlAccountAvailable(db, token.user_id);
+  } catch (error) {
+    if (error?.message === "trial_ml_account_already_linked") {
+      return res.status(409).send("Esta conta Mercado Livre ja esta vinculada. Entre na empresa atual para gerencia-la.");
+    }
+    throw error;
   }
   const expiresInSec = Number(token.expires_in || 0);
   await saveTrialOAuthCredentials(db, {

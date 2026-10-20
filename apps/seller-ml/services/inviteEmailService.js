@@ -63,6 +63,26 @@ function buildInviteHtml({ nome, activationLink, expiresAt }) {
   `;
 }
 
+function buildTrialVerificationHtml({ activationLink, expiresAt }) {
+  const safeLink = escapeHtml(activationLink);
+  const safeExpires = escapeHtml(expiresAt);
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;background:#f6f8fd;padding:32px;color:#0f172a;">
+      <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:20px;padding:32px;border:1px solid #e2e8f0;">
+        <p style="margin:0 0 16px;font-size:14px;color:#ef7e32;font-weight:800;letter-spacing:.08em;text-transform:uppercase;">DACHBYTE · Seller ML</p>
+        <h1 style="margin:0 0 12px;font-size:30px;line-height:1.1;">Confirme seu e-mail</h1>
+        <p style="margin:0 0 18px;font-size:16px;line-height:1.6;">
+          Sua conta do Mercado Livre foi autorizada, mas ainda não está ativa no Seller.
+          Confirme este e-mail para criar seu acesso e iniciar os 7 dias de teste.
+        </p>
+        <p style="margin:24px 0;"><a href="${safeLink}" style="display:inline-block;background:#ff8a38;color:#111827;text-decoration:none;font-weight:800;padding:14px 20px;border-radius:12px;">Confirmar e-mail</a></p>
+        <p style="margin:0 0 12px;font-size:13px;color:#475569;word-break:break-all;">${safeLink}</p>
+        <p style="margin:0;font-size:13px;color:#64748b;">O link expira em ${safeExpires}. O teste não começou ainda.</p>
+      </div>
+    </div>
+  `;
+}
+
 function buildPasswordResetHtml({ nome, resetLink, expiresAt }) {
   const safeName = escapeHtml(nome || "cliente");
   const safeLink = escapeHtml(resetLink);
@@ -212,8 +232,32 @@ async function sendPasswordResetEmail({
   };
 }
 
+async function sendTrialVerificationEmail({ toEmail, activationLink, expiresAt }) {
+  if (!isConfigured()) return { sent: false, skipped: true, reason: "Brevo nao configurado." };
+  const response = await fetch(BREVO_API_URL, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "api-key": normalize(process.env.BREVO_API_KEY),
+    },
+    body: JSON.stringify({
+      sender: sender(),
+      to: [{ email: normalize(toEmail) }],
+      subject: "Confirme seu e-mail para testar o Seller Mercado Livre",
+      htmlContent: buildTrialVerificationHtml({ activationLink, expiresAt }),
+      tags: ["seller-ml-trial-verification"],
+    }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error("trial_verification_email_delivery_failed");
+  return { sent: true, skipped: false, messageId: data?.messageId || null };
+}
+
 module.exports = {
   isConfigured,
   sendInviteEmail,
   sendPasswordResetEmail,
+  sendTrialVerificationEmail,
+  buildTrialVerificationHtml,
 };
