@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const ExcelJS = require("exceljs");
-const { HEADERS, cellText } = require("./bulkSkuWorkbookService");
+const { HEADERS } = require("./bulkSkuWorkbookService");
 const { loadLiveItems, rowsFromItem, assertAccount } = require("./bulkSkuService");
 const { targetKey, classifyRows } = require("./bulkSkuPreviewService");
 const mlApi = require("./anuncioCadastro/mercadoLivreApi");
@@ -12,6 +12,23 @@ const { withRetry } = require("./bulkSkuMlReads");
 
 const IMPORT_DIR = path.join(__dirname, "..", "results", "bulk-sku", "imports");
 const MAX_UPLOAD_ROWS = 200000;
+
+function readImportCell(cell, column) {
+  const raw = cell?.value;
+  if (raw == null) return { value: "", error: "" };
+  if (typeof raw === "object") {
+    if (raw.error) return { value: String(raw.error), error: `${column} contém erro ${raw.error}.` };
+    if ("formula" in raw || "sharedFormula" in raw) return { value: "", error: `${column} contém fórmula; informe texto simples.` };
+    if ("hyperlink" in raw) return { value: "", error: `${column} contém link; informe texto simples.` };
+    if ("text" in raw) return { value: String(raw.text).trim(), error: "" };
+    return { value: "", error: `${column} contém valor incompatível.` };
+  }
+  const value = String(raw).trim();
+  if (/^(?:N\/D|#N\/D|#N\/A|#REF!|#VALUE!|#DIV\/0!|#NAME\?|#NUM!|#NULL!|#SPILL!|#CALC!)$/i.test(value)) {
+    return { value, error: `${column} contém erro ${value}.` };
+  }
+  return { value, error: "" };
+}
 
 function importPath(id) {
   if (!/^[0-9a-f-]{36}$/i.test(String(id))) throw new Error("ID de importacao invalido.");
@@ -27,15 +44,17 @@ async function* readEditedRows(filename, batchSize = 100) {
     if (found) break;
     found = true;
     for await (const group of sheet) for (const row of Array.isArray(group) ? group : [group]) {
-      const cells = HEADERS.map((_, index) => cellText(row.getCell(index + 1)).trim());
+      const parsed = HEADERS.map((name, index) => readImportCell(row.getCell(index + 1), name === "sku_novo" ? "SKU novo" : name));
+      const cells = parsed.map(({ value }) => value);
       if (row.number === 1) {
-        if (cells.some((value, index) => value !== HEADERS[index])) throw Object.assign(new Error("Cabecalhos da planilha nao correspondem ao modelo exportado."), { status: 400 });
+        if (parsed.some(({ error }) => error) || cells.some((value, index) => value !== HEADERS[index])) throw Object.assign(new Error("Cabecalhos da planilha nao correspondem ao modelo exportado."), { status: 400 });
         continue;
       }
-      if (!cells[6]) continue;
+      const inputError = parsed.find(({ error }) => error)?.error || "";
+      if (!cells[6] && !inputError) continue;
       total += 1;
       if (total > MAX_UPLOAD_ROWS) throw Object.assign(new Error("A planilha excede 200.000 alteracoes por lote."), { status: 400 });
-      batch.push({ ...Object.fromEntries(HEADERS.map((key, index) => [key, cells[index]])), row_number: row.number });
+      batch.push({ ...Object.fromEntries(HEADERS.map((key, index) => [key, cells[index]])), row_number: row.number, ...(inputError ? { input_error: inputError } : {}) });
       if (batch.length >= batchSize) { yield batch; batch = []; }
     }
   }
@@ -128,4 +147,4 @@ async function runPreview(id, {
   } finally { try { fs.unlinkSync(importPath(id)); } catch (_) {} }
 }
 
-module.exports = { importPath, readEditedRows, countEditedRows, createPreview, runPreview };
+module.exports = { importPath, readImportCell, readEditedRows, countEditedRows, createPreview, runPreview };

@@ -1343,13 +1343,15 @@ function withBase(path) {
   <div class="job-content">
     <div class="job-main-line">
       <div class="job-title-block">
+        <div class="job-id-row">
+          ${jobNumber}
+          ${dismissButton}
+        </div>
         <div class="job-name-row">
           <div class="job-name">${esc(title)}</div>
-          ${jobNumber}
         </div>
         ${metaText ? `<div class="job-meta">${esc(metaText)}</div>` : ""}
       </div>
-      ${dismissButton}
     </div>
     <div class="job-state-line">
       ${renderStatusPill(tone, j)}

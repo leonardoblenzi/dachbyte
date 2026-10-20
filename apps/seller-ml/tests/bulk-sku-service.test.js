@@ -32,6 +32,7 @@ test("application panel separates applied, unchanged and failed rows", async () 
       { job_id: "c1", state: "unchanged", count: 1 },
       { job_id: "c1", state: "stale", count: 1 },
       { job_id: "c1", state: "error", count: 2 },
+      { job_id: "c1", state: "invalid", count: 1 },
     ] };
     return { rows: [{ id: "c1", account_key: "acct", status: "finished", total_rows: 7, processed_rows: 7, created_at: new Date() }] };
   } };
@@ -39,8 +40,19 @@ test("application panel separates applied, unchanged and failed rows", async () 
   const job = jobs[0];
   assert.equal(job.success, 3);
   assert.equal(job.unchanged, 1);
-  assert.equal(job.errors, 3);
+  assert.equal(job.errors, 4);
   assert.equal(job.state, "partial");
+  assert.match(job.review_action.url, /report\.xlsx$/);
+});
+
+test("preview with only spreadsheet errors still offers XLSX report", async () => {
+  const db = { query: async (sql) => {
+    if (sql.includes("bulk_sku_exports")) return { rows: [] };
+    if (sql.includes("bulk_sku_job_rows")) return { rows: [{ job_id: "c1", state: "error", count: 2 }] };
+    return { rows: [{ id: "c1", account_key: "acct", status: "preview", total_rows: 2, ready_rows: 0, created_at: new Date() }] };
+  } };
+  const [job] = await listJobs({ accountKey: "acct", sellerId: 9, accessToken: "token", requestedBy: "person" }, db);
+  assert.equal(job.errors, 2);
   assert.match(job.review_action.url, /report\.xlsx$/);
 });
 

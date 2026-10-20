@@ -198,7 +198,7 @@ function summarizeStates(rows) {
   return {
     success: counts.applied || 0,
     unchanged: counts.unchanged || 0,
-    errors: (counts.error || 0) + (counts.stale || 0) + (counts.missing || 0) + (counts.unverified || 0),
+    errors: (counts.error || 0) + (counts.invalid || 0) + (counts.divergent || 0) + (counts.stale || 0) + (counts.missing || 0) + (counts.unverified || 0),
   };
 }
 
@@ -209,13 +209,14 @@ async function reportJob(id, ctx, stream, db = require("../db/db")) {
   const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({ stream, useStyles: false, useSharedStrings: false });
   const sheet = workbook.addWorksheet("Resultado de SKUs");
   const headers = ["linha", "mlb", "id_variacao", "sku_atual", "sku_novo", "resultado", "mensagem"];
+  const resultLabel = { applied: "Sucesso", unchanged: "Sem alteração", ready: "Não processado", error: "Falha", invalid: "Falha", divergent: "Falha", missing: "Falha", stale: "Falha", unverified: "Verificar no ML" };
   sheet.addRow(headers).commit();
   let cursor = 0;
   for (;;) {
     const page = await db.query("select * from ml.bulk_sku_job_rows where job_id = $1 and row_number > $2 order by row_number limit 1000", [id, cursor]);
     if (!page.rows.length) break;
     for (const row of page.rows) {
-      sheet.addRow([row.row_number, row.mlb, row.variation_id, row.old_sku, row.new_sku, row.state, row.message].map((value) => String(value ?? ""))).commit();
+      sheet.addRow([row.row_number, row.mlb, row.variation_id, row.old_sku, row.new_sku, resultLabel[row.state] || row.state, row.message].map((value) => String(value ?? ""))).commit();
     }
     cursor = Number(page.rows[page.rows.length - 1].row_number);
   }
@@ -256,7 +257,9 @@ async function listJobs(ctx, db = require("../db/db")) {
     total: job.total_rows,
     accountKey: job.account_key, accountLabel: job.account_label,
     updated_at: job.finished_at || job.created_at, error: job.error_message,
-    review_action: ["finished", "failed"].includes(job.status) ? { label: "Baixar XLSX", url: `/api/bulk-sku/jobs/${job.id}/report.xlsx`, filename: "resultado-alteracao-skus.xlsx" } : null,
+    review_action: ["finished", "failed"].includes(job.status) || (job.status === "preview" && countsByJob.get(String(job.id)).errors > 0)
+      ? { label: "Baixar XLSX", url: `/api/bulk-sku/jobs/${job.id}/report.xlsx`, filename: "resultado-alteracao-skus.xlsx" }
+      : null,
   }));
   return [...exportJobs, ...changeJobs].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, 40);
 }

@@ -5,7 +5,16 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { exportWorkbook } = require("../services/bulkSkuWorkbookService");
-const { readEditedRows, countEditedRows, runPreview, importPath } = require("../services/bulkSkuPreviewJobService");
+const { readEditedRows, readImportCell, countEditedRows, runPreview, importPath } = require("../services/bulkSkuPreviewJobService");
+
+test("spreadsheet errors, N/D, formulas and links are rejected without becoming SKUs", () => {
+  const inputs = [{ error: "#N/A" }, "N/D", { formula: "NA()", result: "NEW" }, { text: "NEW", hyperlink: "https://example.com" }];
+  for (const value of inputs) {
+    const parsed = readImportCell({ value }, "SKU novo");
+    assert.match(parsed.error, /SKU novo/);
+  }
+  assert.deepEqual(readImportCell({ value: "NEW" }, "SKU novo"), { value: "NEW", error: "" });
+});
 
 test("one workbook can yield more than 5,000 edited SKU rows in bounded batches", async () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "bulk-sku-test-"));

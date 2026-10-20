@@ -29,6 +29,10 @@ function classifyRows(importedRows, liveByKey, activeAccount, options = {}) {
     const key = targetKey(row.mlb, row.id_variacao);
     const live = liveByKey.get(key);
     const output = { ...row, row_number: row.row_number || index + 2, key, state: "ready", message: "", warning: "" };
+    if (row.input_error) {
+      output.state = "error"; output.message = row.input_error;
+      return output;
+    }
     if (!/^MLB\d{6,}$/.test(String(row.mlb || "").toUpperCase()) || !String(row.sku_novo || "").trim() || String(row.sku_novo).length > 255) {
       output.state = "invalid"; output.message = "MLB ou SKU novo invalido.";
     } else if (seen.has(key)) {

@@ -20,3 +20,12 @@ test("preview separates ready, unchanged, divergent and duplicate rows", () => {
   assert.equal(classifyRows([{ ...base, sku_atual: "OTHER" }], live, "Loja A")[0].state, "divergent");
   assert.equal(classifyRows([{ ...base, ean_gtin_atual: "DIFFERENT" }], live, "Loja A")[0].warning, "EAN/GTIN mudou no ML");
 });
+
+test("a malformed spreadsheet cell is rejected before duplicate tracking or ML writes", () => {
+  const row = { conta: "Loja", mlb: "MLB123456", id_variacao: "", sku_atual: "OLD", sku_novo: "#N/A", input_error: "SKU novo contém erro #N/A." };
+  const live = new Map([[targetKey(row.mlb, ""), { sku: "OLD", ean: "" }]]);
+  const classified = classifyRows([row, { ...row, sku_novo: "NEW", input_error: undefined }], live, "Loja");
+  assert.equal(classified[0].state, "error");
+  assert.match(classified[0].message, /#N\/A/);
+  assert.equal(classified[1].state, "ready");
+});
