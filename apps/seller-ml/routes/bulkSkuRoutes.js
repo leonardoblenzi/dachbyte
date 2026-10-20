@@ -11,6 +11,7 @@ const access = companyAccess.requireModuleAccess("ml.anuncios.cadastro", { defau
 const editAccess = companyAccess.requireModuleAccess("ml.anuncios.cadastro", { edit: true, defaultAllowIfUnconfigured: true });
 
 router.use(access);
+router.get("/context", Controller.getContext);
 router.get("/export.xlsx", Controller.exportWorkbook);
 router.post("/preview", upload.single("file"), Controller.preview);
 router.post("/jobs", editAccess, Controller.createJob);

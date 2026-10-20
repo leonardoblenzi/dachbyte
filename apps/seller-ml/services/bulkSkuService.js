@@ -36,6 +36,81 @@ function replaceSku(attributes, sku) {
   return [...kept, { id: "SELLER_SKU", value_name: String(sku) }];
 }
 
+function planSkuPayload(item, changes, sellerId) {
+  if (Number(item?.seller_id) !== Number(sellerId)) throw Object.assign(new Error("Anuncio de outra conta no lote."), { status: 403 });
+  const variations = Array.isArray(item?.variations) ? item.variations : [];
+  const readyRows = [];
+  const staleRows = [];
+  const missingRows = [];
+  const alreadyRows = [];
+  const updateByVariation = new Map();
+  for (const row of changes) {
+    const variationId = String(row.variation_id || "");
+    const target = variationId ? variations.find((variation) => String(variation.id) === variationId) : (!variations.length ? item : null);
+    if (!target) { missingRows.push(row); continue; }
+    const currentSku = sellerSku(target.attributes, target.seller_custom_field);
+    if (currentSku === String(row.new_sku)) { alreadyRows.push(row); continue; }
+    if (currentSku !== String(row.old_sku)) { staleRows.push(row); continue; }
+    readyRows.push(row);
+    updateByVariation.set(variationId, row);
+  }
+  let body = null;
+  if (readyRows.length) {
+    body = variations.length
+      ? { variations: variations.map((variation) => {
+        const row = updateByVariation.get(String(variation.id));
+        return row ? { id: variation.id, attributes: replaceSku(variation.attributes, row.new_sku) } : { id: variation.id };
+      }) }
+      : { attributes: [{ id: "SELLER_SKU", value_name: readyRows[0].new_sku }] };
+  }
+  return { body, readyRows, staleRows, missingRows, alreadyRows };
+}
+
+function readSkuAt(item, variationId) {
+  const id = String(variationId || "");
+  const target = id ? (item.variations || []).find((variation) => String(variation.id) === id) : item;
+  return target ? sellerSku(target.attributes, target.seller_custom_field) : null;
+}
+
+async function applyGroup(mlb, changes, ctx, ml = mlApi) {
+  const current = await ml.get(`/items/${encodeURIComponent(mlb)}`, { accessToken: ctx.accessToken });
+  const plan = planSkuPayload(current, changes, ctx.sellerId);
+  const results = new Map();
+  for (const row of plan.staleRows) results.set(row.row_number, { row_number: row.row_number, state: "stale", message: "SKU atual mudou no ML." });
+  for (const row of plan.missingRows) results.set(row.row_number, { row_number: row.row_number, state: "missing", message: "Variacao nao encontrada." });
+  for (const row of plan.alreadyRows) results.set(row.row_number, { row_number: row.row_number, state: "applied", message: "SKU ja estava atualizado." });
+  if (plan.body) {
+    let writeError = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await ml.request(`/items/${encodeURIComponent(mlb)}`, { accessToken: ctx.accessToken, method: "PUT", body: plan.body });
+        writeError = null;
+        break;
+      } catch (error) {
+        writeError = error;
+        const status = Number(error?.status || error?.statusCode || 0);
+        if (![429, 500, 502, 503, 504].includes(status) || attempt === 2) break;
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+      }
+    }
+    if (writeError) {
+      for (const row of plan.readyRows) results.set(row.row_number, { row_number: row.row_number, state: "error", message: String(writeError.message || "Falha no ML").slice(0, 500) });
+    } else {
+      let verified = null;
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        verified = await ml.get(`/items/${encodeURIComponent(mlb)}`, { accessToken: ctx.accessToken });
+        if (plan.readyRows.every((row) => readSkuAt(verified, row.variation_id) === row.new_sku)) break;
+        if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+      }
+      for (const row of plan.readyRows) {
+        const applied = readSkuAt(verified, row.variation_id) === row.new_sku;
+        results.set(row.row_number, { row_number: row.row_number, state: applied ? "applied" : "unverified", message: applied ? "SKU confirmado no ML." : "Envio aceito; confira a atualizacao no ML." });
+      }
+    }
+  }
+  return changes.map((row) => results.get(row.row_number));
+}
+
 async function loadLiveItems(ctx, ml, ids) {
   assertAccount(ctx);
   const items = [];
@@ -127,6 +202,45 @@ async function reportJob(id, ctx, db = require("../db/db")) {
   })));
 }
 
+async function applyJob(id, {
+  db = require("../db/db"), ml = mlApi,
+  loadCredentials = require("./estoqueAtualizacaoWorkerCredentials").loadWorkerCredentials,
+  onProgress = async () => {},
+} = {}) {
+  return db.withClient(async (client) => {
+    const lockKey = `bulk_sku:${id}`;
+    const lock = await client.query("select pg_try_advisory_lock(hashtext($1)) as locked", [lockKey]);
+    if (!lock.rows[0]?.locked) return { skipped: true, reason: "busy" };
+    try {
+      const found = await client.query("select * from ml.bulk_sku_jobs where id = $1", [id]);
+      const job = found.rows[0];
+      if (!job || !["queued", "running"].includes(job.status)) return { skipped: true, reason: "not_queued" };
+      await client.query("update ml.bulk_sku_jobs set status = 'running', started_at = coalesce(started_at, now()) where id = $1", [id]);
+      const credentials = await loadCredentials(job.account_key);
+      const ctx = { accessToken: credentials.accessToken, sellerId: Number(credentials.mlCreds.meli_user_id) };
+      const pending = await client.query("select * from ml.bulk_sku_job_rows where job_id = $1 and state = 'ready' order by mlb, row_number", [id]);
+      const groups = new Map();
+      for (const row of pending.rows) groups.set(row.mlb, [...(groups.get(row.mlb) || []), row]);
+      let processed = Math.max(0, Number(job.processed_rows || 0));
+      for (const [mlb, rows] of groups) {
+        let results;
+        try { results = await applyGroup(mlb, rows, ctx, ml); }
+        catch (error) {
+          results = rows.map((row) => ({ row_number: row.row_number, state: "error", message: String(error.message || "Falha no ML").slice(0, 500) }));
+        }
+        for (const result of results) {
+          await client.query("update ml.bulk_sku_job_rows set state = $3, message = $4, updated_at = now() where job_id = $1 and row_number = $2 and state = 'ready'", [id, result.row_number, result.state, result.message]);
+          processed += 1;
+        }
+        await client.query("update ml.bulk_sku_jobs set processed_rows = $2 where id = $1", [id, processed]);
+        await onProgress(Math.min(100, Math.round((processed / Math.max(1, Number(job.total_rows || 1))) * 100)));
+      }
+      await client.query("update ml.bulk_sku_jobs set status = 'finished', finished_at = now() where id = $1", [id]);
+      return { id, processed };
+    } finally { await client.query("select pg_advisory_unlock(hashtext($1))", [lockKey]); }
+  });
+}
+
 async function previewWorkbook(buffer, ctx, ml = mlApi, db = require("../db/db")) {
   assertAccount(ctx);
   const actor = String(ctx.requestedBy || ctx.userId || "").trim();
@@ -153,4 +267,4 @@ async function previewWorkbook(buffer, ctx, ml = mlApi, db = require("../db/db")
   return { id, rows, ready: rows.filter((row) => row.state === "ready").length, total: rows.length };
 }
 
-module.exports = { assertAccount, rowsFromItem, replaceSku, loadLiveItems, buildPreviewRows, exportRows, previewWorkbook, confirmPreview, getJob, reportJob };
+module.exports = { assertAccount, rowsFromItem, replaceSku, planSkuPayload, applyGroup, applyJob, loadLiveItems, buildPreviewRows, exportRows, previewWorkbook, confirmPreview, getJob, reportJob };

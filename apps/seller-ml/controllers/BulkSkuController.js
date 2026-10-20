@@ -4,10 +4,11 @@ const service = require("../services/bulkSkuService");
 const { requestContext } = require("../services/anuncioCadastro/helpers");
 
 function context(req, res) {
+  const active = requestContext(req, res);
   return {
-    ...requestContext(req, res),
+    ...active,
     accountKey: String(res.locals?.accountKey || "").trim(),
-    accountLabel: String(res.locals?.accountLabel || res.locals?.account?.nickname || "").trim(),
+    accountLabel: String(res.locals?.accountLabel || res.locals?.account?.nickname || active.sellerId || "").trim(),
     requestedBy: String(req.user?.uid || req.user?.id || req.user?.usuario_id || "").trim(),
   };
 }
@@ -18,6 +19,13 @@ function fail(res, error) {
 }
 
 module.exports = {
+  getContext(req, res) {
+    try {
+      const active = context(req, res);
+      service.assertAccount(active);
+      return res.json({ ok: true, account: { label: active.accountLabel || String(active.sellerId), sellerId: String(active.sellerId) } });
+    } catch (error) { return fail(res, error); }
+  },
   async exportWorkbook(req, res) {
     try {
       const file = await service.exportRows(context(req, res));

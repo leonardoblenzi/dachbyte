@@ -33,6 +33,7 @@ const prazoProducaoQueueService = require("./services/prazoProducaoQueueService"
 const validarDimensoesJobService = require("./services/validarDimensoesJobService");
 const estoqueAlertaQueueService = require("./services/estoqueAlertaQueueService");
 const estoqueAtualizacaoQueueService = require("./services/EstoqueAtualizacaoQueueService");
+const bulkSkuQueueService = require("./services/bulkSkuQueueService");
 const CaracteristicasJobsService = require("./services/caracteristicasJobsService");
 const ModeloMassaJobsService = require("./services/modeloMassaJobsService");
 const MeliWebhookQueueService = require("./services/meliWebhookQueueService");
@@ -56,6 +57,7 @@ function boot() {
   prazoProducaoQueueService.initWorker();
   estoqueAlertaQueueService.initWorker();
   estoqueAtualizacaoQueueService.initWorker();
+  bulkSkuQueueService.initWorker();
   validarDimensoesJobService.iniciarWorker();
   CaracteristicasJobsService.initWorker();
   ModeloMassaJobsService.initWorker();

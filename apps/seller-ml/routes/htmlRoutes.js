@@ -115,6 +115,10 @@ router.get("/anuncios/cadastro", noCache, allowLegacyUntilConfigured("ml.anuncio
   res.sendFile(path.join(__dirname, "..", "views", "anuncio-cadastro.html"));
 });
 
+router.get("/anuncios/alteracao-skus", noCache, allowLegacyUntilConfigured("ml.anuncios.cadastro"), (_req, res) => {
+  res.sendFile(path.join(__dirname, "..", "views", "alteracao-skus.html"));
+});
+
 router.get("/ranking-anuncios", noCache, allowLegacyUntilConfigured("ml.anuncios.ranking"), (_req, res) => {
   res.sendFile(path.join(__dirname, "..", "views", "ranking-anuncios.html"));
 });

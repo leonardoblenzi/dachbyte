@@ -101,6 +101,7 @@
       items: [
         { id: "consulta-anuncios", label: "Consulta de anúncios", path: "/filtro-anuncios", icon: "search", credits: true },
         { id: "cadastro-anuncios", label: "Cadastro", path: "/anuncios/cadastro", icon: "edit" },
+        { id: "alteracao-skus", label: "Alteração de SKUs", path: "/anuncios/alteracao-skus", icon: "edit" },
         { id: "estoque-alerta", label: "Estoque", path: "/estoque", icon: "warning", credits: true },
         { id: "ranking-anuncios", label: "Ranking", path: "/ranking-anuncios", icon: "chart" },
         { id: "full", label: "Full", path: "/full", icon: "box" },

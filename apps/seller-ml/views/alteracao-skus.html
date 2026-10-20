@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-br" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Alteração de SKUs | Davantti</title>
+  <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
+  <link rel="stylesheet" href="/ml/css/anuncios.css?v=2026080802" />
+  <link rel="stylesheet" href="/ml/css/alteracao-skus.css?v=1" />
+  <script src="/ml/js/ml-base.js?v=8"></script>
+  <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+</head>
+<body class="ads-app sku-app">
+  <main class="ads-page">
+    <header class="ads-page-header">
+      <div class="ads-page-header__copy">
+        <span class="ads-eyebrow">Anúncios</span>
+        <h1>Alteração de SKUs</h1>
+        <p>Exporte os anúncios da conta, preencha o novo Seller SKU e confira cada alteração antes de enviar ao Mercado Livre.</p>
+      </div>
+    </header>
+
+    <div class="sku-flow" aria-label="Etapas da alteração"><span>1 · Exportar</span><span>2 · Preencher</span><span>3 · Conferir</span><span>4 · Aplicar</span></div>
+
+    <section class="ads-card sku-card" aria-labelledby="sku-account-title">
+      <div class="sku-card-heading"><div><span class="sku-kicker">Conta ativa</span><h2 id="sku-account-title"><span id="accountLabel">Carregando conta…</span></h2><p>Esta operação usa somente a conta selecionada no topo do sistema. Troque de conta antes de começar, se necessário.</p></div><span class="sku-account-badge">Mercado Livre</span></div>
+    </section>
+
+    <div class="sku-grid">
+      <section class="ads-card sku-card" aria-labelledby="sku-export-title">
+        <span class="sku-kicker">Etapa 01</span><h2 id="sku-export-title">Baixar planilha</h2>
+        <p>A planilha traz conta, MLB, ID e nome da variação, EAN/GTIN atual e SKU atual. Edite apenas a coluna <strong>SKU novo</strong>; linhas sem novo SKU não serão enviadas.</p>
+        <button id="downloadTemplate" type="button" class="sku-button sku-button-primary">Exportar anúncios (.xlsx)</button>
+      </section>
+      <section class="ads-card sku-card" aria-labelledby="sku-import-title">
+        <span class="sku-kicker">Etapa 02</span><h2 id="sku-import-title">Importar e conferir</h2>
+        <p>Escolha a planilha preenchida. Verificaremos os SKUs atuais diretamente no Mercado Livre antes de permitir o envio.</p>
+        <label class="sku-file-label" for="skuFile">Planilha .xlsx</label>
+        <input id="skuFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+        <button id="previewButton" type="button" class="sku-button sku-button-secondary">Conferir alterações</button>
+      </section>
+    </div>
+
+    <div id="skuNotice" class="sku-notice" role="status" aria-live="polite" hidden></div>
+
+    <section id="previewSection" class="ads-card sku-card" aria-labelledby="sku-preview-title" hidden>
+      <div class="sku-card-heading"><div><span class="sku-kicker">Etapa 03</span><h2 id="sku-preview-title">Prévia das alterações</h2><p id="previewSummary"></p></div><button id="confirmButton" type="button" class="sku-button sku-button-primary" disabled>Aplicar SKUs prontos</button></div>
+      <label class="sku-confirm"><input id="confirmCosts" type="checkbox" /> Entendo que custos e referências financeiras vinculados ao SKU não serão alterados automaticamente.</label>
+      <div class="sku-table-scroll"><table class="sku-table"><thead><tr><th>Linha</th><th>MLB</th><th>Variação</th><th>EAN/GTIN</th><th>SKU atual</th><th>SKU novo</th><th>Situação</th></tr></thead><tbody id="previewRows"></tbody></table></div>
+    </section>
+
+    <section id="jobSection" class="ads-card sku-card" aria-labelledby="sku-job-title" hidden>
+      <div class="sku-card-heading"><div><span class="sku-kicker">Etapa 04</span><h2 id="sku-job-title">Resultado do lote</h2><p id="jobStatus" role="status" aria-live="polite">Aguardando processamento…</p></div><a id="downloadReport" class="sku-button sku-button-secondary" href="#" hidden>Baixar relatório (.csv)</a></div>
+      <progress id="jobProgress" max="100" value="0"></progress>
+      <div class="sku-table-scroll"><table class="sku-table"><thead><tr><th>Linha</th><th>MLB</th><th>Variação</th><th>SKU anterior</th><th>SKU novo</th><th>Resultado</th></tr></thead><tbody id="jobRows"></tbody></table></div>
+    </section>
+  </main>
+  <script src="/ml/js/alteracao-skus.js?v=1"></script>
+</body>
+</html>
