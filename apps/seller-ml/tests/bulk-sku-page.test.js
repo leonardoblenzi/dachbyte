@@ -20,6 +20,8 @@ test("SKU page is reachable from Ads and exposes the bulk workflow", () => {
   assert.match(html, /alteracao-skus\.js/);
   assert.match(html, /id="bulkJobsPanel"/);
   assert.match(html, /jobs-panel\.js/);
+  assert.match(html, /promo-jobs\.css/);
+  assert.match(html, /Baixar relat[oó]rio \(\.xlsx\)/);
   assert.match(html, /id="exportStatus"/);
 });
 

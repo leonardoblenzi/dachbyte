@@ -16,6 +16,7 @@ test("bulk SKU endpoints gate writes and resolve the active account server-side"
   assert.match(routes, /router\.post\("\/exports", editAccess/);
   assert.match(routes, /router\.get\("\/exports\/:id\/download.xlsx"/);
   assert.match(routes, /router\.get\("\/jobs"/);
+  assert.match(routes, /router\.get\("\/jobs\/:id\/report\.xlsx"/);
   assert.match(routes, /LIMIT_FILE_SIZE/);
   assert.match(routes, /100 \* 1024 \* 1024/);
 });

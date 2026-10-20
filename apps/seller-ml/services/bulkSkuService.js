@@ -4,7 +4,6 @@ const { variationName, gtinValues, sellerSku } = require("./bulkSkuPreviewServic
 const { itemsBulkPath, normalizeBulkResponse } = require("./meliBulk");
 const { targetKey, classifyRows } = require("./bulkSkuPreviewService");
 const { exportWorkbook, parseWorkbook, MAX_ROWS } = require("./bulkSkuWorkbookService");
-const { reportCsv } = require("./bulkSkuWorkbookService");
 const crypto = require("node:crypto");
 const mlApi = require("./anuncioCadastro/mercadoLivreApi");
 
@@ -78,7 +77,7 @@ async function applyGroup(mlb, changes, ctx, ml = mlApi) {
   const results = new Map();
   for (const row of plan.staleRows) results.set(row.row_number, { row_number: row.row_number, state: "stale", message: "SKU atual mudou no ML." });
   for (const row of plan.missingRows) results.set(row.row_number, { row_number: row.row_number, state: "missing", message: "Variacao nao encontrada." });
-  for (const row of plan.alreadyRows) results.set(row.row_number, { row_number: row.row_number, state: "applied", message: "SKU ja estava atualizado." });
+  for (const row of plan.alreadyRows) results.set(row.row_number, { row_number: row.row_number, state: "unchanged", message: "SKU ja estava atualizado." });
   if (plan.body) {
     let writeError = null;
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -190,17 +189,38 @@ async function getJob(id, ctx, db = require("../db/db"), { limit = 100, offset =
   const job = await db.query("select * from ml.bulk_sku_jobs where id = $1 and account_key = $2 and requested_by = $3", [id, String(ctx.accountKey), actor]);
   if (!job.rowCount) return null;
   const rows = await db.query("select * from ml.bulk_sku_job_rows where job_id = $1 order by row_number limit $2 offset $3", [id, limit, offset]);
-  return { ...job.rows[0], rows: rows.rows, row_offset: offset, row_limit: limit };
+  const counts = await db.query("select state, count(*)::integer as count from ml.bulk_sku_job_rows where job_id = $1 group by state", [id]);
+  return { ...job.rows[0], ...summarizeStates(counts.rows), rows: rows.rows, row_offset: offset, row_limit: limit };
 }
 
-async function reportJob(id, ctx, db = require("../db/db")) {
+function summarizeStates(rows) {
+  const counts = Object.fromEntries(rows.map((row) => [row.state, Number(row.count || 0)]));
+  return {
+    success: counts.applied || 0,
+    unchanged: counts.unchanged || 0,
+    errors: (counts.error || 0) + (counts.stale || 0) + (counts.missing || 0) + (counts.unverified || 0),
+  };
+}
+
+async function reportJob(id, ctx, stream, db = require("../db/db")) {
   const job = await getJob(id, ctx, db);
   if (!job) throw Object.assign(new Error("Lote nao encontrado."), { status: 404 });
-  const all = await db.query("select * from ml.bulk_sku_job_rows where job_id = $1 order by row_number", [id]);
-  return reportCsv(all.rows.map((row) => ({
-    mlb: row.mlb, id_variacao: row.variation_id, sku_atual: row.old_sku,
-    sku_novo: row.new_sku, resultado: row.state, mensagem: row.message,
-  })));
+  const ExcelJS = require("exceljs");
+  const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({ stream, useStyles: false, useSharedStrings: false });
+  const sheet = workbook.addWorksheet("Resultado de SKUs");
+  const headers = ["linha", "mlb", "id_variacao", "sku_atual", "sku_novo", "resultado", "mensagem"];
+  sheet.addRow(headers).commit();
+  let cursor = 0;
+  for (;;) {
+    const page = await db.query("select * from ml.bulk_sku_job_rows where job_id = $1 and row_number > $2 order by row_number limit 1000", [id, cursor]);
+    if (!page.rows.length) break;
+    for (const row of page.rows) {
+      sheet.addRow([row.row_number, row.mlb, row.variation_id, row.old_sku, row.new_sku, row.state, row.message].map((value) => String(value ?? ""))).commit();
+    }
+    cursor = Number(page.rows[page.rows.length - 1].row_number);
+  }
+  sheet.commit();
+  await workbook.commit();
 }
 
 async function listJobs(ctx, db = require("../db/db")) {
@@ -211,6 +231,9 @@ async function listJobs(ctx, db = require("../db/db")) {
     db.query("select * from ml.bulk_sku_exports where account_key = $1 and requested_by = $2 order by created_at desc limit 30", scope),
     db.query("select * from ml.bulk_sku_jobs where account_key = $1 and requested_by = $2 order by created_at desc limit 30", scope),
   ]);
+  const ids = changes.rows.map((job) => job.id);
+  const countRows = ids.length ? (await db.query("select job_id, state, count(*)::integer as count from ml.bulk_sku_job_rows where job_id = any($1::text[]) group by job_id, state", [ids])).rows : [];
+  const countsByJob = new Map(ids.map((id) => [String(id), summarizeStates(countRows.filter((row) => String(row.job_id) === String(id)))]));
   const statusLabel = { all: "Todos", active: "Ativos", paused: "Pausados" };
   const exportJobs = exports.rows.map((job) => ({
     adapter: "bulk-sku", id: `export-${job.id}`, kind: "sku_export", title: `Exportação de SKUs · ${statusLabel[job.filter_status] || job.filter_status}${job.status === "running" ? ` · ${job.scanned_items} anúncios` : ""}`,
@@ -223,13 +246,17 @@ async function listJobs(ctx, db = require("../db/db")) {
   }));
   const changeJobs = changes.rows.map((job) => ({
     adapter: "bulk-sku", id: `change-${job.id}`, kind: "sku_change", title: job.status.startsWith("preview") ? `Conferência de SKUs${job.status === "previewing" ? ` · ${job.previewed_rows} linhas` : ""}` : "Alteração de SKUs",
-    state: job.status === "finished" || job.status === "preview" ? "completed" : job.status === "preview_queued" ? "queued" : job.status === "previewing" ? "running" : job.status,
+    state: job.status === "finished" ? (countsByJob.get(String(job.id)).errors ? "partial" : "completed") : job.status === "preview" ? "completed" : job.status === "preview_queued" ? "queued" : job.status === "previewing" ? "running" : job.status,
     completed: ["preview", "finished", "failed"].includes(job.status),
     processed: job.status.startsWith("preview") ? job.previewed_rows : job.processed_rows,
+    success: countsByJob.get(String(job.id)).success,
+    unchanged: countsByJob.get(String(job.id)).unchanged,
+    skipped: countsByJob.get(String(job.id)).unchanged,
+    errors: countsByJob.get(String(job.id)).errors,
     total: job.total_rows,
     accountKey: job.account_key, accountLabel: job.account_label,
     updated_at: job.finished_at || job.created_at, error: job.error_message,
-    review_action: job.status === "finished" ? { label: "Baixar relatório", url: `/api/bulk-sku/jobs/${job.id}/report.csv`, filename: "resultado-alteracao-skus.csv" } : null,
+    review_action: ["finished", "failed"].includes(job.status) ? { label: "Baixar XLSX", url: `/api/bulk-sku/jobs/${job.id}/report.xlsx`, filename: "resultado-alteracao-skus.xlsx" } : null,
   }));
   return [...exportJobs, ...changeJobs].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, 40);
 }

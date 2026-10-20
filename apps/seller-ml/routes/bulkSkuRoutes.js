@@ -34,6 +34,6 @@ router.post("/preview", receiveWorkbook, Controller.preview);
 router.get("/jobs", Controller.listJobs);
 router.post("/jobs", editAccess, Controller.createJob);
 router.get("/jobs/:id", Controller.getJob);
-router.get("/jobs/:id/report.csv", Controller.report);
+router.get("/jobs/:id/report.xlsx", Controller.report);
 
 module.exports = router;

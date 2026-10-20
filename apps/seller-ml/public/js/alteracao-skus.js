@@ -63,7 +63,8 @@
   function renderJob(job) {
     const finished = ["finished", "failed"].includes(job.status);
     $("jobSection").hidden = false;
-    $("jobStatus").textContent = job.status === "finished" ? `Concluído: ${job.processed_rows} de ${job.total_rows} linha(s) processadas.` : job.status === "failed" ? "O processamento foi interrompido. Baixe o relatório e confira as linhas pendentes." : `Processando: ${job.processed_rows} de ${job.total_rows} linha(s).`;
+    const summary = `${Number(job.success || 0)} aplicado(s) · ${Number(job.unchanged || 0)} sem alteração · ${Number(job.errors || 0)} com erro`;
+    $("jobStatus").textContent = job.status === "finished" ? `Processadas ${job.processed_rows} de ${job.total_rows} linha(s): ${summary}.` : job.status === "failed" ? `Processamento interrompido: ${summary}. Baixe o relatório e confira as linhas pendentes.` : `Processando: ${job.processed_rows} de ${job.total_rows} linha(s). ${summary}.`;
     $("jobProgress").value = job.total_rows ? Math.round((job.processed_rows / job.total_rows) * 100) : 0;
     const body = $("jobRows"); body.replaceChildren();
     for (const item of job.rows || []) {
@@ -72,7 +73,7 @@
       cell(row, item.old_sku); cell(row, item.new_sku); statusCell(row, item.state, item.message, item.warning);
       body.appendChild(row);
     }
-    $("downloadReport").href = window.mlUrl(`/api/bulk-sku/jobs/${encodeURIComponent(job.id)}/report.csv`);
+    $("downloadReport").href = window.mlUrl(`/api/bulk-sku/jobs/${encodeURIComponent(job.id)}/report.xlsx`);
     $("downloadReport").hidden = !finished;
     if (finished && pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
     return finished;

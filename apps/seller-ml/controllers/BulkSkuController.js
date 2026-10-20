@@ -75,10 +75,17 @@ module.exports = {
   },
   async report(req, res) {
     try {
-      const csv = await service.reportJob(String(req.params.id || ""), context(req, res));
-      res.set("Content-Type", "text/csv; charset=utf-8");
-      res.set("Content-Disposition", 'attachment; filename="resultado-alteracao-skus.csv"');
-      return res.send(csv);
-    } catch (error) { return fail(res, error); }
+      const active = context(req, res);
+      const id = String(req.params.id || "");
+      const job = await service.getJob(id, active);
+      if (!job) return res.status(404).json({ ok: false, error: "Lote nao encontrado." });
+      res.set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.set("Content-Disposition", 'attachment; filename="resultado-alteracao-skus.xlsx"');
+      await service.reportJob(id, active, res);
+      return res;
+    } catch (error) {
+      if (res.headersSent) { res.destroy(error); return res; }
+      return fail(res, error);
+    }
   },
 };

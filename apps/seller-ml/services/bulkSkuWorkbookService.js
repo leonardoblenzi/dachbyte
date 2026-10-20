@@ -43,15 +43,4 @@ async function parseWorkbook(buffer) {
   return rows;
 }
 
-function csvCell(value) {
-  const raw = String(value ?? "");
-  const safe = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
-  return `"${safe.replace(/"/g, '""')}"`;
-}
-
-function reportCsv(rows) {
-  const headers = ["mlb", "id_variacao", "sku_atual", "sku_novo", "resultado", "mensagem"];
-  return `\uFEFF${headers.join(";")}\r\n${rows.map((row) => headers.map((key) => csvCell(row[key])).join(";")).join("\r\n")}`;
-}
-
-module.exports = { HEADERS, MAX_ROWS, cellText, exportWorkbook, parseWorkbook, reportCsv };
+module.exports = { HEADERS, MAX_ROWS, cellText, exportWorkbook, parseWorkbook };

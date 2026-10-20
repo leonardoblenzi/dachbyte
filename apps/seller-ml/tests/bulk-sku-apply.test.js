@@ -61,6 +61,17 @@ test("application verifies the changed SKU and never sends stale rows", async ()
   assert.deepEqual(result.map((r) => r.state), ["applied", "stale"]);
 });
 
+test("an SKU already updated in ML is reported as unchanged without a second write", async () => {
+  let writes = 0;
+  const ml = {
+    get: async () => ({ id: "MLB123456", seller_id: 99, attributes: [{ id: "SELLER_SKU", value_name: "NEW" }] }),
+    request: async () => { writes += 1; },
+  };
+  const rows = await applyGroup("MLB123456", [{ variation_id: "", old_sku: "OLD", new_sku: "NEW", row_number: 2 }], { sellerId: 99, accessToken: "token" }, ml);
+  assert.equal(writes, 0);
+  assert.equal(rows[0].state, "unchanged");
+});
+
 test("stale or foreign rows never enter the outgoing payload", () => {
   const item = { id: "MLB123456", seller_id: 99, attributes: [{ id: "SELLER_SKU", value_name: "CHANGED" }] };
   const row = { variation_id: "", old_sku: "OLD", new_sku: "NEW", row_number: 2 };

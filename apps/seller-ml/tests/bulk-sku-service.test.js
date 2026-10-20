@@ -19,9 +19,29 @@ test("jobs panel lists only jobs scoped to the active account and user", async (
   } };
   const jobs = await listJobs({ accountKey: "acct", sellerId: 9, accessToken: "token", requestedBy: "person" }, db);
   assert.equal(jobs.length, 2);
-  assert.ok(scopes.every((scope) => scope[0] === "acct" && scope[1] === "person"));
+  assert.ok(scopes.slice(0, 2).every((scope) => scope[0] === "acct" && scope[1] === "person"));
   assert.match(jobs.find((job) => job.kind === "sku_export").review_action.url, /download\.xlsx$/);
   assert.equal(jobs.find((job) => job.kind === "sku_change").total, 5100);
+});
+
+test("application panel separates applied, unchanged and failed rows", async () => {
+  const db = { query: async (sql) => {
+    if (sql.includes("bulk_sku_exports")) return { rows: [] };
+    if (sql.includes("bulk_sku_job_rows")) return { rows: [
+      { job_id: "c1", state: "applied", count: 3 },
+      { job_id: "c1", state: "unchanged", count: 1 },
+      { job_id: "c1", state: "stale", count: 1 },
+      { job_id: "c1", state: "error", count: 2 },
+    ] };
+    return { rows: [{ id: "c1", account_key: "acct", status: "finished", total_rows: 7, processed_rows: 7, created_at: new Date() }] };
+  } };
+  const jobs = await listJobs({ accountKey: "acct", sellerId: 9, accessToken: "token", requestedBy: "person" }, db);
+  const job = jobs[0];
+  assert.equal(job.success, 3);
+  assert.equal(job.unchanged, 1);
+  assert.equal(job.errors, 3);
+  assert.equal(job.state, "partial");
+  assert.match(job.review_action.url, /report\.xlsx$/);
 });
 
 test("confirmation requires the same account and user and queues only ready rows", async () => {
