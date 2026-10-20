@@ -14,6 +14,11 @@ const {
 const { buildPlanCheckoutUrl } = require("../services/hubCreditsService");
 const { buildAccountBillingPayload } = require("../services/accountBillingStatus");
 const { createMlHubRelink } = require("../services/hubResourceRelinkService");
+const {
+  createTrialOAuthSession,
+  claimTrialOAuthCallback,
+  saveTrialOAuthCredentials,
+} = require("../services/publicTrialOAuthSession");
 
 const router = express.Router();
 
@@ -68,9 +73,14 @@ const ML_USERS_URL = "https://api.mercadolibre.com/users";
 
 // Cookie da conta selecionada (novo padrão)
 const COOKIE_MELI_CONTA = "meli_conta_id";
+const COOKIE_TRIAL_OAUTH_NONCE = "ml_trial_oauth_nonce";
 
 const isProd =
   String(process.env.NODE_ENV || "").toLowerCase() === "production";
+
+function trialOnboardingEnabled() {
+  return String(process.env.SELLER_TRIAL_ONBOARDING_ENABLED || "").toLowerCase() === "true";
+}
 
 // Em produção (Render), você está com trust proxy = 1, então secure funciona
 function cookieOptions() {
@@ -79,6 +89,16 @@ function cookieOptions() {
     sameSite: "lax",
     secure: true,
     maxAge: 30 * 24 * 3600 * 1000,
+    path: "/",
+  };
+}
+
+function trialCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isProd,
+    maxAge: 24 * 60 * 60 * 1000,
     path: "/",
   };
 }
@@ -843,6 +863,72 @@ router.post(
   },
 );
 
+// Public trial OAuth is staged separately from meli_contas. It does not grant
+// access or start the seven-day clock before email activation.
+router.post(
+  "/oauth/trial/start",
+  oauthRateLimiter,
+  express.json({ limit: "50kb" }),
+  async (req, res) => {
+    try {
+      if (!trialOnboardingEnabled()) return res.status(404).json({ ok: false, error: "not_found" });
+      if (!ML_APP_ID || !ML_CLIENT_SECRET || !canEncryptTokens()) {
+        return res.status(503).json({ ok: false, error: "trial_oauth_unavailable" });
+      }
+      const redirectUri = resolveRedirectUri(req);
+      if (!redirectUri) return res.status(503).json({ ok: false, error: "trial_oauth_callback_unavailable" });
+      const codeVerifier = randomVerifier();
+      const session = await createTrialOAuthSession(db, { codeVerifier });
+      const url = new URL(AUTH_BASE);
+      url.searchParams.set("response_type", "code");
+      url.searchParams.set("client_id", String(ML_APP_ID));
+      url.searchParams.set("redirect_uri", redirectUri);
+      url.searchParams.set("state", session.state);
+      url.searchParams.set("code_challenge", sha256Base64Url(codeVerifier));
+      url.searchParams.set("code_challenge_method", "S256");
+      res.cookie(COOKIE_TRIAL_OAUTH_NONCE, session.browserNonce, trialCookieOptions());
+      return res.json({ ok: true, url: url.toString() });
+    } catch (error) {
+      console.error("ML public trial OAuth start failed:", error?.message || error);
+      return res.status(500).json({ ok: false, error: "trial_oauth_start_failed" });
+    }
+  },
+);
+
+async function handleTrialOAuthCallback(req, res, { code, state, redirectUri }) {
+  const browserNonce = String(req.cookies?.[COOKIE_TRIAL_OAUTH_NONCE] || "").trim();
+  const session = await claimTrialOAuthCallback(db, { state, browserNonce });
+  if (!session) return res.status(403).send("Autorizacao expirada ou nao pertence a este navegador. Inicie novamente.");
+
+  const body = new URLSearchParams();
+  body.set("grant_type", "authorization_code");
+  body.set("client_id", String(ML_APP_ID));
+  body.set("client_secret", String(ML_CLIENT_SECRET));
+  body.set("code", code);
+  body.set("redirect_uri", redirectUri);
+  body.set("code_verifier", String(session.code_verifier));
+  const response = await doFetch(TOKEN_URL, {
+    method: "POST",
+    headers: { accept: "application/json", "content-type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  const token = await response.json().catch(() => null);
+  if (!response.ok || !token?.access_token || !token?.refresh_token || !token?.user_id) {
+    return res.status(502).send("Mercado Livre nao confirmou a autorizacao. Inicie novamente.");
+  }
+  const expiresInSec = Number(token.expires_in || 0);
+  await saveTrialOAuthCredentials(db, {
+    sessionId: session.id,
+    mlUserId: token.user_id,
+    accessToken: token.access_token,
+    refreshToken: token.refresh_token,
+    accessExpiresAt: new Date(Date.now() + Math.max(60, expiresInSec) * 1000),
+    scope: token.scope,
+    encrypt: encryptToken,
+  });
+  return res.redirect(withBase(req, "/ativar-teste"));
+}
+
 // ===============================
 // POST /api/meli/oauth/start
 // body: { return_to? }
@@ -961,7 +1047,9 @@ router.get(
   createAuditAction({
     evento: "meli_oauth_callback",
     metadata: (req) => ({
-      oauth_state: String(req.query?.state || "").trim() || null,
+      oauth_state: String(req.query?.state || "").startsWith("trial_")
+        ? "[trial-redacted]"
+        : String(req.query?.state || "").trim() || null,
       has_code: !!String(req.query?.code || "").trim(),
     }),
   }),
@@ -987,6 +1075,11 @@ router.get(
         .send(
           "Não foi possível determinar a URL de callback do Mercado Livre.",
         );
+    }
+
+    if (state.startsWith("trial_")) {
+      if (!trialOnboardingEnabled()) return res.status(404).send("Nao encontrado.");
+      return handleTrialOAuthCallback(req, res, { code, state, redirectUri });
     }
 
     const outcome = await db.withClient(async (client) => {
@@ -1234,7 +1327,7 @@ router.get(
 
     console.error("GET /api/meli/oauth/callback erro:", err?.message || err, {
       redirectUri: resolveRedirectUri(req),
-      state,
+      state: state.startsWith("trial_") ? "[trial-redacted]" : state,
     });
     return res
       .status(500)
