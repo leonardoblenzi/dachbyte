@@ -23,12 +23,12 @@ function sellerSku(attributes, legacy = "") {
   return String(attribute?.value_name || attribute?.value_id || legacy || "").trim();
 }
 
-function classifyRows(importedRows, liveByKey, activeAccount) {
-  const seen = new Set();
+function classifyRows(importedRows, liveByKey, activeAccount, options = {}) {
+  const seen = options.seen || new Set();
   return importedRows.map((row, index) => {
     const key = targetKey(row.mlb, row.id_variacao);
     const live = liveByKey.get(key);
-    const output = { ...row, row_number: index + 2, key, state: "ready", message: "", warning: "" };
+    const output = { ...row, row_number: row.row_number || index + 2, key, state: "ready", message: "", warning: "" };
     if (!/^MLB\d{6,}$/.test(String(row.mlb || "").toUpperCase()) || !String(row.sku_novo || "").trim() || String(row.sku_novo).length > 255) {
       output.state = "invalid"; output.message = "MLB ou SKU novo invalido.";
     } else if (seen.has(key)) {

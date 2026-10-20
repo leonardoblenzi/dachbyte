@@ -184,22 +184,54 @@ async function confirmPreview(id, ctx, db = require("../db/db"), enqueue = (jobI
   return result;
 }
 
-async function getJob(id, ctx, db = require("../db/db")) {
+async function getJob(id, ctx, db = require("../db/db"), { limit = 100, offset = 0 } = {}) {
   assertAccount(ctx);
   const actor = String(ctx.requestedBy || ctx.userId || "").trim();
   const job = await db.query("select * from ml.bulk_sku_jobs where id = $1 and account_key = $2 and requested_by = $3", [id, String(ctx.accountKey), actor]);
   if (!job.rowCount) return null;
-  const rows = await db.query("select * from ml.bulk_sku_job_rows where job_id = $1 order by row_number", [id]);
-  return { ...job.rows[0], rows: rows.rows };
+  const rows = await db.query("select * from ml.bulk_sku_job_rows where job_id = $1 order by row_number limit $2 offset $3", [id, limit, offset]);
+  return { ...job.rows[0], rows: rows.rows, row_offset: offset, row_limit: limit };
 }
 
 async function reportJob(id, ctx, db = require("../db/db")) {
   const job = await getJob(id, ctx, db);
   if (!job) throw Object.assign(new Error("Lote nao encontrado."), { status: 404 });
-  return reportCsv(job.rows.map((row) => ({
+  const all = await db.query("select * from ml.bulk_sku_job_rows where job_id = $1 order by row_number", [id]);
+  return reportCsv(all.rows.map((row) => ({
     mlb: row.mlb, id_variacao: row.variation_id, sku_atual: row.old_sku,
     sku_novo: row.new_sku, resultado: row.state, mensagem: row.message,
   })));
+}
+
+async function listJobs(ctx, db = require("../db/db")) {
+  assertAccount(ctx);
+  const actor = String(ctx.requestedBy || ctx.userId || "").trim();
+  const scope = [String(ctx.accountKey), actor];
+  const [exports, changes] = await Promise.all([
+    db.query("select * from ml.bulk_sku_exports where account_key = $1 and requested_by = $2 order by created_at desc limit 30", scope),
+    db.query("select * from ml.bulk_sku_jobs where account_key = $1 and requested_by = $2 order by created_at desc limit 30", scope),
+  ]);
+  const statusLabel = { all: "Todos", active: "Ativos", paused: "Pausados" };
+  const exportJobs = exports.rows.map((job) => ({
+    adapter: "bulk-sku", id: `export-${job.id}`, kind: "sku_export", title: `Exportação de SKUs · ${statusLabel[job.filter_status] || job.filter_status}${job.status === "running" ? ` · ${job.scanned_items} anúncios` : ""}`,
+    state: job.status === "finished" ? "completed" : job.status,
+    completed: ["finished", "failed"].includes(job.status), processed: job.scanned_items,
+    total: job.estimated_items || (job.status === "finished" ? job.scanned_items : 0), accountKey: job.account_key, accountLabel: job.account_label,
+    updated_at: job.finished_at || job.created_at,
+    error: job.error_message,
+    review_action: job.status === "finished" ? { label: "Baixar XLSX", url: `/api/bulk-sku/exports/${job.id}/download.xlsx`, filename: `alteracao-skus-${job.filter_status}.xlsx` } : null,
+  }));
+  const changeJobs = changes.rows.map((job) => ({
+    adapter: "bulk-sku", id: `change-${job.id}`, kind: "sku_change", title: job.status.startsWith("preview") ? `Conferência de SKUs${job.status === "previewing" ? ` · ${job.previewed_rows} linhas` : ""}` : "Alteração de SKUs",
+    state: job.status === "finished" || job.status === "preview" ? "completed" : job.status === "preview_queued" ? "queued" : job.status === "previewing" ? "running" : job.status,
+    completed: ["preview", "finished", "failed"].includes(job.status),
+    processed: job.status.startsWith("preview") ? job.previewed_rows : job.processed_rows,
+    total: job.total_rows,
+    accountKey: job.account_key, accountLabel: job.account_label,
+    updated_at: job.finished_at || job.created_at, error: job.error_message,
+    review_action: job.status === "finished" ? { label: "Baixar relatório", url: `/api/bulk-sku/jobs/${job.id}/report.csv`, filename: "resultado-alteracao-skus.csv" } : null,
+  }));
+  return [...exportJobs, ...changeJobs].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, 40);
 }
 
 async function applyJob(id, {
@@ -218,22 +250,35 @@ async function applyJob(id, {
       await client.query("update ml.bulk_sku_jobs set status = 'running', started_at = coalesce(started_at, now()) where id = $1", [id]);
       const credentials = await loadCredentials(job.account_key);
       const ctx = { accessToken: credentials.accessToken, sellerId: Number(credentials.mlCreds.meli_user_id) };
-      const pending = await client.query("select * from ml.bulk_sku_job_rows where job_id = $1 and state = 'ready' order by mlb, row_number", [id]);
-      const groups = new Map();
-      for (const row of pending.rows) groups.set(row.mlb, [...(groups.get(row.mlb) || []), row]);
-      let processed = Math.max(0, Number(job.processed_rows || 0));
-      for (const [mlb, rows] of groups) {
+      const reads = require("./bulkSkuMlReads").withRetry(ml);
+      const initialRemaining = await client.query("select count(*)::integer as count from ml.bulk_sku_job_rows where job_id = $1 and state = 'ready'", [id]);
+      let processed = Math.max(0, Number(job.total_rows || 0) - Number(initialRemaining.rows[0]?.count || 0));
+      await client.query("update ml.bulk_sku_jobs set processed_rows = $2 where id = $1", [id, processed]);
+      let cursor = "";
+      for (;;) {
+        const next = await client.query("select distinct mlb from ml.bulk_sku_job_rows where job_id = $1 and state = 'ready' and mlb > $2 order by mlb limit 100", [id, cursor]);
+        if (!next.rows.length) break;
+        for (const { mlb } of next.rows) {
+        const pending = await client.query("select * from ml.bulk_sku_job_rows where job_id = $1 and mlb = $2 and state = 'ready' order by row_number", [id, mlb]);
+        const rows = pending.rows;
+        if (!rows.length) { cursor = mlb; continue; }
         let results;
-        try { results = await applyGroup(mlb, rows, ctx, ml); }
+        try { results = await applyGroup(mlb, rows, ctx, reads); }
         catch (error) {
           results = rows.map((row) => ({ row_number: row.row_number, state: "error", message: String(error.message || "Falha no ML").slice(0, 500) }));
         }
-        for (const result of results) {
-          await client.query("update ml.bulk_sku_job_rows set state = $3, message = $4, updated_at = now() where job_id = $1 and row_number = $2 and state = 'ready'", [id, result.row_number, result.state, result.message]);
-          processed += 1;
-        }
-        await client.query("update ml.bulk_sku_jobs set processed_rows = $2 where id = $1", [id, processed]);
+        await client.query("begin");
+        try {
+          for (const result of results) {
+            await client.query("update ml.bulk_sku_job_rows set state = $3, message = $4, updated_at = now() where job_id = $1 and row_number = $2 and state = 'ready'", [id, result.row_number, result.state, result.message]);
+          }
+          processed += results.length;
+          await client.query("update ml.bulk_sku_jobs set processed_rows = $2 where id = $1", [id, processed]);
+          await client.query("commit");
+        } catch (error) { await client.query("rollback"); throw error; }
         await onProgress(Math.min(100, Math.round((processed / Math.max(1, Number(job.total_rows || 1))) * 100)));
+        cursor = mlb;
+        }
       }
       await client.query("update ml.bulk_sku_jobs set status = 'finished', finished_at = now() where id = $1", [id]);
       return { id, processed };
@@ -267,4 +312,4 @@ async function previewWorkbook(buffer, ctx, ml = mlApi, db = require("../db/db")
   return { id, rows, ready: rows.filter((row) => row.state === "ready").length, total: rows.length };
 }
 
-module.exports = { assertAccount, rowsFromItem, replaceSku, planSkuPayload, applyGroup, applyJob, loadLiveItems, buildPreviewRows, exportRows, previewWorkbook, confirmPreview, getJob, reportJob };
+module.exports = { assertAccount, rowsFromItem, replaceSku, planSkuPayload, applyGroup, applyJob, loadLiveItems, buildPreviewRows, exportRows, previewWorkbook, confirmPreview, getJob, reportJob, listJobs };

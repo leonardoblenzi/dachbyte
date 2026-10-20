@@ -6,7 +6,7 @@
   <title>Alteração de SKUs | Davantti</title>
   <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
   <link rel="stylesheet" href="/ml/css/anuncios.css?v=2026080802" />
-  <link rel="stylesheet" href="/ml/css/alteracao-skus.css?v=1" />
+  <link rel="stylesheet" href="/ml/css/alteracao-skus.css?v=2" />
   <script src="/ml/js/ml-base.js?v=8"></script>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
@@ -22,19 +22,17 @@
 
     <div class="sku-flow" aria-label="Etapas da alteração"><span>1 · Exportar</span><span>2 · Preencher</span><span>3 · Conferir</span><span>4 · Aplicar</span></div>
 
-    <section class="ads-card sku-card" aria-labelledby="sku-account-title">
-      <div class="sku-card-heading"><div><span class="sku-kicker">Conta ativa</span><h2 id="sku-account-title"><span id="accountLabel">Carregando conta…</span></h2><p>Esta operação usa somente a conta selecionada no topo do sistema. Troque de conta antes de começar, se necessário.</p></div><span class="sku-account-badge">Mercado Livre</span></div>
-    </section>
-
     <div class="sku-grid">
       <section class="ads-card sku-card" aria-labelledby="sku-export-title">
         <span class="sku-kicker">Etapa 01</span><h2 id="sku-export-title">Baixar planilha</h2>
         <p>A planilha traz conta, MLB, ID e nome da variação, EAN/GTIN atual e SKU atual. Edite apenas a coluna <strong>SKU novo</strong>; linhas sem novo SKU não serão enviadas.</p>
+        <label class="sku-file-label" for="exportStatus">Situação dos anúncios</label>
+        <select id="exportStatus" class="input"><option value="active">Ativos</option><option value="paused">Inativos / pausados</option><option value="all">Todos</option></select>
         <button id="downloadTemplate" type="button" class="sku-button sku-button-primary">Exportar anúncios (.xlsx)</button>
       </section>
       <section class="ads-card sku-card" aria-labelledby="sku-import-title">
         <span class="sku-kicker">Etapa 02</span><h2 id="sku-import-title">Importar e conferir</h2>
-        <p>Escolha a planilha preenchida. Verificaremos os SKUs atuais diretamente no Mercado Livre antes de permitir o envio.</p>
+        <p>Escolha uma planilha, mesmo com mais de 5.000 SKUs. A conferência e a aplicação serão processadas em lotes no backend.</p>
         <label class="sku-file-label" for="skuFile">Planilha .xlsx</label>
         <input id="skuFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
         <button id="previewButton" type="button" class="sku-button sku-button-secondary">Conferir alterações</button>
@@ -47,6 +45,7 @@
       <div class="sku-card-heading"><div><span class="sku-kicker">Etapa 03</span><h2 id="sku-preview-title">Prévia das alterações</h2><p id="previewSummary"></p></div><button id="confirmButton" type="button" class="sku-button sku-button-primary" disabled>Aplicar SKUs prontos</button></div>
       <label class="sku-confirm"><input id="confirmCosts" type="checkbox" /> Entendo que custos e referências financeiras vinculados ao SKU não serão alterados automaticamente.</label>
       <div class="sku-table-scroll"><table class="sku-table"><thead><tr><th>Linha</th><th>MLB</th><th>Variação</th><th>EAN/GTIN</th><th>SKU atual</th><th>SKU novo</th><th>Situação</th></tr></thead><tbody id="previewRows"></tbody></table></div>
+      <button id="morePreviewRows" class="sku-button sku-button-secondary" type="button" hidden>Mostrar mais linhas</button>
     </section>
 
     <section id="jobSection" class="ads-card sku-card" aria-labelledby="sku-job-title" hidden>
@@ -55,6 +54,9 @@
       <div class="sku-table-scroll"><table class="sku-table"><thead><tr><th>Linha</th><th>MLB</th><th>Variação</th><th>SKU anterior</th><th>SKU novo</th><th>Resultado</th></tr></thead><tbody id="jobRows"></tbody></table></div>
     </section>
   </main>
-  <script src="/ml/js/alteracao-skus.js?v=1"></script>
+  <div id="bulkJobsPanel" class="processos-panel"></div>
+  <script src="/ml/js/jobs-panel-adapters.js?v=2026101601" defer></script>
+  <script src="/ml/js/jobs-panel.js?v=2026101601" defer></script>
+  <script src="/ml/js/alteracao-skus.js?v=2"></script>
 </body>
 </html>

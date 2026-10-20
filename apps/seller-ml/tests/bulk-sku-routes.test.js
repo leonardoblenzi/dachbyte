@@ -13,6 +13,11 @@ test("bulk SKU endpoints gate writes and resolve the active account server-side"
   assert.doesNotMatch(controller, /req\.body\?\.accountKey/);
   const app = fs.readFileSync(path.join(__dirname, "../app.js"), "utf8");
   assert.match(app, /safeUse\("bulkSkuRoutes", "\.\/routes\/bulkSkuRoutes", "\/api\/bulk-sku"\)/);
+  assert.match(routes, /router\.post\("\/exports", editAccess/);
+  assert.match(routes, /router\.get\("\/exports\/:id\/download.xlsx"/);
+  assert.match(routes, /router\.get\("\/jobs"/);
+  assert.match(routes, /LIMIT_FILE_SIZE/);
+  assert.match(routes, /100 \* 1024 \* 1024/);
 });
 
 test("persistent jobs are scoped to account and preserve row identity", () => {

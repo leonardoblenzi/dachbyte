@@ -11,12 +11,16 @@ test("SKU page is reachable from Ads and exposes the bulk workflow", () => {
   const html = fs.readFileSync(path.join(root, "views/alteracao-skus.html"), "utf8");
   assert.match(routes, /"\/anuncios\/alteracao-skus"/);
   assert.match(shell, /label: "Alteração de SKUs", path: "\/anuncios\/alteracao-skus"/);
-  for (const id of ["accountLabel", "downloadTemplate", "skuFile", "previewButton", "previewRows", "confirmButton", "jobStatus", "downloadReport"]) {
+  for (const id of ["downloadTemplate", "skuFile", "previewButton", "previewRows", "confirmButton", "jobStatus", "downloadReport"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
+  assert.doesNotMatch(html, /id="accountLabel"|id="sku-account-title"|class="sku-account-badge"/);
   assert.match(html, /anuncios\.css/);
   assert.match(html, /alteracao-skus\.css/);
   assert.match(html, /alteracao-skus\.js/);
+  assert.match(html, /id="bulkJobsPanel"/);
+  assert.match(html, /jobs-panel\.js/);
+  assert.match(html, /id="exportStatus"/);
 });
 
 test("page requests active-account context and only confirms a preview", () => {
@@ -27,5 +31,6 @@ test("page requests active-account context and only confirms a preview", () => {
   assert.match(js, /api\("\/context"\)/);
   assert.match(js, /\/api\/bulk-sku\/preview/);
   assert.match(js, /\/api\/bulk-sku\/jobs/);
+  assert.match(js, /JobsPanel\?\.mergeApiJobs/);
   assert.doesNotMatch(js, /accountKey\s*:/);
 });

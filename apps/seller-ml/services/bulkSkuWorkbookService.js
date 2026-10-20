@@ -54,4 +54,4 @@ function reportCsv(rows) {
   return `\uFEFF${headers.join(";")}\r\n${rows.map((row) => headers.map((key) => csvCell(row[key])).join(";")).join("\r\n")}`;
 }
 
-module.exports = { HEADERS, MAX_ROWS, exportWorkbook, parseWorkbook, reportCsv };
+module.exports = { HEADERS, MAX_ROWS, cellText, exportWorkbook, parseWorkbook, reportCsv };

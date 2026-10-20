@@ -1,13 +1,27 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { rowsFromItem, replaceSku, assertAccount, loadLiveItems, buildPreviewRows, exportRows, previewWorkbook, confirmPreview } = require("../services/bulkSkuService");
+const { rowsFromItem, replaceSku, assertAccount, loadLiveItems, buildPreviewRows, exportRows, previewWorkbook, confirmPreview, listJobs } = require("../services/bulkSkuService");
 const { exportWorkbook, parseWorkbook } = require("../services/bulkSkuWorkbookService");
 
 test("item rows expose SKU, EAN and readable variation without changing the source", () => {
   const item = { id: "MLB123456", seller_id: 99, attributes: [{ id: "GTIN", value_name: "07891234567890" }], variations: [{ id: 987, attribute_combinations: [{ value_name: "Azul" }, { value_name: "P" }], attributes: [{ id: "SELLER_SKU", value_name: "OLD" }, { id: "GTIN", value_name: "7891234567890" }] }] };
   assert.deepEqual(rowsFromItem(item, "Loja A"), [{ conta: "Loja A", mlb: "MLB123456", id_variacao: "987", nome_variacao: "Azul / P", ean_gtin_atual: "7891234567890", sku_atual: "OLD", sku_novo: "" }]);
   assert.equal(item.variations[0].attributes[0].value_name, "OLD");
+});
+
+test("jobs panel lists only jobs scoped to the active account and user", async () => {
+  const scopes = [];
+  const db = { query: async (sql, params) => {
+    scopes.push(params);
+    if (sql.includes("bulk_sku_exports")) return { rows: [{ id: "e1", account_key: "acct", account_label: "Loja", status: "finished", filter_status: "active", scanned_items: 5100, exported_rows: 5100, created_at: new Date() }] };
+    return { rows: [{ id: "c1", account_key: "acct", account_label: "Loja", status: "preview", previewed_rows: 5100, total_rows: 5100, created_at: new Date() }] };
+  } };
+  const jobs = await listJobs({ accountKey: "acct", sellerId: 9, accessToken: "token", requestedBy: "person" }, db);
+  assert.equal(jobs.length, 2);
+  assert.ok(scopes.every((scope) => scope[0] === "acct" && scope[1] === "person"));
+  assert.match(jobs.find((job) => job.kind === "sku_export").review_action.url, /download\.xlsx$/);
+  assert.equal(jobs.find((job) => job.kind === "sku_change").total, 5100);
 });
 
 test("confirmation requires the same account and user and queues only ready rows", async () => {

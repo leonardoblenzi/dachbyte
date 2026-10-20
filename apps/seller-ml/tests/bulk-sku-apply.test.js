@@ -19,9 +19,11 @@ test("variation update preserves all variation IDs and unchanged attributes", ()
 test("worker persists verified result and does not process finished jobs again", async () => {
   const updates = [];
   let status = "queued";
+  let selected = false;
   const client = { query: async (sql, params) => {
     if (/pg_try_advisory_lock/.test(sql)) return { rows: [{ locked: true }] };
     if (/select \* from ml\.bulk_sku_jobs/.test(sql)) return { rows: [{ id: "job-1", account_key: "12", status }], rowCount: 1 };
+    if (/select distinct mlb/.test(sql)) { if (selected) return { rows: [] }; selected = true; return { rows: [{ mlb: "MLB123456" }] }; }
     if (/select \* from ml\.bulk_sku_job_rows/.test(sql)) return { rows: [{ mlb: "MLB123456", variation_id: "", old_sku: "OLD", new_sku: "NEW", row_number: 2, state: "ready" }], rowCount: 1 };
     if (/update ml\.bulk_sku_job_rows/.test(sql)) updates.push(params);
     if (/status = 'finished'/.test(sql)) status = "finished";
@@ -65,4 +67,38 @@ test("stale or foreign rows never enter the outgoing payload", () => {
   assert.deepEqual(planSkuPayload(item, [row], 99).staleRows, [row]);
   assert.equal(planSkuPayload(item, [row], 99).body, null);
   assert.throws(() => planSkuPayload(item, [row], 100), /outra conta/);
+});
+
+test("application pages pending MLBs instead of loading the entire workbook", async () => {
+  let selected = false;
+  const client = { query: async (sql) => {
+    if (/pg_try_advisory_lock/.test(sql)) return { rows: [{ locked: true }] };
+    if (/select \* from ml\.bulk_sku_jobs/.test(sql)) return { rows: [{ id: "job", account_key: "acct", status: "queued", total_rows: 1, processed_rows: 0 }] };
+    if (/count\(\*\)/.test(sql)) return { rows: [{ count: 1 }] };
+    if (/select distinct mlb/.test(sql)) { if (selected) return { rows: [] }; selected = true; assert.match(sql, /limit 100/i); return { rows: [{ mlb: "MLB123456" }] }; }
+    if (/select \* from ml\.bulk_sku_job_rows/.test(sql)) { assert.match(sql, /mlb = \$2/); return { rows: [{ mlb: "MLB123456", variation_id: "", old_sku: "OLD", new_sku: "NEW", row_number: 2 }] }; }
+    return { rows: [] };
+  } };
+  const db = { withClient: async (fn) => fn(client) };
+  let sku = "OLD";
+  const ml = { get: async () => ({ id: "MLB123456", seller_id: 9, attributes: [{ id: "SELLER_SKU", value_name: sku }] }), request: async () => { sku = "NEW"; } };
+  const result = await applyJob("job", { db, ml, loadCredentials: async () => ({ accessToken: "token", mlCreds: { meli_user_id: 9 } }) });
+  assert.equal(result.processed, 1);
+});
+
+test("resumed job derives progress from remaining ready rows", async () => {
+  let selected = false;
+  const client = { query: async (sql) => {
+    if (/pg_try_advisory_lock/.test(sql)) return { rows: [{ locked: true }] };
+    if (/select \* from ml\.bulk_sku_jobs/.test(sql)) return { rows: [{ id: "job", account_key: "acct", status: "running", total_rows: 2, processed_rows: 0 }] };
+    if (/select distinct mlb/.test(sql)) { if (selected) return { rows: [] }; selected = true; return { rows: [{ mlb: "MLB123456" }] }; }
+    if (/select \* from ml\.bulk_sku_job_rows/.test(sql)) return { rows: [{ mlb: "MLB123456", variation_id: "", old_sku: "OLD", new_sku: "NEW", row_number: 3 }] };
+    if (/count\(\*\)/.test(sql)) return { rows: [{ count: 1 }] };
+    return { rows: [] };
+  } };
+  const db = { withClient: async (fn) => fn(client) };
+  let sku = "OLD";
+  const ml = { get: async () => ({ id: "MLB123456", seller_id: 9, attributes: [{ id: "SELLER_SKU", value_name: sku }] }), request: async () => { sku = "NEW"; } };
+  const result = await applyJob("job", { db, ml, loadCredentials: async () => ({ accessToken: "token", mlCreds: { meli_user_id: 9 } }) });
+  assert.equal(result.processed, 2);
 });
