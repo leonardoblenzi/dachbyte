@@ -1024,6 +1024,7 @@ module.exports = function createMlApp() {
   // demais (mantém)
   safeUse("itemsRoutes", "./routes/itemsRoutes");
   safeUse("anuncioCadastroRoutes", "./routes/anuncioCadastroRoutes", "/api/anuncio-cadastro");
+  safeUse("bulkSkuRoutes", "./routes/bulkSkuRoutes", "/api/bulk-sku");
   safeUse("clonarAnuncioRoutes", "./routes/clonarAnuncioRoutes", "/api/clonar-anuncio");
   safeUse("excluirAnuncioRoutes", "./routes/excluirAnuncioRoutes", "/api/excluir-anuncio");
   safeUse("promocoesRoutes", "./routes/promocoesRoutes");
