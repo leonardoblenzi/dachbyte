@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public_trial_oauth_sessions (
   access_expires_at TIMESTAMPTZ NULL,
   scope TEXT NULL,
   activation_expires_at TIMESTAMPTZ NULL,
+  activation_token_hash TEXT UNIQUE,
   email TEXT NULL,
   claimed_at TIMESTAMPTZ NULL,
   activated_at TIMESTAMPTZ NULL,

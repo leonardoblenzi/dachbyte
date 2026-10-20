@@ -1,6 +1,7 @@
 "use strict";
 
 const crypto = require("node:crypto");
+const { normalizeEmail } = require("./publicTrialEmailResolution");
 
 function digest(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
@@ -73,4 +74,46 @@ async function saveTrialOAuthCredentials(client, input) {
   return result.rows[0];
 }
 
-module.exports = { createTrialOAuthSession, claimTrialOAuthCallback, saveTrialOAuthCredentials };
+async function prepareTrialEmailVerification(client, input) {
+  const browserNonce = String(input.browserNonce || "").trim();
+  const email = normalizeEmail(input.email);
+  const action = String(input.action || "");
+  if (!browserNonce || !["send_activation", "login_required"].includes(action)) {
+    throw new Error("trial_email_preparation_invalid");
+  }
+  const token = action === "send_activation" ? secret() : null;
+  const status = action === "send_activation" ? "email_pending" : "awaiting_login";
+  const result = await client.query(
+    `UPDATE public_trial_oauth_sessions
+        SET status = $2, email = $3, activation_token_hash = $4, updated_at = NOW()
+      WHERE browser_nonce_hash = $1 AND status = 'oauth_confirmed'
+        AND activation_expires_at > NOW()
+      RETURNING id, email, activation_expires_at`,
+    [digest(browserNonce), status, email, token ? digest(token) : null]
+  );
+  if (!result.rows[0]) throw new Error("trial_oauth_session_not_confirmed");
+  return { ...result.rows[0], action, token };
+}
+
+async function claimTrialEmailVerification(client, input) {
+  const token = String(input.token || "").trim();
+  if (!token) return null;
+  const result = await client.query(
+    `UPDATE public_trial_oauth_sessions
+        SET status = 'activation_pending', updated_at = NOW()
+      WHERE activation_token_hash = $1 AND status = 'email_pending'
+        AND activation_expires_at > NOW()
+      RETURNING id, email, ml_user_id, access_token_enc, refresh_token_enc,
+        access_expires_at, scope, activation_expires_at`,
+    [digest(token)]
+  );
+  return result.rows[0] || null;
+}
+
+module.exports = {
+  createTrialOAuthSession,
+  claimTrialOAuthCallback,
+  saveTrialOAuthCredentials,
+  prepareTrialEmailVerification,
+  claimTrialEmailVerification,
+};

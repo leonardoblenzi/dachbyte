@@ -8,6 +8,8 @@ const {
   createTrialOAuthSession,
   claimTrialOAuthCallback,
   saveTrialOAuthCredentials,
+  prepareTrialEmailVerification,
+  claimTrialEmailVerification,
 } = require("../services/publicTrialOAuthSession");
 
 test("public trial OAuth stores only hashes of the browser binding and state", async () => {
@@ -82,4 +84,35 @@ test("migration keeps provisional OAuth separate from live marketplace accounts"
   assert.match(source, /browser_nonce_hash\s+TEXT\s+NOT NULL/i);
   assert.match(source, /oauth_expires_at\s+TIMESTAMPTZ\s+NOT NULL/i);
   assert.match(source, /status\s+TEXT\s+NOT NULL/i);
+  assert.match(source, /activation_token_hash\s+TEXT\s+UNIQUE/i);
+});
+
+test("new email gets a one-time verification token without starting the trial", async () => {
+  const calls = [];
+  const client = { query: async (sql, values) => {
+    calls.push({ sql, values });
+    return { rows: [{ id: "session-1", email: "new@example.test" }] };
+  } };
+  const prepared = await prepareTrialEmailVerification(client, {
+    browserNonce: "browser-secret", email: "new@example.test", action: "send_activation"
+  });
+  assert.ok(prepared.token);
+  assert.match(calls[0].sql, /status\s*=\s*'oauth_confirmed'/i);
+  assert.match(calls[0].sql, /activation_expires_at\s*>\s*NOW\(\)/i);
+  assert.equal(calls[0].values.includes("email_pending"), true);
+  assert.equal(calls[0].values.includes(prepared.token), false);
+  assert.equal(calls[0].sql.includes("seller_module_trials"), false);
+});
+
+test("verified email token can be claimed only while pending and not expired", async () => {
+  let statement = "";
+  const client = { query: async (sql) => {
+    statement = sql;
+    return { rows: [{ id: "session-1", email: "new@example.test", ml_user_id: 123 }] };
+  } };
+  const row = await claimTrialEmailVerification(client, { token: "email-secret" });
+  assert.equal(row.id, "session-1");
+  assert.match(statement, /status\s*=\s*'email_pending'/i);
+  assert.match(statement, /activation_expires_at\s*>\s*NOW\(\)/i);
+  assert.match(statement, /status\s*=\s*'activation_pending'/i);
 });
