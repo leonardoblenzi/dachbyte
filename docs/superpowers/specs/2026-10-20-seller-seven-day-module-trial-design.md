@@ -27,6 +27,12 @@ Não usar `access_policy=unlimited` permanente para representar teste, pois ele 
 5. No vencimento, novas operações falham fechadas pelo backend; jobs já aceitos antes do prazo podem concluir, sem débito retroativo. Leituras de histórico e relatórios permanecem acessíveis. A página apresenta o preço calculado por conta e CTA de contratação, sem seleção manual de faixa. Um checkout iniciado após nova apuração congela faixa, quantidade, preço e matriz comercial; pagamento confirmado provisiona o acesso pago. Sem pagamento, não há extensão tácita.
 6. Créditos previamente comprados permanecem em carteira. Quando houver acesso pago e `consumption_model=prepaid_credits`, o modelo normal de quote/reserva/acerto volta a valer. O teste não altera saldo nem concede créditos.
 
+## Painel do usuário: Seleção de plataforma
+
+`apps/seller-ml/views/selecao-plataforma.html` continua sendo o painel central do cliente, com as áreas existentes Início, Módulos, Contas, Planos e Empresa. Não criar um painel de teste separado. Na Home e em Módulos, cada cartão apresenta `Disponível para testar`, `Teste grátis` com dias restantes, `Teste encerrado` ou `Ativo pago`, conforme o estado do Hub. O botão de testar escolhe **o módulo**, nunca a faixa comercial. A Home não pode esconder um módulo em teste por filtrá-lo como não contratado.
+
+Em Contas, cada conta mostra sua situação de acesso, pedidos apurados do mês fechado e faixa atribuída; o drawer existente detalha a origem/período da apuração, o preço mensal correspondente e eventuais erros. Durante os sete dias, o painel mostra o prazo do módulo e que as operações são ilimitadas; não apresenta saldo fictício. Em Planos e cobrança, a contratação após o teste exibe preços por conta calculados pelo Hub, sem campos editáveis de plano, faixa ou `Pedidos estimados`. O usuário fornece apenas dados de cobrança e forma de pagamento. A ação atual `Alterar plano` de autoatendimento não pode permitir que o cliente substitua a faixa apurada; uma correção de apuração ou condição negociada segue gestão administrativa. A navegação para Contas, Empresa, histórico e regularização permanece disponível depois do vencimento.
+
 ## Segurança e falhas
 
 - OAuth público deve usar PKCE, `state` de uso único, validade curta, cookies seguros e proteção contra associação de conta ML/Shopee a empresa errada. Tokens provisórios são criptografados e removidos se expirarem sem ativação.
