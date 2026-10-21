@@ -36,4 +36,32 @@
   });
 
   initSellerDemos();
+
+  const shopeeTrialLink = document.querySelector('[data-shopee-trial-start]');
+  if (shopeeTrialLink && experience === 'shopee') {
+    fetch('/shopee/auth/trial/availability', { credentials: 'same-origin', cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : { available: false })
+      .then((state) => {
+        if (state.available !== true) return;
+        shopeeTrialLink.textContent = 'Testar grátis por 7 dias';
+        shopeeTrialLink.addEventListener('click', async (event) => {
+          event.preventDefault();
+          if (shopeeTrialLink.dataset.loading === 'true') return;
+          shopeeTrialLink.dataset.loading = 'true';
+          shopeeTrialLink.textContent = 'Conectando à Shopee…';
+          try {
+            const response = await fetch('/shopee/auth/trial/start', {
+              credentials: 'same-origin', cache: 'no-store',
+            });
+            const payload = response.ok ? await response.json() : null;
+            if (!payload?.ok || !/^https:\/\//.test(payload.auth_url || '')) throw new Error('trial_start_unavailable');
+            window.location.assign(payload.auth_url);
+          } catch (_error) {
+            shopeeTrialLink.textContent = 'Tentar conexão novamente';
+            shopeeTrialLink.dataset.loading = 'false';
+          }
+        });
+      })
+      .catch(() => {});
+  }
 })();

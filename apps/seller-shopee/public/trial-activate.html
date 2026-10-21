@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#090b10">
+  <title>Ativar teste · DACHBYTE Shopee</title>
+  <style>
+    :root { color-scheme: dark; font-family: Arial, Helvetica, sans-serif; background: #090b10; color: #f4f7fb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 50% 10%, #172b39, #090b10 66%); }
+    main { width: min(100%, 480px); background: #111824; border: 1px solid #324354; border-radius: 18px; padding: clamp(24px, 5vw, 36px); box-shadow: 0 24px 70px #0008; }
+    .eyebrow { color: #ee8c59; font-size: 12px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+    h1 { font-size: clamp(28px, 6vw, 36px); line-height: 1.08; margin: 12px 0; }
+    p { color: #b6c4d4; line-height: 1.55; }
+    label { display: block; margin: 18px 0 8px; font-size: 13px; font-weight: 700; }
+    input { width: 100%; padding: 14px; border: 1px solid #49647e; border-radius: 9px; background: #0b111b; color: #fff; font: inherit; }
+    button { width: 100%; margin-top: 24px; padding: 14px; border: 0; border-radius: 9px; background: #ee4d2d; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    a { color: #ffac86; }
+    :focus-visible { outline: 3px solid #8cd0ff; outline-offset: 3px; }
+    #message { min-height: 2em; margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">DACHBYTE Seller · Shopee</div>
+    <h1>Ative seu teste</h1>
+    <p>E-mail confirmado. Crie seu acesso para iniciar os 7 dias. Não há cobrança automática.</p>
+    <form id="activation-form">
+      <label for="full-name">Seu nome</label>
+      <input id="full-name" type="text" autocomplete="name" required maxlength="160">
+      <label for="company-name">Nome da empresa</label>
+      <input id="company-name" type="text" autocomplete="organization" required maxlength="160">
+      <label for="password">Crie uma senha</label>
+      <input id="password" type="password" autocomplete="new-password" required minlength="10">
+      <p>Use ao menos 10 caracteres, com letras maiúsculas, minúsculas e números.</p>
+      <button type="submit">Ativar meus 7 dias</button>
+    </form>
+    <p id="message" role="status" aria-live="polite"></p>
+  </main>
+  <script>
+    const token = new URLSearchParams(location.search).get('token');
+    const form = document.getElementById('activation-form');
+    const message = document.getElementById('message');
+    if (!token) { form.hidden = true; message.textContent = 'Este link está incompleto. Abra o link enviado por e-mail.'; }
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const button = form.querySelector('button');
+      button.disabled = true;
+      message.textContent = 'Ativando acesso…';
+      try {
+        const response = await fetch('/shopee/auth/trial/activate', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ token,
+            full_name: document.getElementById('full-name').value,
+            company_name: document.getElementById('company-name').value,
+            password: document.getElementById('password').value }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Não foi possível ativar. Tente novamente.');
+        form.hidden = true;
+        history.replaceState(null, '', location.pathname);
+        message.replaceChildren(document.createTextNode('Teste ativado. '));
+        const link = document.createElement('a');
+        link.href = '/login';
+        link.textContent = 'Entre na sua conta para continuar.';
+        message.append(link);
+      } catch (error) {
+        message.textContent = error.message;
+      } finally { button.disabled = false; }
+    });
+  </script>
+</body>
+</html>

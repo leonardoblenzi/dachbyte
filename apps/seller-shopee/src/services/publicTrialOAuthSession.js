@@ -68,17 +68,78 @@ async function saveProvisionalCredentials(client, input) {
   }
   const access = encryptTrialToken(input.accessToken, input.encryptionKey);
   const refresh = encryptTrialToken(input.refreshToken, input.encryptionKey);
+  const now = input.now instanceof Date ? input.now : new Date();
+  const expiresAt = (seconds) => {
+    const value = Number(seconds);
+    return Number.isFinite(value) && value > 0 && Number.isFinite(now.getTime())
+      ? new Date(now.getTime() + value * 1000).toISOString() : null;
+  };
   const result = await client.query(
     `UPDATE public_trial_oauth_sessions
         SET status = 'oauth_confirmed', shop_id = $2,
             access_token_enc = $3, refresh_token_enc = $4,
+            access_expires_at = $5, refresh_expires_at = $6,
             activation_expires_at = NOW() + INTERVAL '24 hours', updated_at = NOW()
       WHERE id = $1 AND status = 'claimed'
       RETURNING id, shop_id`,
-    [sessionId, shopId, access, refresh],
+    [sessionId, shopId, access, refresh,
+      expiresAt(input.accessExpiresIn), expiresAt(input.refreshExpiresIn)],
   );
   if (!result.rows[0]) throw new Error("trial_oauth_session_not_claimed");
   return result.rows[0];
+}
+
+function normalizeTrialEmail(value) {
+  const email = String(value || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("trial_email_invalid");
+  return email;
+}
+
+async function prepareTrialEmail(client, input) {
+  const nonce = String(input.browserNonce || "").trim();
+  const email = normalizeTrialEmail(input.email);
+  const action = String(input.action || "");
+  if (!nonce || !["send_activation", "login_required"].includes(action)) {
+    throw new Error("trial_email_preparation_invalid");
+  }
+  const token = action === "send_activation" ? crypto.randomBytes(32).toString("base64url") : null;
+  const status = action === "send_activation" ? "email_pending" : "awaiting_login";
+  const result = await client.query(
+    `UPDATE public_trial_oauth_sessions
+        SET status = $2, email = $3, activation_token_hash = $4, updated_at = NOW()
+      WHERE browser_nonce_hash = $1
+        AND (status = 'oauth_confirmed' OR (status = 'email_pending' AND email = $3))
+        AND activation_expires_at > NOW()
+      RETURNING id, activation_expires_at`,
+    [digest(nonce), status, email, token ? digest(token) : null],
+  );
+  if (!result.rows[0]) throw new Error("trial_oauth_session_not_confirmed");
+  return { ...result.rows[0], email, action, token };
+}
+
+async function loadConfirmedTrialSession(client, browserNonce) {
+  if (!String(browserNonce || "").trim()) return null;
+  const result = await client.query(
+    `SELECT id, shop_id FROM public_trial_oauth_sessions
+      WHERE browser_nonce_hash = $1
+        AND status = 'oauth_confirmed' AND activation_expires_at > NOW()
+      LIMIT 1`,
+    [digest(browserNonce)],
+  );
+  return result.rows[0] || null;
+}
+
+async function inspectTrialActivation(client, token) {
+  if (!String(token || "").trim()) return null;
+  const result = await client.query(
+    `SELECT id, email, status FROM public_trial_oauth_sessions
+      WHERE activation_token_hash = $1
+        AND status IN ('email_pending', 'identity_staged')
+        AND (activation_expires_at > NOW() OR recovery_expires_at > NOW())
+      LIMIT 1`,
+    [digest(token)],
+  );
+  return result.rows[0] || null;
 }
 
 module.exports = {
@@ -87,4 +148,7 @@ module.exports = {
   encryptTrialToken,
   decryptTrialToken,
   saveProvisionalCredentials,
+  prepareTrialEmail,
+  loadConfirmedTrialSession,
+  inspectTrialActivation,
 };

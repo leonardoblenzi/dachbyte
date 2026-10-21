@@ -11,7 +11,11 @@ function isTrialCallback(req) {
   return String(req.query?.state || "").startsWith("trial_");
 }
 
+router.get("/auth/trial/availability", asyncHandler(PublicTrialOAuthController.availability));
 router.get("/auth/trial/start", asyncHandler(PublicTrialOAuthController.start));
+router.post("/auth/trial/email", asyncHandler(PublicTrialOAuthController.email));
+router.get("/auth/trial/verify", asyncHandler(PublicTrialOAuthController.verify));
+router.post("/auth/trial/activate", asyncHandler(PublicTrialOAuthController.activate));
 
 router.get(
   "/auth/url",
