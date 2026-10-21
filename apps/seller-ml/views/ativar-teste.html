@@ -23,6 +23,7 @@
             A conta Mercado Livre foi autorizada. Confirme seu e-mail para iniciar os sete dias de teste.
           </p>
           <div id="trial-message" class="login-msg" role="status" aria-live="polite" hidden></div>
+          <a id="trial-existing-login" class="trial-login-link" href="./login?next=trial-existing-link" hidden>Entrar na minha empresa</a>
 
           <form id="trial-email-form" class="auth-form" autocomplete="on">
             <label class="trial-field" for="trial-email">E-mail de acesso</label>
@@ -40,6 +41,13 @@
             <input id="trial-password" name="password" type="password" autocomplete="new-password" required minlength="10" />
             <p class="trial-hint">Use ao menos 10 caracteres, com letras maiúsculas, minúsculas e números.</p>
             <button id="trial-activate-submit" class="auth-btn auth-btn--primary" type="submit">Ativar meus 7 dias</button>
+          </form>
+
+          <form id="trial-existing-form" class="auth-form" hidden>
+            <label class="trial-field" for="trial-existing-company">Empresa que receberá a conta Mercado Livre</label>
+            <select id="trial-existing-company" name="company_id" required></select>
+            <p class="trial-hint">A conta será vinculada somente à empresa selecionada. O teste deste módulo não será reiniciado se a empresa já o utilizou.</p>
+            <button id="trial-existing-submit" class="auth-btn auth-btn--primary" type="submit">Vincular à empresa</button>
           </form>
         </section>
 

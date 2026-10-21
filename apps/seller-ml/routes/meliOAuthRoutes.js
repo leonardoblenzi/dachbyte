@@ -29,6 +29,7 @@ const { sendTrialVerificationEmail } = require("../services/inviteEmailService")
 const { stageVerifiedMlTrialIdentity } = require("../services/publicTrialIdentityStage");
 const { activateMlTrialInHub } = require("../services/hubTrialActivation");
 const { finalizeConfirmedMlTrial } = require("../services/publicTrialFinalization");
+const { listExistingTrialCompanies, stageExistingMlTrialLink } = require("../services/publicTrialExistingLink");
 
 const router = express.Router();
 
@@ -1001,6 +1002,59 @@ router.post(
       }
       console.error("ML public trial activation failed:", code);
       return res.status(503).json({ ok: false, error: "trial_activation_pending_retry" });
+    }
+  },
+);
+
+router.get("/oauth/trial/link-options", oauthRateLimiter, async (req, res) => {
+  if (!trialOnboardingEnabled()) return res.status(404).json({ ok: false, error: "not_found" });
+  const userId = mustBeLogged(req);
+  const browserNonce = String(req.cookies?.[COOKIE_TRIAL_OAUTH_NONCE] || "").trim();
+  if (!userId || !browserNonce) return res.status(401).json({ ok: false, error: "trial_login_required" });
+  try {
+    const result = await listExistingTrialCompanies(db, { browserNonce, userId });
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    const code = String(error?.message || "");
+    if (["trial_login_email_mismatch", "trial_oauth_session_not_confirmed"].includes(code)) {
+      return res.status(403).json({ ok: false, error: code });
+    }
+    console.error("ML trial existing company lookup failed:", code);
+    return res.status(503).json({ ok: false, error: "trial_company_lookup_unavailable" });
+  }
+});
+
+router.post(
+  "/oauth/trial/link-existing",
+  oauthRateLimiter,
+  express.json({ limit: "50kb" }),
+  async (req, res) => {
+    if (!trialOnboardingEnabled()) return res.status(404).json({ ok: false, error: "not_found" });
+    const userId = mustBeLogged(req);
+    const browserNonce = String(req.cookies?.[COOKIE_TRIAL_OAUTH_NONCE] || "").trim();
+    if (!userId || !browserNonce) return res.status(401).json({ ok: false, error: "trial_login_required" });
+    try {
+      const staged = await stageExistingMlTrialLink(db.pool, {
+        browserNonce, userId, companyId: req.body?.company_id,
+      });
+      const activation = await activateMlTrialInHub({
+        tenantId: staged.tenantId, companyName: staged.companyName,
+        userId: staged.globalUserId, fullName: staged.fullName,
+        email: staged.email, mlUserId: staged.mlUserId, role: staged.role,
+      });
+      const finalized = await finalizeConfirmedMlTrial(db.pool, {
+        sessionId: staged.sessionId, tenantId: staged.tenantId,
+        mlUserId: staged.mlUserId, activation,
+      });
+      return res.json({ ok: true, action: "linked", account_id: finalized.accountId });
+    } catch (error) {
+      const code = String(error?.message || "");
+      if (["trial_login_email_mismatch", "trial_company_membership_required",
+        "trial_existing_link_already_claimed", "trial_ml_account_already_linked"].includes(code)) {
+        return res.status(409).json({ ok: false, error: code });
+      }
+      console.error("ML trial existing link failed:", code);
+      return res.status(503).json({ ok: false, error: "trial_existing_link_pending_retry" });
     }
   },
 );

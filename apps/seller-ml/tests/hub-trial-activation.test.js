@@ -30,6 +30,20 @@ test("activation syncs explicit ML membership before activating the OAuth resour
   assert.equal(calls[1].authorization, "Bearer internal");
 });
 
+test("existing company membership retains its actual role during trial sync", async () => {
+  const calls = [];
+  await activateMlTrialInHub({ ...identity, role: "admin" }, {
+    baseUrl: "https://hub.example", token: "internal",
+    fetchImpl: async (_url, options) => {
+      calls.push(JSON.parse(options.body));
+      return { ok: true, json: async () => calls.length === 1
+        ? { ok: true, tenant_id: "company-1", user_id: "user-1" }
+        : { trial: { endsAt: "2026-10-27T12:00:00.000Z" }, resource: { resource_key: "ml:123" } } };
+    }
+  });
+  assert.equal(calls[0].role, "admin");
+});
+
 test("activation fails closed when identity sync or resource activation is not confirmed", async () => {
   let calls = 0;
   await assert.rejects(activateMlTrialInHub(identity, {

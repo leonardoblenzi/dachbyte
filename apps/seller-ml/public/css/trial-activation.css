@@ -9,7 +9,8 @@
   margin: 1.15rem 0 .45rem;
 }
 
-.auth-form > input {
+.auth-form > input,
+.auth-form > select {
   background: #111a2c;
   border: 1px solid #40516d;
   border-radius: 12px;
@@ -22,7 +23,8 @@
   width: 100%;
 }
 
-.auth-form > input:focus-visible {
+.auth-form > input:focus-visible,
+.auth-form > select:focus-visible {
   border-color: #ff8a3d;
   box-shadow: 0 0 0 3px rgba(255, 138, 61, .2);
 }
@@ -35,6 +37,14 @@
 }
 
 .auth-form > .auth-btn { width: 100%; }
+
+.trial-login-link {
+  color: #ffad70;
+  display: inline-flex;
+  font-weight: 750;
+  margin-bottom: 1.2rem;
+  text-underline-offset: 4px;
+}
 
 #trial-message {
   line-height: 1.55;

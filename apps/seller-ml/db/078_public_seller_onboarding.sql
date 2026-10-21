@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS public_trial_oauth_sessions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT public_trial_oauth_sessions_status_check CHECK (
     status IN ('issued', 'claimed', 'oauth_confirmed', 'email_pending',
-      'awaiting_login', 'activation_pending', 'identity_staged', 'activated', 'expired')
+      'awaiting_login', 'activation_pending', 'identity_staged',
+      'existing_identity_staged', 'activated', 'expired')
   )
 );
 

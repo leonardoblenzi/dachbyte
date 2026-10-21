@@ -37,7 +37,8 @@ async function finalizeConfirmedMlTrial(pool, input) {
       await client.query("COMMIT");
       return { accountId: Number(session.meli_conta_id), alreadyActivated: true };
     }
-    if (session.status !== "identity_staged" || !session.empresa_id || !session.usuario_id ||
+    if (!["identity_staged", "existing_identity_staged"].includes(session.status) ||
+        !session.empresa_id || !session.usuario_id ||
         !String(session.access_token_enc || "").startsWith("enc::v1::") ||
         !String(session.refresh_token_enc || "").startsWith("enc::v1::") ||
         !Number.isFinite(Date.parse(session.access_expires_at))) {
@@ -65,18 +66,20 @@ async function finalizeConfirmedMlTrial(pool, input) {
       [accountId, session.access_token_enc, session.access_expires_at,
         session.refresh_token_enc, session.scope]
     );
-    const user = await client.query(
-      `UPDATE usuarios SET status = 'ativo', activated_at = NOW()
-        WHERE id = $1 AND status = 'pendente_ativacao' RETURNING id`,
-      [session.usuario_id]
-    );
-    if (!user.rows[0]) throw new Error("trial_local_user_activation_failed");
+    if (session.status === "identity_staged") {
+      const user = await client.query(
+        `UPDATE usuarios SET status = 'ativo', activated_at = NOW()
+          WHERE id = $1 AND status = 'pendente_ativacao' RETURNING id`,
+        [session.usuario_id]
+      );
+      if (!user.rows[0]) throw new Error("trial_local_user_activation_failed");
+    }
     const updated = await client.query(
       `UPDATE public_trial_oauth_sessions
           SET status = 'activated', meli_conta_id = $2,
               activation_token_hash = NULL, access_token_enc = NULL,
               refresh_token_enc = NULL, activated_at = NOW(), updated_at = NOW()
-        WHERE id = $1 AND status = 'identity_staged' RETURNING id`,
+        WHERE id = $1 AND status IN ('identity_staged', 'existing_identity_staged') RETURNING id`,
       [sessionId, accountId]
     );
     if (!updated.rows[0]) throw new Error("trial_local_activation_conflict");

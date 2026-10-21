@@ -60,3 +60,24 @@ test("second completion returns original account without writing tokens again", 
   assert.equal(result.accountId, 30);
   assert.equal(statements.some((statement) => /INSERT INTO meli_tokens/i.test(statement)), false);
 });
+
+test("existing user is not reactivated or changed when their ML trial link is finalized", async () => {
+  const statements = [];
+  const client = { query: async (statement) => {
+    statements.push(statement);
+    if (/FROM public_trial_oauth_sessions/i.test(statement)) return { rows: [{
+      id: "session-1", status: "existing_identity_staged", empresa_id: 10,
+      usuario_id: 20, tenant_global_id: "tenant-1", ml_user_id: 123,
+      access_token_enc: "enc::v1::access", refresh_token_enc: "enc::v1::refresh",
+      access_expires_at: "2026-10-20T18:00:00.000Z"
+    }] };
+    if (/FROM meli_contas/i.test(statement)) return { rows: [] };
+    if (/INSERT INTO meli_contas/i.test(statement)) return { rows: [{ id: 30 }] };
+    if (/UPDATE public_trial_oauth_sessions/i.test(statement)) return { rows: [{ id: "session-1" }] };
+    return { rows: [] };
+  }, release() {} };
+  const result = await finalizeConfirmedMlTrial({ connect: async () => client }, input);
+  assert.equal(result.accountId, 30);
+  assert.equal(statements.some((statement) => /UPDATE usuarios/i.test(statement)), false);
+  assert.ok(statements.includes("COMMIT"));
+});

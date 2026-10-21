@@ -33,10 +33,14 @@ async function activateMlTrialInHub(input, options = {}) {
   const userId = String(input.userId || "").trim();
   const fullName = String(input.fullName || "").trim();
   const email = String(input.email || "").trim().toLowerCase();
+  const role = String(input.role || "owner").trim().toLowerCase();
   const mlUserId = Number(input.mlUserId);
   if (!tenantId || !companyName || !userId || !fullName || !email ||
       !Number.isSafeInteger(mlUserId) || mlUserId <= 0) {
     throw new Error("trial_hub_identity_invalid");
+  }
+  if (!["owner", "admin", "operador"].includes(role)) {
+    throw new Error("trial_hub_role_invalid");
   }
   const client = config(options);
   const identity = await postInternal(client, "/v1/internal/identity/sync", {
@@ -45,7 +49,7 @@ async function activateMlTrialInHub(input, options = {}) {
     user_id: userId,
     full_name: fullName,
     email,
-    role: "owner",
+    role,
     module: "ml",
     modules: ["ml"],
     access_policy: "explicit",
