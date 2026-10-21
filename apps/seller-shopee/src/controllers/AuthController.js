@@ -388,6 +388,7 @@ async function refresh(req, res) {
 }
 
 module.exports = {
+  buildAuthUrl,
   getAuthUrl,
   getAdsAuthUrl,
   callback,
