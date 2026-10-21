@@ -260,6 +260,10 @@ module.exports = function createMlApp() {
     if (p === "/login") return true;
     if (p === "/cadastro") return true;
     if (p === "/ativar") return true;
+    if (p === "/ativar-teste" ||
+        ["/api/meli/oauth/trial/start", "/api/meli/oauth/trial/email", "/api/meli/oauth/trial/activate"].includes(p)) {
+      return String(process.env.SELLER_TRIAL_ONBOARDING_ENABLED || "").toLowerCase() === "true";
+    }
     if (p === "/esqueci-senha") return true;
     if (p === "/redefinir-senha") return true;
     if (p === "/selecao-plataforma") return true;
@@ -814,6 +818,13 @@ module.exports = function createMlApp() {
 
   app.get("/ativar", noCache, (_req, res) => {
     return res.sendFile(path.join(__dirname, "views", "ativar.html"));
+  });
+
+  app.get("/ativar-teste", noCache, (_req, res) => {
+    if (String(process.env.SELLER_TRIAL_ONBOARDING_ENABLED || "").toLowerCase() !== "true") {
+      return res.status(404).send("Pagina nao encontrada.");
+    }
+    return res.sendFile(path.join(__dirname, "views", "ativar-teste.html"));
   });
 
   app.get("/esqueci-senha", noCache, (_req, res) => {

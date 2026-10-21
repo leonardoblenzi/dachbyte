@@ -27,7 +27,7 @@
     if (p.startsWith("/ml/") || p === "/ml") return "/ml";
 
     const prefixedRoute = p.match(
-      /^\/([^/]+)\/(?:api|login|cadastro|ativar|esqueci-senha|redefinir-senha|selecao-plataforma|privacidade|privacy|politica-de-privacidade|select-conta|vincular-conta|painel|dashboard|projecao-mensal|publicidade|reputacao|filtro-anuncios|anuncios|estoque|ranking-anuncios|clonar-anuncio|excluir-anuncio|gestao-anuncios|modelo-massa|caracteristicas|validar-dimensoes|prazo|atacado|criar-promocao|remover-promocao|ia-analytics|analise-mercado|logistica|fiscal|financeiro|ajuda|conta|admin)(?:\/|$)/i,
+      /^\/([^/]+)\/(?:api|login|cadastro|ativar|ativar-teste|esqueci-senha|redefinir-senha|selecao-plataforma|privacidade|privacy|politica-de-privacidade|select-conta|vincular-conta|painel|dashboard|projecao-mensal|publicidade|reputacao|filtro-anuncios|anuncios|estoque|ranking-anuncios|clonar-anuncio|excluir-anuncio|gestao-anuncios|modelo-massa|caracteristicas|validar-dimensoes|prazo|atacado|criar-promocao|remover-promocao|ia-analytics|analise-mercado|logistica|fiscal|financeiro|ajuda|conta|admin)(?:\/|$)/i,
     );
 
     if (prefixedRoute && prefixedRoute[1]) {
@@ -46,6 +46,7 @@
     "/login",
     "/cadastro",
     "/ativar",
+    "/ativar-teste",
     "/esqueci-senha",
     "/redefinir-senha",
     "/selecao-plataforma",

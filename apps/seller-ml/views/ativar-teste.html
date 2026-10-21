@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR" data-dachbyte-line="seller" data-dachbyte-app="seller-ml">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Ativar teste do Mercado Livre · DACHBYTE</title>
+    <link rel="stylesheet" href="./css/login.css" />
+    <link rel="stylesheet" href="./css/trial-activation.css" />
+    <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+    <script src="./js/ml-base.js?v=7" defer></script>
+    <script src="./js/ml-trial-activation.js" defer></script>
+  </head>
+  <body class="auth-page theme-ml">
+    <a class="auth-back" href="login"><span aria-hidden="true">&larr;</span><span>Voltar ao login</span></a>
+    <main class="auth-stage">
+      <div class="auth-shell">
+        <section class="auth-panel" aria-labelledby="trial-title">
+          <div class="auth-kicker"><span class="auth-kicker__dot"></span><span>Mercado Livre · teste grátis</span></div>
+          <h1 class="auth-title" id="trial-title">Confirme seu acesso</h1>
+          <p class="auth-subtitle" id="trial-description">
+            A conta Mercado Livre foi autorizada. Confirme seu e-mail para iniciar os sete dias de teste.
+          </p>
+          <div id="trial-message" class="login-msg" role="status" aria-live="polite" hidden></div>
+
+          <form id="trial-email-form" class="auth-form" autocomplete="on">
+            <label class="trial-field" for="trial-email">E-mail de acesso</label>
+            <input id="trial-email" name="email" type="email" autocomplete="email" required maxlength="254" placeholder="voce@empresa.com.br" />
+            <p class="trial-hint">Se este e-mail já pertence a uma empresa DACHBYTE, você precisará entrar nela para vincular a conta.</p>
+            <button id="trial-email-submit" class="auth-btn auth-btn--primary" type="submit">Enviar confirmação</button>
+          </form>
+
+          <form id="trial-activate-form" class="auth-form" autocomplete="on" hidden>
+            <label class="trial-field" for="trial-name">Seu nome</label>
+            <input id="trial-name" name="full_name" type="text" autocomplete="name" required maxlength="160" />
+            <label class="trial-field" for="trial-company">Nome da empresa</label>
+            <input id="trial-company" name="company_name" type="text" autocomplete="organization" required maxlength="160" />
+            <label class="trial-field" for="trial-password">Crie uma senha</label>
+            <input id="trial-password" name="password" type="password" autocomplete="new-password" required minlength="10" />
+            <p class="trial-hint">Use ao menos 10 caracteres, com letras maiúsculas, minúsculas e números.</p>
+            <button id="trial-activate-submit" class="auth-btn auth-btn--primary" type="submit">Ativar meus 7 dias</button>
+          </form>
+        </section>
+
+        <aside class="auth-visual" aria-label="Como funciona o teste">
+          <div class="auth-visual__card">
+            <span class="auth-visual__badge">Sem cobrança automática</span>
+            <h2 class="auth-visual__title">Sete dias para conhecer o Seller ML</h2>
+            <p class="auth-visual__text">O prazo só começa quando você confirma o e-mail e ativa o acesso. Durante o teste, as operações do módulo não consomem créditos.</p>
+            <div class="auth-visual__stack">
+              <div class="auth-feature"><div class="auth-feature__icon" aria-hidden="true">1</div><div><span class="auth-feature__title">Conta conectada</span><span class="auth-feature__meta">Autorização concluída no Mercado Livre.</span></div></div>
+              <div class="auth-feature"><div class="auth-feature__icon" aria-hidden="true">2</div><div><span class="auth-feature__title">E-mail confirmado</span><span class="auth-feature__meta">Ativação segura, uma vez por empresa e módulo.</span></div></div>
+              <div class="auth-feature"><div class="auth-feature__icon" aria-hidden="true">3</div><div><span class="auth-feature__title">Plano automático depois</span><span class="auth-feature__meta">A faixa será apurada pelo sistema; você não precisa escolhê-la agora.</span></div></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </body>
+</html>
