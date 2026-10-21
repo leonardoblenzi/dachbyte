@@ -112,6 +112,76 @@ async function runPendingClosedMonthMeasurements(db, options = {}) {
     const periodStart = new Date(row.period_start).toISOString().slice(0, 10);
     await processRow(Number(row.account_id), periodStart);
   }
+  await syncPendingHubMeasurements(db, options);
+  return pending.rows.length;
+}
+
+async function postHubOrderMeasurement(payload, options = {}) {
+  const baseUrl = String(options.baseUrl ?? process.env.HUB_BASE_URL ?? "").trim().replace(/\/+$/, "");
+  const token = String(options.token ?? process.env.HUB_INTERNAL_TOKEN ?? "").trim();
+  const fetchImpl = options.fetchImpl || globalThis.fetch;
+  if (!baseUrl || !token || typeof fetchImpl !== "function") throw new Error("hub_measurement_unavailable");
+  const response = await fetchImpl(`${baseUrl}/v1/internal/resources/orders/measurement`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) throw new Error(`hub_measurement_http_${response.status}`);
+  const body = await response.json().catch(() => null);
+  if (body?.ok !== true || body?.measurement?.resourceKey !== payload.resource_key) {
+    throw new Error("hub_measurement_confirmation_invalid");
+  }
+}
+
+async function syncPendingHubMeasurements(db, options = {}) {
+  const pending = await db.query(
+    `SELECT m.account_id, m.period_start, m.period_end_exclusive,
+            m.order_count, m.source, e.tenant_global_id, mc.meli_user_id
+       FROM ml_closed_month_order_measurements m
+       JOIN meli_contas mc ON mc.id = m.account_id
+       JOIN empresas e ON e.id = mc.empresa_id
+      WHERE m.status = 'succeeded' AND m.hub_synced_at IS NULL
+        AND (m.hub_sync_attempts = 0 OR m.updated_at < NOW() - INTERVAL '5 minutes')
+      ORDER BY m.measured_at
+      LIMIT 20`
+  );
+  const postMeasurement = options.postMeasurement || postHubOrderMeasurement;
+  for (const row of pending.rows) {
+    const accountId = Number(row.account_id);
+    const periodStart = new Date(row.period_start).toISOString().slice(0, 10);
+    try {
+      const tenantId = String(row.tenant_global_id || "").trim();
+      const sellerId = Number(row.meli_user_id);
+      const count = Number(row.order_count);
+      if (!tenantId || !Number.isSafeInteger(sellerId) || sellerId <= 0 ||
+          !Number.isSafeInteger(count) || count < 0) throw new Error("hub_measurement_identity_invalid");
+      await postMeasurement({
+        tenant_id: tenantId,
+        resource_key: `ml:${sellerId}`,
+        status: "succeeded",
+        period_start: periodStart,
+        period_end_exclusive: new Date(row.period_end_exclusive).toISOString().slice(0, 10),
+        order_count: count,
+        source: String(row.source || ""),
+      });
+      await db.query(
+        `UPDATE ml_closed_month_order_measurements
+            SET hub_synced_at = NOW(), hub_sync_error = NULL, updated_at = NOW()
+          WHERE account_id = $1 AND period_start = $2::date AND status = 'succeeded'`,
+        [accountId, periodStart]
+      );
+    } catch (error) {
+      await db.query(
+        `UPDATE ml_closed_month_order_measurements
+            SET hub_sync_attempts = hub_sync_attempts + 1,
+                hub_sync_error = $3, updated_at = NOW()
+          WHERE account_id = $1 AND period_start = $2::date AND status = 'succeeded'
+            AND hub_synced_at IS NULL`,
+        [accountId, periodStart, String(error?.message || "hub_measurement_failed").slice(0, 300)]
+      );
+    }
+  }
   return pending.rows.length;
 }
 
@@ -146,6 +216,8 @@ module.exports = {
   processClosedMonthMeasurement,
   runPendingClosedMonthMeasurements,
   requeueFailedClosedMonthMeasurement,
+  syncPendingHubMeasurements,
+  postHubOrderMeasurement,
   startClosedMonthMeasurementWorker,
   stopClosedMonthMeasurementWorker,
 };
