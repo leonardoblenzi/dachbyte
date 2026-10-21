@@ -1,7 +1,7 @@
 # Seller: contas adicionais e mensalidade pós-paga consolidada — design
 
 Date: 2026-10-21
-Status: regras centrais aprovadas em conversa; minuta para revisão antes do plano de implementação
+Status: aprovado pelo usuário em 2026-10-21; aguardando plano de implementação
 
 ## Escopo e relação com os desenhos anteriores
 
@@ -29,7 +29,7 @@ Não altera a compra pré-paga de créditos ML, o preço das operações, saldos
 ## Reapuração, aviso e desativação
 
 - Antes de cada renovação, o Seller/Hub reapura os pedidos da conta no último mês calendário fechado **disponível na data do corte da cotação**, registra o período efetivamente usado e congela a faixa/preço do próximo ciclo. Erro na apuração não reduz a faixa nem cria preço estimado; mantém a condição vigente até obter dado confiável e sinaliza revisão necessária.
-- Queda de faixa reduz a mensalidade no próximo ciclo. Aumento só entra em vigor em uma renovação futura após aviso prévio com faixa anterior/nova, valor e data de vigência. **Prazo proposto para revisão: sete dias corridos**; se a apuração chegar tarde para esse prazo, o preço anterior vale por mais um ciclo. Não há reajuste retroativo. O aviso deve estar disponível no painel e ser enviado ao contato de cobrança. A data de fechamento da empresa não muda.
+- Queda de faixa reduz a mensalidade no próximo ciclo. Aumento só entra em vigor em uma renovação futura após aviso prévio de pelo menos sete dias corridos com faixa anterior/nova, valor e data de vigência. Se a apuração chegar tarde para esse prazo, o preço anterior vale por mais um ciclo. Não há reajuste retroativo. O aviso deve estar disponível no painel e ser enviado ao contato de cobrança. A data de fechamento da empresa não muda.
 - Antes do aumento, o cliente pode **Desativar assinatura desta conta**. O acesso continua até o fim do ciclo em curso e a mensalidade correspondente permanece devida. Ao fim, operações daquela conta são bloqueadas, mas OAuth, apelido, histórico e dados permanecem; desativar não significa desvincular.
 - Para **Reativar assinatura**, o Hub reapura a faixa e apresenta nova proposta para aceite. Não exige novo OAuth se a conexão continuar válida; credencial revogada exige reconexão. Não concede outro teste gratuito. Dívida vencida da empresa precisa ser quitada antes da reativação.
 
