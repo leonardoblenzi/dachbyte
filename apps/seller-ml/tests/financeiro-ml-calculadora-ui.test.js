@@ -20,6 +20,11 @@ test("calculator keeps listing lookup and uses guided listing and freight contro
   assert.match(html, /id="calc-buyer-shipping-wrap"/);
 });
 
+test("sale price tells the user that editing it only simulates a new value", () => {
+  assert.match(html, /<span>Preço de venda <em>Altere para simular<\/em><\/span>/);
+  assert.match(html, /id="calc-price"/);
+});
+
 test("loaded listing shows its shipping mode and estimated seller cost separately from payment", () => {
   assert.match(html, /id="calc-listing-shipping-context"[^>]*hidden/);
   assert.match(html, /id="calc-listing-shipping-mode"/);
