@@ -54,4 +54,5 @@ test("closed-month ranges follow the approved fixed tiers and route >3000 to sal
   assert.equal(rangeForPaidOrders(3000), "from_1501_to_3000");
   assert.equal(rangeForPaidOrders(3001), "contact_sales");
   assert.throws(() => rangeForPaidOrders(NaN), /ml_orders_total_invalid/);
+  assert.throws(() => rangeForPaidOrders(null), /ml_orders_total_invalid/);
 });

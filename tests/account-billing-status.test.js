@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const {
   buildAccountBillingPayload,
   canOperateAccount,
+  recommendedRangeForOrders,
 } = require("../apps/seller-ml/services/accountBillingStatus");
 
 const futureGrace = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -34,4 +35,11 @@ test("pagamento pendente respeita a carencia e bloqueia quando ela termina", () 
 
   assert.equal(canOperateAccount(inGrace), true);
   assert.equal(canOperateAccount(expiredGrace), false);
+});
+
+test("faixa recomendada usa as faixas novas e não classifica medição inválida como 30 vendas", () => {
+  assert.equal(recommendedRangeForOrders(0), "up_to_30");
+  assert.equal(recommendedRangeForOrders(1501), "from_1501_to_3000");
+  assert.equal(recommendedRangeForOrders(3001), "contact_sales");
+  assert.throws(() => recommendedRangeForOrders(undefined), /ml_orders_total_invalid/);
 });

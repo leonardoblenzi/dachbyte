@@ -1,5 +1,7 @@
 "use strict";
 
+const { rangeForPaidOrders } = require("./closedMonthOrderMeasurement");
+
 const ACTIVE_STATUSES = new Set([
   "active",
   "legacy_active",
@@ -25,6 +27,8 @@ const RANGE_LABELS = {
   from_201_to_700: "201 a 700 vendas",
   from_701_to_1500: "701 a 1.500 vendas",
   above_1500: "Acima de 1.500 vendas",
+  from_1501_to_3000: "1.501 a 3.000 vendas",
+  contact_sales: "Acima de 3.000 vendas · consulte o comercial",
 };
 
 const STATUS_META = {
@@ -142,12 +146,7 @@ function orderRangeLabel(code) {
 }
 
 function recommendedRangeForOrders(orderCount) {
-  const total = Number(orderCount || 0);
-  if (!Number.isFinite(total) || total <= 30) return "up_to_30";
-  if (total <= 200) return "from_31_to_200";
-  if (total <= 700) return "from_201_to_700";
-  if (total <= 1500) return "from_701_to_1500";
-  return "above_1500";
+  return rangeForPaidOrders(orderCount);
 }
 
 function resolveRecommendedRange(account = {}) {

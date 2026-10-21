@@ -51,6 +51,9 @@ async function fetchPaidOrdersTotal(input) {
 }
 
 function rangeForPaidOrders(value) {
+  if (value === null || value === undefined || value === "") {
+    throw new Error("ml_orders_total_invalid");
+  }
   const total = Number(value);
   if (!Number.isSafeInteger(total) || total < 0) throw new Error("ml_orders_total_invalid");
   if (total <= 30) return "up_to_30";

@@ -11,6 +11,7 @@ const {
 } = require("../services/accountBillingStatus");
 const TokenService = require("../services/tokenService");
 const { decryptToken } = require("../services/tokenCrypto");
+const { previousClosedMonthWindow, fetchPaidOrdersTotal } = require("../services/closedMonthOrderMeasurement");
 
 const router = express.Router();
 
@@ -93,33 +94,6 @@ async function getEmpresaDoUsuario(client, usuarioId) {
   return r.rows[0] || null;
 }
 
-function previousClosedMonthWindow(now = new Date()) {
-  const startCurrent = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
-  const startPrevious = new Date(Date.UTC(startCurrent.getUTCFullYear(), startCurrent.getUTCMonth() - 1, 1, 0, 0, 0, 0));
-  return {
-    from: startPrevious.toISOString(),
-    to: startCurrent.toISOString(),
-  };
-}
-
-async function fetchPaidOrdersTotal({ accessToken, sellerId, from, to }) {
-  const url = new URL("https://api.mercadolibre.com/orders/search");
-  url.searchParams.set("seller", String(sellerId));
-  url.searchParams.set("order.status", "paid");
-  url.searchParams.set("order.date_created.from", from);
-  url.searchParams.set("order.date_created.to", to);
-  url.searchParams.set("limit", "1");
-  url.searchParams.set("offset", "0");
-
-  const response = await fetch(url.toString(), {
-    headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" },
-  });
-  if (!response.ok) throw new Error(`orders_search_${response.status}`);
-  const body = await response.json().catch(() => ({}));
-  const total = Number(body?.paging?.total ?? body?.total ?? 0);
-  return Number.isFinite(total) ? total : 0;
-}
-
 async function refreshClosedMonthOrdersForCheckout(client, account) {
   if (!account?.id || !account?.meli_user_id) return account;
   const status = String(account.billing_status || account.status || "").toLowerCase();
@@ -153,8 +127,7 @@ async function refreshClosedMonthOrdersForCheckout(client, account) {
     const total = await fetchPaidOrdersTotal({
       accessToken,
       sellerId: account.meli_user_id,
-      from: period.from,
-      to: period.to,
+      window: period,
     });
     const recommendedRange = recommendedRangeForOrders(total);
     await client.query(
