@@ -47,3 +47,14 @@ test("incomplete split shipping is checked before calculation request", () => {
   assert.match(source, /if \(!shippingReadiness\.ready\)\s*\{\s*showPendingShipping\(shippingReadiness\.reason\);\s*return;/);
   assert.match(source, /manualShippingPrice/);
 });
+
+test("changed listing price requotes shipping before calculating and uses current-response guard", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "public", "js", "financeiro-ml-calculadora.js"), "utf8");
+  assert.match(source, /rules\.needsSellerShippingQuote/);
+  assert.match(source, /\/calculator\/shipping-quote/);
+  assert.match(source, /rules\.isCurrentShippingQuote/);
+  assert.match(source, /state\.shippingQuotePrice\s*=\s*price/);
+  assert.match(source, /split:\s*isLoadedListing\(\)\s*&&\s*state\.selected\?\.shipping_mode\s*===\s*"me2"/);
+  assert.ok(source.indexOf("JSON.stringify(buildPayload())") < source.indexOf("const latestReadiness"),
+    "stale inputs must be rejected before a previous shipping quote can cancel the next calculation");
+});

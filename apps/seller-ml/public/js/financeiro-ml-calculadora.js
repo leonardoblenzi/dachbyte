@@ -14,6 +14,9 @@
     selected: null,
     shippingMode: "mercado_envios",
     manualShippingPrice: null,
+    shippingQuotePrice: null,
+    shippingQuoteSource: "",
+    shippingQuoteValue: null,
     busy: false,
     recalculateAfterBusy: false,
     categorySuggestions: [],
@@ -262,7 +265,7 @@
     setText("calc-listing-shipping-mode", [shippingContext.modeLabel, shippingContext.logisticLabel].filter(Boolean).join(" · "));
     setText("calc-listing-shipping-payment", shippingContext.paymentLabel);
     setText("calc-listing-shipping-quote", shippingContext.quoteStatus === "estimated"
-      ? `Custo estimado do vendedor pelo ML (Estimativa do ML): ${fmtMoney(row.seller_shipping)}. Pode variar no pedido.`
+      ? `Custo estimado do vendedor pelo ML para ${fmtMoney(row.price)}: ${fmtMoney(row.seller_shipping)}. Pode variar no pedido.`
       : shippingContext.quoteStatus === "unavailable"
         ? "Estimativa do ML indisponível. Informe o custo do vendedor para completar a simulação."
         : "Valor pago pelo comprador é opcional e depende do destino.");
@@ -285,6 +288,9 @@
     if (state.mode === "manual") {
       state.selected = null;
       state.manualShippingPrice = null;
+      state.shippingQuotePrice = null;
+      state.shippingQuoteSource = "";
+      state.shippingQuoteValue = null;
       clearListingShippingContext();
       setInput("calc-item-id", "");
       setInput("calc-variation-id", "");
@@ -352,6 +358,10 @@
     if (!row) return;
     state.selected = row;
     state.manualShippingPrice = null;
+    state.shippingQuotePrice = ["users_shipping_options_free", "items_shipping_options_free"].includes(row.shipping_source)
+      ? n(row.price) : null;
+    state.shippingQuoteSource = row.shipping_source || "";
+    state.shippingQuoteValue = state.shippingQuotePrice == null ? null : n(row.seller_shipping);
     state.accountTaxPct = n(row.tax_rate_pct, state.accountTaxPct);
     renderCandidates(payload.candidates, row);
 
@@ -539,8 +549,9 @@
       value: result.commission,
     }));
     const loadedShipping = state.selected && (state.shippingMode === "mercado_envios" || isSplitShipping()) &&
-      ["users_shipping_options_free", "items_shipping_options_free"].includes(state.selected.shipping_source) &&
-      n(state.selected.seller_shipping) === n(inputs.seller_shipping);
+      ["users_shipping_options_free", "items_shipping_options_free"].includes(state.shippingQuoteSource) &&
+      n(state.shippingQuotePrice) === n(inputs.price) && n(state.shippingQuoteValue) === n(inputs.seller_shipping) &&
+      state.manualShippingPrice !== n(inputs.price);
     setText("calc-breakdown-shipping-source", state.shippingMode === "comprador" && !isSplitShipping()
       ? "Pago pelo comprador"
       : loadedShipping ? "Estimativa ML" : sourceLabel({ source: "manual", value: inputs.seller_shipping }));
@@ -558,14 +569,68 @@
 
   function splitShippingReadiness() {
     return rules.splitShippingReadiness({
-      split: isSplitShipping(),
-      source: state.selected?.shipping_source,
-      loadedPrice: state.selected?.price,
+      split: isLoadedListing() && state.selected?.shipping_mode === "me2",
+      source: state.shippingQuoteSource,
+      loadedPrice: state.shippingQuotePrice,
       currentPrice: inputValue("calc-price"),
-      quotedValue: state.selected?.seller_shipping,
+      quotedValue: state.shippingQuoteValue,
       sellerValue: $("calc-seller-shipping")?.value,
       manuallyConfirmedPrice: state.manualShippingPrice,
     });
+  }
+
+  function needsShippingQuote() {
+    return rules.needsSellerShippingQuote({
+      mode: state.mode,
+      shippingMode: state.selected?.shipping_mode,
+      itemId: state.selected?.item_id,
+      price: inputValue("calc-price"),
+      quotedPrice: state.shippingQuotePrice,
+      manualPrice: state.manualShippingPrice,
+    });
+  }
+
+  async function refreshShippingQuote() {
+    const selected = state.selected;
+    const itemId = selected?.item_id;
+    const price = inputValue("calc-price");
+    let quote;
+    try {
+      quote = await fetchJson("/api/financeiro-ml/calculator/shipping-quote", {
+        method: "POST",
+        body: JSON.stringify({ item_id: itemId, price }),
+      });
+    } catch (_error) {
+      quote = { available: false };
+    }
+    const current = rules.isCurrentShippingQuote({
+      requestedItemId: itemId,
+      requestedPrice: price,
+      currentItemId: state.selected?.item_id,
+      currentPrice: inputValue("calc-price"),
+      manualPrice: state.manualShippingPrice,
+    });
+    if (!current || state.selected !== selected || state.mode !== "listing") {
+      state.recalculateAfterBusy = true;
+      return false;
+    }
+    if (!quote.available) {
+      state.shippingQuotePrice = null;
+      state.shippingQuoteSource = "unavailable";
+      state.shippingQuoteValue = null;
+      setInput("calc-seller-shipping", "");
+      renderListingShippingContext({ ...state.selected, shipping_source: "unavailable" },
+        rules.listingShippingContext({ ...state.selected, shipping_source: "unavailable" }));
+      showPendingShipping("missing");
+      return false;
+    }
+    state.shippingQuotePrice = price;
+    state.shippingQuoteSource = quote.source;
+    state.shippingQuoteValue = n(quote.seller_shipping);
+    setInput("calc-seller-shipping", state.shippingQuoteValue);
+    const quoted = { ...state.selected, price, seller_shipping: state.shippingQuoteValue, shipping_source: quote.source };
+    renderListingShippingContext(quoted, rules.listingShippingContext(quoted));
+    return true;
   }
 
   function showPendingShipping(reason) {
@@ -596,6 +661,13 @@
   });
 
   function scheduleCalculation() {
+    if (needsShippingQuote()) {
+      setBadge("calc-result-status", "Atualizando", "info");
+      setText("calc-result-caption", "Resultado anterior; cotando frete para o novo preço.");
+      setText("calc-result-note", "Cotando frete do vendedor para o preço informado.");
+      calculationScheduler.schedule();
+      return;
+    }
     const shippingReadiness = splitShippingReadiness();
     if (!shippingReadiness.ready) {
       showPendingShipping(shippingReadiness.reason);
@@ -609,38 +681,39 @@
 
   async function calculate(event, { automatic = false } = {}) {
     event?.preventDefault?.();
-    const shippingReadiness = splitShippingReadiness();
-    if (!shippingReadiness.ready) {
-      showPendingShipping(shippingReadiness.reason);
-      return;
-    }
     if (state.busy) {
       state.recalculateAfterBusy = true;
       return;
     }
-    const payload = buildPayload();
-    if (!(payload.price > 0)) {
+    if (!(inputValue("calc-price") > 0)) {
       setFeedback("Informe um preço de venda maior que zero.", "error");
       return;
     }
-    if (payload.target_margin_pct !== "" && n(payload.target_margin_pct) >= 95) {
-      setFeedback("A margem desejada deve ser menor que 95%.", "error");
-      return;
-    }
     setBusy(true, "Calculando margem, custos e preço-alvo...", { overlay: !automatic, disableControls: !automatic });
-    if (!automatic) setFeedback("Calculando...", "");
     try {
+      if (needsShippingQuote() && !(await refreshShippingQuote())) return;
+      const shippingReadiness = splitShippingReadiness();
+      if (!shippingReadiness.ready) {
+        showPendingShipping(shippingReadiness.reason);
+        return;
+      }
+      const payload = buildPayload();
+      if (payload.target_margin_pct !== "" && n(payload.target_margin_pct) >= 95) {
+        setFeedback("A margem desejada deve ser menor que 95%.", "error");
+        return;
+      }
+      if (!automatic) setFeedback("Calculando...", "");
       const result = await fetchJson("/api/financeiro-ml/calculator/calculate", {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      if (JSON.stringify(buildPayload()) !== JSON.stringify(payload)) {
+        state.recalculateAfterBusy = true;
+        return;
+      }
       const latestReadiness = splitShippingReadiness();
       if (!latestReadiness.ready) {
         showPendingShipping(latestReadiness.reason);
-        return;
-      }
-      if (JSON.stringify(buildPayload()) !== JSON.stringify(payload)) {
-        scheduleCalculation();
         return;
       }
       renderResult(result);
@@ -659,6 +732,9 @@
   function resetForm() {
     state.selected = null;
     state.manualShippingPrice = null;
+    state.shippingQuotePrice = null;
+    state.shippingQuoteSource = "";
+    state.shippingQuoteValue = null;
     state.candidates = [];
     state.lookupQuery = "";
     $("calc-form")?.reset();
@@ -754,7 +830,7 @@
     });
     $("calc-form")?.addEventListener("submit", calculate);
     $("calc-form")?.addEventListener("input", (event) => {
-      if (event.target.id === "calc-seller-shipping" && isSplitShipping()) {
+      if (event.target.id === "calc-seller-shipping" && state.mode === "listing" && state.selected?.shipping_mode === "me2") {
         state.manualShippingPrice = String(event.target.value).trim() === "" ? null : inputValue("calc-price");
       }
       if (event.target.id === "calc-product-cost") syncCostConfidence();

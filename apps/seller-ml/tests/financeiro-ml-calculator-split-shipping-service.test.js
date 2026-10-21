@@ -58,3 +58,20 @@ test("ME2 preserves quoted zero and marks absent or failed quote unavailable", a
     Calculator._test.resetShippingQuoteRequest();
   }
 });
+
+test("simulated free-shipping price never falls back to an item quote at the published price", async () => {
+  const urls = [];
+  Calculator._test.setShippingQuoteRequest(async (_state, url) => {
+    urls.push(url);
+    return url.includes("/items/") ? { seller_cost: 8.75 } : { coverage: {} };
+  });
+  try {
+    const freeItem = { ...item, shipping: { ...item.shipping, free_shipping: true } };
+    const quote = await Calculator._test.fetchSellerShipping({}, freeItem, "123", 30);
+    assert.equal(quote.source, "unavailable");
+    assert.equal(urls.length, 1);
+    assert.match(urls[0], /item_price=30/);
+  } finally {
+    Calculator._test.resetShippingQuoteRequest();
+  }
+});

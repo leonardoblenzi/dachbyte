@@ -44,5 +44,13 @@ module.exports = {
       return handleError(res, error, "Falha ao calcular margem e preço.");
     }
   },
+
+  async shippingQuote(req, res) {
+    try {
+      return res.json(await FinanceiroMlCalculatorService.shippingQuote(req.body || {}, context(req, res)));
+    } catch (error) {
+      return handleError(res, error, "Falha ao cotar o frete para o preço informado.");
+    }
+  },
 };
 

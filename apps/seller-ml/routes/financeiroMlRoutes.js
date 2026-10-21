@@ -29,5 +29,6 @@ const allowMarginCalculator = companyAccess.requireModuleAccess("ml.precificacao
 router.get("/calculator/lookup", allowMarginCalculator, FinanceiroMlCalculatorController.lookup);
 router.get("/calculator/categories", allowMarginCalculator, FinanceiroMlCalculatorController.categories);
 router.post("/calculator/calculate", allowMarginCalculator, FinanceiroMlCalculatorController.calculate);
+router.post("/calculator/shipping-quote", allowMarginCalculator, FinanceiroMlCalculatorController.shippingQuote);
 
 module.exports = router;

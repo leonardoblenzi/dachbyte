@@ -356,10 +356,13 @@ async function fetchSellerShipping(state, item, sellerId, priceOverride = null) 
     }
     return { seller_cost: 0, source: "unavailable" };
   }
-  attempts.push({
-    url: `${ML_API}/items/${encodeURIComponent(upper(item.id))}/shipping_options/free`,
-    source: "items_shipping_options_free",
-  });
+  // O endpoint do item usa o preço publicado; não serve para cotar outro preço.
+  if (priceOverride == null || price === num(item.price)) {
+    attempts.push({
+      url: `${ML_API}/items/${encodeURIComponent(upper(item.id))}/shipping_options/free`,
+      source: "items_shipping_options_free",
+    });
+  }
   for (const attempt of attempts) {
     const payload = await shippingQuoteRequest(state, attempt.url).catch(() => null);
     if (!payload) continue;
@@ -453,6 +456,37 @@ async function pricingForCandidate({ state, candidate, itemBody, seller, context
 }
 
 class FinanceiroMlCalculatorService {
+  static async shippingQuote(body = {}, context = {}, dependencies = {}) {
+    requireAccountKey(context);
+    const itemId = upper(body.item_id);
+    const price = num(body.price);
+    if (!isMlb(itemId) || !(price > 0)) throw error("Informe um MLB e um preço maior que zero para cotar o frete.");
+    const prepare = dependencies.prepareAuthState || prepareAuthState;
+    const getSeller = dependencies.sellerInfo || sellerInfo;
+    const getItems = dependencies.fetchItemBodies || fetchItemBodies;
+    const getShipping = dependencies.fetchSellerShipping || fetchSellerShipping;
+    const state = await prepare({
+      accessToken: context?.mlCreds?.access_token || null,
+      mlCreds: context.mlCreds || {},
+    });
+    const seller = await getSeller(state, context.mlCreds || {});
+    const items = filterOwnedItems(await getItems(state, [itemId]), seller.id);
+    const item = items.find((row) => upper(row.id) === itemId);
+    if (!item) throw error("O anúncio não pertence à conta ativa ou não foi encontrado.", 404);
+    const quote = await getShipping(state, item, seller.id, price);
+    const available = ["users_shipping_options_free", "items_shipping_options_free"].includes(quote?.source) &&
+      quote?.seller_cost != null && text(quote.seller_cost) !== "" &&
+      Number.isFinite(Number(quote?.seller_cost)) && Number(quote.seller_cost) >= 0;
+    return {
+      success: true,
+      item_id: itemId,
+      price: round(price, 2),
+      available,
+      seller_shipping: available ? round(quote.seller_cost, 2) : null,
+      source: available ? quote.source : "unavailable",
+    };
+  }
+
   static async categories(query = {}, context = {}) {
     requireAccountKey(context);
     const term = text(query.q || query.query);
