@@ -34,6 +34,7 @@ async function activateMlTrialInHub(input, options = {}) {
   const fullName = String(input.fullName || "").trim();
   const email = String(input.email || "").trim().toLowerCase();
   const role = String(input.role || "owner").trim().toLowerCase();
+  const rejectEmailConflict = input.newIdentity === true;
   const mlUserId = Number(input.mlUserId);
   if (!tenantId || !companyName || !userId || !fullName || !email ||
       !Number.isSafeInteger(mlUserId) || mlUserId <= 0) {
@@ -53,6 +54,7 @@ async function activateMlTrialInHub(input, options = {}) {
     module: "ml",
     modules: ["ml"],
     access_policy: "explicit",
+    reject_email_conflict: rejectEmailConflict,
   }, "trial_hub_identity_sync_failed");
   if (identity?.ok !== true) throw new Error("trial_hub_identity_sync_failed");
   if (identity.tenant_id !== tenantId || identity.user_id !== userId) {

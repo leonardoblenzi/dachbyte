@@ -985,7 +985,7 @@ router.post(
       const activation = await activateMlTrialInHub({
         tenantId: staged.tenantId, companyName: staged.companyName,
         userId: staged.globalUserId, fullName: staged.fullName,
-        email: staged.email, mlUserId: staged.mlUserId,
+        email: staged.email, mlUserId: staged.mlUserId, newIdentity: true,
       });
       const finalized = await finalizeConfirmedMlTrial(db.pool, {
         sessionId: staged.sessionId, tenantId: staged.tenantId,

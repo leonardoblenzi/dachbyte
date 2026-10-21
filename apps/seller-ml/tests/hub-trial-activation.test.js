@@ -24,6 +24,7 @@ test("activation syncs explicit ML membership before activating the OAuth resour
   assert.equal(calls.length, 2);
   assert.equal(calls[0].url, "https://hub.example/v1/internal/identity/sync");
   assert.equal(calls[0].body.access_policy, "explicit");
+  assert.equal(calls[0].body.reject_email_conflict, false);
   assert.deepEqual(calls[0].body.modules, ["ml"]);
   assert.equal(calls[1].url, "https://hub.example/v1/internal/portal/module-trials/activate");
   assert.equal(calls[1].body.resource_key, "ml:123");
@@ -42,6 +43,20 @@ test("existing company membership retains its actual role during trial sync", as
     }
   });
   assert.equal(calls[0].role, "admin");
+});
+
+test("new company identity requires strict Hub email ownership", async () => {
+  const calls = [];
+  await activateMlTrialInHub({ ...identity, newIdentity: true }, {
+    baseUrl: "https://hub.example", token: "internal",
+    fetchImpl: async (_url, options) => {
+      calls.push(JSON.parse(options.body));
+      return { ok: true, json: async () => calls.length === 1
+        ? { ok: true, tenant_id: "company-1", user_id: "user-1" }
+        : { trial: { endsAt: "2026-10-27T12:00:00.000Z" }, resource: { resource_key: "ml:123" } } };
+    }
+  });
+  assert.equal(calls[0].reject_email_conflict, true);
 });
 
 test("activation fails closed when identity sync or resource activation is not confirmed", async () => {
