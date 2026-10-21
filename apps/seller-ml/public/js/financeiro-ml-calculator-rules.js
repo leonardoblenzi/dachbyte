@@ -82,6 +82,16 @@
     return { ready: false, reason: quoted ? "stale" : "missing" };
   }
 
+  function needsSellerShippingQuote({ mode, shippingMode, itemId, price, quotedPrice, manualPrice } = {}) {
+    return mode === "listing" && shippingMode === "me2" && Boolean(String(itemId || "")) &&
+      Number(price) > 0 && Number(manualPrice) !== Number(price) && Number(quotedPrice) !== Number(price);
+  }
+
+  function isCurrentShippingQuote({ requestedItemId, requestedPrice, currentItemId, currentPrice, manualPrice } = {}) {
+    return String(requestedItemId || "") === String(currentItemId || "") &&
+      Number(requestedPrice) === Number(currentPrice) && Number(manualPrice) !== Number(currentPrice);
+  }
+
   function costConfidence(productCost) {
     return Number(productCost) > 0
       ? { state: "ready", roiAvailable: true }
@@ -105,7 +115,7 @@
     };
   }
 
-  const api = { manualListingFee, canQuoteMarketplaceFee, manualFeeMode, shippingVisibility, listingShippingContext, normalizeShippingInputs, splitShippingReadiness, costConfidence, createCalculationScheduler };
+  const api = { manualListingFee, canQuoteMarketplaceFee, manualFeeMode, shippingVisibility, listingShippingContext, normalizeShippingInputs, splitShippingReadiness, needsSellerShippingQuote, isCurrentShippingQuote, costConfidence, createCalculationScheduler };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window !== "undefined") window.MLCalculatorRules = api;
 })();

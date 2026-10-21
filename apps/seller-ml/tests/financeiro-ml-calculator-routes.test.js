@@ -22,7 +22,7 @@ test("calculator API routes use the same margem permission middleware as the pag
     };
     if (request === "../controllers/FinanceiroMlController") return {};
     if (request === "../controllers/FinanceiroMlCalculatorController") return {
-      lookup: () => {}, categories: () => {}, calculate: () => {},
+      lookup: () => {}, categories: () => {}, calculate: () => {}, shippingQuote: () => {},
     };
     return originalLoad.call(this, request, parent, isMain);
   };
@@ -34,7 +34,9 @@ test("calculator API routes use the same margem permission middleware as the pag
   const lookup = routes.find((row) => row.method === "get" && row.args[0] === "/calculator/lookup");
   const categories = routes.find((row) => row.method === "get" && row.args[0] === "/calculator/categories");
   const calculate = routes.find((row) => row.method === "post" && row.args[0] === "/calculator/calculate");
+  const shippingQuote = routes.find((row) => row.method === "post" && row.args[0] === "/calculator/shipping-quote");
   assert.equal(lookup.args[1], permission);
   assert.equal(categories.args[1], permission);
   assert.equal(calculate.args[1], permission);
+  assert.equal(shippingQuote.args[1], permission);
 });

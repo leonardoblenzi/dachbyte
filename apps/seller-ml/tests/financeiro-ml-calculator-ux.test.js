@@ -74,6 +74,24 @@ test("split-shipping result waits for a known seller share at this price", () =>
   assert.deepEqual(rules.splitShippingReadiness({ ...base, split: false }), { ready: true, reason: "" });
 });
 
+test("a changed ME2 listing price needs a fresh seller shipping quote", () => {
+  const base = { mode: "listing", shippingMode: "me2", itemId: "MLB4342623549",
+    price: 30, quotedPrice: 65.65, manualPrice: null };
+  assert.equal(rules.needsSellerShippingQuote(base), true);
+  assert.equal(rules.needsSellerShippingQuote({ ...base, quotedPrice: 30 }), false);
+  assert.equal(rules.needsSellerShippingQuote({ ...base, manualPrice: 30 }), false);
+  assert.equal(rules.needsSellerShippingQuote({ ...base, shippingMode: "me1" }), false);
+});
+
+test("a late quote cannot overwrite a newer price or manual shipping cost", () => {
+  const base = { requestedItemId: "MLB4342623549", requestedPrice: 30,
+    currentItemId: "MLB4342623549", currentPrice: 30, manualPrice: null };
+  assert.equal(rules.isCurrentShippingQuote(base), true);
+  assert.equal(rules.isCurrentShippingQuote({ ...base, currentPrice: 40 }), false);
+  assert.equal(rules.isCurrentShippingQuote({ ...base, manualPrice: 30 }), false);
+  assert.equal(rules.isCurrentShippingQuote({ ...base, currentItemId: "MLB999" }), false);
+});
+
 test("listing shipping context separates ME2 logistics from who pays", () => {
   assert.deepEqual(rules.listingShippingContext({
     shipping_mode: "me2",
