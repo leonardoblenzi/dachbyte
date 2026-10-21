@@ -557,7 +557,9 @@
           const next = new URLSearchParams(window.location.search).get("next");
           window.location.href = next === "trial-existing-link"
             ? "./ativar-teste?link=1"
-            : (data.redirect || "/selecao-plataforma");
+            : next === "trial-existing-shopee-link"
+              ? "/seller/shopee/continuar"
+              : (data.redirect || "/selecao-plataforma");
         } catch (_error) {
           showMsg("Erro de rede ao tentar logar. Verifique o servidor e tente novamente.", "err");
         } finally {

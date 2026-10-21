@@ -29,6 +29,15 @@ async function finalizeShopeeTrial(pool, input) {
         !session.access_token_enc || !session.refresh_token_enc) {
       throw new Error("trial_local_stage_invalid");
     }
+    const users = await client.query(
+      'SELECT id, status, "accountId" AS account_id FROM "User" WHERE id = $1 FOR UPDATE',
+      [session.user_id],
+    );
+    const existingUser = users.rows[0];
+    if (!existingUser || Number(existingUser.account_id) !== Number(session.account_id) ||
+        !["ACTIVE", "PENDING"].includes(String(existingUser.status || "").toUpperCase())) {
+      throw new Error("trial_local_user_mismatch");
+    }
     const existing = await client.query('SELECT id FROM "Shop" WHERE "shopId" = $1 LIMIT 1',
       [confirmed.shopId]);
     if (existing.rows[0]) throw new Error("trial_shopee_shop_already_linked");
@@ -48,12 +57,14 @@ async function finalizeShopeeTrial(pool, input) {
         decryptTrialToken(session.refresh_token_enc, input.encryptionKey),
         session.refresh_expires_at || null],
     );
-    const user = await client.query(
-      `UPDATE "User" SET status = 'ACTIVE', "activatedAt" = NOW(), "updatedAt" = NOW()
-        WHERE id = $1 AND status = 'PENDING' RETURNING id`,
-      [session.user_id],
-    );
-    if (!user.rows[0]) throw new Error("trial_local_user_activation_failed");
+    if (String(existingUser.status).toUpperCase() === "PENDING") {
+      const user = await client.query(
+        `UPDATE "User" SET status = 'ACTIVE', "activatedAt" = NOW(), "updatedAt" = NOW()
+          WHERE id = $1 AND status = 'PENDING' RETURNING id`,
+        [session.user_id],
+      );
+      if (!user.rows[0]) throw new Error("trial_local_user_activation_failed");
+    }
     const updated = await client.query(
       `UPDATE public_trial_oauth_sessions
           SET status = 'activated', shop_db_id = $2,

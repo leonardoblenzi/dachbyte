@@ -89,6 +89,17 @@ function readSuitePayload(req) {
   }
 }
 
+function trialRequestOriginMatches(req) {
+  const origin = String(req.get("origin") || "").trim();
+  if (!origin) return false;
+  try {
+    const parsed = new URL(origin);
+    return parsed.host === req.get("host") && parsed.protocol === `${req.protocol}:`;
+  } catch (_error) {
+    return false;
+  }
+}
+
 function hasModuleAccess(payload, moduleId) {
   const aliases = {
     "davantti-log": "davanttilog",
@@ -823,6 +834,47 @@ async function main() {
     return res.json(await suiteSessionSnapshotService().resolve(payload));
   });
 
+  app.post("/api/portal/trial/shopee/claim", async (req, res) => {
+    res.set("cache-control", "no-store, max-age=0");
+    if (process.env.SELLER_TRIAL_ONBOARDING_ENABLED !== "true") {
+      return res.status(404).json({ ok: false, error: "not_found" });
+    }
+    if (!trialRequestOriginMatches(req)) {
+      return res.status(403).json({ ok: false, error: "trial_origin_invalid" });
+    }
+    const payload = readSuitePayload(req);
+    if (!payload) return res.status(401).json({ ok: false, error: "unauthorized" });
+    const browserNonce = String(req.cookies?.shopee_trial_oauth_nonce || "").trim();
+    if (!browserNonce) return res.status(410).json({ ok: false, error: "trial_oauth_session_missing" });
+    const overview = await sellerPortalService().overview(payload);
+    if (!overview.ok) return res.status(Number(overview.status || 503)).json({ ok: false, error: "trial_identity_unavailable" });
+    const portal = overview.payload || {};
+    if (portal.platform_operator === true || portal.user?.can_manage_billing !== true ||
+        String(portal.tenant?.tenant_id || "") !== String(payload.tenant_id || "") ||
+        String(portal.user?.user_id || "") !== String(payload.user_id || "") ||
+        String(portal.user?.email || "").trim().toLowerCase() !== String(payload.email || "").trim().toLowerCase()) {
+      return res.status(403).json({ ok: false, error: "trial_existing_identity_forbidden" });
+    }
+    try {
+      const { linkExistingShopeeTrial } = require("../seller-shopee/src/services/publicTrialExistingLink");
+      const linked = await linkExistingShopeeTrial({
+        browserNonce,
+        identity: {
+          tenantId: String(payload.tenant_id), userId: String(payload.user_id),
+          email: String(payload.email), companyName: String(portal.tenant.name || ""),
+          fullName: String(portal.user.name || payload.name || ""), role: String(portal.user.role || "member"),
+        },
+      });
+      return res.json({ ok: true, shop_id: linked.shopId, trial_active: linked.trialActive });
+    } catch (error) {
+      const code = String(error?.message || "");
+      if (["trial_existing_identity_mismatch", "trial_shopee_shop_already_linked"].includes(code)) {
+        return res.status(409).json({ ok: false, error: code });
+      }
+      return res.status(503).json({ ok: false, error: "trial_existing_link_pending_retry" });
+    }
+  });
+
   // Compatibilidade OAuth:
   // se o callback for configurado sem prefixo /ml no app do Mercado Livre,
   // redireciona para a rota real montada dentro do módulo ML.
@@ -839,6 +891,14 @@ async function main() {
   app.get(["/seller", "/seller/", "/dach/seller", "/dach/seller/"], sendSellerLanding("landing-general.html"));
   app.get(["/seller/mercado-livre", "/seller/mercado-livre/", "/dach/seller/mercado-livre", "/dach/seller/mercado-livre/"], sendSellerLanding("landing-mercado-livre.html"));
   app.get(["/seller/shopee", "/seller/shopee/", "/dach/seller/shopee", "/dach/seller/shopee/"], sendSellerLanding("landing-shopee.html"));
+  app.get("/seller/shopee/continuar", (req, res) => {
+    if (process.env.SELLER_TRIAL_ONBOARDING_ENABLED !== "true") return res.status(404).end();
+    if (!readSuitePayload(req)) return res.redirect("/login?next=trial-existing-shopee-link");
+    if (!String(req.cookies?.shopee_trial_oauth_nonce || "").trim()) {
+      return res.redirect("/seller/shopee");
+    }
+    return res.sendFile(path.join(sellerViewRoot, "shopee-trial-link.html"));
+  });
   app.get(["/seller/rastreio", "/seller/rastreio/", "/seller/tracking", "/seller/tracking/", "/dach/seller/rastreio", "/dach/seller/rastreio/", "/dach/seller/tracking", "/dach/seller/tracking/"], sendSellerLanding("landing-tracking.html"));
   app.get(["/seller/magalu", "/seller/magalu/"], sendSellerLanding("landing-magalu.html"));
   app.get(["/seller/magalu/termos", "/seller/magalu/termos/"], sendSellerLanding("legal-magalu-terms.html"));

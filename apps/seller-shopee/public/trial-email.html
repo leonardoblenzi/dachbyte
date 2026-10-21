@@ -53,7 +53,7 @@
         if (result.action === 'login_required') {
           message.replaceChildren(document.createTextNode('Este e-mail já possui acesso. '));
           const link = document.createElement('a');
-          link.href = '/login?trial=shopee';
+          link.href = '/login?next=trial-existing-shopee-link';
           link.textContent = 'Entre na sua conta para vincular a loja.';
           message.append(link);
         } else {
