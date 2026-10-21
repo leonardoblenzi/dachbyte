@@ -26,7 +26,7 @@ function throwShopeeErrorIfPresent(data) {
   }
 }
 
-async function exchangeCodeForToken({ code, shopId, mainAccountId }) {
+async function exchangeCodeForToken({ code, shopId, mainAccountId, persist = true }) {
   const sid = Number(shopId);
   if (!Number.isInteger(sid) || sid <= 0) {
     const err = new Error("shop_id inválido no callback");
@@ -61,13 +61,15 @@ async function exchangeCodeForToken({ code, shopId, mainAccountId }) {
     throw err;
   }
 
-  await TokenRepository.saveTokens({
-    shopId: sid,
-    accessToken: payload.access_token,
-    accessExpiresIn: payload.expire_in,
-    refreshToken: payload.refresh_token,
-    refreshExpiresIn: payload.refresh_expire_in,
-  });
+  if (persist) {
+    await TokenRepository.saveTokens({
+      shopId: sid,
+      accessToken: payload.access_token,
+      accessExpiresIn: payload.expire_in,
+      refreshToken: payload.refresh_token,
+      refreshExpiresIn: payload.refresh_expire_in,
+    });
+  }
 
   return payload;
 }
