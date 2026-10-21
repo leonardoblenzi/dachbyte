@@ -10,25 +10,29 @@ const identity = {
   mlUserId: 123
 };
 
-test("activation syncs explicit ML membership before activating the OAuth resource", async () => {
+test("activation prepares identity, provisions resource, then grants ML access", async () => {
   const calls = [];
   const fetchImpl = async (url, options) => {
     calls.push({ url, body: JSON.parse(options.body), authorization: options.headers.authorization });
-    const payload = calls.length === 1 ? { ok: true, tenant_id: "company-1", user_id: "user-1" }
-      : { trial: { endsAt: "2026-10-27T12:00:00.000Z" }, resource: { resource_key: "ml:123" } };
+    const payload = calls.length === 2
+      ? { trial: { endsAt: "2026-10-27T12:00:00.000Z" }, resource: { resource_key: "ml:123" } }
+      : { ok: true, tenant_id: "company-1", user_id: "user-1" };
     return { ok: true, status: 200, json: async () => payload };
   };
   await activateMlTrialInHub(identity, {
     baseUrl: "https://hub.example", token: "internal", fetchImpl
   });
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
   assert.equal(calls[0].url, "https://hub.example/v1/internal/identity/sync");
   assert.equal(calls[0].body.access_policy, "explicit");
+  assert.equal(calls[0].body.trial_prepare_identity, true);
   assert.equal(calls[0].body.reject_email_conflict, false);
   assert.deepEqual(calls[0].body.modules, ["ml"]);
   assert.equal(calls[1].url, "https://hub.example/v1/internal/portal/module-trials/activate");
   assert.equal(calls[1].body.resource_key, "ml:123");
   assert.equal(calls[1].authorization, "Bearer internal");
+  assert.equal(calls[2].url, "https://hub.example/v1/internal/identity/sync");
+  assert.equal(calls[2].body.trial_prepare_identity, false);
 });
 
 test("existing company membership retains its actual role during trial sync", async () => {
@@ -37,9 +41,9 @@ test("existing company membership retains its actual role during trial sync", as
     baseUrl: "https://hub.example", token: "internal",
     fetchImpl: async (_url, options) => {
       calls.push(JSON.parse(options.body));
-      return { ok: true, json: async () => calls.length === 1
-        ? { ok: true, tenant_id: "company-1", user_id: "user-1" }
-        : { trial: { endsAt: "2026-10-27T12:00:00.000Z" }, resource: { resource_key: "ml:123" } } };
+      return { ok: true, json: async () => calls.length === 2
+        ? { trial: { endsAt: "2026-10-27T12:00:00.000Z" }, resource: { resource_key: "ml:123" } }
+        : { ok: true, tenant_id: "company-1", user_id: "user-1" } };
     }
   });
   assert.equal(calls[0].role, "admin");
@@ -51,9 +55,9 @@ test("new company identity requires strict Hub email ownership", async () => {
     baseUrl: "https://hub.example", token: "internal",
     fetchImpl: async (_url, options) => {
       calls.push(JSON.parse(options.body));
-      return { ok: true, json: async () => calls.length === 1
-        ? { ok: true, tenant_id: "company-1", user_id: "user-1" }
-        : { trial: { endsAt: "2026-10-27T12:00:00.000Z" }, resource: { resource_key: "ml:123" } } };
+      return { ok: true, json: async () => calls.length === 2
+        ? { trial: { endsAt: "2026-10-27T12:00:00.000Z" }, resource: { resource_key: "ml:123" } }
+        : { ok: true, tenant_id: "company-1", user_id: "user-1" } };
     }
   });
   assert.equal(calls[0].reject_email_conflict, true);
@@ -78,6 +82,23 @@ test("activation fails closed when identity sync or resource activation is not c
         : { ok: false, status: 409, json: async () => ({ ok: false }) };
     }
   }), /trial_hub_resource_activation_failed/);
+});
+
+test("local activation remains pending when final module grant fails after resource creation", async () => {
+  let calls = 0;
+  await assert.rejects(activateMlTrialInHub(identity, {
+    baseUrl: "https://hub.example", token: "internal",
+    fetchImpl: async () => {
+      calls++;
+      if (calls === 2) return { ok: true, json: async () => ({
+        trial: { endsAt: "2026-10-27T12:00:00.000Z" }, resource: { resource_key: "ml:123" }
+      }) };
+      return calls === 1
+        ? { ok: true, json: async () => ({ ok: true, tenant_id: "company-1", user_id: "user-1" }) }
+        : { ok: false, json: async () => ({ ok: false }) };
+    }
+  }), /trial_hub_module_access_failed/);
+  assert.equal(calls, 3);
 });
 
 test("a concurrent global email collision cannot activate a trial for a different user", async () => {

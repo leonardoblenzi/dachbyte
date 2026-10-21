@@ -44,7 +44,7 @@ async function activateMlTrialInHub(input, options = {}) {
     throw new Error("trial_hub_role_invalid");
   }
   const client = config(options);
-  const identity = await postInternal(client, "/v1/internal/identity/sync", {
+  const identityPayload = {
     tenant_id: tenantId,
     company_name: companyName,
     user_id: userId,
@@ -55,7 +55,10 @@ async function activateMlTrialInHub(input, options = {}) {
     modules: ["ml"],
     access_policy: "explicit",
     reject_email_conflict: rejectEmailConflict,
-  }, "trial_hub_identity_sync_failed");
+    trial_prepare_identity: true,
+  };
+  const identity = await postInternal(client, "/v1/internal/identity/sync", identityPayload,
+    "trial_hub_identity_sync_failed");
   if (identity?.ok !== true) throw new Error("trial_hub_identity_sync_failed");
   if (identity.tenant_id !== tenantId || identity.user_id !== userId) {
     throw new Error("trial_hub_identity_mismatch");
@@ -67,6 +70,12 @@ async function activateMlTrialInHub(input, options = {}) {
   }, "trial_hub_resource_activation_failed");
   if (!activation?.trial?.endsAt || activation?.resource?.resource_key !== resourceKey) {
     throw new Error("trial_hub_resource_activation_failed");
+  }
+  const granted = await postInternal(client, "/v1/internal/identity/sync", {
+    ...identityPayload, trial_prepare_identity: false,
+  }, "trial_hub_module_access_failed");
+  if (granted?.ok !== true || granted.tenant_id !== tenantId || granted.user_id !== userId) {
+    throw new Error("trial_hub_module_access_failed");
   }
   return activation;
 }
