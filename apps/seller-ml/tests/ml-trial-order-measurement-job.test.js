@@ -10,6 +10,7 @@ const {
   runPendingClosedMonthMeasurements,
   requeueFailedClosedMonthMeasurement,
   syncPendingHubMeasurements,
+  queueMissingCurrentPeriodMeasurements,
 } = require("../services/mlTrialOrderMeasurementJob");
 
 test("measurement migration stores status, source, period and errors per account", () => {
@@ -135,4 +136,22 @@ test("Hub outage keeps a successful local measurement pending for later delivery
   assert.ok(calls.some(({ sql, values }) =>
     /hub_sync_attempts = hub_sync_attempts \+ 1/i.test(sql) && values.includes("hub_unavailable")));
   assert.equal(calls.some(({ sql }) => /SET hub_synced_at = NOW\(\)/i.test(sql)), false);
+});
+
+test("worker queues the new closed month for all linked trial accounts after month rollover", async () => {
+  const calls = [];
+  const db = { query: async (sql, values) => { calls.push({ sql, values }); return { rows: [] }; } };
+  await queueMissingCurrentPeriodMeasurements(db, new Date("2026-11-02T12:00:00Z"));
+  assert.ok(calls.some(({ sql, values }) =>
+    /INSERT INTO ml_closed_month_order_measurements[\s\S]*SELECT mc\.id[\s\S]*billing_mode = 'trial'[\s\S]*ON CONFLICT/is.test(sql) &&
+    values.includes("2026-10-01T00:00:00.000Z") && values.includes("2026-11-01T00:00:00.000Z")));
+});
+
+test("Hub sync ignores a completed measurement from an older closed month", async () => {
+  const calls = [];
+  const db = { query: async (sql, values) => { calls.push({ sql, values }); return { rows: [] }; } };
+  await syncPendingHubMeasurements(db, { now: new Date("2026-11-02T12:00:00Z"),
+    postMeasurement: async () => { throw new Error("should_not_post"); } });
+  assert.ok(calls.some(({ sql, values }) => /m\.period_start = \$1::date/i.test(sql) &&
+    values.includes("2026-10-01T00:00:00.000Z")));
 });

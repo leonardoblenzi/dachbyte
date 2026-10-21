@@ -94,6 +94,7 @@ async function processClosedMonthMeasurement(db, accountId, periodStart, deps = 
 }
 
 async function runPendingClosedMonthMeasurements(db, options = {}) {
+  const window = await queueMissingCurrentPeriodMeasurements(db, options.now || new Date());
   await db.query(
     `UPDATE ml_closed_month_order_measurements
         SET status = 'queued', updated_at = NOW()
@@ -102,9 +103,10 @@ async function runPendingClosedMonthMeasurements(db, options = {}) {
   const pending = await db.query(
     `SELECT account_id, period_start
        FROM ml_closed_month_order_measurements
-      WHERE status = 'queued'
+      WHERE status = 'queued' AND period_start = $1::date
       ORDER BY created_at
-      LIMIT 20`
+      LIMIT 20`,
+    [window.periodStart]
   );
   const processRow = options.processRow || ((accountId, periodStart) =>
     processClosedMonthMeasurement(db, accountId, periodStart));
@@ -114,6 +116,20 @@ async function runPendingClosedMonthMeasurements(db, options = {}) {
   }
   await syncPendingHubMeasurements(db, options);
   return pending.rows.length;
+}
+
+async function queueMissingCurrentPeriodMeasurements(db, now = new Date()) {
+  const window = previousClosedMonthWindow(now);
+  await db.query(
+    `INSERT INTO ml_closed_month_order_measurements
+       (account_id, period_start, period_end_exclusive, status)
+     SELECT mc.id, $1::date, $2::date, 'queued'
+       FROM meli_contas mc
+      WHERE mc.billing_mode = 'trial' AND mc.status = 'ativa'
+     ON CONFLICT (account_id, period_start) DO NOTHING`,
+    [window.periodStart, window.periodEndExclusive]
+  );
+  return window;
 }
 
 async function postHubOrderMeasurement(payload, options = {}) {
@@ -135,6 +151,7 @@ async function postHubOrderMeasurement(payload, options = {}) {
 }
 
 async function syncPendingHubMeasurements(db, options = {}) {
+  const window = previousClosedMonthWindow(options.now || new Date());
   const pending = await db.query(
     `SELECT m.account_id, m.period_start, m.period_end_exclusive,
             m.order_count, m.source, e.tenant_global_id, mc.meli_user_id
@@ -142,9 +159,11 @@ async function syncPendingHubMeasurements(db, options = {}) {
        JOIN meli_contas mc ON mc.id = m.account_id
        JOIN empresas e ON e.id = mc.empresa_id
       WHERE m.status = 'succeeded' AND m.hub_synced_at IS NULL
+        AND m.period_start = $1::date
         AND (m.hub_sync_attempts = 0 OR m.updated_at < NOW() - INTERVAL '5 minutes')
       ORDER BY m.measured_at
-      LIMIT 20`
+      LIMIT 20`,
+    [window.periodStart]
   );
   const postMeasurement = options.postMeasurement || postHubOrderMeasurement;
   for (const row of pending.rows) {
@@ -217,6 +236,7 @@ module.exports = {
   runPendingClosedMonthMeasurements,
   requeueFailedClosedMonthMeasurement,
   syncPendingHubMeasurements,
+  queueMissingCurrentPeriodMeasurements,
   postHubOrderMeasurement,
   startClosedMonthMeasurementWorker,
   stopClosedMonthMeasurementWorker,
