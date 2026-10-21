@@ -991,7 +991,8 @@ router.post(
         sessionId: staged.sessionId, tenantId: staged.tenantId,
         mlUserId: staged.mlUserId, activation,
       });
-      return res.json({ ok: true, action: "activated", account_id: finalized.accountId });
+      return res.json({ ok: true, action: "activated", account_id: finalized.accountId,
+        trial_active: finalized.trialActive });
     } catch (error) {
       const code = String(error?.message || "");
       if (code === "trial_email_login_required" || code === "trial_ml_account_already_linked") {
@@ -1046,7 +1047,8 @@ router.post(
         sessionId: staged.sessionId, tenantId: staged.tenantId,
         mlUserId: staged.mlUserId, activation,
       });
-      return res.json({ ok: true, action: "linked", account_id: finalized.accountId });
+      return res.json({ ok: true, action: "linked", account_id: finalized.accountId,
+        trial_active: finalized.trialActive });
     } catch (error) {
       const code = String(error?.message || "");
       if (["trial_login_email_mismatch", "trial_company_membership_required",

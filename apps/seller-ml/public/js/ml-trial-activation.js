@@ -113,7 +113,9 @@
       });
       if (response.ok && body?.action === "activated") {
         activationForm.hidden = true;
-        showMessage("Teste ativado. Entre com seu e-mail e a senha que acabou de definir.", "success");
+        showMessage(body.trial_active
+          ? "Teste ativado. Entre com seu e-mail e a senha que acabou de definir."
+          : "Conta criada, mas o teste desta empresa já terminou. Entre para consultar a contratação.", "success");
       } else if (response.status === 409 && body?.error === "trial_email_login_required") {
         showMessage("Este e-mail já pertence a uma empresa. Entre na empresa existente; não criamos uma segunda conta.", "info");
       } else if (response.status === 410) {
@@ -140,7 +142,9 @@
       });
       if (response.ok && body?.action === "linked") {
         existingForm.hidden = true;
-        showMessage("Conta vinculada à sua empresa. Você já pode acessar o Seller ML.", "success");
+        showMessage(body.trial_active
+          ? "Conta vinculada à sua empresa. Você já pode acessar o Seller ML."
+          : "Conta vinculada, mas o teste ML desta empresa já terminou. Consulte a contratação no painel.", "success");
       } else if (response.status === 409) {
         showMessage("Esta conta já foi vinculada ou a empresa escolhida não pertence ao seu acesso. Confira a seleção.", "error");
       } else {

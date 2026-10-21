@@ -11,14 +11,14 @@ function confirmHubActivation(input) {
       resource?.access_policy !== "temporary" || !Number.isFinite(Date.parse(trial?.endsAt))) {
     throw new Error("trial_hub_confirmation_invalid");
   }
-  return { sessionId, tenantId, mlUserId };
+  return { sessionId, tenantId, mlUserId, trialActive: Date.parse(trial.endsAt) > Date.now() };
 }
 
 // Hub's trial resource must already be committed. The local account, its OAuth
 // tokens and the login become operational together; a failed transaction can
 // be retried against the original Hub clock.
 async function finalizeConfirmedMlTrial(pool, input) {
-  const { sessionId, tenantId, mlUserId } = confirmHubActivation(input);
+  const { sessionId, tenantId, mlUserId, trialActive } = confirmHubActivation(input);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -35,7 +35,7 @@ async function finalizeConfirmedMlTrial(pool, input) {
     }
     if (session.status === "activated" && session.meli_conta_id) {
       await client.query("COMMIT");
-      return { accountId: Number(session.meli_conta_id), alreadyActivated: true };
+      return { accountId: Number(session.meli_conta_id), alreadyActivated: true, trialActive };
     }
     if (!["identity_staged", "existing_identity_staged"].includes(session.status) ||
         !session.empresa_id || !session.usuario_id ||
@@ -52,9 +52,10 @@ async function finalizeConfirmedMlTrial(pool, input) {
       `INSERT INTO meli_contas
          (empresa_id, meli_user_id, apelido, site_id, status,
           billing_status, billing_mode, usage_policy, range_enforcement)
-       VALUES ($1, $2, $3, 'MLB', 'ativa', 'active', 'trial', 'unlimited', false)
+       VALUES ($1, $2, $3, 'MLB', 'ativa', $4, 'trial', 'unlimited', false)
        RETURNING id`,
-      [session.empresa_id, mlUserId, `Conta ${mlUserId}`]
+      [session.empresa_id, mlUserId, `Conta ${mlUserId}`,
+        trialActive ? "active" : "awaiting_subscription"]
     );
     const accountId = Number(created.rows[0]?.id);
     if (!Number.isSafeInteger(accountId)) throw new Error("trial_local_account_creation_failed");
@@ -84,7 +85,7 @@ async function finalizeConfirmedMlTrial(pool, input) {
     );
     if (!updated.rows[0]) throw new Error("trial_local_activation_conflict");
     await client.query("COMMIT");
-    return { accountId, alreadyActivated: false };
+    return { accountId, alreadyActivated: false, trialActive };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     throw error;
