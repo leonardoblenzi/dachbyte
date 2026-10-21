@@ -38,6 +38,10 @@ const CaracteristicasJobsService = require("./services/caracteristicasJobsServic
 const ModeloMassaJobsService = require("./services/modeloMassaJobsService");
 const MeliWebhookQueueService = require("./services/meliWebhookQueueService");
 const {
+  startClosedMonthMeasurementWorker,
+  stopClosedMonthMeasurementWorker,
+} = require("./services/mlTrialOrderMeasurementJob");
+const {
   startBullRetentionScheduler,
   stopBullRetentionScheduler,
 } = require("./services/bullRetentionService");
@@ -62,6 +66,9 @@ function boot() {
   CaracteristicasJobsService.initWorker();
   ModeloMassaJobsService.initWorker();
   MeliWebhookQueueService.initWorker();
+  if (String(process.env.SELLER_TRIAL_ONBOARDING_ENABLED || "").toLowerCase() === "true") {
+    startClosedMonthMeasurementWorker();
+  }
   startBullRetentionScheduler();
   startDataRetentionScheduler();
 
@@ -75,6 +82,7 @@ async function shutdown(signal) {
   try {
     PromoJobsService.stopWorkerHealth?.();
   } catch {}
+  stopClosedMonthMeasurementWorker();
   try {
     await stopBullRetentionScheduler();
   } catch (error) {

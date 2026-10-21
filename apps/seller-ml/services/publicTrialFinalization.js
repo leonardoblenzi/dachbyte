@@ -1,5 +1,7 @@
 "use strict";
 
+const { queueClosedMonthMeasurement } = require("./mlTrialOrderMeasurementJob");
+
 function confirmHubActivation(input) {
   const sessionId = String(input.sessionId || "").trim();
   const tenantId = String(input.tenantId || "").trim();
@@ -67,6 +69,7 @@ async function finalizeConfirmedMlTrial(pool, input) {
       [accountId, session.access_token_enc, session.access_expires_at,
         session.refresh_token_enc, session.scope]
     );
+    await queueClosedMonthMeasurement(client, accountId);
     if (session.status === "identity_staged") {
       const user = await client.query(
         `UPDATE usuarios SET status = 'ativo', activated_at = NOW()

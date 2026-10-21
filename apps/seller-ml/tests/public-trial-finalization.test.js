@@ -42,6 +42,7 @@ test("confirmed Hub trial finalizes account, tokens and user in one transaction"
   assert.ok(statements.some(({ statement, values }) =>
     /INSERT INTO meli_contas[\s\S]*'trial'/i.test(statement) && values.includes("active")));
   assert.ok(statements.some(({ statement }) => /INSERT INTO meli_tokens/i.test(statement)));
+  assert.ok(statements.some(({ statement }) => /INSERT INTO ml_closed_month_order_measurements/i.test(statement)));
   assert.ok(statements.some(({ statement }) => /UPDATE usuarios[\s\S]*status = 'ativo'/i.test(statement)));
   assert.ok(statements.some(({ statement }) => /access_token_enc = NULL/i.test(statement)));
   assert.equal(statements.at(-1).statement, "COMMIT");
