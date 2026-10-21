@@ -6,6 +6,7 @@ async function getOrderList({
   timeTo,
   pageNo,
   pageSize,
+  cursor,
   timeRangeField = "create_time",
 }) {
   return requestShopeeAuthed({
@@ -16,7 +17,7 @@ async function getOrderList({
       time_range_field: String(timeRangeField),
       time_from: Number(timeFrom),
       time_to: Number(timeTo),
-      page_no: Number(pageNo),
+      ...(cursor !== undefined ? { cursor: String(cursor) } : { page_no: Number(pageNo) }),
       page_size: Number(pageSize),
     },
   });

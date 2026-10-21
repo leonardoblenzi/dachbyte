@@ -2,6 +2,7 @@ const createApp = require("./app");
 const env = require("./config/env");
 const { initWorkers, closeWorkers } = require("./config/queue");
 const { startHubUsageReporter } = require("./services/hubUsageReporter");
+const { startClosedMonthMeasurementWorker } = require("./services/closedMonthOrderMeasurementJob");
 const {
   startReportRetentionCleanup,
 } = require("./services/AdminAccountPerformanceReportService");
@@ -13,6 +14,7 @@ app.use(publicRoutes);
 
 let server;
 let stopReportRetentionCleanup = null;
+let stopClosedMonthMeasurements = null;
 
 async function shutdown(signal) {
   console.log(`[server] shutting down after ${signal}`);
@@ -20,6 +22,10 @@ async function shutdown(signal) {
   if (stopReportRetentionCleanup) {
     stopReportRetentionCleanup();
     stopReportRetentionCleanup = null;
+  }
+  if (stopClosedMonthMeasurements) {
+    stopClosedMonthMeasurements();
+    stopClosedMonthMeasurements = null;
   }
 
   await closeWorkers().catch((error) => {
@@ -51,6 +57,7 @@ async function boot() {
   }
 
   startHubUsageReporter();
+  stopClosedMonthMeasurements = startClosedMonthMeasurementWorker();
   stopReportRetentionCleanup = startReportRetentionCleanup();
 
   server = app.listen(env.PORT, () => {
