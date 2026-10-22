@@ -126,6 +126,19 @@
     .account-management .btn{width:100%;display:flex;justify-content:center;align-items:center}
     .management-note{border:1px solid #3a4554;border-radius:10px;background:#111821;color:#aeb8c5;padding:11px 12px;font-size:.72rem;line-height:1.55}
     .management-note--warn{border-color:#584724;background:#1b170f;color:#d6c392}
+    .price-notice{border:1px solid #4c3b23;border-radius:11px;background:#191710;padding:14px;display:grid;gap:12px}
+    .price-notice--failed{border-color:#593435;background:#1d1415}
+    .price-notice__head,.price-notice__meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .price-notice__head span{color:var(--orange);font:700 .64rem "Share Tech Mono",monospace;text-transform:uppercase;letter-spacing:.1em}
+    .price-notice__head strong{font-size:.72rem;color:#f5d184}
+    .price-notice--failed .price-notice__head strong{color:#ffaaaa}
+    .price-notice__values{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;border-top:1px solid #3b342b;border-bottom:1px solid #3b342b;padding:10px 0}
+    .price-notice__values div{display:grid;gap:2px;min-width:0}
+    .price-notice__values small,.price-notice__values span{color:var(--muted);font-size:.68rem}
+    .price-notice__values strong{font:700 1.35rem "Rajdhani",sans-serif;color:var(--text)}
+    .price-notice__arrow{color:var(--orange);font-size:1rem}
+    .price-notice p{margin:0;color:#c7bdab;font-size:.72rem;line-height:1.5}
+    .price-notice__meta{color:var(--muted);font-size:.65rem}
     .danger-zone{margin-top:4px;border:1px solid #512e31;border-radius:11px;background:#1a1113;padding:14px}
     .danger-zone h3{margin:0;color:#ffaaaa;font:700 1rem "Rajdhani",sans-serif}.danger-zone p{margin:6px 0 12px;color:#b99da0;font-size:.72rem;line-height:1.55}
     .unlink-confirm{display:grid;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid #4a292c}
@@ -309,6 +322,7 @@
           <div><h3 id="account-drawer-name">Conta</h3><small id="account-drawer-platform">Marketplace</small></div>
         </div>
         <div class="account-details" id="account-drawer-details"></div>
+        <div id="account-price-notice" hidden></div>
         <div class="management-note" id="account-plan-note" hidden></div>
         <div class="account-management" id="account-drawer-actions"></div>
         <div class="danger-zone" id="account-danger-zone" hidden>
@@ -358,6 +372,7 @@
     </section>
   </div>
 
+  <script src="/ml/js/portal-price-notice.js"></script>
   <script>
     (() => {
       const state = {
@@ -673,6 +688,10 @@
         if(activateButton) activateButton.onclick=()=>{closeAccountDrawer();openPurchase(resource.module_slug,resource.resource_key,"activate")};
         const changeButton=document.querySelector("[data-drawer-change-plan]");
         if(changeButton) changeButton.onclick=()=>{closeAccountDrawer();openPurchase(resource.module_slug,resource.resource_key,"change_plan")};
+
+        const priceNoticeNode=$("#account-price-notice");
+        priceNoticeNode.innerHTML=window.DachPortalPriceNotice.renderPriceNotice(resource.price_notice);
+        priceNoticeNode.hidden=!resource.price_notice;
 
         $("#account-drawer").classList.add("is-open");
         $("#account-drawer").setAttribute("aria-hidden","false");
