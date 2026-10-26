@@ -397,6 +397,7 @@ function withBase(path) {
       from_31_to_200: "31 a 200 pedidos",
       from_201_to_700: "201 a 700 pedidos",
       from_701_to_1500: "701 a 1.500 pedidos",
+      from_1501_to_3000: "1.501 a 3.000 pedidos",
       above_1500: "Acima de 1.500 pedidos",
     };
     return labels[normalized] || normalized || "Faixa padrao";

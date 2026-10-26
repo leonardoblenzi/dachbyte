@@ -122,6 +122,18 @@ function buildResourceContext({
   };
 }
 
+function assertOAuthResourceConfirmed(context, responseData) {
+  if (!context?.oauthConfirmed) return;
+  const expectedResourceKey = `${MODULE_SLUG}:${context.accountId}`;
+  const actualResourceKey = String(responseData?.resource?.resource_key || responseData?.account?.resource_key || "").trim();
+  if (actualResourceKey !== expectedResourceKey) {
+    throw new HubBillingError("Hub nao confirmou a identidade da loja apos OAuth.", {
+      code: "hub_oauth_relink_invalid_response",
+      statusCode: 403,
+    });
+  }
+}
+
 function hasUnlimitedAccess(context = {}) {
   const status = String(context.status || "").trim().toLowerCase();
   const billing = String(context.billingMode || "").trim().toLowerCase();
@@ -198,9 +210,7 @@ async function syncResource(context) {
   if (!response.ok) {
     throw responseError(response, "Nao foi possivel sincronizar a loja com o Hub.");
   }
-  if (context.oauthConfirmed && response.data?.access?.allow !== true) {
-    throw new HubBillingError("Hub nao confirmou a reativacao da loja apos OAuth.", { code: "hub_oauth_relink_denied", statusCode: 403 });
-  }
+  assertOAuthResourceConfirmed(context, response.data);
   syncedResources.set(cacheKey, Date.now());
   return response.data?.resource || response.data?.account || null;
 }
@@ -428,6 +438,7 @@ async function settleShopCredits(reservation, { consumedCredits = null, release 
 module.exports = {
   buildPlanCheckoutUrl,
   HubBillingError,
+  assertOAuthResourceConfirmed,
   buildResourceContext,
   checkShopResourceAccess,
   createCreditTopupCheckout,

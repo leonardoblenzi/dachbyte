@@ -21,6 +21,8 @@ const ShopeeAdsAuthService = require("../services/ShopeeAdsAuthService");
 const {
   ensureShopResourceSynced,
 } = require("../services/hubResourceBillingService");
+const postgres = require("../config/postgres");
+const { queueClosedMonthMeasurement } = require("../services/closedMonthOrderMeasurementJob");
 
 const AUTH_FLOW_COOKIE = "shopee_auth_flow";
 
@@ -321,17 +323,16 @@ async function callback(req, res) {
     await updateSessionActiveShopId(String(sessionId), shop.id);
   }
 
-  const isAdditionalNewShop = !existingShop && Number(currentShopCount || 0) >= 1;
-  const isFirstHubShop = !existingShop && Number(currentShopCount || 0) === 0 && Boolean(req.auth?.tenantGlobalId);
+  const isNewShop = !existingShop;
   let hubSyncError = null;
   const hubResourceSync = await ensureShopResourceSynced({
     auth: req.auth,
     shop,
     oauthConfirmed: authFlow === "shop",
-    status: isAdditionalNewShop ? "awaiting_subscription" : isFirstHubShop ? "active" : "legacy_active",
-    billingMode: isAdditionalNewShop || isFirstHubShop ? "paid" : "legacy",
-    usagePolicy: isAdditionalNewShop || isFirstHubShop ? "metered" : "unlimited",
-    rangeEnforcement: isAdditionalNewShop || isFirstHubShop,
+    status: isNewShop ? "awaiting_subscription" : "legacy_active",
+    billingMode: isNewShop ? "paid" : "legacy",
+    usagePolicy: isNewShop ? "metered" : "unlimited",
+    rangeEnforcement: isNewShop,
     planCode: "shopee_pro",
     orderRangeCode: "up_to_30",
     account: {
@@ -350,6 +351,12 @@ async function callback(req, res) {
       `tenant=${String(req.auth?.tenantGlobalId || "")}`,
       `shop=${String(shop?.shopId || "")}`,
     );
+  }
+
+  if (authFlow === "shop") {
+    await queueClosedMonthMeasurement(postgres, shop.id).catch((error) => {
+      console.warn("[shopee.auth] Nao foi possivel enfileirar a validacao de faixa:", error?.message || error);
+    });
   }
 
   await markOAuthState("AUTHORIZED", {

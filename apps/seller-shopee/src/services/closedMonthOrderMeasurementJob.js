@@ -18,17 +18,44 @@ function rangeForPaidOrders(total) {
   return "contact_sales";
 }
 
-async function queueMissingMeasurements(db, now = new Date()) {
+function postpaidMeasurementEnabled() {
+  return ["1", "true", "yes", "on"].includes(
+    String(process.env.SELLER_POSTPAID_ACCOUNT_MEASUREMENT_ENABLED || "").trim().toLowerCase(),
+  );
+}
+
+async function queueClosedMonthMeasurement(db, shopDbId, now = new Date()) {
+  const id = Number(shopDbId);
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error("shopee_orders_shop_invalid");
   const window = previousClosedMonthWindow(now);
   await db.query(
     `INSERT INTO shopee_closed_month_order_measurements
        (shop_db_id, period_start, period_end_exclusive, status)
-     SELECT DISTINCT s.id, $1::date, $2::date, 'queued'
-       FROM public_trial_oauth_sessions t
-       JOIN "Shop" s ON s.id = t.shop_db_id
-      WHERE t.status = 'activated' AND s.status = 'AUTHORIZED'
+     VALUES ($1, $2, $3, 'queued')
      ON CONFLICT (shop_db_id, period_start) DO NOTHING`,
-    [date(window.periodStart), date(window.periodEndExclusive)],
+    [id, date(window.periodStart), date(window.periodEndExclusive)],
+  );
+  return window;
+}
+
+async function queueMissingMeasurements(db, now = new Date(), { includePostpaid = false } = {}) {
+  const window = previousClosedMonthWindow(now);
+  await db.query(
+    `INSERT INTO shopee_closed_month_order_measurements
+       (shop_db_id, period_start, period_end_exclusive, status)
+     SELECT DISTINCT candidates.shop_db_id, $1::date, $2::date, 'queued'
+       FROM (
+         SELECT s.id AS shop_db_id
+           FROM public_trial_oauth_sessions t
+           JOIN "Shop" s ON s.id = t.shop_db_id
+          WHERE t.status = 'activated' AND s.status = 'AUTHORIZED'
+         UNION
+         SELECT s.id AS shop_db_id
+           FROM "Shop" s
+          WHERE $3::boolean AND s.status = 'AUTHORIZED'
+       ) AS candidates
+     ON CONFLICT (shop_db_id, period_start) DO NOTHING`,
+    [date(window.periodStart), date(window.periodEndExclusive), Boolean(includePostpaid)],
   );
   return window;
 }
@@ -140,7 +167,7 @@ async function syncMeasurementToHub(db, now = new Date(), options = {}) {
 }
 
 async function runPendingMeasurements(db, now = new Date(), options = {}) {
-  const window = await queueMissingMeasurements(db, now);
+  const window = await queueMissingMeasurements(db, now, { includePostpaid: options.includePostpaid === true });
   await db.query(
     `UPDATE shopee_closed_month_order_measurements
         SET status = 'queued', updated_at = NOW()
@@ -175,7 +202,7 @@ function startClosedMonthMeasurementWorker(db) {
   const run = async () => {
     if (running) return;
     running = true;
-    try { await runPendingMeasurements(source); }
+    try { await runPendingMeasurements(source, new Date(), { includePostpaid: postpaidMeasurementEnabled() }); }
     catch (error) { console.error("[Shopee Trial Orders] worker failed:", error?.message || error); }
     finally { running = false; }
   };
@@ -190,6 +217,6 @@ function stopClosedMonthMeasurementWorker() {
   timer = null;
 }
 
-module.exports = { queueMissingMeasurements, processMeasurement, syncMeasurementToHub,
+module.exports = { queueClosedMonthMeasurement, queueMissingMeasurements, processMeasurement, syncMeasurementToHub,
   postHubOrderMeasurement, runPendingMeasurements,
   startClosedMonthMeasurementWorker, stopClosedMonthMeasurementWorker };

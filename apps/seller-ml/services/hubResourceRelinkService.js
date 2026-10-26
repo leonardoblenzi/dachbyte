@@ -15,7 +15,9 @@ function createMlHubRelink({ baseUrl, token, fetchImpl = fetch }) {
     });
     if (!response.ok) throw new Error("ml_hub_relink_failed");
     const result = await response.json().catch(() => null);
-    if (result?.access?.allow !== true) throw new Error("ml_hub_relink_not_allowed");
+    if (result?.ok !== true || !String(result?.resource?.resource_key || "").trim()) {
+      throw new Error("ml_hub_relink_invalid_response");
+    }
     return result;
   };
 }

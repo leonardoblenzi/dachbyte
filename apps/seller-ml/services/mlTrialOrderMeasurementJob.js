@@ -94,7 +94,7 @@ async function processClosedMonthMeasurement(db, accountId, periodStart, deps = 
 }
 
 async function runPendingClosedMonthMeasurements(db, options = {}) {
-  const window = await queueMissingCurrentPeriodMeasurements(db, options.now || new Date());
+  const window = await queueMissingCurrentPeriodMeasurements(db, options.now || new Date(), options);
   await db.query(
     `UPDATE ml_closed_month_order_measurements
         SET status = 'queued', updated_at = NOW()
@@ -118,16 +118,18 @@ async function runPendingClosedMonthMeasurements(db, options = {}) {
   return pending.rows.length;
 }
 
-async function queueMissingCurrentPeriodMeasurements(db, now = new Date()) {
+async function queueMissingCurrentPeriodMeasurements(db, now = new Date(), options = {}) {
   const window = previousClosedMonthWindow(now);
+  const includePostpaid = options.includePostpaid === true;
   await db.query(
     `INSERT INTO ml_closed_month_order_measurements
        (account_id, period_start, period_end_exclusive, status)
      SELECT mc.id, $1::date, $2::date, 'queued'
        FROM meli_contas mc
-      WHERE mc.billing_mode = 'trial' AND mc.status = 'ativa'
+      WHERE mc.status = 'ativa'
+        AND (mc.billing_mode = 'trial' OR ($3::boolean AND mc.billing_mode = 'paid'))
      ON CONFLICT (account_id, period_start) DO NOTHING`,
-    [window.periodStart, window.periodEndExclusive]
+    [window.periodStart, window.periodEndExclusive, includePostpaid]
   );
   return window;
 }
@@ -216,9 +218,9 @@ async function requeueFailedClosedMonthMeasurement(db, accountId, periodStart) {
 }
 
 let timer = null;
-function startClosedMonthMeasurementWorker(db = require("../db/db")) {
+function startClosedMonthMeasurementWorker(db = require("../db/db"), options = {}) {
   if (timer) return;
-  const run = () => runPendingClosedMonthMeasurements(db).catch((error) =>
+  const run = () => runPendingClosedMonthMeasurements(db, options).catch((error) =>
     console.error("[ML Trial Orders] measurement worker failed:", error?.message || error));
   run();
   timer = setInterval(run, 60_000);

@@ -30,6 +30,8 @@ const { stageVerifiedMlTrialIdentity } = require("../services/publicTrialIdentit
 const { activateMlTrialInHub } = require("../services/hubTrialActivation");
 const { finalizeConfirmedMlTrial } = require("../services/publicTrialFinalization");
 const { listExistingTrialCompanies, stageExistingMlTrialLink } = require("../services/publicTrialExistingLink");
+const { queueClosedMonthMeasurement } = require("../services/mlTrialOrderMeasurementJob");
+const { postOAuthSelectionDestination } = require("../services/postOAuthDestination");
 
 const router = express.Router();
 
@@ -38,7 +40,7 @@ async function confirmMlHubResourceAfterOAuth(outcome) {
   const tenantId = String(tenant.rows[0]?.tenant_global_id || "").trim();
   if (!tenantId) return;
   const confirm = createMlHubRelink({ baseUrl: process.env.HUB_BASE_URL, token: process.env.HUB_INTERNAL_TOKEN });
-  await confirm({ tenantId, accountId: outcome.meli_user_id, label: `Conta ${outcome.meli_user_id}` });
+  await confirm({ tenantId, accountId: outcome.meli_user_id, label: outcome.label });
 }
 
 // ===============================
@@ -1371,18 +1373,11 @@ router.get(
             [contaId, apelido],
           );
         } else {
-          // Existing accounts are preserved as legacy by the migration. This
-          // branch only handles accounts created after the billing rollout.
-          const linkedAccounts = await client.query(
-            `select count(*)::int as total from meli_contas where empresa_id = $1`,
-            [row.empresa_id],
-          );
-          const isFirstAccount = Number(linkedAccounts.rows[0]?.total || 0) === 0;
-          const billingStatus = isFirstAccount
-            ? "legacy_active"
-            : "awaiting_subscription";
-          const billingMode = isFirstAccount ? "legacy" : "paid";
-          const usagePolicy = isFirstAccount ? "unlimited" : "metered";
+          // Pre-rollout accounts keep their migrated policy. Every account
+          // linked after this flow awaits measurement and a Hub proposal.
+          const billingStatus = "awaiting_subscription";
+          const billingMode = "paid";
+          const usagePolicy = "metered";
 
           const ins = await client.query(
             `insert into meli_contas
@@ -1426,6 +1421,7 @@ router.get(
           empresaId: row.empresa_id,
           usuarioId: row.usuario_id,
           meli_user_id,
+          label: apelido,
           contaId,
           redirectUri,
         };
@@ -1452,12 +1448,22 @@ router.get(
           "Conta autorizada no Mercado Livre e salva localmente, mas o Hub nao confirmou a reativacao. Tente Reconectar novamente ou contate o suporte.",
         );
       }
+      try {
+        await queueClosedMonthMeasurement(db, outcome.contaId);
+      } catch (error) {
+        console.warn("[ML][OAuth] Could not queue account order measurement", {
+          accountId: outcome.contaId, error: error?.message || "measurement_queue_failed"
+        });
+        return res.status(503).send(
+          "Conta conectada, mas não foi possível iniciar a validação da faixa. Tente Reconectar novamente em instantes.",
+        );
+      }
     }
 
-    const go = withBase(
-      req,
-      sanitizeReturnTo(outcome.return_to || "/vincular-conta"),
-    );
+    const go = withBase(req, postOAuthSelectionDestination({
+      moduleSlug: "ml",
+      externalAccountId: outcome.meli_user_id,
+    }));
     return res.redirect(go);
   } catch (err) {
     const explicitStatus = Number(err?.statusCode || 0);

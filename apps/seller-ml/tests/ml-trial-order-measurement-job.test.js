@@ -93,6 +93,11 @@ test("measurement poller runs only when trial onboarding is enabled", () => {
   assert.match(worker, /stopClosedMonthMeasurementWorker/);
 });
 
+test("measurement poller can run for connected postpaid accounts behind its own flag", () => {
+  const worker = fs.readFileSync(path.join(__dirname, "../worker.js"), "utf8");
+  assert.match(worker, /SELLER_POSTPAID_ACCOUNT_MEASUREMENT_ENABLED/);
+});
+
 test("a failed measurement can be retried without creating another trial or overwriting orders", async () => {
   const calls = [];
   const db = { query: async (sql, values) => {
@@ -145,6 +150,14 @@ test("worker queues the new closed month for all linked trial accounts after mon
   assert.ok(calls.some(({ sql, values }) =>
     /INSERT INTO ml_closed_month_order_measurements[\s\S]*SELECT mc\.id[\s\S]*billing_mode = 'trial'[\s\S]*ON CONFLICT/is.test(sql) &&
     values.includes("2026-10-01T00:00:00.000Z") && values.includes("2026-11-01T00:00:00.000Z")));
+});
+
+test("postpaid remeasurement is opt-in and includes connected paid accounts only when enabled", async () => {
+  const calls = [];
+  const db = { query: async (sql, values) => { calls.push({ sql, values }); return { rows: [] }; } };
+  await queueMissingCurrentPeriodMeasurements(db, new Date("2026-11-02T12:00:00Z"), { includePostpaid: true });
+  assert.ok(calls.some(({ sql, values }) =>
+    /mc\.billing_mode = 'trial'[\s\S]*mc\.billing_mode = 'paid'/i.test(sql) && values.at(-1) === true));
 });
 
 test("Hub sync ignores a completed measurement from an older closed month", async () => {

@@ -66,8 +66,13 @@ function boot() {
   CaracteristicasJobsService.initWorker();
   ModeloMassaJobsService.initWorker();
   MeliWebhookQueueService.initWorker();
-  if (String(process.env.SELLER_TRIAL_ONBOARDING_ENABLED || "").toLowerCase() === "true") {
-    startClosedMonthMeasurementWorker();
+  const closedMonthMeasurementEnabled =
+    String(process.env.SELLER_TRIAL_ONBOARDING_ENABLED || "").toLowerCase() === "true" ||
+    String(process.env.SELLER_POSTPAID_ACCOUNT_MEASUREMENT_ENABLED || "").toLowerCase() === "true";
+  if (closedMonthMeasurementEnabled) {
+    startClosedMonthMeasurementWorker(undefined, {
+      includePostpaid: String(process.env.SELLER_POSTPAID_ACCOUNT_MEASUREMENT_ENABLED || "").toLowerCase() === "true"
+    });
   }
   startBullRetentionScheduler();
   startDataRetentionScheduler();

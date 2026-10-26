@@ -63,6 +63,30 @@ function createSellerPortalService({ baseUrl, internalToken, fetchImpl = fetch }
     }
   }
 
+  async function get(path) {
+    if (!hubBaseUrl || !token) {
+      return {
+        ok: false,
+        status: 503,
+        payload: { ok: false, error: "hub_not_configured" },
+      };
+    }
+    try {
+      const response = await fetchImpl(`${hubBaseUrl}${path}`, {
+        method: "GET",
+        headers: { authorization: `Bearer ${token}` },
+      });
+      const payload = await response.json().catch(() => ({}));
+      return { ok: response.ok, status: response.status, payload };
+    } catch (error) {
+      return {
+        ok: false,
+        status: 503,
+        payload: { ok: false, error: "hub_unavailable", detail: error?.message || String(error) },
+      };
+    }
+  }
+
   return {
     async overview(identity) {
       const resolved = normalizeIdentity(identity);
@@ -141,7 +165,20 @@ function createSellerPortalService({ baseUrl, internalToken, fetchImpl = fetch }
         };
       }
       return post("/v1/internal/portal/checkout", {
-        ...input,
+        module: input.module,
+        resource_key: input.resource_key,
+        purpose: input.purpose,
+        payment_method: input.payment_method,
+        customer_phone: input.customer_phone,
+        billing_postal_code: input.billing_postal_code,
+        billing_address: input.billing_address,
+        billing_address_number: input.billing_address_number,
+        billing_province: input.billing_province,
+        ...(["ml", "shopee"].includes(String(input.module || "").toLowerCase()) ? {} : {
+          plan_code: input.plan_code,
+          range_code: input.range_code,
+          declared_orders: input.declared_orders,
+        }),
         tenant_id: resolved.tenant_id,
         user_id: resolved.user_id,
       });
@@ -163,6 +200,23 @@ function createSellerPortalService({ baseUrl, internalToken, fetchImpl = fetch }
       });
     },
 
+    async renameAccount(identity, input = {}) {
+      const resolved = normalizeIdentity(identity);
+      if (!resolved.tenant_id || !resolved.user_id) {
+        return {
+          ok: false,
+          status: 401,
+          payload: { ok: false, error: "suite_identity_incomplete" },
+        };
+      }
+      return post("/v1/internal/portal/accounts/label", {
+        tenant_id: resolved.tenant_id,
+        user_id: resolved.user_id,
+        resource_key: String(input.resource_key || "").trim(),
+        label: String(input.label || "").trim(),
+      });
+    },
+
     async renewalIntent(identity, resourceKeys) {
       const resolved = normalizeIdentity(identity);
       if (!resolved.tenant_id || !resolved.user_id) {
@@ -177,6 +231,52 @@ function createSellerPortalService({ baseUrl, internalToken, fetchImpl = fetch }
         user_id: resolved.user_id,
         resource_keys: Array.isArray(resourceKeys) ? resourceKeys : [],
       });
+    },
+
+    async postpaidQuote(identity, input = {}) {
+      const resolved = normalizeIdentity(identity);
+      if (!resolved.tenant_id || !resolved.user_id) {
+        return { ok: false, status: 401, payload: { ok: false, error: "suite_identity_incomplete" } };
+      }
+      return post("/v1/internal/postpaid/quote", {
+        tenant_id: resolved.tenant_id,
+        user_id: resolved.user_id,
+        resource_key: String(input.resource_key || "").trim(),
+      });
+    },
+
+    async acceptPostpaidQuote(identity, input = {}) {
+      const resolved = normalizeIdentity(identity);
+      if (!resolved.tenant_id || !resolved.user_id) {
+        return { ok: false, status: 401, payload: { ok: false, error: "suite_identity_incomplete" } };
+      }
+      return post("/v1/internal/postpaid/accept", {
+        tenant_id: resolved.tenant_id,
+        user_id: resolved.user_id,
+        quote_id: String(input.quote_id || "").trim(),
+        payment_method: String(input.payment_method || "").trim(),
+      });
+    },
+
+    async deactivatePostpaidAccount(identity, input = {}) {
+      const resolved = normalizeIdentity(identity);
+      if (!resolved.tenant_id || !resolved.user_id) {
+        return { ok: false, status: 401, payload: { ok: false, error: "suite_identity_incomplete" } };
+      }
+      return post("/v1/internal/postpaid/deactivate", {
+        tenant_id: resolved.tenant_id,
+        user_id: resolved.user_id,
+        resource_key: String(input.resource_key || "").trim(),
+      });
+    },
+
+    async postpaidInvoices(identity) {
+      const resolved = normalizeIdentity(identity);
+      if (!resolved.tenant_id || !resolved.user_id) {
+        return { ok: false, status: 401, payload: { ok: false, error: "suite_identity_incomplete" } };
+      }
+      const query = new URLSearchParams(resolved);
+      return get(`/v1/internal/postpaid/invoices?${query.toString()}`);
     },
   };
 }

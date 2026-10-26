@@ -74,3 +74,21 @@ test("customer portal continues to use the tenant overview", async () => {
     body: { tenant_id: "tenant-1", user_id: "user-1" },
   }]);
 });
+
+test("postpaid invoice listing derives tenant identity from the signed-in portal session", async () => {
+  const requests = [];
+  const service = createSellerPortalService({
+    baseUrl: "https://hub.example",
+    internalToken: "test-token",
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options });
+      return response({ ok: true, invoices: [] });
+    },
+  });
+
+  const result = await service.postpaidInvoices({ tenant_id: "tenant-1", user_id: "user-1" });
+  assert.equal(result.status, 200);
+  assert.equal(requests[0].url, "https://hub.example/v1/internal/postpaid/invoices?tenant_id=tenant-1&user_id=user-1");
+  assert.equal(requests[0].options.method, "GET");
+  assert.equal(requests[0].options.headers.authorization, "Bearer test-token");
+});

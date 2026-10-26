@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { processMeasurement, syncMeasurementToHub, queueMissingMeasurements, runPendingMeasurements } =
+const { processMeasurement, syncMeasurementToHub, queueClosedMonthMeasurement, queueMissingMeasurements, runPendingMeasurements } =
   require("../src/services/closedMonthOrderMeasurementJob");
 
 const row = { shop_db_id: 4, shop_id: "123", tenant_id: "tenant-1",
@@ -51,7 +51,31 @@ test("queue targets only activated trial shops for the current closed month", as
     new Date("2026-10-21T00:00:00Z"));
   assert.match(statements[0].sql, /public_trial_oauth_sessions/);
   assert.match(statements[0].sql, /activated/);
-  assert.deepEqual(statements[0].values, ["2026-09-01", "2026-10-01"]);
+  assert.deepEqual(statements[0].values, ["2026-09-01", "2026-10-01", false]);
+});
+
+test("OAuth queues the just-connected Shopee shop for closed-month measurement", async () => {
+  const statements = [];
+  const window = await queueClosedMonthMeasurement({ query: async (sql, values) => {
+    statements.push({ sql, values });
+    return { rows: [] };
+  } }, 42, new Date("2026-10-21T00:00:00Z"));
+
+  assert.equal(window.periodStart, "2026-09-01T00:00:00.000Z");
+  assert.match(statements[0].sql, /VALUES \(\$1, \$2, \$3, 'queued'\)/);
+  assert.deepEqual(statements[0].values, [42, "2026-09-01", "2026-10-01"]);
+});
+
+test("postpaid remeasurement includes authorized shops only when explicitly enabled", async () => {
+  const statements = [];
+  await queueMissingMeasurements({ query: async (sql, values) => {
+    statements.push({ sql, values });
+    return { rows: [] };
+  } }, new Date("2026-10-21T00:00:00Z"), { includePostpaid: true });
+
+  assert.match(statements[0].sql, /UNION/);
+  assert.match(statements[0].sql, /\$3::boolean AND s\.status = 'AUTHORIZED'/);
+  assert.deepEqual(statements[0].values, ["2026-09-01", "2026-10-01", true]);
 });
 
 test("worker requeues only aged failed measurements with retries remaining", async () => {

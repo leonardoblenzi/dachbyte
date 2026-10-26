@@ -819,11 +819,51 @@ async function main() {
     return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
   });
 
+  app.post("/api/portal/accounts/label", async (req, res) => {
+    const payload = readSuitePayload(req);
+    res.set("cache-control", "no-store, max-age=0");
+    if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
+    const result = await sellerPortalService().renameAccount(payload, req.body || {});
+    return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
+  });
+
   app.post("/api/portal/renewal-intent", async (req, res) => {
     const payload = readSuitePayload(req);
     res.set("cache-control", "no-store, max-age=0");
     if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
     const result = await sellerPortalService().renewalIntent(payload, req.body?.resource_keys);
+    return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
+  });
+
+  app.post("/api/portal/postpaid/quote", async (req, res) => {
+    const payload = readSuitePayload(req);
+    res.set("cache-control", "no-store, max-age=0");
+    if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
+    const result = await sellerPortalService().postpaidQuote(payload, req.body || {});
+    return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
+  });
+
+  app.post("/api/portal/postpaid/accept", async (req, res) => {
+    const payload = readSuitePayload(req);
+    res.set("cache-control", "no-store, max-age=0");
+    if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
+    const result = await sellerPortalService().acceptPostpaidQuote(payload, req.body || {});
+    return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
+  });
+
+  app.post("/api/portal/postpaid/deactivate", async (req, res) => {
+    const payload = readSuitePayload(req);
+    res.set("cache-control", "no-store, max-age=0");
+    if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
+    const result = await sellerPortalService().deactivatePostpaidAccount(payload, req.body || {});
+    return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
+  });
+
+  app.get("/api/portal/postpaid/invoices", async (req, res) => {
+    const payload = readSuitePayload(req);
+    res.set("cache-control", "no-store, max-age=0");
+    if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
+    const result = await sellerPortalService().postpaidInvoices(payload);
     return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
   });
 

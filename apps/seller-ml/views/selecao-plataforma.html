@@ -157,6 +157,9 @@
     .detail-list{display:grid;gap:10px}
     .detail{display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding-bottom:9px;font-size:.75rem}
     .detail:last-child{border-bottom:0;padding-bottom:0}.detail span{color:var(--muted)}
+    .invoice-list{display:grid;gap:10px}.invoice-card{border:1px solid var(--line);border-radius:10px;padding:13px;background:var(--panel-2)}
+    .invoice-card__top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.invoice-card strong{font-size:.84rem}.invoice-card small{display:block;color:var(--muted);font-size:.72rem;margin-top:4px}
+    .invoice-card__items{margin:11px 0 0;padding:10px 0 0;border-top:1px solid var(--line);display:grid;gap:6px;color:#c5ccd6;font-size:.72rem}.invoice-card__item{display:flex;justify-content:space-between;gap:12px}.invoice-card__actions{margin-top:11px}
     .loader{position:fixed;inset:0;background:rgba(9,11,16,.9);display:grid;place-items:center;z-index:80}
     .loader__box{display:flex;align-items:center;gap:12px;color:#d6dbe2}
     .spinner{width:20px;height:20px;border-radius:50%;border:2px solid #303845;border-top-color:var(--orange);animation:spin .7s linear infinite}
@@ -301,6 +304,10 @@
               <div class="detail-list" id="billing-permissions"></div>
             </div>
           </div>
+          <div class="panel" style="margin-top:12px">
+            <h2>Faturas e cobranças</h2>
+            <div class="invoice-list" id="company-invoices"></div>
+          </div>
         </section>
       </div>
     </main>
@@ -320,6 +327,11 @@
         <div class="account-hero">
           <div class="account-hero__mark" id="account-drawer-mark">ML</div>
           <div><h3 id="account-drawer-name">Conta</h3><small id="account-drawer-platform">Marketplace</small></div>
+        </div>
+        <div class="field" id="account-alias-editor" hidden>
+          <label for="account-alias-input">Nome da conta</label>
+          <div style="display:flex;gap:8px"><input id="account-alias-input" maxlength="120" placeholder="Ex.: Loja principal" /><button class="btn btn--ghost" type="button" id="account-alias-save">Renomear conta</button></div>
+          <small style="color:var(--muted);line-height:1.45">Este nome organiza a conta dentro da sua empresa. Não altera o plano, a faixa ou a conexão com o marketplace.</small>
         </div>
         <div class="account-details" id="account-drawer-details"></div>
         <div id="account-price-notice" hidden></div>
@@ -352,10 +364,8 @@
       </div>
       <div class="drawer__body">
         <div class="purchase-summary" id="purchase-summary"></div>
-        <div class="field"><label for="purchase-plan">Plano</label><select id="purchase-plan"></select></div>
-        <div class="field"><label for="purchase-range">Faixa</label><select id="purchase-range"></select></div>
-        <div class="field"><label for="purchase-orders">Pedidos estimados</label><input id="purchase-orders" inputmode="numeric" placeholder="Ex.: 700" /></div>
-        <div class="field"><label for="purchase-payment">Pagamento</label><select id="purchase-payment"><option value="credit_card">Cartão de crédito</option><option value="pix">PIX</option></select></div>
+        <div class="field"><label for="purchase-payment">Forma de pagamento da fatura</label><select id="purchase-payment"><option value="credit_card">Cartão de crédito</option><option value="pix">PIX</option></select></div>
+        <div id="purchase-billing-fields">
         <div class="form-grid">
           <div class="field"><label for="billing-phone">Telefone</label><input id="billing-phone" inputmode="numeric" placeholder="44999999999" /></div>
           <div class="field"><label for="billing-postal">CEP</label><input id="billing-postal" inputmode="numeric" placeholder="00000000" /></div>
@@ -364,6 +374,7 @@
           <div class="field"><label for="billing-province">UF</label><input id="billing-province" maxlength="2" placeholder="PR" /></div>
         </div>
         <small style="color:var(--muted);line-height:1.55">Os dados de cobrança são enviados ao Hub apenas para preparar o checkout. Credenciais de marketplace continuam armazenadas nos módulos, não no Hub.</small>
+        </div>
       </div>
       <div class="drawer__foot">
         <button class="btn btn--ghost" type="button" data-close-drawer>Voltar</button>
@@ -377,11 +388,13 @@
     (() => {
       const state = {
         overview: null,
+        invoices: [],
         accountFilter: "all",
         homeModuleFilter: "operational",
         purchaseModule: null,
         purchaseResource: null,
         purchasePurpose: null,
+        postpaidQuote: null,
         managedResourceKey: null,
         selectedRenewals: new Set(),
       };
@@ -415,6 +428,9 @@
       const digits = (value) => String(value || "").replace(/\D/g,"");
       function formatDate(value){ if(!value) return "—"; const d=new Date(value); return Number.isFinite(d.getTime())?dateFmt.format(d):"—"; }
       function formatMoney(cents){ return Number.isFinite(Number(cents)) ? money.format(Number(cents)/100) : "—"; }
+      function safePaymentUrl(value){
+        try{const url=new URL(String(value||""));return url.protocol==="https:"?url.href:null}catch{return null}
+      }
       function firstName(value){ return String(value||"Usuário").trim().split(/\s+/)[0] || "Usuário"; }
       function greeting(){ const h=new Date().getHours(); return h<12?"Bom dia":h<18?"Boa tarde":"Boa noite"; }
       function showToast(message,isError=false){ const el=$("#toast"); el.textContent=message; el.classList.toggle("is-error",isError); el.hidden=false; clearTimeout(showToast.timer); showToast.timer=setTimeout(()=>el.hidden=true,4800); }
@@ -533,6 +549,22 @@
         const cls=["active"].includes(status)?"status-text--active":["expiring","attention"].includes(status)?"status-text--warning":["expired","inactive"].includes(status)?"status-text--danger":"status-text--muted";
         return '<span class="status-text '+cls+'">'+esc(meta.label)+'</span>';
       }
+      function accountStatus(resource){
+        const marketplace=["ml","shopee"].includes(String(resource?.module_slug||""));
+        const measurementStatus=String(resource?.measurement_status||"");
+        if(marketplace&&measurementStatus==="failed") return {label:"Falha na apuração",className:"status-text--danger"};
+        if(marketplace&&["pending","stale",""].includes(measurementStatus)&&resource?.can_enter!==true){
+          return {label:"Validando faixa",className:"status-text--warning"};
+        }
+        const status=String(resource?.status||"");
+        const meta=statusMeta[status]||{label:status||"—"};
+        const className=["active"].includes(status)?"status-text--active":["expiring","attention"].includes(status)?"status-text--warning":["expired","inactive"].includes(status)?"status-text--danger":"status-text--muted";
+        return {label:meta.label,className};
+      }
+      function accountStatusText(resource){
+        const current=accountStatus(resource);
+        return '<span class="status-text '+current.className+'">'+esc(current.label)+'</span>';
+      }
       function accountPrimaryAction(resource){
         if(resource.can_renew && ["expired","expiring"].includes(resource.status)) return '<button class="btn" type="button" data-renew-one="'+esc(resource.resource_key)+'">Renovar</button>';
         if(resource.can_activate) return '<button class="btn" type="button" data-activate-resource="'+esc(resource.resource_key)+'" data-activate-module="'+esc(resource.module_slug)+'">Contratar plano</button>';
@@ -541,6 +573,12 @@
       }
       function accountAction(resource){
         return '<div class="account-actions">'+accountPrimaryAction(resource)+'<button class="icon-btn" type="button" data-manage-account="'+esc(resource.resource_key)+'" aria-label="Gerenciar '+esc(resource.label||"conta")+'">⋯</button></div>';
+      }
+      function measurementLabel(resource){
+        if(resource.measurement_status==="succeeded")return String(resource.measured_orders??"—");
+        if(resource.measurement_status==="failed")return "Falha na apuração";
+        if(resource.measurement_status==="stale")return "Aguardando nova apuração";
+        return "Aguardando apuração";
       }
       function renderAccounts(){
         const modules=(state.overview.modules||[]).filter(m=>Array.isArray(m.resources)&&m.resources.length);
@@ -552,9 +590,9 @@
         const resources=allResources().filter(r=>state.accountFilter==="all"||r.module_slug===state.accountFilter);
         $("#accounts-body").innerHTML=resources.map(r=>'<tr>'+
           '<td><strong>'+esc(r.label||r.external_account_id)+'</strong><small>'+esc(r.resource_key)+'</small></td>'+
-          '<td>'+esc(r.module_name)+'</td><td>'+statusText(r.status)+'</td>'+
+          '<td>'+esc(r.module_name)+'</td><td>'+accountStatusText(r)+'</td>'+
           '<td><strong>'+esc(r.plan?.name||r.plan?.code||"—")+'</strong><small>'+esc(r.plan?.range_label||r.plan?.range_code||"")+'</small></td>'+
-          '<td>'+esc(formatDate(r.access_ends_at))+'</td><td>'+esc(r.measured_orders??"—")+'</td><td>'+accountAction(r)+'</td></tr>').join("");
+          '<td>'+esc(formatDate(r.access_ends_at))+'</td><td>'+esc(measurementLabel(r))+'</td><td>'+accountAction(r)+'</td></tr>').join("");
         $("#accounts-empty").hidden=resources.length>0;
         $(".table-wrap").hidden=resources.length===0;
       }
@@ -594,6 +632,13 @@
         $("#billing-permissions").innerHTML=[
           ["Perfil",o.user?.role||"member"],["Gerenciar cobrança",o.user?.can_manage_billing?"Sim":"Não"],["Perfil de cobrança",o.billing?.profile_complete?"Completo":"Requer dados no checkout"]
         ].map(([l,v])=>'<div class="detail"><span>'+esc(l)+'</span><strong>'+esc(v)+'</strong></div>').join("");
+        const invoices=Array.isArray(state.invoices)?state.invoices:[];
+        $("#company-invoices").innerHTML=invoices.length?invoices.map(invoice=>{
+          const items=Array.isArray(invoice.items)?invoice.items:[];
+          const paymentUrl=safePaymentUrl(invoice.payment_url);
+          const itemRows=items.length?items.map(item=>'<div class="invoice-card__item"><span>'+esc(item.resource_key||item.module_slug||"Conta")+' · '+esc(item.range_code||"faixa não informada")+'</span><strong>'+esc(formatMoney(item.amount_cents))+'</strong></div>').join(""):'<div class="invoice-card__item"><span>Itens da fatura indisponíveis</span></div>';
+          return '<article class="invoice-card"><div class="invoice-card__top"><div><strong>Fatura '+esc(invoice.cycle_start||"—")+' a '+esc(invoice.cycle_end||"—")+'</strong><small>Vencimento: '+esc(formatDate(invoice.due_local_date))+' · '+esc(invoice.status||"—")+'</small></div><strong>'+esc(formatMoney(invoice.total_cents))+'</strong></div><div class="invoice-card__items">'+itemRows+'</div>'+(paymentUrl?'<div class="invoice-card__actions"><a class="btn btn--soft" href="'+esc(paymentUrl)+'" target="_blank" rel="noopener noreferrer">Abrir cobrança</a></div>':'')+'</article>';
+        }).join(""):'<div class="empty">Nenhuma fatura emitida para esta empresa.</div>';
       }
 
       function renderHeader(){
@@ -638,6 +683,24 @@
         $("#unlink-ack").checked=false;
         $("#unlink-reason").value="";
       }
+      async function renameManagedAccount(){
+        const resource=managedResource();
+        const input=$("#account-alias-input");
+        const label=String(input?.value||"").trim();
+        if(!resource||!label){showToast("Informe um nome para a conta.",true);return}
+        const button=$("#account-alias-save");
+        if(button){button.disabled=true;button.textContent="Salvando..."}
+        try{
+          await api("/api/portal/accounts/label",{method:"POST",body:JSON.stringify({resource_key:resource.resource_key,label})});
+          await refreshOverview();
+          openAccountDrawer(resource.resource_key);
+          showToast("Nome da conta atualizado.");
+        }catch(error){
+          showToast(error.message||"Não foi possível renomear a conta.",true);
+        }finally{
+          if(button){button.disabled=false;button.textContent="Renomear conta"}
+        }
+      }
       function openAccountDrawer(resourceKey){
         const resource=allResources().find(item=>item.resource_key===resourceKey);
         if(!resource)return;
@@ -646,20 +709,31 @@
         $("#account-drawer-name").textContent=resource.label||resource.external_account_id||"Conta";
         $("#account-drawer-platform").textContent=resource.module_name+" · "+resource.resource_key;
         $("#account-drawer-mark").textContent=moduleMarks[resource.module_slug]||resource.module_slug.slice(0,2).toUpperCase();
+        const aliasEditor=$("#account-alias-editor");
+        const canRename=state.overview?.user?.can_manage_billing===true;
+        aliasEditor.hidden=!canRename;
+        $("#account-alias-input").value=resource.label||"";
+            const lifecycle=resource.postpaid_lifecycle||null;
+            const lifecycleLabel=lifecycle?.status==="deactivating"?"Desativação agendada":lifecycle?.status==="inactive"?"Desativada":"Ativa";
         $("#account-drawer-details").innerHTML=[
-          ["Status",statusMeta[resource.status]?.label||resource.status||"—"],
+          ["Status",accountStatus(resource).label],
           ["Plano",resource.plan?.name||resource.plan?.code||"Sem plano"],
           ["Faixa",resource.plan?.range_label||resource.plan?.range_code||"—"],
           ["Vencimento",formatDate(resource.access_ends_at)],
-          ["Pedidos medidos",resource.measured_orders??"—"],
+          ["Pedidos apurados",measurementLabel(resource)],
+          ["Mês apurado",resource.measured_period_start?String(resource.measured_period_start).slice(0,7):"—"],
+          ["Origem",resource.measurement_source||"—"],
+          ...(resource.measurement_error?[["Falha na apuração",resource.measurement_error]]:[]),
+              ...(lifecycle?[["Assinatura",lifecycleLabel],["Fim do ciclo",formatDate(lifecycle.endsOn)]]:[]),
           ["Próxima cobrança",formatDate(resource.billing_contract?.next_due_at)]
         ].map(([label,value])=>'<div class="detail"><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong></div>').join("");
 
         const actions=[];
         if(resource.can_enter) actions.push('<a class="btn btn--soft" href="'+esc(goRoutes[resource.module_slug]||"#")+'">Abrir conta</a>');
         if(resource.can_renew) actions.push('<button class="btn" type="button" data-drawer-renew>Renovar plano</button>');
-        if(resource.can_activate) actions.push('<button class="btn" type="button" data-drawer-activate>Contratar plano</button>');
+        if(resource.can_activate) actions.push('<button class="btn" type="button" data-drawer-activate>'+(lifecycle?.status==="inactive"?"Reativar conta":"Contratar plano")+'</button>');
         if(resource.can_change_plan) actions.push('<button class="btn btn--ghost" type="button" data-drawer-change-plan>Alterar plano</button>');
+            if(resource.can_deactivate_postpaid) actions.push('<button class="btn btn--danger" type="button" data-drawer-deactivate-postpaid>Desativar no fim do ciclo</button>');
         $("#account-drawer-actions").innerHTML=actions.join("")||'<div class="empty">Nenhuma ação comercial disponível para esta conta.</div>';
 
         const note=$("#account-plan-note");
@@ -688,6 +762,10 @@
         if(activateButton) activateButton.onclick=()=>{closeAccountDrawer();openPurchase(resource.module_slug,resource.resource_key,"activate")};
         const changeButton=document.querySelector("[data-drawer-change-plan]");
         if(changeButton) changeButton.onclick=()=>{closeAccountDrawer();openPurchase(resource.module_slug,resource.resource_key,"change_plan")};
+            const deactivatePostpaidButton=document.querySelector("[data-drawer-deactivate-postpaid]");
+            if(deactivatePostpaidButton) deactivatePostpaidButton.onclick=()=>deactivatePostpaidAtCycleEnd(resource);
+        const aliasSaveButton=$("#account-alias-save");
+        if(aliasSaveButton) aliasSaveButton.onclick=renameManagedAccount;
 
         const priceNoticeNode=$("#account-price-notice");
         priceNoticeNode.innerHTML=window.DachPortalPriceNotice.renderPriceNotice(resource.price_notice);
@@ -723,6 +801,20 @@
           button.textContent="Confirmar desvinculação";
         }
       }
+      async function deactivatePostpaidAtCycleEnd(resource){
+        if(!window.confirm("Desativar esta conta no fim do ciclo atual? O acesso permanece ativo até essa data e a cobrança do ciclo utilizado continua devida."))return;
+        const button=document.querySelector("[data-drawer-deactivate-postpaid]");
+        if(button){button.disabled=true;button.textContent="Agendando..."}
+        try{
+          const result=await api("/api/portal/postpaid/deactivate",{method:"POST",body:JSON.stringify({resource_key:resource.resource_key})});
+          closeAccountDrawer();
+          await refreshOverview();
+          showToast("Desativação agendada para "+formatDate(result.term?.ends_on)+". A conta permanece ativa até essa data.");
+        }catch(error){
+          showToast(error.message||"Não foi possível agendar a desativação.",true);
+          if(button){button.disabled=false;button.textContent="Desativar no fim do ciclo"}
+        }
+      }
 
       function groupPlans(module){
         const groups=new Map();
@@ -739,55 +831,101 @@
         if(!module)return;
         const resource=resourceKey?(module.resources||[]).find(item=>item.resource_key===resourceKey)||null:null;
         const plans=groupPlans(module);
-        if(!plans.length){showToast("Este módulo ainda não possui plano publicado para autoatendimento.",true);return}
+        if(!plans.length){showToast("Este módulo ainda não possui preço publicado para autoatendimento.",true);return}
+        if(["ml","shopee"].includes(module.slug)&&!resource){
+          setView("accounts");
+          showToast("Vincule uma conta para que os pedidos sejam apurados antes da contratação.",true);
+          return;
+        }
         if(resource&&purpose==="change_plan"&&!resource.can_change_plan){showToast(planChangeBlockedText(resource),true);return}
         state.purchaseModule=module;
         state.purchaseResource=resource;
         state.purchasePurpose=resource?(purpose||"activate"):null;
-        $("#purchase-title").textContent=!resource?"Contratar "+module.name:state.purchasePurpose==="change_plan"?"Alterar plano de "+resource.label:"Ativar "+resource.label;
-        $("#purchase-plan").innerHTML=plans.map(p=>'<option value="'+esc(p.code)+'">'+esc(p.name)+'</option>').join("");
+        state.postpaidQuote=null;
+        const reactivating=resource?.postpaid_lifecycle?.status==="inactive";
+        $("#purchase-title").textContent=!resource?"Contratar "+module.name:(reactivating?"Reativar ":"Contratar ")+resource.label;
         const profile=state.overview.billing?.profile||{};
         $("#billing-phone").value=profile.phone||"";
         $("#billing-postal").value=profile.postal_code||"";
         $("#billing-address").value=profile.address||"";
         $("#billing-number").value=profile.address_number||"";
         $("#billing-province").value=profile.province||"";
-        $("#purchase-orders").value=resource?.measured_orders??"";
-        updatePurchaseRanges();
+        updatePurchaseSummary();
         $("#purchase-drawer").classList.add("is-open");
         $("#purchase-drawer").setAttribute("aria-hidden","false");
       }
-      function closePurchase(){ $("#purchase-drawer").classList.remove("is-open");$("#purchase-drawer").setAttribute("aria-hidden","true");state.purchaseModule=null;state.purchaseResource=null;state.purchasePurpose=null; }
-      function updatePurchaseRanges(){
+      function closePurchase(){ $("#purchase-drawer").classList.remove("is-open");$("#purchase-drawer").setAttribute("aria-hidden","true");state.purchaseModule=null;state.purchaseResource=null;state.purchasePurpose=null;state.postpaidQuote=null; }
+      function updatePurchaseSummary(){
         const module=state.purchaseModule;if(!module)return;
+        const resource=state.purchaseResource;
+        const postpaid=module.slug==="ml"||module.slug==="shopee";
+        $("#purchase-billing-fields").hidden=postpaid;
         const plans=groupPlans(module);
-        const selected=plans.find(p=>p.code===$("#purchase-plan").value)||plans[0];
+        const selected=plans.find(p=>p.code===(module.slug==="ml"?"ml_pro":module.slug==="shopee"?"shopee_pro":resource?.plan?.code))||plans[0];
         const ranges=selected?.ranges||[];
-        $("#purchase-range").innerHTML=ranges.length?ranges.map(r=>'<option value="'+esc(r.range_code||"")+'">'+esc(r.range_label||r.range_code||"Padrão")+' · '+esc(formatMoney(r.monthly_price_cents))+'</option>').join(""):'<option value="">Faixa padrão</option>';
-        const range=ranges.find(r=>(r.range_code||"")===$("#purchase-range").value)||ranges[0]||null;
-        const orders=$("#purchase-orders");
-        if(orders && range && Number.isFinite(Number(range.min_units))) {
-          orders.value=state.purchaseResource?.measured_orders??String(Number(range.min_units));
-        }
-        const target=state.purchaseResource?state.purchaseResource.label:module.name;
-        const resourceCopy=state.purchaseResource
-          ? state.purchasePurpose==="change_plan"
-            ? "Escolha o novo plano para esta conta. O checkout só é permitido quando não há uma assinatura recorrente ativa que possa gerar cobrança duplicada."
-            : "Conta vinculada em "+module.name+". Escolha o plano para ativar esta conta."
-          : selected?.description||module.description||"";
-        $("#purchase-summary").innerHTML='<strong>'+esc(target)+' · '+esc(selected?.name||"Plano")+'</strong><small>'+esc(resourceCopy)+'</small><div class="purchase-price">'+esc(range?formatMoney(range.monthly_price_cents):"Preço definido pelo catálogo")+'<small>/ mês</small></div>';
+        const metered=postpaid;
+        const count=resource?.measured_orders;
+        const measured=resource?.measurement_status==="succeeded"&&Number.isSafeInteger(count)&&count>=0;
+        const contact=Boolean(metered&&measured&&count>3000);
+        const rangeCode=resource?.recommended_range_code||"";
+        const range=metered?ranges.find(r=>r.range_code===rangeCode)||null:ranges[0]||null;
+        const ready=Boolean(metered?(resource&&measured&&range&&!contact):(selected&&range));
+        const target=resource?.label||module.name;
+        const description=contact
+          ?"Mais de 3.000 pedidos no mês fechado. Fale com a DACHBYTE para uma proposta."
+          :resource?.measurement_status==="failed"?"A apuração falhou. A conta será reprocessada; tente novamente mais tarde."
+          :!ready?"Aguardando apuração dos pedidos pagos do último mês fechado. Não é possível contratar antes da confirmação."
+          :metered?"Pedidos apurados: "+count+" · Faixa atribuída: "+(range.range_label||rangeCode)+". O valor final será confirmado pelo Hub no checkout."
+          :"Condição publicada para este módulo. O valor final será confirmado pelo Hub no checkout.";
+        const quote=state.postpaidQuote;
+        const quoted=quote&&postpaid;
+        const quotedDescription=quoted
+          ?'Proposta do Hub para '+quote.measured_orders+' pedido(s) apurado(s), válida até '+formatDate(quote.expires_at)+'. O acesso será ativado agora e a primeira cobrança ocorre no fim do ciclo.'
+          :description;
+        $("#purchase-summary").innerHTML='<strong>'+esc(target)+' · '+esc(selected?.name||"Plano atribuído")+'</strong><small>'+esc(quotedDescription)+'</small><div class="purchase-price">'+esc(quoted?formatMoney(quote.monthly_price_cents):contact?"Entre em contato":!ready?"Aguardando apuração":range?formatMoney(range.monthly_price_cents):"Preço definido pelo Hub")+((ready||quoted)?'<small>/ mês</small>':'')+'</div>';
+        $("#purchase-confirm").disabled=!ready&&!contact;
+        const reactivating=resource?.postpaid_lifecycle?.status==="inactive";
+        $("#purchase-confirm").textContent=contact?"Falar com a DACHBYTE":!ready?"Aguardando apuração":quoted?(reactivating?"Aceitar e reativar":"Aceitar e ativar"):"Revisar proposta";
       }
       async function confirmPurchase(){
         const module=state.purchaseModule;if(!module)return;
+        if(module.slug==="ml"||module.slug==="shopee"){
+          const count=state.purchaseResource?.measured_orders;
+          if(state.purchaseResource?.measurement_status==="succeeded"&&
+             Number.isSafeInteger(count)&&count>3000){window.location.href="mailto:contato@davanttisuite.com.br?subject=Plano%20Seller%20acima%20de%203000%20pedidos";return}
+          if(!state.purchaseResource||state.purchaseResource.measurement_status!=="succeeded"||
+             !Number.isSafeInteger(count)||count<0||!state.purchaseResource.recommended_range_code){
+            showToast("Aguarde a apuração dos pedidos desta conta.",true);return;
+          }
+        }
         const button=$("#purchase-confirm");button.disabled=true;button.textContent="Preparando...";
         try{
+          if(module.slug==="ml"||module.slug==="shopee"){
+            if(!state.postpaidQuote){
+              const proposal=await api("/api/portal/postpaid/quote",{method:"POST",body:JSON.stringify({
+                resource_key:state.purchaseResource.resource_key
+              })});
+              if(!proposal.quote?.quote_id)throw new Error("O Hub não retornou uma proposta válida.");
+              state.postpaidQuote=proposal.quote;
+              updatePurchaseSummary();
+              return;
+            }
+            await api("/api/portal/postpaid/accept",{method:"POST",body:JSON.stringify({
+              quote_id:state.postpaidQuote.quote_id,payment_method:$("#purchase-payment").value
+            })});
+            closePurchase();
+            await refreshOverview();
+            showToast("Conta ativada. A cobrança será consolidada no fechamento do ciclo.");
+            return;
+          }
           const result=await api("/api/portal/checkout",{method:"POST",body:JSON.stringify({
             module:module.slug,
             resource_key:state.purchaseResource?.resource_key||undefined,
             purpose:state.purchasePurpose||undefined,
-            plan_code:$("#purchase-plan").value,
-            range_code:$("#purchase-range").value,
-            declared_orders:digits($("#purchase-orders").value)||undefined,
+            ...(["ml","shopee"].includes(module.slug)?{}:{
+              plan_code:groupPlans(module)[0]?.code,
+              range_code:groupPlans(module)[0]?.ranges?.[0]?.range_code,
+            }),
             payment_method:$("#purchase-payment").value,
             customer_phone:digits($("#billing-phone").value),
             billing_postal_code:digits($("#billing-postal").value),
@@ -798,7 +936,7 @@
           if(result.checkout_url){window.location.href=result.checkout_url;return}
           throw new Error("Checkout não retornou uma URL.");
         }catch(error){showToast(error.message||"Não foi possível iniciar a contratação.",true)}
-        finally{button.disabled=false;button.textContent="Continuar para pagamento"}
+        finally{button.disabled=false;updatePurchaseSummary()}
       }
       async function renew(resourceKeys){
         if(!resourceKeys?.length)return;
@@ -811,6 +949,13 @@
 
       async function refreshOverview(){
         state.overview=await api("/api/portal/overview");
+        try{
+          const billing=await api("/api/portal/postpaid/invoices");
+          state.invoices=Array.isArray(billing.invoices)?billing.invoices:[];
+        }catch(error){
+          if(error.message==="unauthorized")throw error;
+          state.invoices=[];
+        }
         renderAll();
         return state.overview;
       }
@@ -829,8 +974,6 @@
       document.querySelectorAll("[data-close-account-drawer]").forEach(btn=>btn.addEventListener("click",closeAccountDrawer));
       $("#unlink-start").addEventListener("click",()=>{$("#unlink-confirm").hidden=false});
       $("#unlink-confirm-button").addEventListener("click",confirmUnlink);
-      $("#purchase-plan").addEventListener("change",updatePurchaseRanges);
-      $("#purchase-range").addEventListener("change",updatePurchaseRanges);
       $("#purchase-confirm").addEventListener("click",confirmPurchase);
       $("#renew-selected").addEventListener("click",()=>renew([...state.selectedRenewals]));
       $("#logout-button").addEventListener("click",logout);
@@ -839,8 +982,13 @@
       (async()=>{
         try{
           await refreshOverview();
+          const linkedResourceKey=new URLSearchParams(location.search).get("resource_key");
+          if(linkedResourceKey&&allResources().some(resource=>resource.resource_key===linkedResourceKey)){
+            setView("accounts");
+            openAccountDrawer(linkedResourceKey);
+          }
           const hash=location.hash.replace("#","");
-          if(["modules","accounts","plans","company"].includes(hash)) setView(hash);
+          if(!linkedResourceKey&&["modules","accounts","plans","company"].includes(hash)) setView(hash);
         }catch(error){
           if(error.message!=="unauthorized"){
             showToast("Não foi possível carregar o portal. Tente novamente em instantes.",true);
