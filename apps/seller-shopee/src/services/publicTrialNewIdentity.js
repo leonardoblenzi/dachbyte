@@ -1,6 +1,7 @@
 "use strict";
 
 const crypto = require("node:crypto");
+const { normalizeCompanyCnpj } = require("../../../shared/brazilianDocument");
 
 function digest(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
@@ -23,6 +24,7 @@ async function stageVerifiedShopeeIdentity(pool, input) {
   const token = String(input.token || "").trim();
   const fullName = String(input.fullName || "").trim();
   const companyName = String(input.companyName || "").trim();
+  const document = normalizeCompanyCnpj(input.documentNumber);
   const passwordHash = String(input.passwordHash || "");
   if (!token || !fullName || !companyName || !/^\$2[aby]\$\d{2}\$/.test(passwordHash)) {
     throw new Error("trial_identity_fields_invalid");
@@ -32,13 +34,16 @@ async function stageVerifiedShopeeIdentity(pool, input) {
   try {
     await client.query("BEGIN");
     const rows = await client.query(
-      `SELECT id, status, email, shop_id, account_id, user_id,
-              tenant_global_id, user_global_id, stored_full_name, stored_company_name
-         FROM public_trial_oauth_sessions
-        WHERE activation_token_hash = $1
-          AND ((status = 'email_pending' AND activation_expires_at > NOW())
-            OR (status = 'identity_staged' AND recovery_expires_at > NOW()))
-        FOR UPDATE`,
+      `SELECT s.id, s.status, s.email, s.shop_id, s.account_id, s.user_id,
+              s.tenant_global_id, s.user_global_id, s.stored_full_name, s.stored_company_name,
+              a."documentType" AS stored_document_type,
+              a."documentNumber" AS stored_document_number
+         FROM public_trial_oauth_sessions s
+         LEFT JOIN "Account" a ON a.id = s.account_id
+        WHERE s.activation_token_hash = $1
+          AND ((s.status = 'email_pending' AND s.activation_expires_at > NOW())
+            OR (s.status = 'identity_staged' AND s.recovery_expires_at > NOW()))
+        FOR UPDATE OF s`,
       [digest(token)],
     );
     const session = rows.rows[0];
@@ -47,14 +52,24 @@ async function stageVerifiedShopeeIdentity(pool, input) {
     if (!/^\d+$/.test(shopId) || BigInt(shopId) <= 0n) throw new Error("trial_shopee_shop_invalid");
     if (session.status === "identity_staged") {
       if (!session.account_id || !session.user_id || !session.tenant_global_id ||
-          !session.user_global_id || !session.stored_full_name || !session.stored_company_name) {
+          !session.user_global_id || !session.stored_full_name || !session.stored_company_name ||
+          !session.stored_document_type || !session.stored_document_number) {
         throw new Error("trial_identity_stage_corrupt");
+      }
+      if (session.stored_document_type !== document.type ||
+          session.stored_document_number !== document.number) {
+        const corrected = await client.query(
+          'UPDATE "Account" SET "documentType" = $1, "documentNumber" = $2, "updatedAt" = NOW() WHERE id = $3 RETURNING id',
+          [document.type, document.number, session.account_id]
+        );
+        if (!corrected.rows[0]) throw new Error("trial_identity_stage_corrupt");
       }
       await client.query("COMMIT");
       return {
         sessionId: session.id, accountId: session.account_id, userId: session.user_id,
         tenantId: session.tenant_global_id, globalUserId: session.user_global_id,
         fullName: session.stored_full_name, companyName: session.stored_company_name,
+        documentType: document.type, documentNumber: document.number,
         email: session.email, shopId,
       };
     }
@@ -66,8 +81,8 @@ async function stageVerifiedShopeeIdentity(pool, input) {
     const globalUserId = crypto.randomUUID();
     const accountId = await reserveId(client, "Account");
     await client.query(
-      'INSERT INTO "Account" (id, name, "tenantGlobalId", "createdAt", "updatedAt") VALUES ($1, $2, $3, NOW(), NOW()) RETURNING id',
-      [accountId, companyName, tenantId],
+      'INSERT INTO "Account" (id, name, "tenantGlobalId", "documentType", "documentNumber", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id',
+      [accountId, companyName, tenantId, document.type, document.number],
     );
     const userId = await reserveId(client, "User");
     await client.query(
@@ -88,7 +103,8 @@ async function stageVerifiedShopeeIdentity(pool, input) {
     if (!updated.rows[0]) throw new Error("trial_identity_stage_conflict");
     await client.query("COMMIT");
     return { sessionId: session.id, accountId, userId, tenantId, globalUserId,
-      fullName, companyName, email: session.email, shopId };
+      fullName, companyName, documentType: document.type,
+      documentNumber: document.number, email: session.email, shopId };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     throw error;

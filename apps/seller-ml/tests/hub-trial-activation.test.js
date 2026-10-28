@@ -7,7 +7,7 @@ const { activateMlTrialInHub } = require("../services/hubTrialActivation");
 const identity = {
   tenantId: "company-1", companyName: "Loja Exemplo",
   userId: "user-1", fullName: "Pessoa Exemplo", email: "owner@example.test",
-  mlUserId: 123
+  mlUserId: 123, documentNumber: "11222333000181"
 };
 
 test("activation prepares identity, provisions resource, then grants ML access", async () => {
@@ -61,6 +61,14 @@ test("new company identity requires strict Hub email ownership", async () => {
     }
   });
   assert.equal(calls[0].reject_email_conflict, true);
+});
+
+test("ML trial keeps a CNPJ-not-found response actionable", async () => {
+  await assert.rejects(activateMlTrialInHub({ ...identity, newIdentity: true }, {
+    baseUrl: "https://hub.example", token: "internal",
+    fetchImpl: async () => ({ ok: false, status: 400,
+      json: async () => ({ ok: false, error: "cnpj_not_found" }) })
+  }), /cnpj_not_found/);
 });
 
 test("activation fails closed when identity sync or resource activation is not confirmed", async () => {

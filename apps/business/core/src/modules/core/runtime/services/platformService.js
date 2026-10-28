@@ -14,6 +14,17 @@ const { getCashSummary } = require("./cashService");
 const { syncCompanyCommercialProductsWithClient } = require("./commercialService");
 const { provisionVoltCoreCompany } = require("../../../auth/hubProvisioningClient");
 
+function isValidCompanyCnpj(value) {
+  if (!/^[A-Z0-9]{12}\d{2}$/.test(value) || /^(\d)\1{13}$/.test(value)) return false;
+  const digit = (length, weights) => {
+    const sum = weights.reduce((total, weight, index) => total + (value.charCodeAt(index) - 48) * weight, 0);
+    const remainder = sum % 11;
+    return Number(value[length]) === (remainder < 2 ? 0 : 11 - remainder);
+  };
+  return digit(12, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) &&
+    digit(13, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+}
+
 function isEnabled() {
   return db.isDatabaseEnabled();
 }
@@ -280,9 +291,11 @@ async function createCompany(input = {}, requestedBy) {
   }
   const segmentAliases = { Core: "general", Otica: "optical", Varejo: "general", Assistencia: "general" };
   const segmentKey = segmentAliases[input.segment] || input.segmentKey || "general";
-  const document = String(input.documentNumber || input.document || "").trim() || null;
-  const documentType = String(input.documentType || "").trim().toLowerCase()
-    || (document?.replace(/\D/g, "").length === 14 ? "cnpj" : document ? "cpf" : null);
+  const document = String(input.documentNumber || input.document || "").trim().toUpperCase().replace(/[.\-/\s]/g, "");
+  if (document.length !== 14 || !isValidCompanyCnpj(document)) {
+    throw Object.assign(new Error("Informe um CNPJ valido para criar a empresa."), { statusCode: 400, code: "COMPANY_CNPJ_REQUIRED" });
+  }
+  const documentType = "cnpj";
   const hubCompany = await provisionVoltCoreCompany({
     idempotencyKey: String(input.idempotencyKey || createId("hub_company")).trim(),
     companyName: String(input.name).trim(),

@@ -6,6 +6,7 @@ const { stageVerifiedMlTrialIdentity } = require("../services/publicTrialIdentit
 
 const input = {
   token: "email-token", fullName: "Ana Seller", companyName: "Loja Ana",
+  documentNumber: "11222333000181",
   passwordHash: "$2b$10$already-hashed", now: new Date("2026-10-20T12:00:00.000Z")
 };
 
@@ -44,6 +45,7 @@ test("retry uses the same staged identity without creating another company", asy
       status: "identity_staged", empresa_id: 10, usuario_id: 20,
       tenant_global_id: "tenant-1", user_global_id: "user-1",
       stored_company_name: "Loja original", stored_full_name: "Ana original",
+      stored_document_type: "CNPJ", stored_document_number: "11222333000181",
       activation_expires_at: "2026-10-21T12:00:00.000Z"
     }] };
     return { rows: [] };
@@ -55,6 +57,29 @@ test("retry uses the same staged identity without creating another company", asy
   assert.equal(result.companyName, "Loja original");
   assert.equal(result.fullName, "Ana original");
   assert.equal(statements.some((statement) => /INSERT INTO empresas|INSERT INTO usuarios/i.test(statement)), false);
+});
+
+test("staged trial can correct a CNPJ rejected by Hub without creating another company", async () => {
+  const statements = [];
+  const client = { query: async (statement, values) => {
+    statements.push({ statement, values });
+    if (/FROM public_trial_oauth_sessions/i.test(statement)) return { rows: [{
+      id: "session-1", email: "ana@example.test", ml_user_id: "123",
+      status: "identity_staged", empresa_id: 10, usuario_id: 20,
+      tenant_global_id: "tenant-1", user_global_id: "user-1",
+      stored_company_name: "Loja original", stored_full_name: "Ana original",
+      stored_document_type: "CNPJ", stored_document_number: "11222333000181"
+    }] };
+    if (/UPDATE empresas SET document_type/i.test(statement)) return { rows: [{ id: 10 }] };
+    return { rows: [] };
+  }, release() {} };
+  const result = await stageVerifiedMlTrialIdentity({ connect: async () => client }, {
+    ...input, documentNumber: "11444777000161"
+  });
+  assert.equal(result.documentNumber, "11444777000161");
+  assert.ok(statements.some(({ statement, values }) => /UPDATE empresas SET document_type/i.test(statement) &&
+    values.includes("11444777000161")));
+  assert.equal(statements.some(({ statement }) => /INSERT INTO empresas|INSERT INTO usuarios/i.test(statement)), false);
 });
 
 test("existing local email requires login and never creates another company", async () => {

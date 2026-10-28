@@ -1,8 +1,12 @@
 "use strict";
 
+const { normalizeCompanyCnpj } = require("../../../shared/brazilianDocument");
+
 async function activateShopeeTrialInHub(input, options = {}) {
   const tenantId = String(input.tenantId || "").trim();
   const companyName = String(input.companyName || "").trim();
+  const document = input.newIdentity === true
+    ? normalizeCompanyCnpj(input.documentNumber) : null;
   const userId = String(input.userId || "").trim();
   const fullName = String(input.fullName || "").trim();
   const email = String(input.email || "").trim().toLowerCase();
@@ -25,11 +29,19 @@ async function activateShopeeTrialInHub(input, options = {}) {
       });
     } catch (_error) { throw new Error(failureCode); }
     const payload = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(failureCode);
+    if (!response.ok) {
+      const code = String(payload?.error || "");
+      if (failureCode === "trial_hub_identity_sync_failed" &&
+          ["cnpj_not_found", "cnpj_lookup_unavailable", "identity_sync_document_invalid", "identity_sync_cnpj_required"].includes(code)) {
+        throw new Error(code);
+      }
+      throw new Error(failureCode);
+    }
     return payload;
   };
   const identity = {
     tenant_id: tenantId, company_name: companyName,
+    ...(document ? { document_type: document.type, document_number: document.number } : {}),
     user_id: userId, full_name: fullName, email,
     role: input.role || "owner", module: "shopee", modules: ["shopee"],
     access_policy: "explicit", reject_email_conflict: input.newIdentity === true,

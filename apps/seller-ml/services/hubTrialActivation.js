@@ -23,13 +23,23 @@ async function postInternal(client, path, body, failureCode) {
     throw new Error(failureCode);
   }
   const payload = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(failureCode);
+  if (!response.ok) {
+    const code = String(payload?.error || "");
+    if (failureCode === "trial_hub_identity_sync_failed" &&
+        ["cnpj_not_found", "cnpj_lookup_unavailable", "identity_sync_document_invalid", "identity_sync_cnpj_required"].includes(code)) {
+      throw new Error(code);
+    }
+    throw new Error(failureCode);
+  }
   return payload;
 }
 
 async function activateMlTrialInHub(input, options = {}) {
   const tenantId = String(input.tenantId || "").trim();
   const companyName = String(input.companyName || "").trim();
+  const { normalizeCompanyCnpj } = require("../../shared/brazilianDocument");
+  const document = input.newIdentity === true
+    ? normalizeCompanyCnpj(input.documentNumber) : null;
   const userId = String(input.userId || "").trim();
   const fullName = String(input.fullName || "").trim();
   const email = String(input.email || "").trim().toLowerCase();
@@ -47,6 +57,7 @@ async function activateMlTrialInHub(input, options = {}) {
   const identityPayload = {
     tenant_id: tenantId,
     company_name: companyName,
+    ...(document ? { document_type: document.type, document_number: document.number } : {}),
     user_id: userId,
     full_name: fullName,
     email,

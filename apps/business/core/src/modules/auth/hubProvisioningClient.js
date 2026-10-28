@@ -9,7 +9,19 @@ function configurationError() {
   });
 }
 
-function requestError(status) {
+function requestError(status, hubError = "") {
+  const documentErrors = {
+    identity_company_cnpj_required: "Informe um CNPJ valido para criar a empresa.",
+    invalid_cnpj: "Informe um CNPJ valido para criar a empresa.",
+    cnpj_not_found: "CNPJ nao encontrado no cadastro consultado. Confira o numero.",
+    cnpj_lookup_unavailable: "Consulta ao CNPJ indisponivel. Tente novamente em instantes.",
+  };
+  if (documentErrors[hubError]) {
+    return Object.assign(new Error(documentErrors[hubError]), {
+      statusCode: hubError === "cnpj_lookup_unavailable" ? 503 : 400,
+      code: hubError,
+    });
+  }
   return Object.assign(new Error("Nao foi possivel concluir a sincronizacao de acesso. Tente novamente."), {
     statusCode: status === 409 ? 409 : 502,
     code: "HUB_PROVISIONING_FAILED",
@@ -36,11 +48,12 @@ async function postHub(path, payload) {
       body: JSON.stringify(payload),
     });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok || body?.ok !== true) throw requestError(response.status);
+    if (!response.ok || body?.ok !== true) throw requestError(response.status, String(body?.error || ""));
     return body;
   } catch (error) {
     if (error?.code === "HUB_PROVISIONING_FAILED") throw error;
     if (error?.code === "HUB_PROVISIONING_UNAVAILABLE") throw error;
+    if (["identity_company_cnpj_required", "invalid_cnpj", "cnpj_not_found", "cnpj_lookup_unavailable"].includes(error?.code)) throw error;
     throw requestError(0);
   }
 }

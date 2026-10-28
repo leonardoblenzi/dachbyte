@@ -109,6 +109,7 @@
         token,
         full_name: document.getElementById("trial-name").value.trim(),
         company_name: document.getElementById("trial-company").value.trim(),
+        document_number: document.getElementById("trial-document").value.trim(),
         password: document.getElementById("trial-password").value,
       });
       if (response.ok && body?.action === "activated") {
@@ -121,6 +122,16 @@
       } else if (response.status === 410) {
         activationForm.hidden = true;
         showMessage("O link expirou ou já foi usado. Inicie novamente pela página do módulo.", "error");
+      } else if (body?.error === "document_invalid") {
+        showMessage("CNPJ inválido. Confira todos os dígitos e tente novamente.", "error");
+      } else if (body?.error === "cnpj_required" || body?.error === "identity_sync_cnpj_required") {
+        showMessage("Informe um CNPJ válido para cadastrar a empresa.", "error");
+      } else if (body?.error === "cnpj_not_found") {
+        showMessage("CNPJ não encontrado no cadastro consultado. Confira o número.", "error");
+      } else if (body?.error === "cnpj_lookup_unavailable") {
+        showMessage("A consulta ao CNPJ está indisponível. Tente novamente em alguns minutos.", "error");
+      } else if (body?.error === "identity_sync_document_invalid") {
+        showMessage("CNPJ inválido. Confira os dados e tente novamente.", "error");
       } else {
         showMessage("Não foi possível finalizar. Sua conta ainda não está operacional; tente novamente sem refazer o OAuth.", "error");
       }

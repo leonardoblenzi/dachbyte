@@ -706,11 +706,12 @@ function buildModalConfig(type, data, payload, workspace) {
     },
     company: {
       title: editing ? "Editar empresa" : "Nova empresa",
-      description: "A empresa e validada primeiro no Hub; depois o DACHBYTE Core cria o ambiente operacional.",
+      description: "Informe o CNPJ da empresa. O Hub consulta o cadastro antes de criar o ambiente operacional.",
       icon: Building2,
       submitLabel: editing ? "Salvar alteracoes" : "Criar empresa",
       fields: [
         { name: "name", label: "Empresa", required: true },
+        ...(!editing ? [{ name: "document", label: "CNPJ", required: true, placeholder: "00.000.000/0000-00" }] : []),
         { name: "segment", label: "Segmento", type: "select", options: ["Core", "Otica"] },
         { name: "plan", label: "Plano", type: "select", options: ["Starter", "Pro", "Enterprise"] },
         { name: "modules", label: "Modulos" },

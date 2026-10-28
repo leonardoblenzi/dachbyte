@@ -34,6 +34,9 @@
       <input id="full-name" type="text" autocomplete="name" required maxlength="160">
       <label for="company-name">Nome da empresa</label>
       <input id="company-name" type="text" autocomplete="organization" required maxlength="160">
+      <label for="document-number">CNPJ da empresa</label>
+        <input id="document-number" type="text" inputmode="text" autocapitalize="characters" required maxlength="18" placeholder="Digite o CNPJ">
+      <p>O documento será usado na cobrança após o teste. Confira os dígitos antes de ativar.</p>
       <label for="password">Crie uma senha</label>
       <input id="password" type="password" autocomplete="new-password" required minlength="10">
       <p>Use ao menos 10 caracteres, com letras maiúsculas, minúsculas e números.</p>
@@ -58,10 +61,19 @@
           body: JSON.stringify({ token,
             full_name: document.getElementById('full-name').value,
             company_name: document.getElementById('company-name').value,
+            document_number: document.getElementById('document-number').value,
             password: document.getElementById('password').value }),
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Não foi possível ativar. Tente novamente.');
+        if (!response.ok) throw new Error(result.error === 'cnpj_required' || result.error === 'identity_sync_cnpj_required'
+          ? 'Informe um CNPJ válido para cadastrar a empresa.'
+          : result.error === 'document_invalid' || result.error === 'identity_sync_document_invalid'
+          ? 'CNPJ inválido. Confira os dígitos.'
+          : result.error === 'cnpj_not_found'
+          ? 'CNPJ não encontrado no cadastro consultado. Confira o número.'
+          : result.error === 'cnpj_lookup_unavailable'
+          ? 'A consulta ao CNPJ está indisponível. Tente novamente em alguns minutos.'
+          : result.error || 'Não foi possível ativar. Tente novamente.');
         form.hidden = true;
         history.replaceState(null, '', location.pathname);
         message.replaceChildren(document.createTextNode('Teste ativado. '));

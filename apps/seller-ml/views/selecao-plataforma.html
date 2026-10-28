@@ -364,7 +364,7 @@
       </div>
       <div class="drawer__body">
         <div class="purchase-summary" id="purchase-summary"></div>
-        <div class="field"><label for="purchase-payment">Forma de pagamento da fatura</label><select id="purchase-payment"><option value="credit_card">Cartão de crédito</option><option value="pix">PIX</option></select></div>
+        <div class="field"><label for="purchase-payment">Forma de pagamento da fatura</label><select id="purchase-payment"><option value="credit_card">Cartão de crédito</option><option value="pix">PIX</option></select><small id="purchase-payment-note" hidden>A empresa já tem uma forma de pagamento definida para o ciclo. Todas as contas serão cobradas juntas.</small></div>
         <div id="purchase-billing-fields">
         <div class="form-grid">
           <div class="field"><label for="billing-phone">Telefone</label><input id="billing-phone" inputmode="numeric" placeholder="44999999999" /></div>
@@ -389,6 +389,7 @@
       const state = {
         overview: null,
         invoices: [],
+        invoicesError: null,
         accountFilter: "all",
         homeModuleFilter: "operational",
         purchaseModule: null,
@@ -633,11 +634,18 @@
           ["Perfil",o.user?.role||"member"],["Gerenciar cobrança",o.user?.can_manage_billing?"Sim":"Não"],["Perfil de cobrança",o.billing?.profile_complete?"Completo":"Requer dados no checkout"]
         ].map(([l,v])=>'<div class="detail"><span>'+esc(l)+'</span><strong>'+esc(v)+'</strong></div>').join("");
         const invoices=Array.isArray(state.invoices)?state.invoices:[];
-        $("#company-invoices").innerHTML=invoices.length?invoices.map(invoice=>{
+        $("#company-invoices").innerHTML=state.invoicesError
+          ?'<div class="empty">Não foi possível carregar as faturas. <button class="btn btn--ghost" type="button" id="retry-invoices">Tentar novamente</button></div>'
+          :invoices.length?invoices.map(invoice=>{
           const items=Array.isArray(invoice.items)?invoice.items:[];
           const paymentUrl=safePaymentUrl(invoice.payment_url);
           const itemRows=items.length?items.map(item=>'<div class="invoice-card__item"><span>'+esc(item.resource_key||item.module_slug||"Conta")+' · '+esc(item.range_code||"faixa não informada")+'</span><strong>'+esc(formatMoney(item.amount_cents))+'</strong></div>').join(""):'<div class="invoice-card__item"><span>Itens da fatura indisponíveis</span></div>';
-          return '<article class="invoice-card"><div class="invoice-card__top"><div><strong>Fatura '+esc(invoice.cycle_start||"—")+' a '+esc(invoice.cycle_end||"—")+'</strong><small>Vencimento: '+esc(formatDate(invoice.due_local_date))+' · '+esc(invoice.status||"—")+'</small></div><strong>'+esc(formatMoney(invoice.total_cents))+'</strong></div><div class="invoice-card__items">'+itemRows+'</div>'+(paymentUrl?'<div class="invoice-card__actions"><a class="btn btn--soft" href="'+esc(paymentUrl)+'" target="_blank" rel="noopener noreferrer">Abrir cobrança</a></div>':'')+'</article>';
+          const paymentStatus=["refunded","review","void","canceled"].includes(invoice.status)
+            ?invoice.status
+            :invoice.received_at?"Recebido em "+formatDate(invoice.received_at)
+            :invoice.confirmed_at?"Pagamento confirmado em "+formatDate(invoice.confirmed_at)
+            :invoice.status||"—";
+          return '<article class="invoice-card"><div class="invoice-card__top"><div><strong>Fatura '+esc(invoice.cycle_start||"—")+' a '+esc(invoice.cycle_end||"—")+'</strong><small>Vencimento: '+esc(formatDate(invoice.due_local_date))+' · '+esc(paymentStatus)+'</small></div><strong>'+esc(formatMoney(invoice.total_cents))+'</strong></div><div class="invoice-card__items">'+itemRows+'</div>'+(paymentUrl?'<div class="invoice-card__actions"><a class="btn btn--soft" href="'+esc(paymentUrl)+'" target="_blank" rel="noopener noreferrer">Abrir cobrança</a></div>':'')+'</article>';
         }).join(""):'<div class="empty">Nenhuma fatura emitida para esta empresa.</div>';
       }
 
@@ -665,6 +673,7 @@
         document.querySelectorAll("[data-account-filter]").forEach(btn=>btn.onclick=()=>{state.accountFilter=btn.dataset.accountFilter;renderAccounts();bindDynamicActions()});
         document.querySelectorAll("[data-renew-check]").forEach(input=>input.onchange=()=>{const key=input.dataset.renewCheck;input.checked?state.selectedRenewals.add(key):state.selectedRenewals.delete(key);updateRenewButton()});
         const link=$("#link-account"); if(link) link.onclick=()=>{const candidates=(state.overview.modules||[]).filter(m=>m.installed&&m.resource_required); if(candidates.length===1) window.location.href=goRoutes[candidates[0].slug]||"/selecao-plataforma"; else {setView("modules");showToast("Escolha o marketplace e use Gerenciar/Vincular conta.")}};
+        const retryInvoices=$("#retry-invoices"); if(retryInvoices)retryInvoices.onclick=refreshInvoices;
       }
 
       function managedResource(){
@@ -842,6 +851,8 @@
         state.purchaseResource=resource;
         state.purchasePurpose=resource?(purpose||"activate"):null;
         state.postpaidQuote=null;
+        $("#purchase-payment").disabled=false;
+        $("#purchase-payment-note").hidden=true;
         const reactivating=resource?.postpaid_lifecycle?.status==="inactive";
         $("#purchase-title").textContent=!resource?"Contratar "+module.name:(reactivating?"Reativar ":"Contratar ")+resource.label;
         const profile=state.overview.billing?.profile||{};
@@ -907,6 +918,12 @@
               })});
               if(!proposal.quote?.quote_id)throw new Error("O Hub não retornou uma proposta válida.");
               state.postpaidQuote=proposal.quote;
+              const companyMethod=proposal.quote.company_payment_method;
+              if(companyMethod==="pix"||companyMethod==="credit_card"){
+                $("#purchase-payment").value=companyMethod;
+                $("#purchase-payment").disabled=true;
+                $("#purchase-payment-note").hidden=false;
+              }
               updatePurchaseSummary();
               return;
             }
@@ -935,7 +952,9 @@
           })});
           if(result.checkout_url){window.location.href=result.checkout_url;return}
           throw new Error("Checkout não retornou uma URL.");
-        }catch(error){showToast(error.message||"Não foi possível iniciar a contratação.",true)}
+        }catch(error){showToast(error.message==="postpaid_billing_document_required"
+          ?"CPF/CNPJ da empresa ausente ou inválido. Atualize o cadastro com o suporte antes de contratar."
+          :error.message||"Não foi possível iniciar a contratação.",true)}
         finally{button.disabled=false;updatePurchaseSummary()}
       }
       async function renew(resourceKeys){
@@ -947,16 +966,21 @@
         }catch(error){showToast(error.message||"Não foi possível preparar a renovação.",true)}
       }
 
-      async function refreshOverview(){
-        state.overview=await api("/api/portal/overview");
+      async function refreshInvoices(){
         try{
           const billing=await api("/api/portal/postpaid/invoices");
           state.invoices=Array.isArray(billing.invoices)?billing.invoices:[];
+          state.invoicesError=null;
         }catch(error){
           if(error.message==="unauthorized")throw error;
           state.invoices=[];
+          state.invoicesError=error.message||"billing_unavailable";
         }
         renderAll();
+      }
+      async function refreshOverview(){
+        state.overview=await api("/api/portal/overview");
+        await refreshInvoices();
         return state.overview;
       }
 

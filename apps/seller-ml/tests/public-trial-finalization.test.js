@@ -7,7 +7,7 @@ const { finalizeConfirmedMlTrial } = require("../services/publicTrialFinalizatio
 const input = {
   sessionId: "session-1", tenantId: "tenant-1", mlUserId: 123,
   activation: {
-    trial: { endsAt: "2026-10-27T12:00:00.000Z" },
+    trial: { endsAt: "2099-10-27T12:00:00.000Z" },
     resource: { resource_key: "ml:123", tenant_id: "tenant-1", access_policy: "temporary" }
   }
 };

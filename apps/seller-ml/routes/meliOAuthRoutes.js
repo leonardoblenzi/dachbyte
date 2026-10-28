@@ -966,10 +966,13 @@ router.post(
     const token = String(req.body?.token || "").trim();
     const fullName = String(req.body?.full_name || "").trim();
     const companyName = String(req.body?.company_name || "").trim();
+    const documentNumber = String(req.body?.document_number || "").trim();
     const password = String(req.body?.password || "");
     if (!token || !fullName || !companyName) {
       return res.status(400).json({ ok: false, error: "trial_activation_fields_required" });
     }
+    try { require("../../shared/brazilianDocument").normalizeCompanyCnpj(documentNumber); }
+    catch { return res.status(400).json({ ok: false, error: "cnpj_required" }); }
     const passwordCheck = validateStrongPassword(password);
     if (!passwordCheck.ok) return res.status(400).json({ ok: false, error: passwordCheck.error });
     try {
@@ -982,10 +985,12 @@ router.post(
         }
       }
       const staged = await stageVerifiedMlTrialIdentity(db.pool, {
-        token, fullName, companyName, passwordHash: await bcrypt.hash(password, 10),
+        token, fullName, companyName, documentNumber,
+        passwordHash: await bcrypt.hash(password, 10),
       });
       const activation = await activateMlTrialInHub({
         tenantId: staged.tenantId, companyName: staged.companyName,
+        documentNumber: staged.documentNumber,
         userId: staged.globalUserId, fullName: staged.fullName,
         email: staged.email, mlUserId: staged.mlUserId, newIdentity: true,
       });
@@ -1002,6 +1007,12 @@ router.post(
       }
       if (code === "trial_activation_invalid_or_expired") {
         return res.status(410).json({ ok: false, error: code });
+      }
+      if (["cnpj_not_found", "identity_sync_document_invalid", "identity_sync_cnpj_required"].includes(code)) {
+        return res.status(400).json({ ok: false, error: code });
+      }
+      if (code === "cnpj_lookup_unavailable") {
+        return res.status(503).json({ ok: false, error: code });
       }
       console.error("ML public trial activation failed:", code);
       return res.status(503).json({ ok: false, error: "trial_activation_pending_retry" });
