@@ -1,7 +1,7 @@
 -- Provisional ML OAuth credentials are not operational accounts. The browser
 -- binding and OAuth state are stored only as hashes; tokens must be encrypted
 -- by the application before insertion. No trial clock starts in this table.
-CREATE TABLE IF NOT EXISTS public_trial_oauth_sessions (
+CREATE TABLE IF NOT EXISTS ml.public_trial_oauth_sessions (
   id UUID PRIMARY KEY,
   state_hash TEXT NOT NULL UNIQUE,
   browser_nonce_hash TEXT NOT NULL,
@@ -16,9 +16,9 @@ CREATE TABLE IF NOT EXISTS public_trial_oauth_sessions (
   activation_expires_at TIMESTAMPTZ NULL,
   activation_token_hash TEXT UNIQUE,
   email TEXT NULL,
-  empresa_id BIGINT NULL REFERENCES empresas(id),
-  usuario_id BIGINT NULL REFERENCES usuarios(id),
-  meli_conta_id BIGINT NULL REFERENCES meli_contas(id),
+  empresa_id BIGINT NULL REFERENCES ml.empresas(id),
+  usuario_id BIGINT NULL REFERENCES ml.usuarios(id),
+  meli_conta_id BIGINT NULL REFERENCES ml.meli_contas(id),
   tenant_global_id TEXT NULL,
   user_global_id TEXT NULL,
   recovery_expires_at TIMESTAMPTZ NULL,
@@ -34,4 +34,4 @@ CREATE TABLE IF NOT EXISTS public_trial_oauth_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS ix_public_trial_oauth_sessions_cleanup
-  ON public_trial_oauth_sessions (oauth_expires_at, activation_expires_at, status);
+  ON ml.public_trial_oauth_sessions (oauth_expires_at, activation_expires_at, status);

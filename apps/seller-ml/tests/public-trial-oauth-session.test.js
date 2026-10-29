@@ -83,7 +83,7 @@ test("public OAuth remains disabled until the complete onboarding journey is rea
 
 test("migration keeps provisional OAuth separate from live marketplace accounts", () => {
   const source = fs.readFileSync(path.join(__dirname, "../db/078_public_seller_onboarding.sql"), "utf8");
-  assert.match(source, /CREATE TABLE IF NOT EXISTS public_trial_oauth_sessions/i);
+  assert.match(source, /CREATE TABLE IF NOT EXISTS ml\.public_trial_oauth_sessions/i);
   assert.match(source, /state_hash\s+TEXT\s+NOT NULL\s+UNIQUE/i);
   assert.match(source, /browser_nonce_hash\s+TEXT\s+NOT NULL/i);
   assert.match(source, /oauth_expires_at\s+TIMESTAMPTZ\s+NOT NULL/i);

@@ -1,7 +1,7 @@
 -- Durable commercial measurement outbox for new ML trial accounts. The worker
 -- runs after account activation; failed API reads never become zero orders.
-CREATE TABLE IF NOT EXISTS ml_closed_month_order_measurements (
-  account_id BIGINT NOT NULL REFERENCES meli_contas(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS ml.ml_closed_month_order_measurements (
+  account_id BIGINT NOT NULL REFERENCES ml.meli_contas(id) ON DELETE CASCADE,
   period_start DATE NOT NULL,
   period_end_exclusive DATE NOT NULL,
   status TEXT NOT NULL DEFAULT 'queued'
@@ -22,5 +22,5 @@ CREATE TABLE IF NOT EXISTS ml_closed_month_order_measurements (
 );
 
 CREATE INDEX IF NOT EXISTS ix_ml_closed_month_measurements_pending
-  ON ml_closed_month_order_measurements (status, created_at)
+  ON ml.ml_closed_month_order_measurements (status, created_at)
   WHERE status IN ('queued', 'running');

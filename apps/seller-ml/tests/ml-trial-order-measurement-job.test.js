@@ -15,7 +15,7 @@ const {
 
 test("measurement migration stores status, source, period and errors per account", () => {
   const sql = fs.readFileSync(path.join(__dirname, "../db/079_ml_closed_month_order_measurements.sql"), "utf8");
-  assert.match(sql, /CREATE TABLE IF NOT EXISTS ml_closed_month_order_measurements/i);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS ml\.ml_closed_month_order_measurements/i);
   for (const column of ["period_start", "period_end_exclusive", "status", "order_count", "source", "measured_at", "error_message", "hub_synced_at", "hub_sync_attempts", "hub_sync_error"]) {
     assert.match(sql, new RegExp(`\\b${column}\\b`, "i"));
   }
