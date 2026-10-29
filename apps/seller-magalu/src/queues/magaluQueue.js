@@ -40,6 +40,27 @@ async function ensureSkuRetentionSchedule(){
   return q.add("retention",{reason:"scheduled"},{jobId:"magalu-sku-retention-daily",repeat:{pattern:"7 4 * * *",tz:"America/Sao_Paulo"},...opts});
 }
 async function enqueueOrdersSync(accountId,{dachTenantId=null,dachUserId=null,reason="manual"}={}){const id=Number(accountId);if(!Number.isFinite(id)||id<=0)throw new Error("accountId inválido para sync de pedidos Magalu.");const q=await getQueue(queueNames.ordersSync);return q.add("full-sync",{accountId:id,dachTenantId:dachTenantId||null,dachUserId:dachUserId||null,reason},{jobId:`magalu-orders-full-${id}-${crypto.randomUUID()}`,attempts:3,backoff:{type:"exponential",delay:10000},removeOnComplete:300,removeOnFail:1000});}
+async function enqueueDashboardOrdersSync(accountId,{from,to,dachTenantId}={}){
+  const id=Number(accountId);
+  if(!Number.isSafeInteger(id)||id<=0||!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||!dachTenantId)throw new Error("Parâmetros inválidos para atualização do painel Magalu.");
+  const q=await getQueue(queueNames.ordersSync),redis=await ensureRedisConnected();
+  const jobId=`magalu-orders-dashboard-${id}-${from}-${to}`,lockKey=`magalu:orders:dashboard:enqueue:${jobId}`,token=crypto.randomUUID();
+  const reserved=await redis.set(lockKey,token,"PX",30000,"NX");
+  if(reserved!=="OK"){
+    const existing=await q.getJob(jobId);
+    if(existing)return{id:existing.id,scheduled:false};
+    throw Object.assign(new Error("A atualização do painel está sendo preparada. Tente novamente."),{status:503});
+  }
+  try{
+    const existing=await q.getJob(jobId);
+    if(existing&&["waiting","active","delayed","prioritized"].includes(await existing.getState()))return{id:existing.id,scheduled:false};
+    if(existing)await existing.remove();
+    const job=await q.add("dashboard-sync",{accountId:id,dachTenantId,from,to},{jobId,attempts:2,backoff:{type:"exponential",delay:5000},removeOnComplete:100,removeOnFail:100});
+    return{id:job.id,scheduled:true};
+  }finally{
+    await redis.eval("if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0",1,lockKey,token).catch(()=>{});
+  }
+}
 async function enqueueMarginRangeSync(accountId,{from,to,dachTenantId=null}={}){
   const id=Number(accountId),jobId=jobKey(id,from,to);
   if(!Number.isSafeInteger(id)||id<=0)throw new Error("accountId inválido para margem Magalu.");
@@ -58,4 +79,4 @@ async function enqueueDeliveryReconcile(accountId,deliveryId,{dachTenantId=null,
 async function enqueueDeliveryWriteOperation(operation,{reason="apply"}={}){const id=Number(operation?.id);if(!Number.isFinite(id)||id<=0)throw new Error("Operação de entrega inválida para fila.");const q=await getQueue(queueNames.deliveryWrite);return q.add(reason==="reverify"?"verify":"apply",{operationId:id,reason},{jobId:`magalu-delivery-write-${id}-${reason}-${crypto.randomUUID()}`,attempts:3,backoff:{type:"exponential",delay:5000},removeOnComplete:500,removeOnFail:1000});}
 async function ensureDeliveryWriteRetentionSchedule(){const q=await getQueue(queueNames.deliveryWrite);const opts={attempts:2,backoff:{type:"exponential",delay:30000},removeOnComplete:50,removeOnFail:100};if(typeof q.upsertJobScheduler==="function")return q.upsertJobScheduler("magalu-delivery-write-retention-daily",{pattern:"37 4 * * *",tz:"America/Sao_Paulo"},{name:"retention",data:{reason:"scheduled"},opts});return q.add("retention",{reason:"scheduled"},{jobId:"magalu-delivery-write-retention-daily",repeat:{pattern:"37 4 * * *",tz:"America/Sao_Paulo"},...opts});}
 async function closeQueues(){await Promise.all([...queues.values()].map(q=>q.close().catch(()=>{})));queues.clear();}
-module.exports={getQueue,enqueueWebhookEvent,enqueueTokenRefresh,enqueueCatalogSync,enqueueHubResourceSync,enqueueCatalogReconcile,enqueueWriteOperation,enqueueAuditMaintenance,ensureAuditMaintenanceSchedule,enqueueSkuMassItems,enqueueSkuMassReverify,ensureSkuRetentionSchedule,enqueueOrdersSync,enqueueMarginRangeSync,enqueueOrderReconcile,enqueueDeliveryReconcile,enqueueDeliveryWriteOperation,ensureDeliveryWriteRetentionSchedule,closeQueues,queueNames};
+module.exports={getQueue,enqueueWebhookEvent,enqueueTokenRefresh,enqueueCatalogSync,enqueueHubResourceSync,enqueueCatalogReconcile,enqueueWriteOperation,enqueueAuditMaintenance,ensureAuditMaintenanceSchedule,enqueueSkuMassItems,enqueueSkuMassReverify,ensureSkuRetentionSchedule,enqueueOrdersSync,enqueueDashboardOrdersSync,enqueueMarginRangeSync,enqueueOrderReconcile,enqueueDeliveryReconcile,enqueueDeliveryWriteOperation,ensureDeliveryWriteRetentionSchedule,closeQueues,queueNames};

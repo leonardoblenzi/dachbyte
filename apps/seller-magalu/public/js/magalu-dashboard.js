@@ -35,6 +35,11 @@
 
   function render(data){
     if(!document.querySelector('[data-page="/"]') || location.pathname.replace(/\/$/,"")!=="/magalu") return;
+    if(!data){
+      ["kpi-gmv-30d","kpi-orders-30d","kpi-ticket-30d","kpi-skus","kpi-prices","kpi-zero","mg-dashboard-orders-today","mg-dashboard-orders-period","mg-dashboard-commercial-gmv","mg-dashboard-commercial-ticket","mg-dashboard-commercial-period-orders","mg-dashboard-orders-delta","mg-dashboard-comparison","mg-dashboard-cost-coverage","mg-dashboard-cost-coverage-meta","mg-dashboard-stock-meta","mg-dashboard-deliveries-count","mg-dashboard-account-name","mg-dashboard-updated"].forEach(id=>{const el=$(id);if(el)el.textContent="—";});
+      const priority=$("mg-dashboard-priorities");if(priority)priority.innerHTML='<div class="mg-dashboard-priority" data-tone="danger"><span class="mg-dashboard-priority__copy"><strong>Não foi possível atualizar os pedidos</strong><span>Tente novamente pelo botão de atualização do Painel.</span></span></div>';
+      return;
+    }
     const catalog=data?.catalog||{}, orders=data?.orders||{}, coverage=data?.margin_coverage||{}, account=data?.account||{}, latest=data?.latest_run||{}, comparison=data?.comparison||{};
     const period=data?.period?.label||"Período selecionado";
     const deliveryStatuses=orders.delivery_statuses||[]; const deliveryTotal=deliveryStatuses.reduce((sum,row)=>sum+Number(row.total||0),0);

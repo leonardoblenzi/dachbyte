@@ -16,6 +16,11 @@ async function processOrdersJob(job){
   if(job.data.dachTenantId&&String(account.dach_tenant_id)!==String(job.data.dachTenantId)){const e=new Error("Tenant DACH divergente no job de pedidos Magalu.");e.code="MAGALU_ORDERS_TENANT_MISMATCH";throw e;}
   const base={source:"worker",accountId:account.id,dachTenantId:account.dach_tenant_id,magaluTenantId:account.magalu_tenant_id};
   try{
+    if(job.name==="dashboard-sync"){
+      const result=await fullOrderSync(account.id,{reason:"dashboard",jobId:job.id,from:job.data.from,to:job.data.to,syncDeliveries:false,onProgress:stage=>job.updateProgress(stage)});
+      await recordBestEffort({...base,eventKey:"dashboard_orders_sync_completed",details:{job_id:job.id||null,status:result.status,scanned:result.scanned,order_pages:result.orderPages,read_only:true}});
+      return result;
+    }
     if(job.name==="margin-range-sync"){
       await recordBestEffort({...base,eventKey:"margin_fresh_sync_started",details:{job_id:job.id||null,from:job.data.from,to:job.data.to,read_only:true}});
       const result=await runMarginFreshSync({account,from:job.data.from,to:job.data.to,

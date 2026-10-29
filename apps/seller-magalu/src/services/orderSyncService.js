@@ -47,16 +47,16 @@ async function syncDeliveriesForChannel(account,channelId,{from,to,seenAt,strict
   return{pages,scanned,created,updated,failed};
 }
 
-async function fullOrderSync(accountId,{reason="manual",jobId=null,from=null,to=null,onProgress=null}={}){
+async function fullOrderSync(accountId,{reason="manual",jobId=null,from=null,to=null,onProgress=null,syncDeliveries=true}={}){
   const account=await accountRepository.findAccountById(accountId);
   if(!account||String(account.status)!=="active"){const e=new Error("Conta Magalu ativa não encontrada para sincronizar pedidos.");e.code="MAGALU_ORDER_ACCOUNT_NOT_ACTIVE";e.status=404;throw e;}
   if(!hasScope(account,ORDER_SCOPE)){const e=new Error(`Scope ausente: ${ORDER_SCOPE}. Reconecte a conta para sincronizar pedidos.`);e.code="MAGALU_ORDER_SCOPE_MISSING";e.status=409;throw e;}
   const period=from&&to?{from,to}:null;
   if(period&&(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||from>to)){const e=new Error("Período de pedidos inválido.");e.status=400;throw e;}
   const deliveryAllowed=hasScope(account,DELIVERY_SCOPE),seenAt=new Date(),cutoff=period?`${from}T00:00:00.000Z`:cutoffIso();
-  if(period&&!deliveryAllowed){const e=new Error(`Scope ausente: ${DELIVERY_SCOPE}.`);e.status=409;e.code="MAGALU_DELIVERY_SCOPE_MISSING";throw e;}
-  const run=await syncRunRepository.createRun({dachTenantId:account.dach_tenant_id,accountId:account.id,syncType:"orders_full",result:{reason,job_id:jobId||null,lookback_days:env.MAGALU_ORDER_SYNC_LOOKBACK_DAYS,delivery_scope:deliveryAllowed}});
-  await orderRepository.setSyncState(account.id,{status:"running",error:null});
+  if(period&&syncDeliveries&&!deliveryAllowed){const e=new Error(`Scope ausente: ${DELIVERY_SCOPE}.`);e.status=409;e.code="MAGALU_DELIVERY_SCOPE_MISSING";throw e;}
+  const run=await syncRunRepository.createRun({dachTenantId:account.dach_tenant_id,accountId:account.id,syncType:syncDeliveries?"orders_full":"orders_dashboard",result:{reason,job_id:jobId||null,lookback_days:env.MAGALU_ORDER_SYNC_LOOKBACK_DAYS,delivery_scope:syncDeliveries&&deliveryAllowed}});
+  if(syncDeliveries)await orderRepository.setSyncState(account.id,{status:"running",error:null});
   let scanned=0,created=0,updated=0,failed=0,orderPages=0,deliveryPages=0,offset=0,lastCursor="0",currentStage="orders_list",currentEndpoint="/seller/v1/orders",ordersHaveMore=false;
   const channels=new Set();
   try{
@@ -80,7 +80,7 @@ async function fullOrderSync(accountId,{reason="manual",jobId=null,from=null,to=
       if(!ordersHaveMore)break;offset=next;
     }
     if(period&&ordersHaveMore){const e=new Error("Limite de páginas de pedidos atingido; reduza o período.");e.status=422;e.code="MAGALU_MARGIN_ORDERS_PAGE_LIMIT";throw e;}
-    if(deliveryAllowed){
+    if(syncDeliveries&&deliveryAllowed){
       if(!channels.size){const known=await orderRepository.knownChannels(account.id);for(const row of known)if(row.channel_id)channels.add(row.channel_id);}
       const deliveryTo=period?`${to}T23:59:59.999Z`:new Date().toISOString();
       for(const channelId of channels){
@@ -88,14 +88,14 @@ async function fullOrderSync(accountId,{reason="manual",jobId=null,from=null,to=
         try{const result=await syncDeliveriesForChannel(account,channelId,{from:cutoff,to:deliveryTo,seenAt,strict:!!period});deliveryPages+=result.pages;scanned+=result.scanned;created+=result.created;updated+=result.updated;failed+=result.failed;if(typeof onProgress==="function")await onProgress({stage:"deliveries",pages:deliveryPages,scanned});}
         catch(error){if(period)throw error;failed+=1;console.warn("[seller-magalu:orders] delivery sync failed",{accountId:account.id,channelId,status:error?.status||null,requestId:error?.requestId||null,message:errorText(error)});}
       }
-    }else failed+=1;
+    }else if(syncDeliveries)failed+=1;
     const status=failed>0?"partial":"success",finishedAt=new Date().toISOString();
     await syncRunRepository.finishRun(run.id,{status,cursorOut:lastCursor,scannedCount:scanned,createdCount:created,updatedCount:updated,failedCount:failed,result:{reason,job_id:jobId||null,order_pages:orderPages,delivery_pages:deliveryPages,channels:[...channels],lookback_days:env.MAGALU_ORDER_SYNC_LOOKBACK_DAYS,delivery_scope:deliveryAllowed}});
-    await orderRepository.setSyncState(account.id,{status,error:deliveryAllowed?(failed?`${failed} item(ns)/consulta(s) de pedidos ou entregas tiveram aviso.`:null):`Scope ausente: ${DELIVERY_SCOPE}. Pedidos foram lidos, entregas não.`,syncedAt:finishedAt});
-    return{status,scanned,created,updated,failed,orderPages,deliveryPages,channels:[...channels],deliveryScope:deliveryAllowed};
+    if(syncDeliveries)await orderRepository.setSyncState(account.id,{status,error:deliveryAllowed?(failed?`${failed} item(ns)/consulta(s) de pedidos ou entregas tiveram aviso.`:null):`Scope ausente: ${DELIVERY_SCOPE}. Pedidos foram lidos, entregas não.`,syncedAt:finishedAt});
+    return{status,scanned,created,updated,failed,orderPages,deliveryPages,channels:[...channels],deliveryScope:syncDeliveries&&deliveryAllowed};
   }catch(error){
     await syncRunRepository.finishRun(run.id,{status:"failed",cursorOut:lastCursor,scannedCount:scanned,createdCount:created,updatedCount:updated,failedCount:failed+1,result:{reason,job_id:jobId||null,order_pages:orderPages,delivery_pages:deliveryPages,...remoteMeta(error,currentEndpoint,currentStage)},errorMessage:errorText(error)}).catch(()=>{});
-    await orderRepository.setSyncState(account.id,{status:"failed",error:errorText(error)}).catch(()=>{});throw error;
+    if(syncDeliveries)await orderRepository.setSyncState(account.id,{status:"failed",error:errorText(error)}).catch(()=>{});throw error;
   }
 }
 

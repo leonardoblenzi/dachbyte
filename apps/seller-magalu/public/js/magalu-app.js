@@ -25,6 +25,7 @@
     syncStarting: false,
     dashboardPeriod: "7d",
     dashboardRequestId: 0,
+    dashboardAbortController: null,
   };
 
   const routes = {
@@ -246,6 +247,7 @@
     openNavGroup(meta.group || storedOpen || "overview", { persist: false });
 
     if (path === "/") void loadDashboard();
+    else state.dashboardAbortController?.abort();
     if (["/catalogo", "/precos", "/estoque"].includes(path)) void loadCatalog();
     if (path === "/integracoes") void loadSyncCenter();
   }
@@ -360,16 +362,44 @@
     if (!account) { window.dispatchEvent(new CustomEvent("magalu:dashboarddata", { detail: { data: null } })); return; }
     const requestedPeriod = state.dashboardPeriod;
     const requestId=++state.dashboardRequestId;
+    state.dashboardAbortController?.abort();
+    const controller=new AbortController();
+    state.dashboardAbortController=controller;
+    const current=()=>{
+      if(route()!=="/"||requestId !== state.dashboardRequestId||state.dashboardPeriod !== requestedPeriod)return false;
+      return Number(selected()?.id)===Number(account.id);
+    };
+    const overlay=window.MagaluLoadingOverlay;
+    overlay?.show({label:"Atualizando dados",message:"Consultando pedidos da conta Magalu..."});
     try {
-      const data = await fetchJson(`/magalu/api/dashboard?account_id=${account.id}&period=${encodeURIComponent(requestedPeriod)}`);
-      if (requestId !== state.dashboardRequestId || state.dashboardPeriod !== requestedPeriod || Number(selected()?.id) !== Number(account.id)) return;
+      const queued=await fetchJson("/magalu/api/dashboard/refresh",{method:"POST",body:JSON.stringify({account_id:account.id,period:requestedPeriod}),signal:controller.signal,loading:"none"});
+      if(!current())return;
+      const deadline=Date.now()+180000;
+      while(true){
+        if(Date.now()>deadline)throw new Error("A atualização dos pedidos demorou mais que o esperado. Tente novamente.");
+        const job=await fetchJson(`/magalu/api/dashboard/refresh/${encodeURIComponent(queued.job_id)}?account_id=${account.id}`,{signal:controller.signal,loading:"none"});
+        if(!current())return;
+        if(job.state === "completed"){
+          if(job.result?.status!=="success")throw new Error("A leitura dos pedidos terminou parcialmente. Verifique a sincronização de Pedidos.");
+          break;
+        }
+        if(job.state === "failed")throw new Error(job.error||"A sincronização de pedidos falhou.");
+        overlay?.update({message:job.progress?.stage==="orders"?`Consultando pedidos (${Number(job.progress.scanned)||0} lidos)...`:"Aguardando atualização dos pedidos..."});
+        await new Promise((resolve,reject)=>{const onAbort=()=>{clearTimeout(timer);reject(new DOMException("Cancelado","AbortError"));};const timer=setTimeout(()=>{controller.signal.removeEventListener("abort",onAbort);resolve();},1200);controller.signal.addEventListener("abort",onAbort,{once:true});});
+      }
+      overlay?.update({message:"Consolidando faturamento e indicadores..."});
+      const data = await fetchJson(`/magalu/api/dashboard?account_id=${account.id}&period=${encodeURIComponent(requestedPeriod)}`,{signal:controller.signal,loading:"none"});
+      if (!current()) return;
       renderOperations(data.operations || []);
       window.dispatchEvent(new CustomEvent("magalu:dashboarddata", { detail: { data } }));
     } catch (error) {
-      if (requestId !== state.dashboardRequestId || state.dashboardPeriod !== requestedPeriod || Number(selected()?.id) !== Number(account.id)) return;
+      if (!current()||error.name==="AbortError") return;
       console.warn("[magalu] dashboard", error);
       showAlert(error.message, "danger");
       window.dispatchEvent(new CustomEvent("magalu:dashboarddata", { detail: { data: null } }));
+    } finally {
+      overlay?.hide();
+      if(state.dashboardAbortController===controller)state.dashboardAbortController=null;
     }
   }
 

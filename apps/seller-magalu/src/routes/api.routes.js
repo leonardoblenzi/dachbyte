@@ -17,6 +17,8 @@ const env = require("../config/env");
 const router = express.Router();
 router.get("/session", (req, res) => { const identity=req.magaluIdentity; return res.json({ok:true,module:"magalu",user:{email:identity.email,name:identity.name},subscription:identity.subscription||null}); });
 router.get("/dashboard",dashboardController.status);
+router.post("/dashboard/refresh",dashboardController.refresh);
+router.get("/dashboard/refresh/:jobId",dashboardController.refreshStatus);
 router.get("/accounts", oauthController.accounts);
 router.get("/oauth/status", oauthController.status);
 router.post("/accounts/:accountId/refresh", oauthController.refresh);
