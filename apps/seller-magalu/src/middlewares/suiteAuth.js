@@ -52,9 +52,6 @@ function readSuiteIdentity(req) {
   if (!identity.dachTenantId || !identity.dachUserId || !identity.email) {
     return { ok: false, status: 401, code: "invalid_identity", message: "A sessão não possui identidade global DACH válida.", redirect: "/login" };
   }
-  if (!identity.modules.has("magalu")) {
-    return { ok: false, status: 403, code: "module_not_allowed", message: "O módulo Magalu não está liberado para esta conta.", redirect: "/selecao-plataforma?module=magalu_denied", identity, payload };
-  }
   return { ok: true, identity, payload };
 }
 
@@ -73,7 +70,8 @@ async function suiteAuth(req, res, next) {
     const session = readSuiteIdentity(req);
     if (!session.ok) return deny(req, res, session.status, session.code, session.message, session.redirect);
     const hub = await checkHubAccess(session.identity, { action: "ACCESS magalu" });
-    if (!hub.allow) {
+    const onlySoftAllowed = String(hub.reason || "").endsWith("_soft_allow");
+    if (!hub.allow || (onlySoftAllowed && !session.identity.modules.has("magalu"))) {
       return deny(req, res, 403, "hub_access_denied", "O Hub não confirmou acesso ao módulo Magalu.", "/selecao-plataforma?module=magalu_denied");
     }
     req.magaluIdentity = session.identity;

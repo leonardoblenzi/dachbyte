@@ -123,7 +123,10 @@ async function revalidateCallbackAccess(req, stateRecord) {
     throw oauthError("MAGALU_OAUTH_IDENTITY_MISMATCH", "A sessão DACH atual não corresponde à sessão que iniciou o OAuth Magalu.", 403);
   }
   const hub = await checkHubAccess(session.identity, { force: true, action: "ACCESS magalu" });
-  if (!hub.allow) throw oauthError("MAGALU_OAUTH_HUB_ACCESS_REVOKED", "O Hub não confirmou mais acesso ao módulo Magalu.", 403);
+  const onlySoftAllowed = String(hub.reason || "").endsWith("_soft_allow");
+  if (!hub.allow || (onlySoftAllowed && !session.identity.modules?.has?.("magalu"))) {
+    throw oauthError("MAGALU_OAUTH_HUB_ACCESS_REVOKED", "O Hub não confirmou mais acesso ao módulo Magalu.", 403);
+  }
   if (!masterReconnect) {
     if (stateRecord.target_account_id) {
       const account = await accountRepository.findAccountByIdForTenant(stateRecord.target_account_id, stateRecord.dach_tenant_id);
