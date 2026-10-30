@@ -371,6 +371,7 @@
     };
     const overlay=window.MagaluLoadingOverlay;
     overlay?.show({label:"Atualizando dados",message:"Consultando pedidos da conta Magalu..."});
+    let lastLoadingMessageAt=Date.now();
     try {
       const queued=await fetchJson("/magalu/api/dashboard/refresh",{method:"POST",body:JSON.stringify({account_id:account.id,period:requestedPeriod}),signal:controller.signal,loading:"none"});
       if(!current())return;
@@ -384,7 +385,11 @@
           break;
         }
         if(job.state === "failed")throw new Error(job.error||"A sincronização de pedidos falhou.");
-        overlay?.update({message:job.progress?.stage==="orders"?`Consultando pedidos (${Number(job.progress.scanned)||0} lidos)...`:"Aguardando atualização dos pedidos..."});
+        const now=Date.now();
+        if(now-lastLoadingMessageAt>=2400){
+          overlay?.update({message:job.progress?.stage==="orders"?`Consultando pedidos (${Number(job.progress.scanned)||0} lidos)...`:"Aguardando atualização dos pedidos..."});
+          lastLoadingMessageAt=now;
+        }
         await new Promise((resolve,reject)=>{const onAbort=()=>{clearTimeout(timer);reject(new DOMException("Cancelado","AbortError"));};const timer=setTimeout(()=>{controller.signal.removeEventListener("abort",onAbort);resolve();},1200);controller.signal.addEventListener("abort",onAbort,{once:true});});
       }
       overlay?.update({message:"Consolidando faturamento e indicadores..."});
