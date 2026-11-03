@@ -21,6 +21,7 @@ const RETENTION_HOURS = 24;
 const RETENTION_MS = RETENTION_HOURS * 60 * 60 * 1000;
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 const MAX_ORDERS_PER_REPORT = Number(process.env.ML_ACCOUNT_REPORT_MAX_ORDERS || 5000);
+const ML_REPORT_API_MAX_ATTEMPTS = clampInt(process.env.ML_ACCOUNT_REPORT_API_MAX_ATTEMPTS, 1, 8, 5);
 const REPORT_UTC_OFFSET = process.env.ML_REPORT_UTC_OFFSET || "-03:00";
 const RETENTION_NOTICE =
   "Este relatorio fica disponivel para download por 24h apos a geracao; depois disso o registro e os arquivos sao removidos automaticamente.";
@@ -492,19 +493,71 @@ async function createReport({ meliContaId, userId, email, periodDays = 90, perio
   return report;
 }
 
-async function mlGetJson(url, accessToken) {
-  const response = await fetch(url, {
-    headers: {
-      accept: "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    const message = data?.message || data?.error || `Mercado Livre HTTP ${response.status}`;
-    throw new Error(message);
+function mlRetryDelayMs(response, attempt, error = null) {
+  const retryAfterMs = Number(error?.retryAfterMs);
+  if (Number.isFinite(retryAfterMs) && retryAfterMs > 0) {
+    return Math.min(30_000, Math.max(1_000, Math.trunc(retryAfterMs)));
   }
-  return data;
+  const raw = response?.headers?.get?.("retry-after");
+  if (raw != null && String(raw).trim() !== "") {
+    const seconds = Number(raw);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return Math.min(30_000, Math.max(1_000, Math.trunc(seconds * 1000)));
+    }
+    const dateMs = Date.parse(String(raw)) - Date.now();
+    if (Number.isFinite(dateMs) && dateMs > 0) {
+      return Math.min(30_000, Math.max(1_000, Math.trunc(dateMs)));
+    }
+  }
+  return Math.min(10_000, 1_000 * (2 ** Math.max(0, attempt - 1)));
+}
+
+function isRetryableMlResponse(response, data) {
+  const code = String(data?.error || data?.message || "").trim().toLowerCase();
+  return Number(response?.status) === 429
+    || code === "local_rate_limited"
+    || code.includes("rate limit");
+}
+
+function isRetryableMlError(error) {
+  return [
+    "ML_API_COOLDOWN_ACTIVE",
+    "ML_API_LIMITER_TIMEOUT",
+    "ML_API_RATE_LIMIT_TIMEOUT",
+  ].includes(String(error?.code || ""));
+}
+
+async function mlGetJson(url, accessToken, options = {}) {
+  const fetchImpl = options.fetchImpl || fetch;
+  const sleepFn = options.sleepFn || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const maxAttempts = clampInt(options.maxAttempts, 1, 8, ML_REPORT_API_MAX_ATTEMPTS);
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    let response = null;
+    try {
+      response = await fetchImpl(url, {
+        headers: {
+          accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      const data = await response.json().catch(() => null);
+      if (response.ok) return data;
+
+      const message = data?.message || data?.error || `Mercado Livre HTTP ${response.status}`;
+      const error = new Error(message);
+      error.statusCode = Number(response.status) || 502;
+      if (!isRetryableMlResponse(response, data) || attempt >= maxAttempts) throw error;
+      lastError = error;
+      await sleepFn(mlRetryDelayMs(response, attempt));
+    } catch (error) {
+      if (response || !isRetryableMlError(error) || attempt >= maxAttempts) throw error;
+      lastError = error;
+      await sleepFn(mlRetryDelayMs(null, attempt, error));
+    }
+  }
+  throw lastError || new Error("Falha ao consultar a API Mercado Livre.");
 }
 
 async function fetchSellerProfile({ account, accessToken }) {
@@ -794,10 +847,8 @@ async function fetchAdsAnalysis({ account, periodFrom, periodTo, previousFrom, p
     date_from: dateOnlyInReportTimeZone(previousFrom),
     date_to: dateOnlyInReportTimeZone(previousTo),
   };
-  const [currentResult, previousResult] = await Promise.all([
-    ProductAdsService.listarCampanhas(currentDates, options),
-    ProductAdsService.obterResumoCampanhas(previousDates, options),
-  ]);
+  const currentResult = await ProductAdsService.listarCampanhas(currentDates, options);
+  const previousResult = await ProductAdsService.obterResumoCampanhas(previousDates, options);
   if (!currentResult?.success) {
     warnings.push(`Publicidade nao consolidada: ${currentResult?.error || "falha ao consultar campanhas"}.`);
     return { available: false, campaigns: [], items: [], summary: {}, previousSummary: {}, warnings };
@@ -826,11 +877,9 @@ async function fetchAdsAnalysis({ account, periodFrom, periodTo, previousFrom, p
     };
   });
   await appendLog(reportId, `Campanhas Ads carregadas: ${campaigns.length}. Buscando anuncios patrocinados...`, 52).catch(() => {});
-  const itemGroups = await mapLimit(campaigns, 3, async (campaign) => {
-    const [result, dailyResult] = await Promise.all([
-      ProductAdsService.listarItensCampanha(campaign.id, currentDates, options),
-      ProductAdsService.metricasDiariasCampanha(campaign.id, currentDates, options),
-    ]);
+  const itemGroups = await mapLimit(campaigns, 2, async (campaign) => {
+    const result = await ProductAdsService.listarItensCampanha(campaign.id, currentDates, options);
+    const dailyResult = await ProductAdsService.metricasDiariasCampanha(campaign.id, currentDates, options);
     if (dailyResult?.success) {
       campaign.daily = dailyResult.series || [];
       campaign.metrics.sov = weightedDailyMetric(campaign.daily, "sov") ?? campaign.metrics.sov;
@@ -1452,15 +1501,15 @@ async function runReport(reportId) {
     if (!accessToken) throw new Error("Nao foi possivel obter token de acesso ML.");
     const previousRange = getPreviousPeriodRange(report.periodFrom, report.periodTo);
     await appendLog(reportId, "Buscando vendas, cancelamentos e comparativo anterior...", 16);
-    const [sellerProfile, orderData, previousOrderData, cancelledData, previousCancelledData, visitsData, previousVisitsData] = await Promise.all([
-      fetchSellerProfile({ account, accessToken }),
-      fetchOrders({ account, accessToken, periodFrom: report.periodFrom, periodTo: report.periodTo, reportId, status: "paid" }),
-      fetchOrders({ account, accessToken, periodFrom: previousRange.from, periodTo: previousRange.to, status: "paid" }),
-      fetchOrders({ account, accessToken, periodFrom: report.periodFrom, periodTo: report.periodTo, status: "cancelled" }),
-      fetchOrders({ account, accessToken, periodFrom: previousRange.from, periodTo: previousRange.to, status: "cancelled" }),
-      fetchAccountVisits({ account, accessToken, periodFrom: report.periodFrom, periodTo: report.periodTo }),
-      fetchAccountVisits({ account, accessToken, periodFrom: previousRange.from, periodTo: previousRange.to }),
-    ]);
+    const [sellerProfile, orderData, previousOrderData, cancelledData, previousCancelledData, visitsData, previousVisitsData] = await mapLimit([
+      () => fetchSellerProfile({ account, accessToken }),
+      () => fetchOrders({ account, accessToken, periodFrom: report.periodFrom, periodTo: report.periodTo, reportId, status: "paid" }),
+      () => fetchOrders({ account, accessToken, periodFrom: previousRange.from, periodTo: previousRange.to, status: "paid" }),
+      () => fetchOrders({ account, accessToken, periodFrom: report.periodFrom, periodTo: report.periodTo, status: "cancelled" }),
+      () => fetchOrders({ account, accessToken, periodFrom: previousRange.from, periodTo: previousRange.to, status: "cancelled" }),
+      () => fetchAccountVisits({ account, accessToken, periodFrom: report.periodFrom, periodTo: report.periodTo }),
+      () => fetchAccountVisits({ account, accessToken, periodFrom: previousRange.from, periodTo: previousRange.to }),
+    ], 2, (task) => task());
     await appendLog(reportId, "Buscando campanhas e anuncios de Product Ads...", 38);
     const ads = await fetchAdsAnalysis({
       account,
@@ -1580,6 +1629,7 @@ module.exports = {
   getReportById,
   listAccounts,
   listReports,
+  mlGetJson,
   REPORT_STATUSES,
   startReportRetentionCleanup,
 };

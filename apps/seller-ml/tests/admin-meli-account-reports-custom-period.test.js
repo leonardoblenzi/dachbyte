@@ -12,7 +12,17 @@ const {
   buildXlsx,
   getCustomPeriodRange,
   getPreviousPeriodRange,
+  mlGetJson,
 } = require("../services/adminMeliAccountPerformanceReportService");
+
+function jsonResponse(status, body, headers = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (name) => headers[String(name).toLowerCase()] ?? null },
+    json: async () => body,
+  };
+}
 
 test("periodo personalizado cobre os dias completos no fuso do relatorio", () => {
   const range = getCustomPeriodRange("2025-04-01", "2025-04-30");
@@ -55,6 +65,51 @@ test("comparativo usa um periodo anterior completo de igual duracao", () => {
 
   assert.equal(previous.from.toISOString(), "2025-03-02T03:00:00.000Z");
   assert.equal(previous.to.toISOString(), "2025-04-01T02:59:59.999Z");
+});
+
+test("consulta ML aguarda e repete quando recebe local_rate_limited", async () => {
+  const responses = [
+    jsonResponse(429, { error: "local_rate_limited" }, { "retry-after": "2" }),
+    jsonResponse(200, { results: [1] }),
+  ];
+  const waits = [];
+  let calls = 0;
+
+  const result = await mlGetJson("https://api.mercadolibre.com/orders/search", "token", {
+    maxAttempts: 3,
+    fetchImpl: async () => {
+      calls += 1;
+      return responses.shift();
+    },
+    sleepFn: async (ms) => waits.push(ms),
+  });
+
+  assert.deepEqual(result, { results: [1] });
+  assert.equal(calls, 2);
+  assert.deepEqual(waits, [2000]);
+});
+
+test("consulta ML repete quando o governador local pede cooldown", async () => {
+  let calls = 0;
+  const waits = [];
+  const result = await mlGetJson("https://api.mercadolibre.com/users/123", "token", {
+    maxAttempts: 3,
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) {
+        const error = new Error("cooldown");
+        error.code = "ML_API_COOLDOWN_ACTIVE";
+        error.retryAfterMs = 1500;
+        throw error;
+      }
+      return jsonResponse(200, { id: 123 });
+    },
+    sleepFn: async (ms) => waits.push(ms),
+  });
+
+  assert.deepEqual(result, { id: 123 });
+  assert.equal(calls, 2);
+  assert.deepEqual(waits, [1500]);
 });
 
 test("geradores completos produzem PDF e XLSX com vendas, comparativo e Ads", () => {
