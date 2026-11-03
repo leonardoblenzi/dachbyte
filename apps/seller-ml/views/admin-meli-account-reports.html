@@ -60,8 +60,19 @@
               <option value="60">Ultimos 60 dias</option>
               <option value="30">Ultimos 30 dias</option>
               <option value="180">Ultimos 180 dias</option>
+              <option value="custom">Personalizado</option>
             </select>
           </label>
+          <div id="custom-period-fields" hidden style="display:grid;grid-template-columns:repeat(2,minmax(170px,1fr));gap:10px;flex-basis:100%;">
+            <label style="display:grid;gap:6px;">
+              <span class="muted">Data inicio</span>
+              <input id="period-from" class="input" type="date" />
+            </label>
+            <label style="display:grid;gap:6px;">
+              <span class="muted">Data fim</span>
+              <input id="period-to" class="input" type="date" />
+            </label>
+          </div>
         </div>
         <div id="account-card" class="muted" style="margin-top:12px;">Selecione uma conta para iniciar.</div>
       </div>
@@ -113,6 +124,6 @@
     </section>
   </main>
   <div id="toast" class="toast" style="display:none;"></div>
-  <script src="/ml/js/admin-meli-account-reports.js?v=1"></script>
+  <script src="/ml/js/admin-meli-account-reports.js?v=2"></script>
 </body>
 </html>

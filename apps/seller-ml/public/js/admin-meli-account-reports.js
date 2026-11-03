@@ -3,6 +3,9 @@
 (() => {
   const accountSelect = document.getElementById("account-select");
   const periodDays = document.getElementById("period-days");
+  const customPeriodFields = document.getElementById("custom-period-fields");
+  const periodFrom = document.getElementById("period-from");
+  const periodTo = document.getElementById("period-to");
   const accountCard = document.getElementById("account-card");
   const btnRefresh = document.getElementById("btn-refresh");
   const btnGenerate = document.getElementById("btn-generate");
@@ -32,6 +35,41 @@
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "-";
     return date.toLocaleString("pt-BR");
+  }
+
+  function formatDateInput(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function setDefaultCustomPeriod() {
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(start.getDate() - 29);
+    const todayValue = formatDateInput(today);
+    if (periodFrom && !periodFrom.value) periodFrom.value = formatDateInput(start);
+    if (periodTo && !periodTo.value) periodTo.value = todayValue;
+    if (periodFrom) periodFrom.max = todayValue;
+    if (periodTo) periodTo.max = todayValue;
+  }
+
+  function syncCustomPeriodFields() {
+    const isCustom = periodDays?.value === "custom";
+    if (customPeriodFields) {
+      customPeriodFields.hidden = !isCustom;
+      customPeriodFields.style.display = isCustom ? "grid" : "none";
+    }
+    if (isCustom) setDefaultCustomPeriod();
+  }
+
+  function customPeriodPayload() {
+    const from = String(periodFrom?.value || "").trim();
+    const to = String(periodTo?.value || "").trim();
+    if (!from || !to) throw new Error("Informe a data inicial e a data final.");
+    if (from > to) throw new Error("A data inicial deve ser anterior ou igual a data final.");
+    return { periodFrom: from, periodTo: to };
   }
 
   function showToast(message, tone = "ok") {
@@ -186,11 +224,14 @@
     btnGenerate.disabled = true;
     btnGenerate.textContent = "Gerando...";
     try {
+      const periodPayload = periodDays?.value === "custom"
+        ? customPeriodPayload()
+        : { periodDays: Number(periodDays?.value || 90) };
       const data = await api("/api/admin/meli-account-reports/generate", {
         method: "POST",
         body: JSON.stringify({
           meliContaId: account.id,
-          periodDays: Number(periodDays?.value || 90),
+          ...periodPayload,
         }),
       });
       if (!data?.report?.id) throw new Error("API nao retornou o ID do relatorio.");
@@ -212,6 +253,13 @@
       renderAccountCard();
       loadHistory().catch((error) => showToast(error.message, "error"));
     });
+    periodDays?.addEventListener("change", syncCustomPeriodFields);
+    periodFrom?.addEventListener("change", () => {
+      if (periodTo) periodTo.min = periodFrom.value || "";
+    });
+    periodTo?.addEventListener("change", () => {
+      if (periodFrom) periodFrom.max = periodTo.value || formatDateInput(new Date());
+    });
     historyBody?.addEventListener("click", (event) => {
       const watch = event.target.closest("[data-watch]");
       if (watch) {
@@ -226,6 +274,7 @@
         window.open(typeof window.withBase === "function" ? window.withBase(url) : url, "_blank");
       }
     });
+    syncCustomPeriodFields();
     await loadAccounts().catch((error) => {
       historyBody.innerHTML = `<tr><td colspan="8">Erro: ${escapeHtml(error.message)}</td></tr>`;
       showToast(error.message, "error");

@@ -127,8 +127,24 @@ const METRICS_EXTENDED = [
   ...METRICS_MIN,
   "direct_amount",
   "indirect_amount",
-  "tacos",
   "organic_units_amount",
+  "organic_units_quantity",
+  "organic_items_quantity",
+  "direct_items_quantity",
+  "indirect_items_quantity",
+  "advertising_items_quantity",
+  "direct_units_quantity",
+  "indirect_units_quantity",
+  "cvr",
+  "sov",
+];
+
+const CAMPAIGN_DETAIL_METRICS = [
+  ...METRICS_EXTENDED,
+  "impression_share",
+  "top_impression_share",
+  "lost_impression_share_by_ad_rank",
+  "acos_benchmark",
 ];
 
 function numberOrZero(value) {
@@ -2292,7 +2308,7 @@ class ProductAdsService {
       if (date_to) params.set("date_to", date_to);
       params.set("aggregation_type", "DAILY");
       params.set("aggregation", "sum");
-      params.set("metrics", METRICS_EXTENDED.join(","));
+      params.set("metrics", CAMPAIGN_DETAIL_METRICS.join(","));
 
       const r = await withAuth(
         `${U.productAdsCampaignDetail(null, campaignId)}?${params.toString()}`,
@@ -2325,6 +2341,11 @@ class ProductAdsService {
           direct_amount: directAmount,
           indirect_amount: indirectAmount,
           units_quantity: units,
+          sov: metrics.sov == null ? null : numberOrZero(metrics.sov),
+          impression_share: metrics.impression_share == null ? null : numberOrZero(metrics.impression_share),
+          top_impression_share: metrics.top_impression_share == null ? null : numberOrZero(metrics.top_impression_share),
+          lost_impression_share_by_ad_rank: metrics.lost_impression_share_by_ad_rank == null ? null : numberOrZero(metrics.lost_impression_share_by_ad_rank),
+          acos_benchmark: metrics.acos_benchmark == null ? null : numberOrZero(metrics.acos_benchmark),
         });
       }
 

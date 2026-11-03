@@ -46,9 +46,17 @@ router.post("/meli-account-reports/generate", async (req, res, next) => {
       userId: req.user?.id || null,
       email: req.user?.email || null,
       periodDays: req.body?.periodDays,
+      periodFrom: req.body?.periodFrom,
+      periodTo: req.body?.periodTo,
     });
     return res.status(202).json({ ok: true, report });
   } catch (error) {
+    if (Number.isFinite(Number(error?.statusCode))) {
+      return res.status(Number(error.statusCode)).json({
+        ok: false,
+        error: error.message || "Nao foi possivel gerar o relatorio.",
+      });
+    }
     next(error);
   }
 });
