@@ -63,3 +63,8 @@ test("checkpoint nao persiste credenciais", () => {
   const checkpointBlock = service.slice(service.indexOf("onCheckpoint:"), service.indexOf("return withCoverage"));
   assert.doesNotMatch(checkpointBlock, /access_token|refresh_token|mlCreds/);
 });
+
+test("limite de descoberta vira cobertura parcial em vez de conclusao silenciosa", () => {
+  assert.match(service, /campaign_limit_reached/);
+  assert.match(service, /truncated:\s*eligible\.length\s*>\s*ANALYSIS_MAX_CAMPAIGNS/);
+});

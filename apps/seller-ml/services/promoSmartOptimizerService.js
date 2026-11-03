@@ -420,7 +420,7 @@ async function fetchSmartCampaigns(mlCreds) {
   if (!userId) throw new Error("Nao foi possivel identificar o usuario Mercado Livre.");
 
   const rows = await fetchUserPromotions(mlCreds, userId);
-  const merged = [];
+  const eligible = [];
   const seen = new Set();
   for (const row of rows) {
     if (promotionTypeOf(row) !== "SMART") continue;
@@ -431,9 +431,17 @@ async function fetchSmartCampaigns(mlCreds) {
     // Itens candidatos nao sao participacoes e finished nao deve ser otimizada.
     if (st && !["started", "pending"].includes(st)) continue;
     seen.add(id);
-    merged.push(row);
-    if (merged.length >= ANALYSIS_MAX_CAMPAIGNS) break;
+    eligible.push(row);
   }
+  const merged = eligible.slice(0, ANALYSIS_MAX_CAMPAIGNS);
+  Object.defineProperty(merged, "scanMeta", {
+    value: {
+      totalRelevant: eligible.length,
+      truncated: eligible.length > ANALYSIS_MAX_CAMPAIGNS,
+      limit: ANALYSIS_MAX_CAMPAIGNS,
+    },
+    enumerable: false,
+  });
   return merged;
 }
 
@@ -1042,99 +1050,144 @@ async function runAnalysisJob(job) {
   await job.progress(1);
   await auditJob(job, "promotion_smart_analysis_started", "success");
 
-  const campaigns = SmartScan.planCampaigns(await fetchSmartCampaigns(mlCreds), { mode });
+  const discoveredCampaigns = await fetchSmartCampaigns(mlCreds);
+  const discoveryMeta = discoveredCampaigns.scanMeta || {
+    totalRelevant: discoveredCampaigns.length,
+    truncated: false,
+    limit: ANALYSIS_MAX_CAMPAIGNS,
+  };
+  const campaigns = SmartScan.planCampaigns(discoveredCampaigns, { mode });
   await updateJobMeta(job, {
     phase: "items",
     total: campaigns.length,
     campaignCount: campaigns.length,
   });
 
-  const records = [];
-  const warnings = [];
-  const campaignCoverage = [];
-  const incompleteItemIds = new Set();
-  let itemRowsScanned = 0;
-  let campaignsSucceeded = 0;
-  for (let index = 0; index < campaigns.length; index += 1) {
+  const concurrency = Math.max(
+    1,
+    Math.min(8, Number(process.env.PROMO_SMART_ANALYSIS_CONCURRENCY || (mode === "quick" ? 4 : 3))),
+  );
+  let processedCampaigns = 0;
+  const scanCampaign = async (campaign, resumeAnalysisId = null) => {
     await checkCancelled(job);
-    const campaign = campaigns[index];
     if (mode === "quick" && policy.maxDurationMs > 0 && Date.now() - startedAt >= policy.maxDurationMs) {
-      for (const remaining of campaigns.slice(index)) {
-        campaignCoverage.push({
-          promotion_id: promotionIdOf(remaining),
-          promotion_name: promotionNameOf(remaining),
-          status: normalizeStatus(remaining?.status),
+      return {
+        campaign,
+        rows: [],
+        coverage: {
+          promotion_id: promotionIdOf(campaign),
+          promotion_name: promotionNameOf(campaign),
+          status: normalizeStatus(campaign?.status),
           state: SmartScan.COVERAGE.PARTIAL,
           reason: "time_budget_reached",
           expected: null,
           collected: 0,
           pages: 0,
-        });
-      }
-      break;
+        },
+        warning: null,
+      };
     }
     try {
       const scan = await fetchSmartCampaignItems(mlCreds, campaign, {
         withCoverage: true,
         mode,
         analysisId: String(job.id),
-        resumeAnalysisId: job.data?.resumeAnalysisId || null,
+        resumeAnalysisId,
         accountKey: job.data?.accountKey || null,
         job,
       });
-      const rows = scan.rows;
-      itemRowsScanned += rows.length;
-      const coverageRow = {
-        promotion_id: promotionIdOf(campaign),
-        promotion_name: promotionNameOf(campaign),
-        status: normalizeStatus(campaign?.status),
-        state: scan.coverage.state,
-        reason: scan.coverage.reason || null,
-        expected: scan.coverage.expected,
-        collected: scan.coverage.collected,
-        pages: scan.coverage.pages,
+      return {
+        campaign,
+        rows: scan.rows,
+        coverage: {
+          promotion_id: promotionIdOf(campaign),
+          promotion_name: promotionNameOf(campaign),
+          status: normalizeStatus(campaign?.status),
+          state: scan.coverage.state,
+          reason: scan.coverage.reason || null,
+          expected: scan.coverage.expected,
+          collected: scan.coverage.collected,
+          pages: scan.coverage.pages,
+        },
+        warning: null,
       };
-      campaignCoverage.push(coverageRow);
-      const expanded = rows.flatMap((row) => expandSmartRow(row, campaign));
-      if (scan.coverage.state === SmartScan.COVERAGE.COMPLETE) {
-        records.push(...expanded);
-        campaignsSucceeded += 1;
-      } else {
-        for (const row of expanded) if (row.item_id) incompleteItemIds.add(row.item_id);
-      }
     } catch (error) {
       const status = Number(error?.status || 0);
       if (status === 401 || status === 403) throw error;
-      warnings.push({
-        promotion_id: promotionIdOf(campaign),
-        promotion_name: promotionNameOf(campaign),
-        status: status || null,
-        message: safeText(error?.message || String(error), 500),
-      });
-      campaignCoverage.push({
-        promotion_id: promotionIdOf(campaign),
-        promotion_name: promotionNameOf(campaign),
-        status: normalizeStatus(campaign?.status),
-        state: SmartScan.COVERAGE.INCONCLUSIVE,
-        reason: "campaign_fetch_failed",
-        expected: null,
-        collected: 0,
-        pages: 0,
-      });
+      return {
+        campaign,
+        rows: [],
+        coverage: {
+          promotion_id: promotionIdOf(campaign),
+          promotion_name: promotionNameOf(campaign),
+          status: normalizeStatus(campaign?.status),
+          state: SmartScan.COVERAGE.INCONCLUSIVE,
+          reason: "campaign_fetch_failed",
+          expected: null,
+          collected: 0,
+          pages: 0,
+        },
+        warning: {
+          promotion_id: promotionIdOf(campaign),
+          promotion_name: promotionNameOf(campaign),
+          status: status || null,
+          message: safeText(error?.message || String(error), 500),
+        },
+      };
     }
+  };
 
-    const processed = index + 1;
-    const progress = campaigns.length ? 5 + Math.round((processed / campaigns.length) * 65) : 65;
+  let scanResults = await SmartScan.mapWithConcurrency(campaigns, concurrency, async (campaign) => {
+    const result = await scanCampaign(campaign, job.data?.resumeAnalysisId || null);
+    processedCampaigns += 1;
     await updateJobMeta(job, {
-      processed,
-      itemRowsScanned,
+      processed: processedCampaigns,
       currentCampaign: promotionNameOf(campaign),
-      failedCampaigns: warnings.length,
-      campaignsComplete: campaignCoverage.filter((row) => row.state === SmartScan.COVERAGE.COMPLETE).length,
-      campaignsPartial: campaignCoverage.filter((row) => row.state === SmartScan.COVERAGE.PARTIAL).length,
-      campaignsInconclusive: campaignCoverage.filter((row) => [SmartScan.COVERAGE.INCONCLUSIVE, SmartScan.COVERAGE.INDETERMINATE].includes(row.state)).length,
     });
-    await job.progress(progress);
+    await job.progress(campaigns.length ? 5 + Math.round((processedCampaigns / campaigns.length) * 55) : 60);
+    return result;
+  });
+
+  for (let retryRound = 0; retryRound < policy.retryRounds; retryRound += 1) {
+    const targets = scanResults
+      .map((result, index) => ({ result, index }))
+      .filter((entry) => entry.result.coverage.reason === "campaign_fetch_failed");
+    if (!targets.length) break;
+    await updateJobMeta(job, { phase: "retry", retryRound: retryRound + 1, retryCampaigns: targets.length });
+    const retried = await SmartScan.mapWithConcurrency(targets, Math.min(2, concurrency), async (entry) => ({
+      index: entry.index,
+      value: await scanCampaign(entry.result.campaign, String(job.id)),
+    }));
+    for (const entry of retried) scanResults[entry.index] = entry.value;
+  }
+
+  const records = [];
+  const warnings = scanResults.map((result) => result.warning).filter(Boolean);
+  const campaignCoverage = scanResults.map((result) => result.coverage);
+  if (discoveryMeta.truncated) {
+    campaignCoverage.push({
+      promotion_id: null,
+      promotion_name: "Limite de descoberta de campanhas",
+      status: null,
+      state: SmartScan.COVERAGE.PARTIAL,
+      reason: "campaign_limit_reached",
+      expected: null,
+      collected: 0,
+      pages: 0,
+    });
+  }
+  const incompleteItemIds = new Set();
+  let itemRowsScanned = 0;
+  let campaignsSucceeded = 0;
+  for (const scanResult of scanResults) {
+    itemRowsScanned += scanResult.rows.length;
+    const expanded = scanResult.rows.flatMap((row) => expandSmartRow(row, scanResult.campaign));
+    if (scanResult.coverage.state === SmartScan.COVERAGE.COMPLETE) {
+      records.push(...expanded);
+      campaignsSucceeded += 1;
+    } else {
+      for (const row of expanded) if (row.item_id) incompleteItemIds.add(row.item_id);
+    }
   }
 
   if (campaigns.length > 0 && campaignsSucceeded === 0 && warnings.length === campaigns.length) {
@@ -1147,7 +1200,15 @@ async function runAnalysisJob(job) {
   }
 
   const groupedIds = [...new Set(records.map((row) => row.item_id).filter(Boolean))];
-  await updateJobMeta(job, { phase: "enrichment", itemGroups: groupedIds.length });
+  await updateJobMeta(job, {
+    phase: "enrichment",
+    itemGroups: groupedIds.length,
+    itemRowsScanned,
+    failedCampaigns: warnings.length,
+    campaignsComplete: campaignCoverage.filter((row) => row.state === SmartScan.COVERAGE.COMPLETE).length,
+    campaignsPartial: campaignCoverage.filter((row) => row.state === SmartScan.COVERAGE.PARTIAL).length,
+    campaignsInconclusive: campaignCoverage.filter((row) => [SmartScan.COVERAGE.INCONCLUSIVE, SmartScan.COVERAGE.INDETERMINATE].includes(row.state)).length,
+  });
   await job.progress(75);
   const itemDetails = await fetchItemDetails(mlCreds, groupedIds);
 
@@ -1192,7 +1253,7 @@ async function runAnalysisJob(job) {
     expires_at: new Date(Date.now() + ANALYSIS_TTL_MS).toISOString(),
     summary: {
       campaigns_analyzed: campaignsSucceeded,
-      campaigns_found: campaigns.length,
+      campaigns_found: discoveryMeta.totalRelevant,
       campaigns_with_warnings: warnings.length,
       item_rows_scanned: itemRowsScanned,
       items_analyzed: groupedIds.length,

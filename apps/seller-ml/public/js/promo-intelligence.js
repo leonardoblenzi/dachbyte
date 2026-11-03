@@ -171,6 +171,7 @@
     const phaseMap = {
       campaigns: "Buscando campanhas SMART da conta…",
       items: "Lendo anúncios das campanhas SMART…",
+      retry: "Repetindo campanhas com falha transitória…",
       enrichment: "Carregando dados dos anúncios…",
       analysis: "Comparando vigências e participação ML x vendedor…",
       completed: "Análise concluída.",

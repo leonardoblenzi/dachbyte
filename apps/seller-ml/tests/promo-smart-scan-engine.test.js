@@ -154,3 +154,17 @@ test("otimizacao aceita somente oportunidades com cobertura verificada", () => {
     ["safe"],
   );
 });
+
+test("pool limita concorrencia e preserva ordem dos resultados", async () => {
+  let active = 0;
+  let peak = 0;
+  const results = await Engine.mapWithConcurrency([1, 2, 3, 4], 2, async (value) => {
+    active += 1;
+    peak = Math.max(peak, active);
+    await new Promise((resolve) => setTimeout(resolve, value % 2 ? 4 : 1));
+    active -= 1;
+    return value * 10;
+  });
+  assert.equal(peak, 2);
+  assert.deepEqual(results, [10, 20, 30, 40]);
+});
