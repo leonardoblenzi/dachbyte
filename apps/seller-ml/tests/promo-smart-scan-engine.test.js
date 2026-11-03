@@ -75,3 +75,82 @@ test("resposta sem total nem continuacao fica indeterminada", () => {
     reason: "no_continuation_evidence",
   });
 });
+
+test("coletor nao para em pagina composta somente por duplicados", async () => {
+  const pages = [
+    { rows: [{ id: "A" }], total: 3, returnedLimit: 1 },
+    { rows: [{ id: "A" }], total: 3, returnedLimit: 1 },
+    { rows: [{ id: "B" }], total: 3, returnedLimit: 1 },
+  ];
+  const result = await Engine.collectPages({
+    maxPages: 10,
+    rowKey: (row) => row.id,
+    fetchPage: async ({ page }) => pages[page],
+  });
+
+  assert.deepEqual(result.rows.map((row) => row.id), ["A", "B"]);
+  assert.equal(result.coverage.state, "complete");
+  assert.equal(result.coverage.reason, "declared_total_reached");
+  assert.equal(result.coverage.pages, 3);
+});
+
+test("coletor marca limite de paginas como parcial", async () => {
+  const result = await Engine.collectPages({
+    maxPages: 1,
+    rowKey: (row) => row.id,
+    fetchPage: async () => ({ rows: [{ id: "A" }], total: 2, returnedLimit: 1 }),
+  });
+
+  assert.equal(result.coverage.state, "partial");
+  assert.equal(result.coverage.reason, "page_budget_reached");
+  assert.equal(result.coverage.expected, 2);
+  assert.equal(result.coverage.collected, 1);
+});
+
+test("coletor publica checkpoint apos cada pagina", async () => {
+  const checkpoints = [];
+  await Engine.collectPages({
+    maxPages: 2,
+    rowKey: (row) => row.id,
+    fetchPage: async ({ page }) => page === 0
+      ? { rows: [{ id: "A" }], total: 1, returnedLimit: 1 }
+      : { rows: [], total: 1, returnedLimit: 1 },
+    onCheckpoint: async (checkpoint) => checkpoints.push(checkpoint),
+  });
+
+  assert.equal(checkpoints.length, 1);
+  assert.equal(checkpoints[0].coverage, "complete");
+  assert.equal(checkpoints[0].collected, 1);
+});
+
+test("coletor retoma linhas e offset de checkpoint anterior", async () => {
+  const calls = [];
+  const result = await Engine.collectPages({
+    maxPages: 2,
+    seedRows: [{ id: "A" }],
+    offset: 1,
+    scannedCount: 1,
+    total: 2,
+    rowKey: (row) => row.id,
+    fetchPage: async (cursor) => {
+      calls.push(cursor);
+      return { rows: [{ id: "B" }], total: 2, returnedLimit: 1 };
+    },
+  });
+
+  assert.equal(calls[0].offset, 1);
+  assert.deepEqual(result.rows.map((row) => row.id), ["A", "B"]);
+  assert.equal(result.coverage.state, "complete");
+});
+
+test("otimizacao aceita somente oportunidades com cobertura verificada", () => {
+  const rows = [
+    { id: "safe", classification: "verified", coverage_verified: true },
+    { id: "review", classification: "review", coverage_verified: true },
+    { id: "partial", classification: "verified", coverage_verified: false },
+  ];
+  assert.deepEqual(
+    Engine.filterVerifiedOpportunities(rows, new Set(["safe", "review", "partial"])).map((row) => row.id),
+    ["safe"],
+  );
+});

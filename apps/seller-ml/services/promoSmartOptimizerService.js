@@ -9,6 +9,8 @@ const { makeBullClient, getSharedRedis } = require("../lib/redisClient");
 const { recordAuthEvent } = require("./authAuditService");
 const SmartBilling = require("./promoSmartBillingService");
 const { summarizeCreditSettlement } = require("./creditSettlementSummary");
+const SmartScan = require("./promoSmartScanEngine");
+const SmartCheckpoints = require("./promoSmartCheckpointStore");
 
 const QUEUE_NAME = "promo-smart-optimizer";
 const ANALYSIS_TTL_MS = Math.max(
@@ -374,7 +376,6 @@ async function fetchUserPromotions(mlCreds, userId) {
 
       anySourceSucceeded = true;
       const rows = extractResults(result.body);
-      let added = 0;
       for (const row of rows) {
         const id = promotionIdOf(row);
         if (!id) continue;
@@ -384,14 +385,14 @@ async function fetchUserPromotions(mlCreds, userId) {
         merged.push(row && typeof row === "object" && status && !row.status
           ? { ...row, status }
           : row);
-        added += 1;
       }
 
       if (rows.length < ANALYSIS_PAGE_LIMIT) break;
       const total = toNum(result.body?.paging?.total ?? result.body?.data?.paging?.total);
       offset += ANALYSIS_PAGE_LIMIT;
       if (total != null && offset >= total) break;
-      if (added === 0) break;
+      // Uma pagina pode conter apenas campanhas ja vistas por outra fonte.
+      // Ainda assim, paginas posteriores podem trazer campanhas novas.
     }
   };
 
@@ -446,24 +447,59 @@ async function fetchPromotionDetail(mlCreds, promotionId) {
   return parseJsonSafe(response);
 }
 
-async function fetchSmartCampaignItems(mlCreds, campaign, { itemId = null } = {}) {
+async function fetchSmartCampaignItems(mlCreds, campaign, options = {}) {
+  const {
+    itemId = null,
+    withCoverage = false,
+    mode = "full",
+    analysisId = null,
+    resumeAnalysisId = null,
+    accountKey = null,
+    job = null,
+  } = options;
   const promotionId = promotionIdOf(campaign);
-  if (!promotionId) return [];
+  if (!promotionId) {
+    const empty = {
+      rows: [],
+      coverage: { state: SmartScan.COVERAGE.INCONCLUSIVE, reason: "missing_promotion_id", expected: null, collected: 0, pages: 0 },
+    };
+    return withCoverage ? empty : empty.rows;
+  }
 
-  const merged = [];
-  let searchAfter = null;
-  let offset = 0;
-  const seenTokens = new Set();
-  const seenRows = new Set();
-
-  for (let page = 0; page < ANALYSIS_MAX_PAGES; page += 1) {
+  const redis = redisClient();
+  const checkpointScope = {
+    accountKey,
+    analysisId: resumeAnalysisId || analysisId,
+    campaignId: promotionId,
+  };
+  const previous = resumeAnalysisId
+    ? await SmartCheckpoints.load(redis, checkpointScope).catch(() => null)
+    : null;
+  const policy = SmartScan.POLICIES[SmartScan.normalizeMode(mode)];
+  const scan = await SmartScan.collectPages({
+    maxPages: itemId ? 1 : policy.maxPagesPerCampaign,
+    seedRows: Array.isArray(previous?.rows) ? previous.rows : [],
+    cursor: previous?.cursor || null,
+    offset: Number(previous?.offset || 0),
+    scannedCount: Number(previous?.scanned || 0),
+    total: previous?.expected ?? null,
+    rowKey: (row) => {
+      const rowId = String(row?.id || row?.item_id || "").trim().toUpperCase();
+      const offerId = String(row?.offer_id || row?.ref_id || "").trim();
+      return `${rowId}|${offerId}|${normalizeStatus(row?.status)}`;
+    },
+    shouldCancel: async () => {
+      if (job) await checkCancelled(job);
+      return false;
+    },
+    fetchPage: async ({ cursor, offset }) => {
     const params = new URLSearchParams({
       promotion_type: "SMART",
       limit: String(ANALYSIS_PAGE_LIMIT),
       app_version: "v2",
     });
     if (itemId) params.set("item_id", String(itemId).toUpperCase());
-    if (searchAfter) params.set("search_after", searchAfter);
+    if (cursor) params.set("search_after", cursor);
     else if (offset > 0) params.set("offset", String(offset));
 
     const url = `https://api.mercadolibre.com/seller-promotions/promotions/${encodeURIComponent(
@@ -490,39 +526,24 @@ async function fetchSmartCampaignItems(mlCreds, campaign, { itemId = null } = {}
       throw error;
     }
 
-    const rows = extractResults(body);
-    let added = 0;
-    for (const row of rows) {
-      const rowId = String(row?.id || row?.item_id || "").trim().toUpperCase();
-      const offerId = String(row?.offer_id || row?.ref_id || "").trim();
-      const rowKey = `${rowId}|${offerId}|${normalizeStatus(row?.status)}`;
-      if (seenRows.has(rowKey)) continue;
-      seenRows.add(rowKey);
-      merged.push(row);
-      added += 1;
-    }
+      const rows = extractResults(body);
+      const paging = body?.paging || body?.data?.paging || {};
+      return {
+        rows,
+        nextCursor: nextSearchAfter(body),
+        total: itemId ? rows.length : toNum(paging.total),
+        returnedLimit: toNum(paging.limit) || ANALYSIS_PAGE_LIMIT,
+      };
+    },
+    onCheckpoint: async (checkpoint) => {
+      if (!analysisId || !accountKey) return;
+      const targetScope = { accountKey, analysisId, campaignId: promotionId };
+      await SmartCheckpoints.save(redis, targetScope, checkpoint);
+      await SmartCheckpoints.addToManifest(redis, targetScope, promotionId);
+    },
+  });
 
-    if (itemId || rows.length < ANALYSIS_PAGE_LIMIT) break;
-
-    const next = nextSearchAfter(body);
-    if (next && !seenTokens.has(String(next))) {
-      seenTokens.add(String(next));
-      searchAfter = String(next);
-      continue;
-    }
-
-    const total = toNum(body?.paging?.total ?? body?.data?.paging?.total);
-    if (total != null && merged.length < total && added > 0) {
-      // Alguns payloads SMART atuais informam total/limit sem search_after.
-      // Offset e usado apenas como fallback, com deduplicacao para evitar loop.
-      searchAfter = null;
-      offset += ANALYSIS_PAGE_LIMIT;
-      continue;
-    }
-    break;
-  }
-
-  return merged;
+  return withCoverage ? scan : scan.rows;
 }
 
 function pickOfferId(value) {
@@ -1007,17 +1028,21 @@ async function loadAnalysisResult(id) {
 
 async function runAnalysisJob(job) {
   const { mlCreds = {} } = job.data || {};
+  const mode = SmartScan.normalizeMode(job.data?.mode);
+  const policy = SmartScan.POLICIES[mode];
+  const startedAt = Date.now();
   await updateJobMeta(job, {
     stateLabel: "analisando Smart",
     phase: "campaigns",
+    mode,
     processed: 0,
     total: 0,
-    startedAt: Date.now(),
+    startedAt,
   });
   await job.progress(1);
   await auditJob(job, "promotion_smart_analysis_started", "success");
 
-  const campaigns = await fetchSmartCampaigns(mlCreds);
+  const campaigns = SmartScan.planCampaigns(await fetchSmartCampaigns(mlCreds), { mode });
   await updateJobMeta(job, {
     phase: "items",
     total: campaigns.length,
@@ -1026,16 +1051,57 @@ async function runAnalysisJob(job) {
 
   const records = [];
   const warnings = [];
+  const campaignCoverage = [];
+  const incompleteItemIds = new Set();
   let itemRowsScanned = 0;
   let campaignsSucceeded = 0;
   for (let index = 0; index < campaigns.length; index += 1) {
     await checkCancelled(job);
     const campaign = campaigns[index];
+    if (mode === "quick" && policy.maxDurationMs > 0 && Date.now() - startedAt >= policy.maxDurationMs) {
+      for (const remaining of campaigns.slice(index)) {
+        campaignCoverage.push({
+          promotion_id: promotionIdOf(remaining),
+          promotion_name: promotionNameOf(remaining),
+          status: normalizeStatus(remaining?.status),
+          state: SmartScan.COVERAGE.PARTIAL,
+          reason: "time_budget_reached",
+          expected: null,
+          collected: 0,
+          pages: 0,
+        });
+      }
+      break;
+    }
     try {
-      const rows = await fetchSmartCampaignItems(mlCreds, campaign);
+      const scan = await fetchSmartCampaignItems(mlCreds, campaign, {
+        withCoverage: true,
+        mode,
+        analysisId: String(job.id),
+        resumeAnalysisId: job.data?.resumeAnalysisId || null,
+        accountKey: job.data?.accountKey || null,
+        job,
+      });
+      const rows = scan.rows;
       itemRowsScanned += rows.length;
-      for (const row of rows) records.push(...expandSmartRow(row, campaign));
-      campaignsSucceeded += 1;
+      const coverageRow = {
+        promotion_id: promotionIdOf(campaign),
+        promotion_name: promotionNameOf(campaign),
+        status: normalizeStatus(campaign?.status),
+        state: scan.coverage.state,
+        reason: scan.coverage.reason || null,
+        expected: scan.coverage.expected,
+        collected: scan.coverage.collected,
+        pages: scan.coverage.pages,
+      };
+      campaignCoverage.push(coverageRow);
+      const expanded = rows.flatMap((row) => expandSmartRow(row, campaign));
+      if (scan.coverage.state === SmartScan.COVERAGE.COMPLETE) {
+        records.push(...expanded);
+        campaignsSucceeded += 1;
+      } else {
+        for (const row of expanded) if (row.item_id) incompleteItemIds.add(row.item_id);
+      }
     } catch (error) {
       const status = Number(error?.status || 0);
       if (status === 401 || status === 403) throw error;
@@ -1044,6 +1110,16 @@ async function runAnalysisJob(job) {
         promotion_name: promotionNameOf(campaign),
         status: status || null,
         message: safeText(error?.message || String(error), 500),
+      });
+      campaignCoverage.push({
+        promotion_id: promotionIdOf(campaign),
+        promotion_name: promotionNameOf(campaign),
+        status: normalizeStatus(campaign?.status),
+        state: SmartScan.COVERAGE.INCONCLUSIVE,
+        reason: "campaign_fetch_failed",
+        expected: null,
+        collected: 0,
+        pages: 0,
       });
     }
 
@@ -1054,11 +1130,14 @@ async function runAnalysisJob(job) {
       itemRowsScanned,
       currentCampaign: promotionNameOf(campaign),
       failedCampaigns: warnings.length,
+      campaignsComplete: campaignCoverage.filter((row) => row.state === SmartScan.COVERAGE.COMPLETE).length,
+      campaignsPartial: campaignCoverage.filter((row) => row.state === SmartScan.COVERAGE.PARTIAL).length,
+      campaignsInconclusive: campaignCoverage.filter((row) => [SmartScan.COVERAGE.INCONCLUSIVE, SmartScan.COVERAGE.INDETERMINATE].includes(row.state)).length,
     });
     await job.progress(progress);
   }
 
-  if (campaigns.length > 0 && campaignsSucceeded === 0) {
+  if (campaigns.length > 0 && campaignsSucceeded === 0 && warnings.length === campaigns.length) {
     const first = warnings[0];
     throw new Error(
       first?.message
@@ -1075,12 +1154,40 @@ async function runAnalysisJob(job) {
   await updateJobMeta(job, { phase: "analysis" });
   await job.progress(88);
   const analyzed = analyzeSmartRecords(records, itemDetails);
+  const verifiedOpportunities = [];
+  const inconclusive = [];
+  for (const opportunity of analyzed.opportunities) {
+    if (incompleteItemIds.has(opportunity.item_id)) {
+      inconclusive.push({
+        item_id: opportunity.item_id,
+        title: opportunity.title || opportunity.item_id,
+        classification: "inconclusive",
+        reason: "A participação depende de uma campanha cuja cobertura não foi comprovada.",
+      });
+    } else {
+      verifiedOpportunities.push({ ...opportunity, classification: "verified", coverage_verified: true });
+    }
+  }
+  const coverageStates = new Set(campaignCoverage.map((row) => row.state));
+  const coverageState = coverageStates.has(SmartScan.COVERAGE.INCONCLUSIVE)
+    ? SmartScan.COVERAGE.INCONCLUSIVE
+    : coverageStates.has(SmartScan.COVERAGE.PARTIAL)
+      ? SmartScan.COVERAGE.PARTIAL
+      : coverageStates.has(SmartScan.COVERAGE.INDETERMINATE)
+        ? SmartScan.COVERAGE.INDETERMINATE
+        : SmartScan.COVERAGE.COMPLETE;
+  const expectedValues = campaignCoverage.map((row) => toNum(row.expected));
+  const expectedRows = expectedValues.every((value) => value != null)
+    ? expectedValues.reduce((sum, value) => sum + value, 0)
+    : null;
+  const collectedRows = campaignCoverage.reduce((sum, row) => sum + Number(row.collected || 0), 0);
   const generatedAt = new Date().toISOString();
   const result = {
     ok: true,
     analysis_id: String(job.id),
     accountKey: job.data.accountKey || null,
     accountLabel: job.data.accountLabel || null,
+    mode,
     generated_at: generatedAt,
     expires_at: new Date(Date.now() + ANALYSIS_TTL_MS).toISOString(),
     summary: {
@@ -1089,11 +1196,24 @@ async function runAnalysisJob(job) {
       campaigns_with_warnings: warnings.length,
       item_rows_scanned: itemRowsScanned,
       items_analyzed: groupedIds.length,
+      campaigns_complete: campaignCoverage.filter((row) => row.state === SmartScan.COVERAGE.COMPLETE).length,
+      campaigns_partial: campaignCoverage.filter((row) => row.state === SmartScan.COVERAGE.PARTIAL).length,
+      campaigns_inconclusive: campaignCoverage.filter((row) => [SmartScan.COVERAGE.INCONCLUSIVE, SmartScan.COVERAGE.INDETERMINATE].includes(row.state)).length,
+      expected_rows: expectedRows,
+      collected_rows: collectedRows,
       ...analyzed.summary,
+      safe_opportunities: verifiedOpportunities.length,
+    },
+    coverage: {
+      state: coverageState,
+      expected: expectedRows,
+      collected: collectedRows,
+      campaigns: campaignCoverage,
     },
     warnings,
-    opportunities: analyzed.opportunities,
-    reviews: analyzed.reviews,
+    opportunities: verifiedOpportunities,
+    reviews: analyzed.reviews.map((review) => ({ ...review, classification: "review", coverage_verified: true })),
+    inconclusive,
   };
 
   await storeAnalysisResult(job.id, result);
@@ -1102,6 +1222,12 @@ async function runAnalysisJob(job) {
     phase: "completed",
     processed: campaigns.length,
     summary: result.summary,
+    coverageState,
+    expectedRows,
+    collectedRows,
+    campaignsComplete: result.summary.campaigns_complete,
+    campaignsPartial: result.summary.campaigns_partial,
+    campaignsInconclusive: result.summary.campaigns_inconclusive,
   });
   await job.progress(100);
   await auditJob(job, "promotion_smart_analysis_completed", "success", {
@@ -1740,12 +1866,15 @@ module.exports = {
     console.log("[PromoSmartOptimizer] worker iniciado");
   },
 
-  async startAnalysis({ mlCreds, accountKey, accountLabel, auditContext = null }) {
+  async startAnalysis({ mlCreds, accountKey, accountLabel, mode = "quick", resumeAnalysisId = null, auditContext = null }) {
     const q = ensureQueue();
     const id = makeJobId("analysis");
+    const normalizedMode = SmartScan.normalizeMode(mode);
     await q.add(
       {
         kind: "analyze",
+        mode: normalizedMode,
+        resumeAnalysisId: resumeAnalysisId || null,
         mlCreds: { ...(mlCreds || {}) },
         accountKey: normalizeAccountKey(accountKey),
         accountLabel: accountLabel || accountKey || null,
@@ -1784,6 +1913,13 @@ module.exports = {
       processed: Number(meta.processed || 0),
       total: Number(meta.total || 0),
       item_rows_scanned: Number(meta.itemRowsScanned || 0),
+      mode: meta.mode || job.data?.mode || "quick",
+      coverage_state: meta.coverageState || null,
+      campaigns_complete: Number(meta.campaignsComplete || 0),
+      campaigns_partial: Number(meta.campaignsPartial || 0),
+      campaigns_inconclusive: Number(meta.campaignsInconclusive || 0),
+      expected_rows: meta.expectedRows == null ? null : Number(meta.expectedRows),
+      collected_rows: Number(meta.collectedRows || meta.itemRowsScanned || 0),
       error: meta.error || (state === "failed" ? job.failedReason || "Falha na análise." : null),
       result: null,
     };
@@ -1805,9 +1941,11 @@ module.exports = {
     }
 
     const ids = new Set((Array.isArray(opportunityIds) ? opportunityIds : []).map((value) => String(value || "").trim()).filter(Boolean));
-    const opportunities = (Array.isArray(analysis.opportunities) ? analysis.opportunities : []).filter((opp) => ids.has(String(opp?.id || "")));
+    const opportunities = SmartScan.filterVerifiedOpportunities(analysis.opportunities, ids);
     if (!opportunities.length) throw new Error("Selecione pelo menos uma oportunidade segura para otimizar.");
-    if (opportunities.length !== ids.size) throw new Error("Uma ou mais oportunidades selecionadas não pertencem à análise atual.");
+    if (opportunities.length !== ids.size) {
+      throw new Error("Uma ou mais oportunidades não pertencem à análise atual ou não possuem cobertura comprovada.");
+    }
 
     const q = ensureQueue();
     const id = makeJobId("opt");
