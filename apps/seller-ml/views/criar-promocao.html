@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/ml/css/promo-jobs.css?v=2026080701">
   <link rel="stylesheet" href="/ml/css/credit-operation-modal.css?v=2026101602" />
   <link rel="stylesheet" href="/ml/css/criar-promocao.css?v=2026081201">
-  <link rel="stylesheet" href="/ml/css/promocoes.css?v=2026080702">
+  <link rel="stylesheet" href="/ml/css/promocoes.css?v=2026110301">
   <script src="/ml/js/ml-base.js?v=8"></script>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
@@ -589,7 +589,16 @@
             </div>
 
             <div class="smart-optimizer-actions">
-              <button id="btnRunSmartAnalysis" class="btn" type="button">Iniciar análise</button>
+              <div class="smart-scan-modes" role="group" aria-label="Modo da verificação SMART">
+                <button id="btnRunSmartQuickAnalysis" class="smart-scan-mode is-recommended" type="button">
+                  <strong>Verificação rápida</strong>
+                  <span>Prioriza campanhas ativas e conflitos com maior potencial.</span>
+                </button>
+                <button id="btnRunSmartFullAnalysis" class="smart-scan-mode" type="button">
+                  <strong>Verificação completa</strong>
+                  <span>Percorre todas as campanhas e pode levar vários minutos.</span>
+                </button>
+              </div>
               <span id="smartOptimizerAnalyzeHint" class="muted">Nenhuma promoção será alterada nesta etapa.</span>
             </div>
 
@@ -607,7 +616,17 @@
                 <h3>Oportunidades encontradas</h3>
                 <p>Somente oportunidades classificadas como seguras vêm pré-selecionadas. Casos ambíguos ficam disponíveis apenas para revisão.</p>
               </div>
-              <button id="btnRerunSmartAnalysis" class="btn ghost" type="button">Analisar novamente</button>
+              <div class="smart-optimizer-card__actions">
+                <button id="btnContinueSmartFull" class="btn hidden" type="button">Continuar verificação completa</button>
+                <button id="btnRerunSmartAnalysis" class="btn ghost" type="button">Analisar novamente</button>
+              </div>
+            </div>
+
+            <div id="smartOptimizerCoverage" class="smart-optimizer-coverage" aria-live="polite">
+              <div><span>Modo</span><strong id="smartCoverageMode">—</strong></div>
+              <div><span>Cobertura</span><strong id="smartCoverageState">—</strong></div>
+              <div><span>Campanhas completas</span><strong id="smartCoverageCampaigns">0/0</strong></div>
+              <div><span>Participações</span><strong id="smartCoverageRows">—</strong></div>
             </div>
 
             <div class="smart-optimizer-stats">
@@ -621,6 +640,7 @@
               <div class="smart-optimizer-filter" role="tablist" aria-label="Filtro do resultado Smart">
                 <button type="button" class="is-active" data-smart-filter="safe">Oportunidades <span id="smartFilterSafeCount">0</span></button>
                 <button type="button" data-smart-filter="review">Revisar <span id="smartFilterReviewCount">0</span></button>
+                <button type="button" data-smart-filter="inconclusive">Inconclusivos <span id="smartFilterInconclusiveCount">0</span></button>
               </div>
               <label class="smart-optimizer-selectall"><input id="smartSelectAllSafe" type="checkbox" checked> Selecionar todas as seguras</label>
             </div>
@@ -715,7 +735,7 @@
   <script src="/ml/js/jobs-panel.js?v=2026082101" defer></script>
   <script src="/ml/js/criar-promocao.js?v=2026082101" defer></script>
   <script src="/ml/js/promo-bulk.js?v=2026101601" defer></script>
-  <script src="/ml/js/promo-intelligence.js?v=2026101601" defer></script>
+  <script src="/ml/js/promo-intelligence.js?v=2026110301" defer></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', async () => {

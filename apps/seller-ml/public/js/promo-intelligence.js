@@ -4,6 +4,7 @@
   const state = {
     module: "create",
     workspaceOpen: false,
+    mode: "quick",
     analysisId: null,
     analysis: null,
     selected: new Set(),
@@ -188,13 +189,27 @@
     if (Number(data.item_rows_scanned || 0) > 0) {
       bits.push(`${Number(data.item_rows_scanned).toLocaleString("pt-BR")} linhas lidas`);
     }
+    if (Number(data.campaigns_complete || 0) > 0) {
+      bits.push(`${Number(data.campaigns_complete).toLocaleString("pt-BR")} campanhas completas`);
+    }
+    if (data.expected_rows != null) {
+      bits.push(`${Number(data.collected_rows || 0).toLocaleString("pt-BR")}/${Number(data.expected_rows).toLocaleString("pt-BR")} participações`);
+    }
     if ($("smartOptimizerProgressMeta")) {
       $("smartOptimizerProgressMeta").textContent = bits.join(" · ") || "A análise pode levar alguns minutos em contas com muitas campanhas.";
     }
   }
 
-  async function runAnalysis() {
+  function setAnalysisButtonsDisabled(disabled) {
+    if ($("btnRunSmartQuickAnalysis")) $("btnRunSmartQuickAnalysis").disabled = disabled;
+    if ($("btnRunSmartFullAnalysis")) $("btnRunSmartFullAnalysis").disabled = disabled;
+    if ($("btnRerunSmartAnalysis")) $("btnRerunSmartAnalysis").disabled = disabled;
+    if ($("btnContinueSmartFull")) $("btnContinueSmartFull").disabled = disabled;
+  }
+
+  async function runAnalysis(mode = "quick", resumeAnalysisId = null) {
     stopPolling();
+    state.mode = mode === "full" ? "full" : "quick";
     state.analysisId = null;
     state.analysis = null;
     state.selected.clear();
@@ -203,20 +218,25 @@
     $("smartOptimizerReview")?.classList.add("hidden");
     $("smartOptimizerConfirm")?.classList.add("hidden");
     $("smartOptimizerProgress")?.classList.remove("hidden");
-    if ($("btnRunSmartAnalysis")) $("btnRunSmartAnalysis").disabled = true;
+    setAnalysisButtonsDisabled(true);
     if ($("smartOptimizerProgressText")) $("smartOptimizerProgressText").textContent = "Enviando análise ao worker…";
     if ($("smartOptimizerProgressPct")) $("smartOptimizerProgressPct").textContent = "0%";
     if ($("smartOptimizerProgressFill")) $("smartOptimizerProgressFill").style.width = "0%";
 
     try {
       await refreshAccountLabel();
-      const data = await request("/api/promocoes/intelligence/smart/analyze", { method: "POST", body: "{}" });
+      const body = { mode: state.mode };
+      if (resumeAnalysisId) body.resume_analysis_id = resumeAnalysisId;
+      const data = await request("/api/promocoes/intelligence/smart/analyze", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
       state.analysisId = data.analysis_id;
       schedulePoll(350);
     } catch (error) {
       notify(error.message || "Falha ao iniciar análise Smart.", "error");
       if ($("smartOptimizerProgressText")) $("smartOptimizerProgressText").textContent = `Falha: ${error.message}`;
-      if ($("btnRunSmartAnalysis")) $("btnRunSmartAnalysis").disabled = false;
+      setAnalysisButtonsDisabled(false);
     }
   }
 
@@ -254,7 +274,7 @@
         stopPolling();
         if ($("smartOptimizerProgressText")) $("smartOptimizerProgressText").textContent = `Falha: ${error.message}`;
         notify(error.message || "Falha ao acompanhar análise Smart.", "error");
-        if ($("btnRunSmartAnalysis")) $("btnRunSmartAnalysis").disabled = false;
+        setAnalysisButtonsDisabled(false);
       }
     } finally {
       state.polling = false;
@@ -353,6 +373,19 @@
     </article>`;
   }
 
+  function inconclusiveCard(row) {
+    return `<article class="smart-opportunity is-review">
+      <div class="smart-opportunity__top">
+        <span></span>
+        <div class="smart-opportunity__identity">
+          <strong>${esc(row.item_id || "Campanha incompleta")} · ${esc(row.title || row.item_id || "Cobertura não comprovada")}</strong>
+          <span>${esc(row.reason || "O Mercado Livre não forneceu dados suficientes para uma decisão automática.")}</span>
+        </div>
+        <span class="smart-opportunity__badge">Inconclusivo</span>
+      </div>
+    </article>`;
+  }
+
   function renderCurrentFilter() {
     const container = $("smartOptimizerResults");
     if (!container || !state.analysis) return;
@@ -364,6 +397,11 @@
     if (state.filter === "review") {
       const rows = Array.isArray(state.analysis.reviews) ? state.analysis.reviews : [];
       container.innerHTML = rows.length ? rows.map(reviewCard).join("") : '<div class="smart-optimizer-empty">Nenhum cenário pendente de revisão nesta análise.</div>';
+      return;
+    }
+    if (state.filter === "inconclusive") {
+      const rows = Array.isArray(state.analysis.inconclusive) ? state.analysis.inconclusive : [];
+      container.innerHTML = rows.length ? rows.map(inconclusiveCard).join("") : '<div class="smart-optimizer-empty">Nenhum resultado inconclusivo nesta análise.</div>';
       return;
     }
 
@@ -386,14 +424,37 @@
   function renderAnalysis(result) {
     state.analysis = result;
     state.filter = "safe";
-    state.selected = new Set((result.opportunities || []).map((opp) => String(opp.id)));
+    state.mode = result.mode === "full" ? "full" : "quick";
+    const selectable = (result.opportunities || []).filter(
+      (opportunity) => opportunity.classification === "verified" && opportunity.coverage_verified === true,
+    );
+    state.selected = new Set(selectable.map((opp) => String(opp.id)));
     const summary = result.summary || {};
+    const coverage = result.coverage || {};
     if ($("smartStatCampaigns")) $("smartStatCampaigns").textContent = Number(summary.campaigns_analyzed || 0).toLocaleString("pt-BR");
     if ($("smartStatItems")) $("smartStatItems").textContent = Number(summary.items_analyzed || 0).toLocaleString("pt-BR");
     if ($("smartStatSafe")) $("smartStatSafe").textContent = Number(summary.safe_opportunities || 0).toLocaleString("pt-BR");
     if ($("smartStatReview")) $("smartStatReview").textContent = Number(summary.review_items || 0).toLocaleString("pt-BR");
     if ($("smartFilterSafeCount")) $("smartFilterSafeCount").textContent = Number(summary.safe_opportunities || 0).toLocaleString("pt-BR");
     if ($("smartFilterReviewCount")) $("smartFilterReviewCount").textContent = Number(summary.review_items || 0).toLocaleString("pt-BR");
+    if ($("smartFilterInconclusiveCount")) $("smartFilterInconclusiveCount").textContent = Number((result.inconclusive || []).length).toLocaleString("pt-BR");
+    if ($("smartCoverageMode")) $("smartCoverageMode").textContent = state.mode === "full" ? "Completa" : "Rápida";
+    const coverageLabels = { complete: "Completa", partial: "Parcial", inconclusive: "Inconclusiva", indeterminate: "Indeterminada" };
+    if ($("smartCoverageState")) $("smartCoverageState").textContent = coverageLabels[coverage.state] || "Indeterminada";
+    if ($("smartCoverageCampaigns")) {
+      $("smartCoverageCampaigns").textContent = `${Number(summary.campaigns_complete || 0).toLocaleString("pt-BR")}/${Number(summary.campaigns_found || 0).toLocaleString("pt-BR")}`;
+    }
+    if ($("smartCoverageRows")) {
+      $("smartCoverageRows").textContent = coverage.expected == null
+        ? `${Number(coverage.collected || 0).toLocaleString("pt-BR")} coletadas`
+        : `${Number(coverage.collected || 0).toLocaleString("pt-BR")}/${Number(coverage.expected).toLocaleString("pt-BR")}`;
+    }
+    const coverageBox = $("smartOptimizerCoverage");
+    if (coverageBox) {
+      coverageBox.classList.remove("is-complete", "is-partial", "is-inconclusive", "is-indeterminate");
+      coverageBox.classList.add(`is-${coverage.state || "indeterminate"}`);
+    }
+    $("btnContinueSmartFull")?.classList.toggle("hidden", state.mode !== "quick" || coverage.state === "complete");
     const warnings = Array.isArray(result.warnings) ? result.warnings : [];
     if (warnings.length) {
       notify(
@@ -406,7 +467,7 @@
     setStep("review");
     renderCurrentFilter();
     updateSelectedUi();
-    if ($("btnRunSmartAnalysis")) $("btnRunSmartAnalysis").disabled = false;
+    setAnalysisButtonsDisabled(false);
     $("smartOptimizerReview")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }
 
@@ -511,12 +572,16 @@
       if (state.analysis) renderAnalysis(state.analysis);
     });
     $("btnBackIntelligenceHub")?.addEventListener("click", () => setWorkspace(false));
-    $("btnRunSmartAnalysis")?.addEventListener("click", runAnalysis);
-    $("btnRerunSmartAnalysis")?.addEventListener("click", runAnalysis);
+    $("btnRunSmartQuickAnalysis")?.addEventListener("click", () => runAnalysis("quick"));
+    $("btnRunSmartFullAnalysis")?.addEventListener("click", () => runAnalysis("full"));
+    $("btnRerunSmartAnalysis")?.addEventListener("click", () => runAnalysis(state.mode));
+    $("btnContinueSmartFull")?.addEventListener("click", () => runAnalysis("full", state.analysisId));
 
     document.querySelectorAll("[data-smart-filter]").forEach((button) => {
       button.addEventListener("click", () => {
-        state.filter = button.dataset.smartFilter === "review" ? "review" : "safe";
+        state.filter = ["review", "inconclusive"].includes(button.dataset.smartFilter)
+          ? button.dataset.smartFilter
+          : "safe";
         renderCurrentFilter();
       });
     });

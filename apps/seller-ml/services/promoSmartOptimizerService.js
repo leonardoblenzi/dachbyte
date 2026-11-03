@@ -1647,6 +1647,47 @@ async function processJob(job) {
       const canceledAt = Date.now();
       const processed = Number(meta.processed || 0);
       const total = Number(meta.total || job.data?.opportunities?.length || 0);
+      if (job.data?.kind === "analyze") {
+        const result = {
+          ok: false,
+          canceled: true,
+          analysis_id: String(job.id),
+          accountKey: job.data?.accountKey || null,
+          accountLabel: job.data?.accountLabel || null,
+          mode: job.data?.mode || "quick",
+          generated_at: new Date(canceledAt).toISOString(),
+          summary: {
+            campaigns_found: total,
+            campaigns_analyzed: Number(meta.campaignsComplete || 0),
+            campaigns_complete: Number(meta.campaignsComplete || 0),
+            campaigns_partial: Math.max(0, total - processed) + Number(meta.campaignsPartial || 0),
+            campaigns_inconclusive: Number(meta.campaignsInconclusive || 0),
+            collected_rows: Number(meta.itemRowsScanned || 0),
+            safe_opportunities: 0,
+            review_items: 0,
+          },
+          coverage: {
+            state: SmartScan.COVERAGE.PARTIAL,
+            reason: "cancelled",
+            expected: meta.expectedRows ?? null,
+            collected: Number(meta.itemRowsScanned || 0),
+            campaigns: [],
+          },
+          warnings: [],
+          opportunities: [],
+          reviews: [],
+          inconclusive: [],
+        };
+        await storeAnalysisResult(job.id, result);
+        await updateJobMeta(job, {
+          stateLabel: "cancelado",
+          cancelRequested: true,
+          canceledAt,
+          coverageState: SmartScan.COVERAGE.PARTIAL,
+        });
+        await auditJob(job, "promotion_smart_analysis_canceled", "warn", { processed, total });
+        return result;
+      }
       const success = Number(meta.success || 0);
       const failed = Number(meta.failed || 0);
       const skipped = Number(meta.skipped || 0);
@@ -1853,6 +1894,51 @@ async function buildWorkbook(job) {
   return wb.xlsx.writeBuffer();
 }
 
+async function buildAnalysisWorkbook(job, analysis = {}) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "DACHBYTE";
+  wb.created = new Date();
+
+  const summary = wb.addWorksheet("Resumo");
+  const data = analysis.summary || {};
+  summary.addRows([
+    ["Análise", String(job.id)],
+    ["Conta", analysis.accountLabel || job.data?.accountLabel || job.data?.accountKey || ""],
+    ["Modo", analysis.mode === "full" ? "Completa" : "Rápida"],
+    ["Cobertura", analysis.coverage?.state || "indeterminate"],
+    ["Campanhas encontradas", Number(data.campaigns_found || 0)],
+    ["Campanhas completas", Number(data.campaigns_complete || 0)],
+    ["Campanhas parciais", Number(data.campaigns_partial || 0)],
+    ["Campanhas inconclusivas", Number(data.campaigns_inconclusive || 0)],
+    ["Participações esperadas", data.expected_rows ?? ""],
+    ["Participações coletadas", Number(data.collected_rows || 0)],
+    ["Oportunidades verificadas", Number(data.safe_opportunities || 0)],
+  ]);
+  summary.getColumn(1).width = 30;
+  summary.getColumn(2).width = 42;
+  summary.getColumn(1).font = { bold: true };
+
+  const coverageSheet = wb.addWorksheet("Cobertura");
+  coverageSheet.addRow(["Campanha", "Nome", "Status", "Cobertura", "Esperado", "Coletado", "Páginas", "Motivo"]);
+  for (const row of analysis.coverage?.campaigns || []) {
+    coverageSheet.addRow([
+      row.promotion_id || "",
+      row.promotion_name || "",
+      row.status || "",
+      row.state || "",
+      row.expected ?? "",
+      Number(row.collected || 0),
+      Number(row.pages || 0),
+      row.reason || "",
+    ]);
+  }
+  coverageSheet.getRow(1).font = { bold: true };
+  coverageSheet.views = [{ state: "frozen", ySplit: 1 }];
+  coverageSheet.columns.forEach((column, index) => { column.width = index === 1 || index === 7 ? 36 : 18; });
+
+  return wb.xlsx.writeBuffer();
+}
+
 module.exports = {
   init() {
     ensureQueue();
@@ -2007,7 +2093,7 @@ module.exports = {
     // getState() é uma ida ao Redis. Fazê-la em série fazia o endpoint global
     // /api/promocoes/jobs levar dezenas de segundos quando havia histórico.
     const scoped = jobs
-      .filter((job) => job.data?.kind === "optimize" && canAccessData(job.data || {}, accountKey))
+      .filter((job) => ["analyze", "optimize"].includes(job.data?.kind) && canAccessData(job.data || {}, accountKey))
       .slice(0, Math.max(1, Number(limit || 25)));
     return Promise.all(
       scoped.map(async (job) => {
@@ -2015,10 +2101,14 @@ module.exports = {
         const meta = job.data?.__meta || {};
         const metrics = resolveJobMetrics(job, state);
         const stateLabel = meta.stateLabel || state;
+        const isAnalysis = job.data?.kind === "analyze";
+        const title = isAnalysis
+          ? job.data?.mode === "full" ? "Verificação SMART completa" : "Verificação SMART rápida"
+          : "Otimizando SMART por rebate";
         return {
           id: String(job.id),
-          title: "Otimizando SMART por rebate",
-          label: "Otimizando SMART por rebate",
+          title,
+          label: title,
           state: stateLabel,
           lifecycle_status:
             meta.safetyPaused === true
@@ -2030,7 +2120,7 @@ module.exports = {
                   : state === "waiting" || state === "delayed"
                     ? "queued"
                     : state === "completed"
-                      ? metrics.failed > 0
+                      ? metrics.failed > 0 || (isAnalysis && ![null, "complete"].includes(meta.coverageState || null))
                         ? "partial"
                         : "completed"
                       : state === "failed"
@@ -2054,7 +2144,7 @@ module.exports = {
           accountKey: job.data?.accountKey || null,
           accountLabel: job.data?.accountLabel || job.data?.accountKey || null,
           operation_id: job.data?.operationId || null,
-          billing_telemetry: smartBillingTelemetry(job, state),
+          billing_telemetry: isAnalysis ? null : smartBillingTelemetry(job, state),
           pending: Math.max(0, metrics.total - metrics.processed),
           updated_at: new Date(
             meta.updatedAt || job.finishedOn || job.processedOn || job.timestamp || Date.now(),
@@ -2068,13 +2158,16 @@ module.exports = {
   async jobDetail(id, { accountKey = null } = {}) {
     const q = ensureQueue();
     const job = await q.getJob(id).catch(() => null);
-    if (!job || job.data?.kind !== "optimize" || !canAccessData(job.data || {}, accountKey)) return null;
+    if (!job || !["analyze", "optimize"].includes(job.data?.kind) || !canAccessData(job.data || {}, accountKey)) return null;
     const state = await job.getState().catch(() => "unknown");
     const meta = job.data?.__meta || {};
     const metrics = resolveJobMetrics(job, state);
+    const isAnalysis = job.data?.kind === "analyze";
     return {
       id: String(job.id),
-      title: "Otimizando SMART por rebate",
+      title: isAnalysis
+        ? job.data?.mode === "full" ? "Verificação SMART completa" : "Verificação SMART rápida"
+        : "Otimizando SMART por rebate",
       state: meta.stateLabel || state,
       lifecycle_status: meta.safetyPaused === true ? "paused_safety" : state === "active" ? "processing" : state === "completed" ? (metrics.failed > 0 ? "partial" : "completed") : state === "failed" ? "failed" : "queued",
       ...metrics,
@@ -2087,12 +2180,16 @@ module.exports = {
       accountKey: job.data?.accountKey || null,
       accountLabel: job.data?.accountLabel || job.data?.accountKey || null,
       operation_id: job.data?.operationId || null,
-      billing_telemetry: smartBillingTelemetry(job, state),
+      billing_telemetry: isAnalysis ? null : smartBillingTelemetry(job, state),
       credit_settlement: meta.credit_settlement || null,
       pending: Math.max(0, metrics.total - metrics.processed),
       full_report_url: `/api/promocoes/jobs/${encodeURIComponent(`smart:${job.id}`)}/download.xlsx`,
       updated_at: new Date(meta.updatedAt || job.finishedOn || job.processedOn || job.timestamp || Date.now()).toISOString(),
-      data: { results: Array.isArray(meta.results) ? meta.results : [] },
+      data: {
+        results: Array.isArray(meta.results) ? meta.results : [],
+        mode: job.data?.mode || null,
+        coverage_state: meta.coverageState || job.returnvalue?.coverage?.state || null,
+      },
       result: job.returnvalue || null,
     };
   },
@@ -2100,7 +2197,7 @@ module.exports = {
   async cancelJob(id, { accountKey = null } = {}) {
     const q = ensureQueue();
     const job = await q.getJob(id).catch(() => null);
-    if (!job || job.data?.kind !== "optimize" || !canAccessData(job.data || {}, accountKey)) return null;
+    if (!job || !["analyze", "optimize"].includes(job.data?.kind) || !canAccessData(job.data || {}, accountKey)) return null;
     const state = await job.getState().catch(() => "unknown");
     const meta = job.data?.__meta || {};
     const metrics = resolveJobMetrics(job, state);
@@ -2118,7 +2215,15 @@ module.exports = {
   async getJobXlsx(id, { accountKey = null } = {}) {
     const q = ensureQueue();
     const job = await q.getJob(id).catch(() => null);
-    if (!job || job.data?.kind !== "optimize" || !canAccessData(job.data || {}, accountKey)) return null;
+    if (!job || !["analyze", "optimize"].includes(job.data?.kind) || !canAccessData(job.data || {}, accountKey)) return null;
+    if (job.data?.kind === "analyze") {
+      const analysis = job.returnvalue || await loadAnalysisResult(id) || {};
+      return {
+        filename: `verificacao_smart_${id}.xlsx`,
+        buffer: await buildAnalysisWorkbook(job, analysis),
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      };
+    }
     return {
       filename: `otimizacao_smart_${id}.xlsx`,
       buffer: await buildWorkbook(job),

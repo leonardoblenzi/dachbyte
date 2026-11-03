@@ -4888,8 +4888,10 @@ core.post(
   "/api/promocoes/intelligence/smart/analyze",
   createAuditAction({
     evento: "promotion_smart_analysis_requested",
-    metadata: (_req, res) => ({
+    metadata: (req, res) => ({
       account_key: resolveAccountKeyFromLocals(res) || null,
+      mode: String(req.body?.mode || "quick").trim().toLowerCase(),
+      resume_analysis_id: String(req.body?.resume_analysis_id || "").trim() || null,
     }),
   }),
   async (req, res) => {
@@ -4902,16 +4904,37 @@ core.post(
         return res.status(400).json({ ok: false, error: "Selecione uma conta Mercado Livre." });
       }
       const accountLabel = res.locals?.accountLabel || accountKey;
+      const mode = String(req.body?.mode || "quick").trim().toLowerCase();
+      if (!["quick", "full"].includes(mode)) {
+        return res.status(400).json({ ok: false, error: "mode deve ser quick ou full." });
+      }
+      const resumeAnalysisId = String(req.body?.resume_analysis_id || "").trim() || null;
+      if (resumeAnalysisId && mode !== "full") {
+        return res.status(400).json({ ok: false, error: "Somente a verificação completa pode continuar uma análise." });
+      }
+      if (resumeAnalysisId) {
+        const previous = await PromoSmartOptimizerService.getAnalysis(resumeAnalysisId, { accountKey });
+        if (!previous) {
+          return res.status(404).json({ ok: false, error: "Análise anterior não encontrada, expirada ou pertencente a outra conta." });
+        }
+        if (!["completed", "failed"].includes(String(previous.state || ""))) {
+          return res.status(409).json({ ok: false, error: "A análise anterior ainda está em execução." });
+        }
+      }
       PromoSmartOptimizerService.init?.();
       const analysisId = await PromoSmartOptimizerService.startAnalysis({
         mlCreds: res.locals.mlCreds || {},
         accountKey,
         accountLabel,
+        mode,
+        resumeAnalysisId,
         auditContext: buildAuditContext(req, res, accountKey, accountLabel),
       });
       return res.status(202).json({
         ok: true,
         analysis_id: analysisId,
+        mode,
+        resumed_from: resumeAnalysisId,
         status_url: `/api/promocoes/intelligence/smart/analyses/${encodeURIComponent(analysisId)}`,
         account: { key: accountKey, label: accountLabel },
       });
