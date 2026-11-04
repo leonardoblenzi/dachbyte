@@ -9,8 +9,17 @@ test("filtros de promoção exigem conta e distinguem publicação de atividade"
   assert.match(f.where.join(" "),/s\.status=/);
   assert.match(f.where.join(" "),/s\.active=true/);
   assert.match(f.where.join(" "),/identifiers/);
-  assert.ok(f.params.includes("00123"));
+  assert.deepEqual(f.params.at(-1),["00123"]);
   assert.throws(()=>prices.filters({accountId:7,publication:"INVALID"}),{status:422});
+});
+test("busca promocional combina identificadores separados por vírgula sem perder zeros",()=>{
+  for(const type of ["sku","ean","group"]){
+    const f=prices.filters({accountId:7,search_type:type,q:" 00123, 00456,00123 "});
+    assert.deepEqual(f.params.at(-1),["00123","00456"]);
+    assert.match(f.where.join(" "),/any\(/);
+  }
+  const product=prices.filters({accountId:7,search_type:"product",q:"Sofá, mesa"});
+  assert.equal(product.params.at(-1),"%sofá, mesa%");
 });
 
 test("atualização percorre recorte completo em páginas sob um único job",async()=>{

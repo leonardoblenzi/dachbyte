@@ -8,7 +8,7 @@
   const esc=(v)=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const money=(v)=>v==null||v===""?"—":moneyFmt.format(Number(v)||0);
   const num=(v)=>numFmt.format(Number(v)||0);
-  const pct=(v)=>v==null||v===""?"—":`${Number(v).toLocaleString("pt-BR",{minimumFractionDigits:1,maximumFractionDigits:2})}%`;
+  const pct=(v)=>v==null||v===""?"—":`${Number(v).toLocaleString("pt-BR",{maximumFractionDigits:2})}%`;
   const account=()=>Number(shell()?.getSelectedAccountId?.())||null;
   const route=()=>shell()?.route?.()||"";
   async function api(path,options={}){return shell().fetchJson(`/magalu/api/financial${path}`,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});}

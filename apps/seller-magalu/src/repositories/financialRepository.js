@@ -94,9 +94,9 @@ async function exportCosts(accountId, options = {}) {
     left join magalu.prices p on p.account_id=s.account_id and p.sku=s.sku and p.is_present=true
     left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku
     left join magalu.finance_settings f on f.account_id=s.account_id
-    where ${where.join(" and ")} order by s.sku asc limit 50001`,params);
-  if (rows.length > 50000) {
-    const error = new Error("A exportação excede 50.000 SKUs. Entre em contato com o suporte para exportar uma conta maior.");
+    where ${where.join(" and ")} order by s.sku asc limit 100001`,params);
+  if (rows.length > 100000) {
+    const error = new Error("A exportação excede 100.000 SKUs. Aplique filtros para baixar a base em partes.");
     error.status = 413;
     throw error;
   }
@@ -154,7 +154,7 @@ async function getCostHistory(accountId, sku, limit = 50) {
 }
 
 async function importCosts(accountId, rows, changedBy = null) {
-  if (!Array.isArray(rows) || rows.length > 50000) { const e = new Error("Quantidade de linhas inválida."); e.status = 413; throw e; }
+  if (!Array.isArray(rows) || rows.length > 100000) { const e = new Error("Quantidade de linhas inválida."); e.status = 413; throw e; }
   if (!rows.length) return { updated: 0, total: 0 };
   const skus = rows.map((row) => text(row.sku, 128));
   if (new Set(skus).size !== skus.length) { const e = new Error("SKUs duplicados na planilha."); e.status = 422; throw e; }

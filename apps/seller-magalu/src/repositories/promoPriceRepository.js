@@ -16,12 +16,15 @@ function filters(input={}){
   if(category.length>128)throw invalid("Categoria muito longa.");
   if(category){params.push(category);where.push(`s.category_id=$${params.length}`);}
   const q=String(input.q||"").trim(),type=String(input.search_type||"sku");
-  if(q.length>200)throw invalid("Busca muito longa.",413);
+  if(q.length>20000)throw invalid("Lista muito longa. Divida a busca em partes.",413);
   if(!["sku","ean","group","product"].includes(type))throw invalid("Tipo de busca inválido.");
   if(q){
-    if(type==="ean"){params.push(q.toLowerCase());where.push(`exists(select 1 from jsonb_array_elements(coalesce(s.payload->'identifiers','[]'::jsonb)) i where lower(i->>'type')='ean' and lower(i->>'value')=$${params.length})`);}
-    else if(type==="group"){params.push(q.toLowerCase());where.push(`lower(coalesce(s.group_id,''))=$${params.length}`);}
-    else{params.push(`%${q.toLowerCase()}%`);where.push(`lower(${type==="product"?"coalesce(s.title,'')":"s.sku"}) like $${params.length}`);}
+    const values=type==="product"?[]:[...new Set(q.split(/[,;\r\n]+/).map(value=>value.trim().toLowerCase()).filter(Boolean))];
+    if(type!=="product"&&!values.length)throw invalid("Informe ao menos um identificador.");
+    if(type==="ean"){params.push(values);where.push(`exists(select 1 from jsonb_array_elements(coalesce(s.payload->'identifiers','[]'::jsonb)) i where lower(i->>'type')='ean' and lower(i->>'value')=any($${params.length}::text[]))`);}
+    else if(type==="group"){params.push(values);where.push(`lower(coalesce(s.group_id,''))=any($${params.length}::text[])`);}
+    else if(type==="sku"&&values.length>1){params.push(values);where.push(`lower(s.sku)=any($${params.length}::text[])`);}
+    else{params.push(`%${type==="product"?q.toLowerCase():values[0]}%`);where.push(`lower(${type==="product"?"coalesce(s.title,'')":"s.sku"}) like $${params.length}`);}
   }
   return{where,params};
 }

@@ -27,7 +27,7 @@ test("XLSX applies all currently supported cost filters, without paginating the 
     assert.ok(exported.sql.includes(fragment), `export missing ${fragment}`);
   }
   assert.deepEqual(exported.params, listing.params.slice(0, -2));
-  assert.match(exported.sql, /order by s\.sku asc limit 50001/);
+  assert.match(exported.sql, /order by s\.sku asc limit 100001/);
   assert.doesNotMatch(exported.sql, /offset \$/i);
 });
 
@@ -43,6 +43,14 @@ test("XLSX keeps SKU-list, inactive, risk, and healthy filter semantics", async 
   }
 });
 
+test("exportação aceita o catálogo de uma conta com mais de 50 mil SKUs", async () => {
+  const original = db.query;
+  const rows = Array.from({ length: 55000 }, (_, index) => ({ sku: `SKU-${index}` }));
+  db.query = async () => ({ rows });
+  try { assert.equal((await repository.exportCosts(9)).length, 55000); }
+  finally { db.query = original; }
+});
+
 test("browser and controller forward the applied filters to the XLSX query", () => {
   const root = path.join(__dirname, "..");
   const browser = fs.readFileSync(path.join(root, "public/js/magalu-financial.js"), "utf8");
@@ -53,5 +61,5 @@ test("browser and controller forward the applied filters to the XLSX query", () 
 
 test("the page loads a fresh financial script URL after changing export behavior", () => {
   const html = fs.readFileSync(path.join(__dirname, "../views/app.html"), "utf8");
-  assert.match(html, /magalu-financial\.js\?v=2026101501/);
+  assert.match(html, /magalu-financial\.js\?v=2026110402/);
 });
