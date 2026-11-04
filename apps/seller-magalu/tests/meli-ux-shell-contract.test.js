@@ -13,12 +13,23 @@ test("Magalu navigation uses the Meli-equivalent vocabulary and every declared r
   const client = read("public/js/magalu-app.js");
 
   assert.match(html, /<strong>Precificação<\/strong>/);
-  for (const pathName of ["/", "/gestao-skus", "/pedidos", "/precos", "/estoque", "/margem", "/calculadora", "/contas", "/integracoes"]) {
+  for (const pathName of ["/", "/gestao-skus", "/pedidos", "/precos", "/estoque", "/margem", "/calculadora", "/promocoes-em-massa", "/contas", "/integracoes"]) {
     assert.match(client, new RegExp(`"${pathName}"`));
     const escaped = pathName === "/" ? "\\/" : pathName.replaceAll("/", "\\/");
     assert.match(html, new RegExp(`data-page="${escaped}"`));
   }
   for (const [pathName, page] of [["/usuarios", "mg-users-page"], ["/plano", "mg-plan-page"], ["/ajuda", "mg-help-page"]]) {
     assert.match(client, new RegExp(`"${pathName}":\\s*\\{[^}]*page:\\s*"${page}"`));
+  }
+});
+
+test("every Magalu frontend page is served by a backend entry route", () => {
+  const client = read("public/js/magalu-app.js");
+  const backend = read("src/routes/index.js");
+  const declared = [...client.matchAll(/^    "(\/[^\"]*)": \{ title:/gm)].map((match) => match[1]);
+  const entryRoutes = backend.match(/for \(const route of \[([^\]]+)\]\)/)?.[1] || "";
+  for (const route of declared) {
+    if (route === "/" || route === "/catalogo" || route === "/sincronizacao") continue;
+    assert.ok(entryRoutes.includes(`"${route}"`), `${route} lacks a backend entry route`);
   }
 });
