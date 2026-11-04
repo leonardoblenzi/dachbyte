@@ -44,6 +44,7 @@ test("queue names are isolated by a BullMQ-safe Magalu prefix", () => {
     "magalu-hub-resource-sync",
     "magalu-orders-sync",
     "magalu-price-update",
+    "magalu-promo-price-refresh",
     "magalu-sku-update",
     "magalu-stock-update",
     "magalu-token-refresh",

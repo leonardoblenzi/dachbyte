@@ -76,4 +76,33 @@ async function parseCostWorkbook({ filename, buffer }) {
   return rows;
 }
 
-module.exports = { buildCostWorkbook, parseCostWorkbook, _test: { parseAmount, COLUMNS } };
+async function parseEanCostWorkbook({ filename, buffer }) {
+  if (!String(filename || "").toLowerCase().endsWith(".xlsx")) throw invalid("Envie um arquivo XLSX válido.",400);
+  if (!Buffer.isBuffer(buffer) || buffer.length < 10 || buffer.length > 25 * 1024 * 1024) throw invalid("Arquivo XLSX inválido ou maior que 25 MB.",400);
+  const workbook=new ExcelJS.Workbook();
+  try { await workbook.xlsx.load(buffer); } catch (_) { throw invalid("Arquivo XLSX inválido.",400); }
+  const sheet=workbook.getWorksheet("Custos por EAN")||workbook.worksheets[0];
+  if(!sheet || String(sheet.getCell("A1").value||"").trim()!=="EAN" || String(sheet.getCell("B1").value||"").trim()!=="Custo produto") throw invalid("Cabeçalhos inválidos. Use o modelo de custos por EAN.",400);
+  if(sheet.rowCount>50001)throw invalid("A planilha excede 50.000 linhas.",413);
+  const values=new Map(),errors=[];
+  for(let line=2;line<=sheet.rowCount;line++){
+    const row=sheet.getRow(line),raw=row.getCell(1).value,cost=row.getCell(2).value;
+    if((raw==null||raw==="")&&(cost==null||cost===""))continue;
+    if(typeof raw!=="string"||!/^\d{1,32}$/.test(raw.trim())){errors.push({line,reason:"EAN deve ser preenchido como texto com dígitos."});continue;}
+    const ean=raw.trim();let unit_cost;
+    try{unit_cost=parseAmount(cost);if(unit_cost===undefined)throw new Error();}catch(_){errors.push({line,ean,reason:"Custo inválido ou ausente."});continue;}
+    if(values.has(ean)&&values.get(ean)!==unit_cost){errors.push({line,ean,reason:"EAN com custos conflitantes."});continue;}
+    values.set(ean,unit_cost);
+  }
+  if(errors.length)throw invalid(`Planilha contém ${errors.length} erro(s). Nenhum custo foi alterado.`,422,errors);
+  return [...values].map(([ean,unit_cost])=>({ean,unit_cost}));
+}
+async function buildEanCostTemplate() {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Custos por EAN");
+  sheet.columns = [{ header: "EAN", key: "ean", width: 24, style: { numFmt: "@" } }, { header: "Custo produto", key: "unit_cost", width: 22 }];
+  sheet.getRow(1).font = { bold: true };
+  sheet.views = [{ state: "frozen", ySplit: 1 }];
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
+module.exports = { buildCostWorkbook, parseCostWorkbook, parseEanCostWorkbook, buildEanCostTemplate, _test: { parseAmount, COLUMNS } };

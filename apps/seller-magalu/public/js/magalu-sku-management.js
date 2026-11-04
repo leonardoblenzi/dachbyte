@@ -2,7 +2,7 @@
   "use strict";
 
   const API = "/magalu/api/sku-management";
-  const state = { accountId: null, page: 1, limit: 50, total: 0, rows: [], selected: new Set(), allFiltered: false, preview: null, inputMode:"filters", action:null, resolution:null, bound: false };
+  const state = { accountId: null, page: 1, limit: 50, total: 0, rows: [], selected: new Set(), allFiltered: false, bulkSelectionId:null, missingShown:0, appliedFilters:null, appliedList:null, maxBatchSize:5000, preview: null, inputMode:"filters", action:null, resolution:null, bound: false };
   const $ = (id) => document.getElementById(id);
   const shell = () => window.MagaluSellerShell || null;
   const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
@@ -26,7 +26,26 @@
   }
   function query(params) { const p = new URLSearchParams(); Object.entries(params).forEach(([k,v]) => { if (v !== "" && v != null) p.set(k, String(v)); }); return p.toString(); }
   function filters() { return { q: $("mg-sku-search")?.value?.trim() || "", search_type: $("mg-sku-search-type")?.value || "sku", status: $("mg-sku-status")?.value || "", active: $("mg-sku-active")?.value || "" }; }
+  function listSignature(){return JSON.stringify([$("mg-sku-list-input")?.value||"",$("mg-sku-list-type")?.value||"sku",$("mg-sku-list-status")?.value||"",$("mg-sku-list-active")?.value||""]);}
   function selection() { return state.allFiltered ? { mode:"all_filtered", filters:filters() } : { mode:"explicit", skus:[...state.selected] }; }
+  function parseIdentifiers(value){return [...new Map(String(value||"").split(/[;,\r\n]+/).map(part=>part.trim()).filter(Boolean).map(id=>[id.toLowerCase(),id])).values()];}
+  async function buildBulkSelection(values,type,status="",active=""){
+    const identifiers=parseIdentifiers(values);if(!identifiers.length)throw new Error("Informe ao menos um identificador.");
+    const selectedAccount=state.accountId;
+    const created=await api("/bulk/selections",{method:"POST",body:JSON.stringify({account_id:selectedAccount,search_type:type,status,active})});
+    for(let offset=0;offset<identifiers.length;offset+=1000){
+      const chunk=identifiers.slice(offset,offset+1000);
+      await api(`/bulk/selections/${created.id}/append`,{method:"POST",body:JSON.stringify({account_id:selectedAccount,identifiers:chunk})});
+      const host=$("mg-sku-resolution");if(host){host.hidden=false;host.textContent=`Validando identificadores: ${fmt(Math.min(offset+1000,identifiers.length))} de ${fmt(identifiers.length)}...`;}
+      if(state.accountId!==selectedAccount)throw new Error("A conta foi alterada durante a validação. Comece novamente.");
+    }
+    const host=$("mg-sku-resolution");if(host)host.textContent=`Buscando SKUs para ${fmt(identifiers.length)} identificadores...`;
+    const result=await api(`/bulk/selections/${created.id}/finalize`,{method:"POST",body:JSON.stringify({account_id:selectedAccount})});
+    if(state.accountId!==selectedAccount)throw new Error("A conta foi alterada durante a validação.");
+    state.bulkSelectionId=created.id;state.page=1;state.total=Number(result.matched_count||0);
+    await loadSkus();
+    return result;
+  }
   function badge(text, kind = "muted") { return `<span class="mg-sku-badge" data-tone="${esc(kind)}">${esc(text || "—")}</span>`; }
 
   function resetSelection() { state.selected.clear(); state.allFiltered = false; state.preview = null; state.action = null; state.resolution = null; renderResolution(); document.querySelectorAll(".mg-sku-action-option").forEach((button)=>button.classList.remove("is-active")); updateSelection(); }
@@ -47,13 +66,15 @@
     const result = state.resolution;
     if (!result) { host.hidden = true; host.textContent = ""; return; }
     host.hidden = false;
-    const found = Number(result.rows?.length || 0), missing = result.missingSkus || [];
-    host.innerHTML = `<strong>${fmt(found)} SKU${found === 1 ? "" : "s"} pronto${found === 1 ? "" : "s"} para o preview</strong><span>${fmt(result.skus?.length || 0)} informado${Number(result.skus?.length || 0) === 1 ? "" : "s"} · ${fmt(missing.length)} não encontrado${missing.length === 1 ? "" : "s"}</span>${missing.length ? `<small>Não encontrados: ${esc(missing.slice(0, 20).join(", "))}${missing.length > 20 ? "…" : ""}</small>` : ""}`;
+    const found = Number(result.bulk?result.matched_count:result.rows?.length || 0), missing = result.bulk?result.missing_identifiers||[]:result.missingSkus||[],missingCount=result.bulk?Number(result.missing_count||0):missing.length;
+    state.missingShown=result.bulk?Math.min(20,missing.length):missing.length;
+    host.innerHTML = `<strong>${fmt(found)} SKU${found === 1 ? "" : "s"} encontrado${found === 1 ? "" : "s"}</strong><span>${fmt(result.bulk?result.identifier_count:result.skus?.length || 0)} informado(s) · ${fmt(missingCount)} não encontrado(s)</span>${missingCount ? `<small id="mg-sku-missing-list">Não encontrados: ${esc(missing.slice(0, 20).join(", "))}</small>${result.bulk&&missingCount>state.missingShown?'<button class="mg-secondary-btn" id="mg-sku-missing-more" type="button">Mostrar mais não encontrados</button>':""}` : ""}`;
   }
+  async function showMoreMissing(){if(!state.bulkSelectionId)return;try{const data=await api(`/bulk/selections/${state.bulkSelectionId}/missing?${query({account_id:state.accountId,offset:state.missingShown})}`);const host=$("mg-sku-missing-list");if(host)host.textContent+=`${state.missingShown?", ":""}${data.rows.join(", ")}`;state.missingShown+=data.rows.length;const button=$("mg-sku-missing-more");if(button)button.hidden=state.missingShown>=data.total||!data.rows.length;}catch(e){alert(e.message);}}
 
   function setInputMode(mode) {
     state.inputMode = ["filters","single","list"].includes(mode) ? mode : "filters";
-    resetSelection();
+    resetSelection();state.bulkSelectionId=null;
     document.querySelectorAll("[data-sku-input-mode]").forEach((button) => button.classList.toggle("is-active", button.dataset.skuInputMode === state.inputMode));
     document.querySelectorAll("[data-sku-input-panel]").forEach((panel) => { panel.hidden = panel.dataset.skuInputPanel !== state.inputMode; });
     updateSelection();
@@ -63,6 +84,16 @@
     if (!state.accountId) return alert("Selecione uma conta Magalu.");
     const value = mode === "single" ? $("mg-sku-single-input")?.value : $("mg-sku-list-input")?.value;
     try {
+      if(mode==="list"){
+        const result=await buildBulkSelection(value,$("mg-sku-list-type")?.value||"sku",$("mg-sku-list-status")?.value||"",$("mg-sku-list-active")?.value||"");
+        state.allFiltered=true;state.selected.clear();
+        const page=await api(`/bulk/selections/${state.bulkSelectionId}?${query({account_id:state.accountId,page:1,limit:state.limit})}`);
+        state.resolution={...result,bulk:true,missing_identifiers:page.missing_identifiers};
+        state.appliedList=listSignature();
+        renderResolution();updateSelection();await loadSkus();
+        if(!state.total)alert("Nenhum SKU da lista foi localizado.","warning");
+        return;
+      }
       const data = await api("/selection/resolve", { method:"POST", body:JSON.stringify({ account_id:state.accountId, skus:[value || ""] }) });
       state.allFiltered = false; state.selected = new Set((data.rows || []).map((row) => row.sku)); state.resolution = data;
       renderResolution(); updateSelection();
@@ -73,6 +104,7 @@
   async function loadStatus() {
     if (!state.accountId) return;
     const data = await api(`/status?account_id=${state.accountId}`);
+    state.maxBatchSize=Number(data.max_batch_size)||5000;
     const badgeEl = $("mg-sku-write-state"), help = $("mg-sku-write-help");
     if (badgeEl) { badgeEl.textContent = !data.enabled ? "desativado" : data.account?.has_write_scope ? "pronto" : "scope ausente"; badgeEl.dataset.state = !data.enabled ? "disabled" : data.account?.has_write_scope ? "ready" : "missing"; }
     if (help) help.textContent = !data.enabled ? "Escrita remota desativada por configuração." : data.account?.has_write_scope ? `Preview protegido · até ${fmt(data.max_batch_size)} SKUs por lote · ${fmt(data.rate_limit_per_minute)}/min.` : `Reconecte a conta com ${data.scope}.`;
@@ -87,7 +119,10 @@
       $("mg-sku-management-empty") && ($("mg-sku-management-empty").hidden = true);
       updateSelection(); return;
     }
-    const data = await api(`/skus?${query({ account_id:state.accountId, ...filters(), page:state.page, limit:state.limit })}`);
+    const requestedAccount=state.accountId,requestedSelection=state.bulkSelectionId;
+    const data = requestedSelection ? await api(`/bulk/selections/${requestedSelection}?${query({account_id:requestedAccount,page:state.page,limit:state.limit})}`) : await api(`/skus?${query({ account_id:requestedAccount, ...filters(), page:state.page, limit:state.limit })}`);
+    if(state.accountId!==requestedAccount||state.bulkSelectionId!==requestedSelection)return;
+    if(state.inputMode==="filters")state.appliedFilters=JSON.stringify(filters());
     state.rows = data.rows || []; state.total = Number(data.total || 0);
     if (body) body.innerHTML = state.rows.map((r) => `<tr>
       <td><input class="mg-sku-row-check" type="checkbox" data-sku="${esc(r.sku)}" ${state.allFiltered || state.selected.has(r.sku) ? "checked" : ""} ${state.allFiltered ? "disabled" : ""}></td>
@@ -120,25 +155,47 @@
   function closeModal(id) { const el = $(id); if (el) el.hidden = true; }
   async function makePreview(action) {
     const count = state.allFiltered ? state.total : state.selected.size; if (!count) return;
+    if(state.inputMode==="filters"&&state.appliedFilters!==JSON.stringify(filters()))return alert("Os filtros mudaram. Clique em Filtrar antes de revisar.","warning");
+    if(state.inputMode==="list"&&state.appliedList!==listSignature())return alert("A lista ou os filtros mudaram. Valide a lista novamente.","warning");
+    const reviewButton=$("mg-sku-review"),reviewLabel=reviewButton?.textContent;
+    if(reviewButton){reviewButton.disabled=true;reviewButton.textContent="Preparando revisão...";}
     try {
+      if(count>state.maxBatchSize || (state.bulkSelectionId&&state.allFiltered)){
+        let selectionId=state.bulkSelectionId;
+        if(!state.allFiltered){const result=await buildBulkSelection([...state.selected].join("\n"),"sku");selectionId=result.id;state.allFiltered=true;state.selected.clear();}
+        else if(!selectionId){const result=await api("/bulk/selections/from-filter",{method:"POST",body:JSON.stringify({account_id:state.accountId,filters:filters()})});selectionId=result.id;}
+        const data=await api("/bulk/groups/preview",{method:"POST",body:JSON.stringify({account_id:state.accountId,selection_id:selectionId,action})});
+        const group=data.group;state.preview={...group,bulk:true};
+        $("mg-sku-preview-title").textContent=action==="activate"?"Publicar SKUs em lotes":"Despublicar SKUs em lotes";
+        $("mg-sku-preview-summary").textContent=`${fmt(group.selected_count)} selecionados · ${fmt(group.change_count)} alterações · ${fmt(group.previews.length)} lotes`;
+        $("mg-sku-preview-expiry").textContent=`Expira em ${dt(group.expires_at)}`;
+        $("mg-sku-preview-head").innerHTML="<th>Lote</th><th>Primeiro SKU</th><th>Último SKU</th><th>Itens / alterações</th>";
+        $("mg-sku-preview-body").innerHTML=group.previews.map((part,index)=>`<tr><td>Lote ${index+1}</td><td>${esc(part.first_sku)}</td><td>${esc(part.last_sku)}</td><td>${fmt(part.selected_count)} SKUs · ${fmt(part.change_count)} alterações</td></tr>`).join("");
+        const trunc=$("mg-sku-preview-truncated");if(trunc){trunc.hidden=false;trunc.textContent="Cada lote contém até 5.000 SKUs. Confira as contagens antes de confirmar.";}
+        $("mg-sku-preview-confirm").checked=false;$("mg-sku-preview-apply").disabled=true;$("mg-sku-preview-apply").dataset.writeEnabled=data.write_enabled===true?"true":"false";$("mg-sku-preview").hidden=false;
+        return;
+      }
       const data = await api("/preview", { method:"POST", body:JSON.stringify({ account_id:state.accountId, action, selection:selection() }) });
       state.preview = data.preview; const p = data.preview, rows = (p.rows || []).slice(0, 50);
       $("mg-sku-preview-title").textContent = action === "activate" ? "Ativar SKUs" : "Despublicar SKUs";
       $("mg-sku-preview-summary").textContent = `${fmt(p.selected_count)} selecionados · ${fmt(p.change_count)} com alteração`;
       $("mg-sku-preview-expiry").textContent = `Expira em ${dt(p.expires_at)}`;
+      $("mg-sku-preview-head").innerHTML="<th>SKU</th><th>Antes</th><th>Depois</th><th>Resultado</th>";
       $("mg-sku-preview-body").innerHTML = rows.map((r) => `<tr><td><code>${esc(r.sku)}</code></td><td>${r.before?.active ? "Ativo" : "Inativo"}</td><td>${r.requested?.active ? "Ativo" : "Inativo"}</td><td>${r.changed ? badge("Aplicar","warn") : badge("Sem mudança","ok")}</td></tr>`).join("");
       const trunc = $("mg-sku-preview-truncated"); if (trunc) { trunc.hidden = (p.rows || []).length <= rows.length; trunc.textContent = trunc.hidden ? "" : `Mostrando ${rows.length} de ${fmt(p.rows.length)} itens.`; }
       $("mg-sku-preview-confirm").checked = false; $("mg-sku-preview-apply").disabled = true; $("mg-sku-preview-apply").dataset.writeEnabled = data.write_enabled === true ? "true" : "false";
       $("mg-sku-preview").hidden = false;
       if (!data.write_enabled) alert("Preview criado, mas a escrita remota está desabilitada.", "warning");
     } catch (e) { alert(e.message); }
+    finally{if(reviewButton){reviewButton.textContent=reviewLabel;updateSelection();}}
   }
   async function applyPreview() {
     if (!state.preview?.id) return;
     const button = $("mg-sku-preview-apply"); button.disabled = true;
     try {
+      if(state.preview.bulk){const data=await api("/bulk/groups/apply",{method:"POST",body:JSON.stringify({account_id:state.accountId,group_id:state.preview.id})});closeModal("mg-sku-preview");alert(`${fmt(state.preview.change_count)} alterações enfileiradas em ${fmt(state.preview.previews.length)} lotes. Acompanhe em Processos.`,"success");window.dispatchEvent(new CustomEvent("magalu:processqueued",{detail:{accountId:state.accountId,groupId:data.group_id}}));resetSelection();await loadBatches();return;}
       const data = await api("/apply", { method:"POST", body:JSON.stringify({ preview_id:state.preview.id }) });
-      closeModal("mg-sku-preview"); alert(`Lote ${data.batch_id} enfileirado com ${fmt(data.total)} itens.`, "success"); resetSelection(); await Promise.all([loadSkus(), loadBatches()]);
+      closeModal("mg-sku-preview"); alert(`Lote ${data.batch_id} enfileirado com ${fmt(data.total)} itens.`, "success"); window.dispatchEvent(new CustomEvent("magalu:processqueued", { detail: { accountId: state.accountId } })); resetSelection(); await Promise.all([loadSkus(), loadBatches()]);
     } catch (e) { alert(e.message); } finally { button.disabled = false; }
   }
   async function validation(sku) {
@@ -158,14 +215,14 @@
   async function reverify(id, button) { if (button) button.disabled = true; try { await api(`/items/${id}/reverify`, { method:"POST", body:"{}" }); alert(`Item #${id} enfileirado para reverificação.`, "success"); closeModal("mg-sku-batch-detail"); await loadBatches(); } catch (e) { alert(e.message); } finally { if (button) button.disabled = false; } }
 
   async function refreshForAccount(accountId) {
-    state.accountId = Number(accountId) || null; state.page = 1; resetSelection();
+    state.accountId = Number(accountId) || null; state.page = 1; state.bulkSelectionId=null;state.appliedFilters=null;state.appliedList=null; resetSelection();
     if (!isPage() || !state.accountId) { await loadSkus(); return; }
     try { await Promise.all([loadStatus(), loadSkus(), loadBatches()]); } catch (e) { alert(e.message); }
   }
   function bind() {
     if (state.bound) return; state.bound = true;
     $("mg-sku-search-type")?.addEventListener("change", (event) => { const input=$("mg-sku-search"); if(input) input.placeholder=({sku:"Buscar SKU",product:"Buscar produto",ean:"Informe o EAN",group:"Informe o ID da família"})[event.target.value]||"Buscar SKU"; });
-    $("mg-sku-filter")?.addEventListener("click", () => { state.page = 1; setInputMode("filters"); void loadSkus().catch((e) => alert(e.message)); });
+    $("mg-sku-filter")?.addEventListener("click", () => { state.page = 1; setInputMode("filters");const f=filters();if(["sku","ean","group"].includes(f.search_type)&&/[;,\r\n]/.test(f.q)){void buildBulkSelection(f.q,f.search_type,f.status,f.active).then(async result=>{const page=await api(`/bulk/selections/${state.bulkSelectionId}?${query({account_id:state.accountId,page:1,limit:state.limit})}`);state.resolution={...result,bulk:true,missing_identifiers:page.missing_identifiers};renderResolution();}).catch(e=>alert(e.message));}else void loadSkus().catch((e) => alert(e.message)); });
     $("mg-sku-refresh")?.addEventListener("click", () => void Promise.all([loadStatus(), loadSkus(), loadBatches()]).catch((e) => alert(e.message)));
     $("mg-sku-prev")?.addEventListener("click", () => { if (state.page > 1) { state.page -= 1; void loadSkus(); } });
     $("mg-sku-next")?.addEventListener("click", () => { if (state.page * state.limit < state.total) { state.page += 1; void loadSkus(); } });
@@ -183,6 +240,7 @@
     document.querySelectorAll("[data-sku-input-mode]").forEach((button) => button.addEventListener("click", () => setInputMode(button.dataset.skuInputMode)));
     $("mg-sku-resolve-single")?.addEventListener("click", () => void resolveExplicitInput("single"));
     $("mg-sku-resolve-list")?.addEventListener("click", () => void resolveExplicitInput("list"));
+    document.addEventListener("click",event=>{if(event.target.id==="mg-sku-missing-more")void showMoreMissing();});
     document.addEventListener("change", (e) => { const box = e.target.closest?.("[data-sku]"); if (!box || !isPage()) return; state.allFiltered = false; box.checked ? state.selected.add(box.dataset.sku) : state.selected.delete(box.dataset.sku); updateSelection(); });
     document.addEventListener("click", (e) => { if (!isPage()) return; const v=e.target.closest?.("[data-sku-validation]"); if (v) return void validation(v.dataset.skuValidation); const b=e.target.closest?.("[data-sku-batch]"); if (b) return void openBatch(b.dataset.skuBatch); const r=e.target.closest?.("[data-sku-reverify]"); if (r) return void reverify(r.dataset.skuReverify, r); });
     window.addEventListener("magalu:accountchange", (e) => void refreshForAccount(e.detail?.accountId));

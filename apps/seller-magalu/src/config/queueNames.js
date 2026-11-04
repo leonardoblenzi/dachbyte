@@ -2,6 +2,7 @@
 
 module.exports = Object.freeze({
   catalogSync: "magalu-catalog-sync",
+  promoPriceRefresh: "magalu-promo-price-refresh",
   tokenRefresh: "magalu-token-refresh",
   webhookProcess: "magalu-webhook-process",
   priceUpdate: "magalu-price-update",

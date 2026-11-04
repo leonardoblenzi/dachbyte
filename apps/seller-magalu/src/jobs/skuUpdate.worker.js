@@ -6,11 +6,14 @@ const { ensureRedisConnected } = require("../config/redis");
 const queueNames = require("../config/queueNames");
 const { executeSkuMassItem } = require("../services/skuMassExecutionService");
 const skuMassRepository = require("../repositories/skuMassRepository");
+const skuBulkGroupRepository = require("../repositories/skuBulkGroupRepository");
+const { enqueueSkuMassItems } = require("../queues/magaluQueue");
 
 let worker=null;
 async function processSkuUpdateJob(job){
   const name=String(job?.name||"");
   if(name==="retention")return skuMassRepository.cleanupRetention();
+  if(name==="apply-group")return skuBulkGroupRepository.apply({accountId:job.data.accountId,tenantId:job.data.tenantId,userId:job.data.userId},job.data.groupId,enqueueSkuMassItems);
   if(!["apply","verify"].includes(name))throw new Error(`Job de SKU Magalu desconhecido: ${name}`);
   return executeSkuMassItem(job.data.itemId);
 }

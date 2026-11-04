@@ -1,5 +1,6 @@
 "use strict";
 const db = require("../config/postgres");
+const { randomUUID } = require("node:crypto");
 const { calculatePricing } = require("../services/magaluPricingEngine");
 const { validateGlobalTax } = require("../services/effectiveTax");
 
@@ -192,6 +193,80 @@ async function importCosts(accountId, rows, changedBy = null) {
   });
 }
 
+function importError(message, status = 422) { const error = new Error(message); error.status = status; return error; }
+async function resolveEans(client, accountId, eans) {
+  const result = await client.query(`select distinct s.sku, identifier->>'value' as ean, c.unit_cost
+    from magalu.skus s
+    cross join lateral jsonb_array_elements(coalesce(s.payload->'identifiers','[]'::jsonb)) identifier
+    left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku
+    where s.account_id=$1 and s.is_present=true and lower(identifier->>'type')='ean'
+      and identifier->>'value'=any($2::text[]) order by s.sku,ean`, [Number(accountId), eans]);
+  return result.rows;
+}
+function expandEanRows(input, matches) {
+  const costs = new Map(input.map(row => [row.ean, Number(row.unit_cost)]));
+  const bySku = new Map(), found = new Set();
+  for (const match of matches) {
+    found.add(match.ean);
+    const cost = costs.get(match.ean);
+    const existing = bySku.get(match.sku);
+    if (existing && existing.unit_cost !== cost) throw importError(`SKU ${match.sku} possui EANs com custos diferentes. Corrija a planilha.`);
+    if (!existing) bySku.set(match.sku, { sku: match.sku, eans: [match.ean], unit_cost: cost, previous_cost: match.unit_cost == null ? null : Number(match.unit_cost) });
+    else if (!existing.eans.includes(match.ean)) existing.eans.push(match.ean);
+  }
+  const missing = input.map(row => row.ean).filter(ean => !found.has(ean));
+  return { rows: [...bySku.values()].sort((a,b) => a.sku.localeCompare(b.sku)), missing };
+}
+async function previewEanCosts(accountId, input, changedBy) {
+  if (!Array.isArray(input) || !input.length) throw importError("Informe ao menos um EAN com custo.");
+  return db.withClient(async client => {
+    const expanded = expandEanRows(input, await resolveEans(client, accountId, input.map(row => row.ean)));
+    if (expanded.rows.length > 50000) throw importError("A importação corresponde a mais de 50.000 SKUs.", 413);
+    const id = randomUUID();
+    await client.query(`insert into magalu.ean_cost_import_previews(id,account_id,created_by,rows) values($1,$2,$3,$4::jsonb)`, [id, Number(accountId), changedBy, JSON.stringify({ input, ...expanded })]);
+    return { preview_id: id, total_eans: input.length, total_skus: expanded.rows.length, missing_eans: expanded.missing, rows: expanded.rows.slice(0, 100), limit: 100 };
+  });
+}
+async function getEanCostPreview(accountId, id, changedBy, offset = 0) {
+  const preview = await db.queryOne(`select rows from magalu.ean_cost_import_previews where id=$1 and account_id=$2 and created_by is not distinct from $3 and used_at is null and expires_at>now()`, [id, Number(accountId), changedBy]);
+  if (!preview) throw importError("Prévia expirada ou não encontrada. Importe a planilha novamente.", 404);
+  const data = preview.rows, page = Math.max(0, Math.floor(Number(offset) || 0));
+  return { preview_id: id, total_eans: data.input.length, total_skus: data.rows.length, missing_eans: data.missing, rows: data.rows.slice(page, page + 100), offset: page, limit: 100 };
+}
+async function confirmEanCosts(accountId, id, changedBy) {
+  return db.withClient(async client => {
+    await client.query("BEGIN");
+    try {
+      const result = await client.query(`select rows from magalu.ean_cost_import_previews where id=$1 and account_id=$2 and created_by is not distinct from $3 and used_at is null and expires_at>now() for update`, [id, Number(accountId), changedBy]);
+      if (!result.rows.length) throw importError("Prévia expirada ou já utilizada. Importe a planilha novamente.", 409);
+      const snapshot = result.rows[0].rows;
+      if (snapshot.missing.length) throw importError(`${snapshot.missing.length} EAN(s) não encontrados. Corrija a planilha antes de confirmar.`);
+      const current = expandEanRows(snapshot.input, await resolveEans(client, accountId, snapshot.input.map(row => row.ean)));
+      const expected = snapshot.rows;
+      if (current.missing.length || JSON.stringify(current.rows.map(r => [r.sku,r.eans,r.previous_cost])) !== JSON.stringify(expected.map(r => [r.sku,r.eans,r.previous_cost]))) {
+        throw importError("O catálogo ou custos mudaram após a prévia. Importe a planilha novamente.", 409);
+      }
+      const skus = expected.map(row => row.sku);
+      const found = await client.query(`select s.sku,c.unit_cost from magalu.skus s left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku where s.account_id=$1 and s.sku=any($2::text[]) and s.is_present=true for update of s`, [Number(accountId), skus]);
+      const locked = new Map(found.rows.map(row => [row.sku, row.unit_cost == null ? null : Number(row.unit_cost)]));
+      if (locked.size !== expected.length || expected.some(row => locked.get(row.sku) !== row.previous_cost)) throw importError("Os custos mudaram após a prévia. Importe novamente.", 409);
+      let updated = 0;
+      for (const row of expected) {
+        if (row.previous_cost === row.unit_cost) continue;
+        await client.query(`insert into magalu.sku_costs(account_id,sku,unit_cost) values($1,$2,$3)
+          on conflict(account_id,sku) do update set unit_cost=excluded.unit_cost,updated_at=now()`, [Number(accountId), row.sku, row.unit_cost]);
+        await client.query(`insert into magalu.sku_cost_history(account_id,sku,previous_cost,new_cost,previous_components,new_components,source,changed_by)
+          values($1,$2,$3,$4,$5::jsonb,$6::jsonb,'xlsx',$7)`, [Number(accountId), row.sku, row.previous_cost, row.unit_cost,
+            JSON.stringify({ unit_cost: row.previous_cost, eans: row.eans }), JSON.stringify({ unit_cost: row.unit_cost, eans: row.eans }), changedBy]);
+        updated++;
+      }
+      await client.query(`update magalu.ean_cost_import_previews set used_at=now() where id=$1`, [id]);
+      await client.query("COMMIT");
+      return { updated, total: expected.length };
+    } catch (error) { await client.query("ROLLBACK"); throw error; }
+  });
+}
+
 async function margin(accountId, { q = "", offset = 0, limit = 50 } = {}) {
   const data = await listCosts(accountId, { q, offset, limit });
   return { ...data, rows: data.rows.map((row) => ({ ...row, estimate: calculatePricing({ sale_price: row.price, unit_cost: row.unit_cost, tax_rate: row.tax_rate, packaging_cost: row.packaging_cost, operational_cost: row.operational_cost, other_cost: row.other_cost }) })) };
@@ -209,4 +284,4 @@ async function coverage(accountId) {
     from magalu.skus s left join magalu.prices p on p.account_id=s.account_id and p.sku=s.sku
     left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku where s.account_id=$1`, [Number(accountId)]);
 }
-module.exports = { listCosts, exportCosts, upsertCost, margin, lookup, coverage, getAccountTax, saveAccountTax, getCostHistory, importCosts, _test:{suppliedNumber} };
+module.exports = { listCosts, exportCosts, upsertCost, margin, lookup, coverage, getAccountTax, saveAccountTax, getCostHistory, importCosts, previewEanCosts, getEanCostPreview, confirmEanCosts, _test:{suppliedNumber,expandEanRows} };
