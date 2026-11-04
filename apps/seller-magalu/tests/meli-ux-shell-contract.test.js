@@ -13,7 +13,7 @@ test("Magalu navigation uses the Meli-equivalent vocabulary and every declared r
   const client = read("public/js/magalu-app.js");
 
   assert.match(html, /<strong>Precificação<\/strong>/);
-  for (const pathName of ["/", "/gestao-skus", "/pedidos", "/precos", "/estoque", "/margem", "/calculadora", "/promocoes-em-massa", "/contas", "/integracoes"]) {
+  for (const pathName of ["/", "/gestao-skus", "/pedidos", "/precos", "/estoque", "/margem", "/calculadora", "/precificacao-promocional", "/contas", "/integracoes"]) {
     assert.match(client, new RegExp(`"${pathName}"`));
     const escaped = pathName === "/" ? "\\/" : pathName.replaceAll("/", "\\/");
     assert.match(html, new RegExp(`data-page="${escaped}"`));
@@ -32,4 +32,13 @@ test("every Magalu frontend page is served by a backend entry route", () => {
     if (route === "/" || route === "/catalogo" || route === "/sincronizacao") continue;
     assert.ok(entryRoutes.includes(`"${route}"`), `${route} lacks a backend entry route`);
   }
+});
+
+test("promo pricing lives under Promoções and old URL redirects to its new entry",()=>{
+  const html=read("views/app.html"),backend=read("src/routes/index.js"),client=read("public/js/magalu-app.js");
+  const promotions=html.match(/<section class="mg-nav__group" data-group="promotions">([\s\S]*?)<\/section>/)?.[1]||"";
+  assert.match(promotions,/data-nav-path="\/promocoes"[^>]*>Campanhas/);
+  assert.match(promotions,/data-nav-path="\/precificacao-promocional"/);
+  assert.match(client,/"\/precificacao-promocional": \{ title: "Precificação promocional"/);
+  assert.match(backend,/router\.get\("\/promocoes-em-massa"[^\n]*\/magalu\/precificacao-promocional/);
 });

@@ -22,6 +22,28 @@ test("painel compartilhado aparece em gestão, estoque e preços e reage aos enf
   for (const token of ["width:330px","max-height:min(430px","background:#13151f","padding:14px"]) assert.ok(styles.includes(token));
 });
 
+test("painel tem acionador flutuante nas operações e na precificação promocional",()=>{
+  const root=path.join(__dirname,"..");
+  const html=fs.readFileSync(path.join(root,"views/app.html"),"utf8");
+  const panel=fs.readFileSync(path.join(root,"public/js/magalu-process-panel.js"),"utf8");
+  const styles=fs.readFileSync(path.join(root,"public/css/magalu-process-panel.css"),"utf8");
+  assert.match(panel,/"\/precificacao-promocional"/);
+  assert.match(styles,/#mg-process-toggle\{position:fixed/);
+  assert.ok(html.indexOf('id="mg-process-toggle"')>html.indexOf('id="mg-process-panel"'));
+});
+
+test("job promocional apresenta um progresso global sem expor outra conta",async()=>{
+  const panel=require("../src/controllers/processPanelController");
+  const job={id:"job-1",name:"promo-prices",data:{accountId:7,dachTenantId:"T"},progress:{total:10001,processed:5000,updated:4990,failed:10},getState:async()=>"active"};
+  const row=await panel.promoJobRow(job,{accountId:7,tenantId:"T",userId:"U"});
+  assert.equal(row.total_count,10001);
+  assert.equal(row.pending_count,5001);
+  assert.equal(row.success_count,4990);
+  assert.equal(await panel.promoJobRow(job,{accountId:8,tenantId:"T",userId:"U"}),null);
+  const preview={...job,name:"promo-preview",data:{identity:{accountId:7,tenantId:"T",userId:"U"}}};
+  assert.equal(await panel.promoJobRow(preview,{accountId:7,tenantId:"T",userId:"other"}),null);
+});
+
 test("listagem agrega grupos de escrita e restringe conta e tenant", async () => {
   const db = require("../src/config/postgres");
   const sku = require("../src/repositories/skuMassRepository");

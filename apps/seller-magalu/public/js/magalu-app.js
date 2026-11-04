@@ -37,7 +37,7 @@
     "/estoque": { title: "Estoque", page: "mg-stock-page", group: "operations" },
     "/promocoes": { title: "Promoções", page: "mg-promotions-page", group: "promotions" },
     "/margem": { title: "Margem de venda", page: "mg-financial-margin-page", group: "financial" },
-    "/promocoes-em-massa": { title: "Promoções em massa", page: "mg-promo-prices-page", group: "financial" },
+    "/precificacao-promocional": { title: "Precificação promocional", page: "mg-promo-prices-page", group: "promotions" },
     "/calculadora": { title: "Calculadora", page: "mg-financial-calculator-page", group: "financial" },
     "/contas": { title: "Contas Magalu", page: "mg-accounts-page", group: "account" },
     "/usuarios": { title: "Usuários", page: "mg-users-page", group: "account" },

@@ -2,13 +2,13 @@
   "use strict";
   const $ = id => document.getElementById(id);
   const shell = () => window.MagaluSellerShell;
-  const activeRoutes = new Set(["/gestao-skus", "/estoque", "/precos"]);
+  const activeRoutes = new Set(["/gestao-skus", "/estoque", "/precos", "/precificacao-promocional"]);
   const state = { accountId: null, rows: [], children: new Map(), open: false, minimized: false, hiddenIds: new Set(), detail: null, timer: null, request: 0 };
   const esc = value => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
   const fmt = value => new Intl.NumberFormat("pt-BR").format(Number(value) || 0);
   const currentAccount = () => Number(shell()?.getSelectedAccountId?.()) || null;
   const key = row => `${row.kind}:${row.id}`;
-  const label = row => ["catalog","group"].includes(row.kind) ? (row.action === "activate" ? "Publicar SKUs" : "Despublicar SKUs") : row.resource === "price" ? "Atualizar preços" : "Atualizar estoque";
+  const label = row => row.kind === "promo" ? (row.action === "promo-preview" ? "Calcular preços promocionais" : "Consultar preços Magalu") : ["catalog","group"].includes(row.kind) ? (row.action === "activate" ? "Publicar SKUs" : "Despublicar SKUs") : row.resource === "price" ? "Atualizar preços" : "Atualizar estoque";
   const totals = row => {
     const total = Number(row.total_count) || 0, success = Number(row.success_count) || 0, failed = Number(row.failed_count) || 0,
       stale = Number(row.stale_count) || 0, uncertain = Number(row.uncertain_count) || 0, divergent = Number(row.divergent_count) || 0,

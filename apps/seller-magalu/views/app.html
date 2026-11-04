@@ -19,10 +19,10 @@
   <link rel="stylesheet" href="/magalu/assets/css/magalu-post-review-fixes.css?v=2026092904">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-loading.css?v=2026103001">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-promotions.css?v=2026093001">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-promocoes-massa.css?v=2026110403">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-promocoes-massa.css?v=2026110404">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-margin-parity.css?v=2026101401">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-cost-visual-parity.css?v=2026101303">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-process-panel.css?v=2026110401">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-process-panel.css?v=2026110402">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-canonical-ui.css?v=2026093001">
 </head>
 <body>
@@ -106,13 +106,14 @@
           <span class="mg-nav__group-arrow">›</span>
         </button>
         <div class="mg-nav__children" hidden>
-          <a href="/magalu/promocoes" data-nav-path="/promocoes" class="mg-nav__item">Promoções</a>
+          <a href="/magalu/promocoes" data-nav-path="/promocoes" class="mg-nav__item">Campanhas</a>
+          <a href="/magalu/precificacao-promocional" data-nav-path="/precificacao-promocional" class="mg-nav__item">Precificação promocional</a>
         </div>
       </section>
 
       <section class="mg-nav__group" data-group="financial">
         <button class="mg-nav__group-button" type="button" data-group-toggle="financial" aria-expanded="false"><span class="mg-nav__group-icon">R$</span><span class="mg-nav__group-copy"><strong>Precificação</strong><small>Custos, margem e preço</small></span><span class="mg-nav__group-arrow">›</span></button>
-        <div class="mg-nav__children" hidden><a href="/magalu/margem" data-nav-path="/margem" class="mg-nav__item">Margem de venda</a><a href="/magalu/calculadora" data-nav-path="/calculadora" class="mg-nav__item">Calculadora</a><a href="/magalu/promocoes-em-massa" data-nav-path="/promocoes-em-massa" class="mg-nav__item">Promoções em massa</a></div>
+        <div class="mg-nav__children" hidden><a href="/magalu/margem" data-nav-path="/margem" class="mg-nav__item">Margem de venda</a><a href="/magalu/calculadora" data-nav-path="/calculadora" class="mg-nav__item">Calculadora</a></div>
       </section>
 
       <section class="mg-nav__group" data-group="account">
@@ -143,7 +144,6 @@
         <div class="mg-breadcrumb"><span>Seller</span><b>›</b><span>Magalu</span><b>›</b><strong id="mg-page-title">Painel</strong></div>
       </div>
       <div class="mg-topbar__right">
-        <button class="mg-secondary-btn" id="mg-process-toggle" type="button" aria-expanded="false" aria-controls="mg-process-panel" hidden>Processos <span id="mg-process-count">0</span></button>
         <span class="mg-hub-chip"><i></i><span>Hub protegido</span></span>
         <button class="mg-icon-btn" id="mg-theme-toggle" type="button" aria-label="Alternar tema">◐</button>
         <div class="mg-user"><strong id="mg-user-name">Usuário</strong><small id="mg-user-email">Carregando...</small></div>
@@ -477,8 +477,8 @@
       <section class="mg-orders-dialog mg-ui-modal" id="mg-cost-history-modal" hidden><div class="mg-orders-dialog__card mg-ui-modal__dialog"><header class="mg-orders-dialog__head"><div><span class="mg-kicker">Precificação · custos</span><h2 id="mg-cost-history-title">Histórico do SKU</h2></div><button class="mg-icon-btn" id="mg-cost-history-close" type="button" aria-label="Fechar">×</button></header><div id="mg-cost-history-body" class="mg-cost-history-body"></div></div></section>
       <section class="mg-orders-dialog mg-ui-modal" id="mg-cost-ean-preview" hidden role="dialog" aria-modal="true" aria-labelledby="mg-cost-ean-preview-title"><div class="mg-orders-dialog__card mg-ui-modal__dialog"><header class="mg-orders-dialog__head"><div><span class="mg-kicker">Importação por EAN</span><h2 id="mg-cost-ean-preview-title">Revisar correspondências</h2></div><button class="mg-icon-btn" id="mg-cost-ean-close" type="button" aria-label="Fechar">×</button></header><p id="mg-cost-ean-summary"></p><p id="mg-cost-ean-missing"></p><div class="mg-table-wrap" style="max-height:50vh;overflow:auto"><table class="mg-table"><thead><tr><th>EAN</th><th>SKU</th><th>Custo atual</th><th>Novo custo</th></tr></thead><tbody id="mg-cost-ean-rows"></tbody></table></div><div class="mg-pagination"><button class="mg-secondary-btn" id="mg-cost-ean-prev" type="button">← Anterior</button><span id="mg-cost-ean-page"></span><button class="mg-secondary-btn" id="mg-cost-ean-next" type="button">Próxima →</button></div><div class="mg-cost-toolbar__actions"><button class="mg-secondary-btn" id="mg-cost-ean-cancel" type="button">Cancelar</button><button class="mg-primary-btn" id="mg-cost-ean-confirm" type="button">Confirmar custos</button></div></div></section>
 
-      <section id="mg-promo-prices-page" class="mg-product-page mg-financial-page mg-promo-prices" data-page="/promocoes-em-massa" hidden>
-        <header class="mg-rich-hero mg-ui-hero"><div><span class="mg-kicker">Precificação · Magalu</span><h1>Promoções em massa</h1><p>Consulte os preços, defina a margem alvo e revise cada sugestão antes de gerar o arquivo Magalu.</p></div></header>
+      <section id="mg-promo-prices-page" class="mg-product-page mg-financial-page mg-promo-prices" data-page="/precificacao-promocional" hidden>
+        <header class="mg-rich-hero mg-ui-hero"><div><span class="mg-kicker">Promoções · Magalu</span><h1>Precificação promocional</h1><p>Consulte os preços, defina a margem alvo e revise cada sugestão antes de gerar o arquivo Magalu.</p></div></header>
         <section class="mg-promo-prices__filters mg-ui-filter-card" aria-label="Filtros de preço">
           <label>Tipo de busca<select id="mg-promo-search-type"><option value="sku">SKU</option><option value="ean">EAN</option><option value="group">Família</option><option value="product">Produto</option></select></label>
           <label>Buscar<input id="mg-promo-search" type="search" placeholder="Identificador ou produto"></label>
@@ -489,7 +489,7 @@
         </section>
         <section class="mg-promo-prices__terms mg-ui-filter-card" hidden><h2>Parâmetros da simulação</h2><p>Informe taxas previstas para a promoção. Os relatórios de vendas anteriores não definem essas taxas. Frete vazio será tratado como desconhecido.</p><div class="mg-promo-prices__terms-grid"><label>Margem alvo (%)<input id="mg-promo-target" type="number" min="0" max="100" step="0.01" placeholder="Ex.: 20"></label><label>Comissão estimada (%)<input id="mg-promo-commission" type="number" min="0" max="100" step="0.01" placeholder="Ex.: 12"></label><label>Tarifa fixa (R$)<input id="mg-promo-fee" type="number" min="0" step="0.01" placeholder="Ex.: 2,00"></label><label>Frete estimado (R$)<input id="mg-promo-shipping" type="number" min="0" step="0.01" placeholder="Deixe vazio se desconhecido"></label><button id="mg-promo-calculate" class="mg-primary-btn" type="button">Calcular e revisar</button></div><small>A simulação usa a alíquota global da conta. Sem custo, imposto, preço cheio, preço atual ou dados recentes, o SKU fica pendente.</small></section>
         <section class="mg-promo-prices__review mg-ui-filter-card" hidden><header><div><h2>Revisão dos preços sugeridos</h2><p id="mg-promo-review-count">—</p></div><button class="mg-secondary-btn" id="mg-promo-export-check" type="button">Verificar exportação</button></header><p id="mg-promo-review-message" role="status"></p><div class="mg-promo-prices__table-wrap"><table><thead><tr><th>SKU / identificadores</th><th>Produto</th><th>Custo</th><th>Preço cheio</th><th>Atual</th><th>Imposto</th><th>Sugestão / ajuste</th><th>Desconto</th><th>Margem</th><th>Situação</th></tr></thead><tbody id="mg-promo-review-rows"></tbody></table></div><footer><button class="mg-secondary-btn" id="mg-promo-review-prev" type="button">Anterior</button><span id="mg-promo-review-page">—</span><button class="mg-secondary-btn" id="mg-promo-review-next" type="button">Próxima</button></footer><div id="mg-promo-export-panel" class="mg-promo-export" hidden><strong id="mg-promo-export-summary">—</strong><p>O arquivo terá apenas SKU e preço promocional. SKUs pendentes não serão exportados.</p><ul id="mg-promo-excluded-list"></ul><button class="mg-secondary-btn" id="mg-promo-excluded-more" type="button" hidden>Mostrar mais pendências</button><label id="mg-promo-partial-wrap" hidden><input id="mg-promo-partial-confirm" type="checkbox"> Confirmo baixar somente os SKUs aptos</label><button class="mg-primary-btn" id="mg-promo-download" type="button" disabled>Baixar XLSX</button></div></section>
-        <section class="mg-promo-prices__results mg-ui-filter-card" hidden><header><div><h2>Preços do catálogo</h2><p id="mg-promo-count">—</p></div><button class="mg-secondary-btn" id="mg-promo-refresh" type="button">Atualizar preços do recorte</button></header><p id="mg-promo-progress" role="status">Preços da última sincronização. Atualize para consultar a API agora; a descoberta de SKUs continua sujeita ao alcance do catálogo.</p><div class="mg-promo-prices__table-wrap"><table><thead><tr><th>Identificador</th><th>Produto</th><th>Publicação / atividade</th><th>Custo</th><th>Imposto</th><th>Preço cheio</th><th>Preço atual</th><th>Leitura do preço</th></tr></thead><tbody id="mg-promo-rows"></tbody></table></div><footer><button class="mg-secondary-btn" id="mg-promo-prev" type="button">Anterior</button><span id="mg-promo-page">—</span><button class="mg-secondary-btn" id="mg-promo-next" type="button">Próxima</button></footer></section>
+        <section class="mg-promo-prices__results mg-ui-filter-card" hidden><header><div><h2>Preços do catálogo</h2><p id="mg-promo-count">—</p></div><button class="mg-secondary-btn" id="mg-promo-refresh" type="button">Atualizar preços do recorte</button></header><p id="mg-promo-progress" role="status">Preços da última sincronização. Atualize para consultar a API agora; a descoberta de SKUs continua sujeita ao alcance do catálogo.</p><div class="mg-promo-prices__table-wrap"><table><thead><tr><th>Identificador</th><th>Produto</th><th>Publicação / atividade</th><th>Custo</th><th>Imposto</th><th>Preço cheio</th><th>Preço atual</th><th>Preço sugerido</th><th>Leitura do preço</th></tr></thead><tbody id="mg-promo-rows"></tbody></table></div><footer><button class="mg-secondary-btn" id="mg-promo-prev" type="button">Anterior</button><span id="mg-promo-page">—</span><button class="mg-secondary-btn" id="mg-promo-next" type="button">Próxima</button></footer></section>
         <div id="mg-promo-placeholder" class="mg-empty-state"><strong>Escolha os filtros e clique em Filtrar</strong><p>Os preços serão carregados apenas para a conta e o recorte selecionados.</p></div>
       </section>
       <section id="mg-financial-calculator-page" class="mg-product-page mg-financial-page" data-page="/calculadora" hidden>
@@ -539,16 +539,17 @@
   <div class="mg-process-panel__content"><input id="mg-process-search" type="search" placeholder="Buscar processo ou SKU" aria-label="Buscar processo"><p id="mg-process-error" hidden></p><div id="mg-process-list" class="mg-process-panel__list"></div><div id="mg-process-detail" hidden></div></div>
   <footer><button id="mg-process-clear" type="button">Limpar concluídos</button></footer>
 </aside>
+        <button class="mg-process-launcher" id="mg-process-toggle" type="button" aria-expanded="false" aria-controls="mg-process-panel" hidden>Processos <span id="mg-process-count">0</span></button>
     <script src="/magalu/assets/js/magalu-loading.js?v=2026103001"></script>
     <script src="/magalu/assets/js/magalu-dashboard.js?v=2026092903"></script>
-        <script src="/magalu/assets/js/magalu-app.js?v=2026110403"></script>
+        <script src="/magalu/assets/js/magalu-app.js?v=2026110404"></script>
 <script src="/magalu/assets/js/magalu-account.js?v=2026092503"></script>
         <script src="/magalu/assets/js/magalu-sku-management.js?v=2026101303"></script>
     <script src="/magalu/assets/js/magalu-orders.js?v=2026100101"></script>
 <script src="/magalu/assets/js/magalu-stock-price.js?v=2026092904"></script>
     <script src="/magalu/assets/js/magalu-financial.js?v=2026101501"></script>
 <script src="/magalu/assets/js/magalu-promotions.js?v=2026093001"></script>
-<script src="/magalu/assets/js/magalu-process-panel.js?v=2026110401"></script>
-<script src="/magalu/assets/js/magalu-promocoes-massa.js?v=2026110403"></script>
+<script src="/magalu/assets/js/magalu-process-panel.js?v=2026110402"></script>
+<script src="/magalu/assets/js/magalu-promocoes-massa.js?v=2026110404"></script>
 </body>
 </html>

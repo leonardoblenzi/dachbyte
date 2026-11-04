@@ -11,15 +11,24 @@ function sourceUnchanged(source,current){
   return new Date(source.price_synced_at||0).getTime()===new Date(current.price_synced_at||0).getTime();
 }
 function validateTerms(input){const fields=["target_margin","commission_rate","fixed_fee","shipping"],terms={};for(const field of fields){const value=input?.[field];if(value==null||String(value).trim()===""){terms[field]="";continue;}const n=Number(value);if(!Number.isFinite(n)||n<0||n>(field.includes("rate")||field==="target_margin"?100:10000000)||!/^(?:\d+)(?:\.\d{1,2})?$/.test(String(value)))throw invalid(`${field}: informe um valor válido com até duas casas decimais.`);terms[field]=String(value);}return terms;}
-async function create(identity,filters,termsInput){
-  const terms=validateTerms(termsInput),rows=await prices.details(identity.accountId,filters),id=randomUUID();
-  const payload=rows.map(row=>({sku:row.sku,source:row,result:pricing.evaluate(row,terms)}));
-  await db.withClient(async client=>{await client.query("begin");try{
-    await client.query(`insert into magalu.promo_pricing_previews(id,account_id,dach_tenant_id,dach_user_id,filters,terms,total_count) values($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7)`,[id,identity.accountId,identity.tenantId,identity.userId,JSON.stringify(filters||{}),JSON.stringify(terms),payload.length]);
-    await client.query(`insert into magalu.promo_pricing_preview_rows(preview_id,sku,source,result) select $1,x->>'sku',x->'source',x->'result' from jsonb_array_elements($2::jsonb) x`,[id,JSON.stringify(payload)]);
-    await client.query("commit");
-  }catch(e){await client.query("rollback");throw e;}});
-  return{id,total:rows.length,eligible:payload.filter(item=>item.result.eligible).length,excluded:payload.filter(item=>!item.result.eligible).length};
+async function createBatched(identity,filters,termsInput,{onProgress=async()=>{}}={},deps={}){
+  const terms=validateTerms(termsInput),count=deps.count||prices.count,page=deps.page||prices.detailsPage,query=deps.query||db.query;
+  const total=await count(identity.accountId,filters),id=randomUUID();
+  if(!total)throw invalid("Nenhum SKU no recorte.",409);
+  await query(`insert into magalu.promo_pricing_previews(id,account_id,dach_tenant_id,dach_user_id,filters,terms,total_count) values($1,$2,$3,$4,$5::jsonb,$6::jsonb,0)`,[id,identity.accountId,identity.tenantId,identity.userId,JSON.stringify(filters||{}),JSON.stringify(terms)]);
+  let processed=0,eligible=0,after=null;
+  try{
+    while(true){
+      const rows=await page(identity.accountId,filters,after,1000);
+      if(!rows.length)break;
+      const payload=rows.map(row=>({sku:row.sku,source:row,result:pricing.evaluate(row,terms)}));
+      await query(`insert into magalu.promo_pricing_preview_rows(preview_id,sku,source,result) select $1,x->>'sku',x->'source',x->'result' from jsonb_array_elements($2::jsonb) x on conflict (preview_id,sku) do nothing`,[id,JSON.stringify(payload)]);
+      processed+=rows.length;eligible+=payload.filter(item=>item.result.eligible).length;after=rows.at(-1).sku;
+      await onProgress({total,processed,eligible,excluded:processed-eligible});
+    }
+    await query(`update magalu.promo_pricing_previews set total_count=$2 where id=$1`,[id,processed]);
+    return{id,total:processed,eligible,excluded:processed-eligible};
+  }catch(error){await query(`delete from magalu.promo_pricing_previews where id=$1`,[id]).catch(()=>{});throw error;}
 }
 async function get(id,identity,client=db,locked=false){const {rows}=await client.query(`select * from magalu.promo_pricing_previews where id=$1 and account_id=$2 and dach_tenant_id=$3 and dach_user_id=$4 and expires_at>now()${locked?" for update":""}`,[id,identity.accountId,identity.tenantId,identity.userId]);return rows[0]||null;}
 async function page(id,identity,pageInput=1){const preview=await get(id,identity);if(!preview)throw invalid("Prévia não encontrada ou expirada.",404);const page=Math.max(1,Math.floor(Number(pageInput)||1)),limit=50;const {rows}=await db.query(`select sku,source,terms_override,price_override,result from magalu.promo_pricing_preview_rows where preview_id=$1 order by sku limit $2 offset $3`,[id,limit,(page-1)*limit]);const count=await db.queryOne(`select count(*) filter(where result->>'eligible'='true')::int eligible from magalu.promo_pricing_preview_rows where preview_id=$1`,[id]);return{rows,total:preview.total_count,eligible:Number(count.eligible||0),excluded:preview.total_count-Number(count.eligible||0),page,limit,terms:preview.terms,created_at:preview.created_at};}
@@ -50,4 +59,4 @@ async function exportReview(id,identity,{allowPartial=false,allowEmpty=false}={}
   if(excluded.length&&allowPartial!==true)throw invalid(`${excluded.length} SKU(s) pendente(s). Confirme a exportação somente dos aptos.`,409);
   return{rows:accepted,eligible:accepted.length,excluded_count:excluded.length,excluded};
 }
-module.exports={create,get,page,update,validateTerms,sourceUnchanged,exportReview};
+module.exports={createBatched,get,page,update,validateTerms,sourceUnchanged,exportReview};

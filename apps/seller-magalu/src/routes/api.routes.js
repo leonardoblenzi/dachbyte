@@ -44,6 +44,7 @@ router.get("/promo-prices",promoPriceController.list);
 router.post("/promo-prices/refresh",promoPriceController.refresh);
 router.get("/promo-prices/refresh/:id",promoPriceController.refreshStatus);
 router.post("/promo-prices/previews",promoPriceController.createPreview);
+router.get("/promo-prices/previews/jobs/:id",promoPriceController.previewJobStatus);
 router.get("/promo-prices/previews/:id",promoPriceController.previewPage);
 router.put("/promo-prices/previews/:id/rows/:sku",promoPriceController.updatePreviewRow);
 router.get("/promo-prices/previews/:id/export-check",promoPriceController.exportCheck);

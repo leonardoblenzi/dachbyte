@@ -34,3 +34,15 @@ test("prévia só pode ser lida pela mesma conta, empresa e usuário",async()=>{
   db.query=async(sql,params)=>{calls.push({sql,params});return{rows:[]};};
   try{await previews.get("preview",{accountId:7,tenantId:"tenant",userId:"user"});assert.deepEqual(calls[0].params,["preview",7,"tenant","user"]);assert.match(calls[0].sql,/account_id=\$2 and dach_tenant_id=\$3 and dach_user_id=\$4/);}finally{db.query=original;}
 });
+test("prévia em job calcula páginas sucessivas e reporta progresso total",async()=>{
+  const repo=require("../src/repositories/promoPricingPreviewRepository");
+  const pages=[],progress=[],queries=[];
+  const identity={accountId:7,tenantId:"T",userId:"U"};
+  const rows=[{...base,sku:"001"},{...base,sku:"002"},{...base,sku:"003"}];
+  const result=await repo.createBatched(identity,{publication:"PUBLISHED"},terms,{onProgress:async p=>progress.push(p)},
+    {count:async()=>3,page:async(_id,_filters,after)=>{pages.push(after);return after===null?rows.slice(0,2):after==="002"?rows.slice(2):[];},query:async(sql,params)=>{queries.push({sql,params});return{rows:[]};}});
+  assert.deepEqual(pages,[null,"002","003"]);
+  assert.equal(result.total,3);
+  assert.equal(progress.at(-1).processed,3);
+  assert.equal(queries.filter(q=>q.sql.includes("insert into magalu.promo_pricing_preview_rows")).length,2);
+});

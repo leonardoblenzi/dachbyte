@@ -1,5 +1,7 @@
 .mg-process-panel,.mg-process-panel *{box-sizing:border-box}
 .mg-process-panel[hidden],#mg-process-toggle[hidden]{display:none!important}
+#mg-process-toggle{position:fixed;right:16px;bottom:16px;z-index:199;display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:9px 14px;border-radius:10px;background:#13151f;color:#fff;border:1px solid rgba(255,255,255,.16);box-shadow:0 8px 32px rgba(0,0,0,.3);cursor:pointer;font:inherit}
+#mg-process-toggle[aria-expanded="true"]{display:none}
 .mg-process-panel{position:fixed;right:16px;bottom:16px;z-index:200;width:330px;max-height:min(430px,calc(100vh - 32px));display:flex;flex-direction:column;padding:14px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:#13151f;color:#fff;box-shadow:0 8px 32px rgba(0,0,0,.45);font-family:inherit;font-size:11px;line-height:1.35;overflow:hidden}
 .mg-process-panel__head{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;margin-bottom:12px}
 .mg-process-panel__head strong{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500}
@@ -26,5 +28,5 @@
 .mg-process-panel footer{flex-shrink:0;display:flex;justify-content:flex-end;margin-top:6px}.mg-process-panel footer button{padding:0;border:0;background:transparent;color:rgba(255,255,255,.5);font-size:11px}.mg-process-panel footer button:hover{color:rgba(255,255,255,.75)}
 .mg-process-panel__items{display:grid;gap:8px}.mg-process-panel__items article{padding:8px;border:1px solid rgba(255,255,255,.1);border-radius:6px;background:rgba(255,255,255,.05)}.mg-process-panel__items article strong{display:block}.mg-process-panel__items article span{color:#7eb8f7}.mg-process-panel__items article p{margin:4px 0;color:#ff8b8a;overflow-wrap:anywhere}.mg-process-panel__items article small{color:rgba(255,255,255,.65);overflow-wrap:anywhere}
 .mg-process-empty{padding:10px 2px;color:rgba(255,255,255,.55);font-size:11px}.mg-process-panel #mg-process-error{color:#ff8b8a}.mg-process-panel.is-minimized .mg-process-panel__content,.mg-process-panel.is-minimized footer{display:none}.mg-process-panel.is-minimized .mg-process-panel__head{margin-bottom:0}
-@media(max-width:480px){.mg-process-panel{right:12px;bottom:12px;width:calc(100vw - 24px)}}
+@media(max-width:480px){.mg-process-panel{right:12px;bottom:12px;width:calc(100vw - 24px)}#mg-process-toggle{right:12px;bottom:12px}}
 @media(prefers-reduced-motion:reduce){.mg-process-card__icon,.mg-process-card__bar i{animation:none!important;transition:none!important}}
