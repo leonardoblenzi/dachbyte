@@ -3155,3 +3155,107 @@ body.theme-dark.ml-shell-ready :is(
 ){
   color:#8fa1b8;
 }
+
+
+/* =====================================================
+   MOBILE — topbar compacta, menu "mais" e ajustes de telas
+   ===================================================== */
+/* No desktop o grupo "mais" nao existe visualmente: os botoes seguem na barra. */
+.ml-shell__topbar-more{display:contents}
+.ml-shell__topbar-right > .ml-shell__alerts-wrap{order:1}
+.ml-shell__topbar-more > .ml-shell__help-btn,
+.ml-shell__topbar-more > .ml-shell__logout-btn{order:2}
+.ml-shell__more-toggle,
+.ml-shell__more-label{display:none}
+.ml-shell__topbar-right > .ml-shell__more-toggle{order:3}
+.ml-shell__mobile-toggle > svg,
+.ml-shell__desktop-toggle > svg,
+.ml-shell__more-toggle > svg{width:20px;height:20px;display:block}
+
+@media (max-width: 760px){
+  body.ml-shell-ready{--ml-shell-topbar-height:60px}
+
+  .ml-shell__topbar{
+    flex-wrap:nowrap;
+    gap:8px;
+    min-height:60px;
+    padding:8px 12px;
+  }
+  .ml-shell__topbar-left{width:auto;flex:1 1 auto;gap:10px;min-width:0}
+  .ml-shell__topbar-right{width:auto;flex:0 0 auto;flex-wrap:nowrap;justify-content:flex-end;gap:8px}
+  .ml-shell__page-context{gap:1px}
+  .ml-shell__breadcrumb{font-size:.62rem;letter-spacing:.1em}
+  .ml-shell__breadcrumb > span:last-child,
+  .ml-shell__page-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ml-shell__page-title{font-size:1.02rem!important;line-height:1.2}
+  .ml-shell__mobile-toggle,
+  .ml-shell__more-toggle,
+  .ml-shell__topbar .ml-shell__icon-btn{width:40px;height:40px;flex:0 0 40px}
+  .ml-shell__more-toggle{display:inline-grid}
+
+  /* Painel suspenso com as acoes secundarias. */
+  .ml-shell__topbar-more{
+    display:none;
+    position:fixed;
+    top:64px;
+    right:12px;
+    width:min(280px, calc(100vw - 24px));
+    padding:10px;
+    gap:8px;
+    background:var(--ml-shell-surface);
+    border:1px solid var(--ml-shell-border-strong);
+    border-radius:16px;
+    box-shadow:var(--ml-shell-shadow-lg);
+    z-index:40;
+  }
+  body.ml-shell-more-open .ml-shell__topbar-more{display:grid}
+  .ml-shell__topbar-more > *{order:0!important;width:100%!important;max-width:none!important;min-height:44px;justify-content:flex-start!important}
+  .ml-shell__topbar-more > .ml-shell__help-btn{
+    height:auto;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:0 12px;
+  }
+  .ml-shell__more-label{display:inline;font-weight:800;font-size:.86rem;color:var(--ml-shell-text)}
+  .ml-shell__topbar-more > .ml-shell__theme-btn,
+  .ml-shell__topbar-more > .ml-shell__logout-btn{text-align:left;padding:0 14px}
+
+  .ml-shell__alerts-panel{top:64px;right:12px;left:12px}
+  .ml-shell__alerts-head,
+  .ml-shell__alerts-actions{flex-wrap:wrap;gap:8px}
+  .ml-shell__viewport{padding:12px}
+
+  /* Menu lateral (gaveta) rola por inteiro em telas baixas. */
+  .ml-shell__sidebar{overflow-y:auto;overscroll-behavior:contain}
+
+  /* Campos com 16px evitam o zoom automatico do iPhone ao tocar. */
+  body.ml-shell-ready .ml-shell__content :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea){font-size:16px}
+
+  /* Grids e campos que forcavam largura maior que a tela. */
+  body.ml-shell-ready .promo-shell,
+  body.ml-shell-ready .promo-module-view,
+  body.ml-shell-ready .modelo-padrao-panel,
+  body.ml-shell-ready .modelo-padrao-list,
+  body.ml-shell-ready .modelo-padrao-group{grid-template-columns:minmax(0,1fr)!important}
+  body.ml-shell-ready .modelo-padrao-group__chips{flex-wrap:wrap}
+  body.ml-shell-ready .promo-module-header,
+  body.ml-shell-ready .promo-module-nav,
+  body.ml-shell-ready .promo-module-view{min-width:0;max-width:100%}
+  body.ml-shell-ready .promo-module-nav{overflow-x:auto;scrollbar-width:thin}
+  body.ml-shell-ready .car-search-wrap{min-width:0;width:100%}
+  body.ml-shell-ready .filters > *,
+  body.ml-shell-ready .form-group,
+  body.ml-shell-ready .inline-pair > *{min-width:0}
+  body.ml-shell-ready .form-group :is(input, select, textarea){max-width:100%}
+}
+
+/* Telas antigas reservavam ~76px no topo para um cabecalho fixo que nao existe mais no shell. */
+@media (max-width: 980px){
+  body.ml-shell-ready .ml-shell__content > :is(main, .page-wrap, .ads-page, .ac-page, .wrap, .promo-remove-page),
+  body.ml-shell-ready .abc-wrap{margin-top:0!important}
+  body.ml-shell-ready .ml-shell__content > .ac-page{padding-top:0!important}
+}
+
+body.theme-dark .ml-shell__topbar-more{background:#0f1b2e;border-color:rgba(148,163,184,.24)}
+body.theme-dark .ml-shell__more-label{color:#e2e8f0}

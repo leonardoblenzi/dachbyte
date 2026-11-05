@@ -35,7 +35,8 @@ function withBase(path) {
   let jobs = [];
   let nextSortOrder = 1;
   let panelEl = null;
-  let collapsed = false;
+  // No celular o painel abre minimizado para nao cobrir a tela.
+  let collapsed = typeof window !== "undefined" && window.matchMedia?.("(max-width: 760px)").matches === true;
   let panelHidden = false;
   let cancelHandler = null;
   let visibilityFilter = null;

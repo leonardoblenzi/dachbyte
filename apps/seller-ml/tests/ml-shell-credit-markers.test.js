@@ -75,8 +75,8 @@ test("CSS mantem marker pequeno, dourado e compativel com tema escuro", () => {
 });
 
 test("assets do shell recebem cache bust apos ajuste da carteira", () => {
-  assert.ok(baseJs.includes("/css/ml-shell.css?v=29"));
-  assert.ok(baseJs.includes("/js/ml-shell.js?v=38"));
+  assert.ok(baseJs.includes("/css/ml-shell.css?v=30"));
+  assert.ok(baseJs.includes("/js/ml-shell.js?v=39"));
 });
 
 test("selo de creditos usa somente a autoridade do Hub", () => {

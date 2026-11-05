@@ -73,6 +73,8 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.95" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 3.7 18a1.4 1.4 0 0 0 1.2 2h14.2a1.4 1.4 0 0 0 1.2-2L12 4Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
     help:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 1 1 5 2.2c-.9.7-1.6 1.2-1.6 2.8"/><path d="M12 17h.01"/></svg>',
+    more:
+      '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/></svg>',
     menu:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>',
     chevron:
@@ -473,6 +475,7 @@
           </div>
         </div>
         <div class="ml-shell__topbar-right">
+          <div class="ml-shell__topbar-more" id="shell-topbar-more">
           <button class="ml-shell__credits-btn is-loading" id="btn-credits-wallet" type="button" title="Ver plano e tokens">
             <span class="ml-shell__credits-dot"></span>
             <span class="ml-shell__credits-copy">
@@ -487,6 +490,14 @@
             <span class="ml-shell__status-dot"></span>
             <span class="ml-shell__status-label">Operacional</span>
           </button>
+          <button class="ml-shell__icon-btn ml-shell__help-btn" id="btn-help" type="button" title="Ajuda e contato" aria-label="Ajuda e contato">
+            <span class="ml-shell__help-glyph" aria-hidden="true">?</span>
+            <span class="ml-shell__more-label">Ajuda e contato</span>
+          </button>
+          <button class="ml-shell__logout-btn" id="btn-logout-account" type="button">
+            Sair
+          </button>
+          </div>
           <div class="ml-shell__alerts-wrap" id="shell-alerts">
             <button class="ml-shell__icon-btn" id="btn-alerts" type="button" title="Alertas e lembretes" aria-label="Alertas e lembretes" aria-expanded="false" aria-controls="shell-alerts-panel">
               ${makeIcon("bell")}
@@ -511,11 +522,8 @@
               </div>
             </section>
           </div>
-          <button class="ml-shell__icon-btn" id="btn-help" type="button" title="Ajuda e contato" aria-label="Ajuda e contato">
-            <span class="ml-shell__help-glyph" aria-hidden="true">?</span>
-          </button>
-          <button class="ml-shell__logout-btn" id="btn-logout-account" type="button">
-            Sair
+          <button class="ml-shell__icon-btn ml-shell__more-toggle" id="btn-topbar-more" type="button" aria-label="Mais opções" aria-haspopup="true" aria-expanded="false" aria-controls="shell-topbar-more">
+            ${makeIcon("more")}
           </button>
         </div>
       </header>
@@ -1475,6 +1483,31 @@
     });
 
     overlay?.addEventListener("click", () => {
+      body.classList.remove("ml-shell-mobile-open");
+    });
+
+    // Celular: Tokens, tema, status, ajuda e sair ficam no menu "mais".
+    const moreToggle = document.getElementById("btn-topbar-more");
+    const morePanel = document.getElementById("shell-topbar-more");
+    const setMoreOpen = (open) => {
+      body.classList.toggle("ml-shell-more-open", open);
+      moreToggle?.setAttribute("aria-expanded", String(open));
+    };
+    moreToggle?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setMoreOpen(!body.classList.contains("ml-shell-more-open"));
+    });
+    morePanel?.addEventListener("click", (event) => {
+      if (event.target.closest("button")) setMoreOpen(false);
+    });
+    document.addEventListener("click", (event) => {
+      if (!body.classList.contains("ml-shell-more-open")) return;
+      if (morePanel?.contains(event.target) || moreToggle?.contains(event.target)) return;
+      setMoreOpen(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      setMoreOpen(false);
       body.classList.remove("ml-shell-mobile-open");
     });
 

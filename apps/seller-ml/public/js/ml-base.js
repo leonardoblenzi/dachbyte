@@ -211,11 +211,11 @@
   if (!shellDisabled) {
     injectAsset("link", {
       rel: "stylesheet",
-      href: withBase("/css/ml-shell.css?v=29"),
+      href: withBase("/css/ml-shell.css?v=30"),
     });
 
     injectAsset("script", {
-      src: withBase("/js/ml-shell.js?v=38"),
+      src: withBase("/js/ml-shell.js?v=39"),
       defer: "defer",
     });
 
