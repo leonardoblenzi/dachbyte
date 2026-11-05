@@ -8,9 +8,13 @@ const portfolioReadService = require("./portfolioReadService");
 const { skuFields } = require("./catalogPayload");
 const MAX_SKU_LIST_OFFSET = 20_000;
 const CATALOG_SYNC_STATUSES = ["PUBLISHED", "UNPUBLISHED", "BLOCKED"];
-// Inativos continuam listados (status e "Ativar SKUs" dependem disso), mas não
-// recebem consulta de preço e estoque: são 2 chamadas por SKU economizadas.
-function inactiveSku(payload) { return skuFields(payload).active === false; }
+// Todos os status continuam listados (status local e "Ativar SKUs" dependem disso),
+// mas só SKUs vigentes (PUBLISHED) recebem consulta de preço e estoque: despublicados,
+// bloqueados e inativos economizam 2 chamadas por SKU. Status desconhecido é consultado.
+function skipDetails(payload) {
+  const status = String(skuFields(payload).status || "").toUpperCase();
+  return Boolean(status) && status !== "PUBLISHED";
+}
 
 function text(value) {
   return String(value == null ? "" : value).trim();
@@ -178,7 +182,7 @@ async function refreshKnownSku(account, sku) {
   try {
     const response = await portfolioReadService.getSku(account.id, account.dach_tenant_id, sku);
     await catalogRepository.upsertSku(account.id, response.data, { seenAt: new Date(), httpStatus: response.status });
-    if (inactiveSku(response.data)) return { missing: false, skipped: true };
+    if (skipDetails(response.data)) return { missing: false, skipped: true };
   } catch (error) {
     if (Number(error?.status) !== 404) throw error;
     await catalogRepository.markSkuMissing(account.id, sku, {
@@ -303,7 +307,7 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
 
         currentStage = "price_stock_details";
         currentEndpoint = "/seller/v1/portfolios/prices/:sku + /seller/v1/portfolios/stocks/:sku";
-        const detailRows = rows.filter((skuPayload) => !inactiveSku(skuPayload));
+        const detailRows = rows.filter((skuPayload) => !skipDetails(skuPayload));
         detailsSkipped += rows.length - detailRows.length;
         await mapWithConcurrency(detailRows, env.MAGALU_SYNC_DETAIL_CONCURRENCY, async (skuPayload) => {
           const sku = text(skuPayload?.sku);

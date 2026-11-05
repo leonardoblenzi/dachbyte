@@ -18,7 +18,7 @@ async function withLoadStubs(stubs, load, run) {
   try { return await run(load()); } finally { Module._load = original; }
 }
 
-test("full sync lista inativos, mas só consulta preço e estoque dos ativos", async () => {
+test("full sync lista todos os status, mas só consulta preço e estoque dos publicados", async () => {
   const details = [], progress = [], canceled = [];
   const account = { id: 8, dach_tenant_id: "dach-8", status: "active" };
   clearModule("../src/services/catalogSyncService");
@@ -37,17 +37,19 @@ test("full sync lista inativos, mas só consulta preço e estoque dos ativos", a
     "./portfolioReadService": {
       getSeller: async () => ({ data: {} }),
       listSkus: async (_i, _t, { status }) => status === "PUBLISHED"
-        ? { status: 200, data: { results: [{ sku: "A", active: true }, { sku: "B", active: false }, { sku: "C" }], meta: { links: { next: null } } } }
-        : { status: 200, data: { results: [], meta: { links: { next: null } } } },
+        ? { status: 200, data: { results: [{ sku: "A", status: "PUBLISHED", active: true }, { sku: "C" }], meta: { links: { next: null } } } }
+        : status === "BLOCKED"
+          ? { status: 200, data: { results: [{ sku: "B", status: "BLOCKED", active: true }], meta: { links: { next: null } } } }
+          : { status: 200, data: { results: [{ sku: "D", status: "UNPUBLISHED", active: false }], meta: { links: { next: null } } } },
       getPrice: async () => ({ status: 200, data: { price: 1 } }), getStock: async () => ({ status: 200, data: { results: [] } }),
     },
   }, () => require("../src/services/catalogSyncService"), async (service) => {
     const result = await service.fullCatalogSync(8, { reason: "test" });
-    assert.equal(result.scanned, 3);
+    assert.equal(result.scanned, 4);
     assert.deepEqual(details.sort(), ["p:A", "p:C", "s:A", "s:C"]);
     assert.deepEqual(canceled, [[8, "catalog_full", 44]]);
     assert.equal(progress[0].expected_total, 3);
-    assert.equal(progress.at(-1).details_skipped, 1);
+    assert.equal(progress.at(-1).details_skipped, 2);
   });
 });
 
