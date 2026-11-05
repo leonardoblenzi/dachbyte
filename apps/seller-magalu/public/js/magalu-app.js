@@ -817,13 +817,40 @@
     }
   }
 
+  // Queda de rede (sem status) ou erro temporário do servidor não encerram o
+  // acompanhamento: a sincronização continua no worker, então tentamos de novo.
+  function transientSyncError(error) {
+    const status = Number(error?.status) || 0;
+    return !status || status === 408 || status === 429 || status >= 500;
+  }
+  function waitForRetry(ms) {
+    return new Promise((resolve) => {
+      const done = () => { clearTimeout(timer); window.removeEventListener("online", done); resolve(); };
+      const timer = setTimeout(done, ms);
+      window.addEventListener("online", done, { once: true });
+    });
+  }
+
   async function pollSync(accountId) {
     if (state.syncPolling) return;
     state.syncPolling = true;
+    let retries = 0;
     try {
       while (true) {
         if (Number(selected()?.id) !== Number(accountId)) return;
-        const data = await fetchJson(`/magalu/api/catalog/status?account_id=${accountId}`, { loading: "none" });
+        let data;
+        try {
+          data = await fetchJson(`/magalu/api/catalog/status?account_id=${accountId}`, { loading: "none" });
+        } catch (error) {
+          if (!transientSyncError(error)) throw error;
+          retries += 1;
+          const offline = navigator.onLine === false;
+          setSyncBanner("queued", offline ? "Sem conexão com a internet" : "Conexão instável",
+            "A sincronização continua no servidor. O acompanhamento será retomado automaticamente.");
+          await waitForRetry(Math.min(30000, 5000 * retries));
+          continue;
+        }
+        retries = 0;
         state.catalogStatus = data;
         renderStats(data);
         const status = String(data.account?.catalog_sync_status || "idle");

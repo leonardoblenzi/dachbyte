@@ -78,3 +78,17 @@ test("painel Processos aparece nas telas com sincronização e abre ao enfileira
   assert.match(app, /new CustomEvent\("magalu:processqueued", \{ detail: \{ kind: "sync" \} \}\)/);
   assert.match(read("src/repositories/syncRunRepository.js"), /status='canceled'/);
 });
+
+test("acompanhamento da sincronização sobrevive a queda de conexão", () => {
+  const app = read("public/js/magalu-app.js");
+  assert.match(app, /function transientSyncError\(error\)/);
+  assert.match(app, /return !status \|\| status === 408 \|\| status === 429 \|\| status >= 500;/);
+  assert.match(app, /window\.addEventListener\("online", done, \{ once: true \}\)/);
+  assert.match(app, /if \(!transientSyncError\(error\)\) throw error;/);
+});
+
+test("sincronização em andamento a 0% aparece em Em andamento, não em Na fila", () => {
+  const panel = read("public/js/magalu-process-panel.js");
+  assert.match(panel, /const isRunning = row => row\.kind === "sync" \? row\.status === "running"/);
+  assert.match(panel, /rows\.filter\(row => row\.kind !== "sync" && status\(row\)!=="Falhou"/);
+});
