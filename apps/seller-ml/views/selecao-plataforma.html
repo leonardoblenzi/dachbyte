@@ -930,7 +930,7 @@
         if(module.slug==="ml"||module.slug==="shopee"){
           const count=state.purchaseResource?.measured_orders;
           if(state.purchaseResource?.measurement_status==="succeeded"&&
-             Number.isSafeInteger(count)&&count>3000){window.location.href="mailto:contato@davanttisuite.com.br?subject=Plano%20Seller%20acima%20de%203000%20pedidos";return}
+             Number.isSafeInteger(count)&&count>3000){showToast("Para mais de 3.000 pedidos por mês, fale com o comercial pelo SAC.");openSupport();return}
           if(!state.purchaseResource||state.purchaseResource.measurement_status!=="succeeded"||
              !Number.isSafeInteger(count)||count<0||!state.purchaseResource.recommended_range_code){
             showToast("Aguarde a apuração dos pedidos desta conta.",true);return;
