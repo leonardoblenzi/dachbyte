@@ -280,6 +280,18 @@
   }
 }
 
+# Homologacao temporaria do app Shopee novo (Sandbox da Shopee). O servico
+# so existe com `--profile shopee-homolog`; sem ele, este host responde 502.
+# Remover junto com o servico quando o app for aprovado.
+{$SHOPEE_HOMOLOG_SITE:homolog.dachbyte.tech} {
+  encode zstd gzip
+  # Sem sessao o app manda para /selecao-plataforma, que e pagina do gateway
+  # e nao existe neste host. Tudo que nao e /shopee vai para o login.
+  @fora-do-modulo not path /shopee /shopee/*
+  redir @fora-do-modulo /shopee/login 302
+  reverse_proxy seller-shopee-homolog:3000
+}
+
 # DACH Hub public endpoint. Caddy is the only public ingress.
 hub.dachbyte.tech {
   encode zstd gzip

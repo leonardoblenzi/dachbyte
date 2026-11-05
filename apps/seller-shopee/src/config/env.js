@@ -23,6 +23,11 @@ const optionalNonEmptyString = z.preprocess(
   z.string().min(1).optional(),
 );
 
+const optionalUrl = z.preprocess(
+  (value) => (value == null || value === "" ? undefined : value),
+  z.string().url().optional(),
+);
+
 const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   API_BASE_URL: z.string().url(),
@@ -33,6 +38,10 @@ const EnvSchema = z.object({
   SHOPEE_REDIRECT_URL: z.string().url(),
   SHOPEE_ADS_PARTNER_ID: optionalPositiveInt,
   SHOPEE_ADS_PARTNER_KEY: optionalNonEmptyString,
+  // Hosts opcionais. Sem valor, Ads e Discount seguem no host de producao;
+  // a instancia de homologacao aponta ambos para o Sandbox da Shopee.
+  SHOPEE_ADS_API_BASE: optionalUrl,
+  SHOPEE_DISCOUNT_API_BASE: optionalUrl,
 
   SHOPEE_DATABASE_URL: z.string().optional(),
   DATABASE_URL: z.string().optional(),

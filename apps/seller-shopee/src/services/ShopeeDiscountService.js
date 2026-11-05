@@ -2,7 +2,7 @@ const axios = require("axios");
 const shopee = require("../config/shopee");
 const { hmacSha256Hex } = require("../utils/crypto");
 
-const API_BASE = "https://openplatform.shopee.com.br";
+const API_BASE = String(shopee.DISCOUNT_API_BASE).replace(/\/+$/, "");
 const DISCOUNT_ENDPOINT = "/api/v2/discount";
 
 /**

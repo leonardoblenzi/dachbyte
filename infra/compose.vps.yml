@@ -145,6 +145,28 @@ services:
       timeout: 5s
       retries: 5
       start_period: 120s
+  # Instancia temporaria para a homologacao do app Shopee novo. Usa o Sandbox
+  # da Shopee, banco proprio e nenhum vinculo com o Hub. So sobe com
+  # `--profile shopee-homolog`; o passo a passo esta em
+  # docs/operations/shopee-homolog-sandbox.md.
+  seller-shopee-homolog:
+    <<: *runtime
+    profiles: [shopee-homolog]
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-shopee/start.js"]
+    env_file: ["./env/seller-shopee-homolog.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/shopee/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
   seller-madeira:
     <<: *runtime
     build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
