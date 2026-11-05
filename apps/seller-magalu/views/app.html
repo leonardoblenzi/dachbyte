@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="/magalu/assets/css/magalu-post-review-fixes.css?v=2026092904">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-loading.css?v=2026103001">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-promotions.css?v=2026093001">
+    <link rel="stylesheet" href="/magalu/assets/css/magalu-campaign-tabs.css?v=2026110501">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-promocoes-massa.css?v=2026110404">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-margin-parity.css?v=2026101401">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-cost-visual-parity.css?v=2026101303">
@@ -64,17 +65,6 @@
         </div>
       </section>
 
-      <section class="mg-nav__group" data-group="products">
-        <button class="mg-nav__group-button" type="button" data-group-toggle="products" aria-expanded="false">
-          <span class="mg-nav__group-icon">▦</span>
-          <span class="mg-nav__group-copy"><strong>Produtos</strong><small>Catálogo e consulta</small></span>
-          <span class="mg-nav__group-arrow">›</span>
-        </button>
-        <div class="mg-nav__children" hidden>
-          <a href="/magalu/catalogo" data-nav-path="/catalogo" class="mg-nav__item">Consulta de catálogo</a>
-        </div>
-      </section>
-
       <section class="mg-nav__group" data-group="orders">
         <button class="mg-nav__group-button" type="button" data-group-toggle="orders" aria-expanded="false">
           <span class="mg-nav__group-icon">▤</span>
@@ -107,7 +97,6 @@
         </button>
         <div class="mg-nav__children" hidden>
           <a href="/magalu/promocoes" data-nav-path="/promocoes" class="mg-nav__item">Campanhas</a>
-          <a href="/magalu/precificacao-promocional" data-nav-path="/precificacao-promocional" class="mg-nav__item">Precificação promocional</a>
         </div>
       </section>
 
@@ -281,7 +270,7 @@
           </div></section>
           <section class="mg-sku-stage"><div class="mg-sku-stage__head"><span class="mg-sku-stage__number">2</span><div class="mg-sku-stage__copy"><strong>Escolha a ação</strong><small>A ação será aplicada apenas aos SKUs validados na revisão.</small></div></div><div class="mg-sku-stage__body mg-sku-action-stack"><button class="mg-sku-action-option" id="mg-sku-activate" data-action="activate" type="button" disabled><span class="mg-sku-action-option__radio"></span><span><strong>Ativar SKUs</strong><small>Reativa itens elegíveis usando o fluxo protegido.</small></span></button><button class="mg-sku-action-option" id="mg-sku-deactivate" data-action="deactivate" type="button" disabled><span class="mg-sku-action-option__radio"></span><span><strong>Despublicar SKUs</strong><small>Retira os itens elegíveis da publicação após revisão do preview.</small></span></button><div class="mg-sku-selection-summary"><span>Resumo</span><strong id="mg-sku-selection-count">0 selecionados</strong></div><button class="mg-primary-btn mg-sku-review-btn" id="mg-sku-review" type="button" disabled>Revisar e continuar</button></div></section>
         </div>
-        <section class="mg-sku-support"><div class="mg-sku-support__head"><div><span class="mg-kicker">Catálogo de apoio</span><h2>Revise os itens selecionados</h2><p>A tabela serve para localizar, selecionar e validar os SKUs; a ação é definida acima.</p></div><button class="mg-secondary-btn" id="mg-sku-refresh" type="button">Atualizar</button></div><div class="mg-sku-selection-tools"><label><input id="mg-sku-select-page" type="checkbox"> Selecionar página</label><button class="mg-secondary-btn" id="mg-sku-select-all" type="button">Selecionar todos os resultados</button><button class="mg-secondary-btn" id="mg-sku-clear-selection" type="button">Limpar seleção</button></div><div class="mg-table-wrap"><table class="mg-table mg-sku-table"><thead><tr><th></th><th>SKU / Produto</th><th>Status</th><th>Situação</th><th>Preço</th><th>Estoque</th><th>Atualizado</th><th></th></tr></thead><tbody id="mg-sku-management-body"></tbody></table></div><div id="mg-sku-management-empty" class="mg-empty-state" hidden><strong>Nenhum SKU encontrado</strong><p>Ajuste os filtros ou sincronize o catálogo.</p></div><div class="mg-pagination"><button class="mg-secondary-btn" id="mg-sku-prev" type="button">← Anterior</button><span id="mg-sku-page-meta">0 SKUs</span><button class="mg-secondary-btn" id="mg-sku-next" type="button">Próxima →</button></div></section>
+        <section class="mg-sku-support"><div class="mg-sku-support__head"><div><span class="mg-kicker">Catálogo de apoio</span><h2>Revise os itens selecionados</h2><p>A tabela serve para localizar, selecionar e validar os SKUs; a ação é definida acima.</p></div><div class="mg-sku-support__actions"><button class="mg-secondary-btn" id="mg-sku-export" type="button">Exportar XLSX</button><button class="mg-secondary-btn" id="mg-sku-refresh" type="button">Atualizar</button></div></div><div class="mg-sku-selection-tools"><label><input id="mg-sku-select-page" type="checkbox"> Selecionar página</label><button class="mg-secondary-btn" id="mg-sku-select-all" type="button">Selecionar todos os resultados</button><button class="mg-secondary-btn" id="mg-sku-clear-selection" type="button">Limpar seleção</button></div><div class="mg-table-wrap"><table class="mg-table mg-sku-table"><thead><tr><th></th><th>SKU / Produto</th><th>Status</th><th>Situação</th><th>Preço</th><th>Custo</th><th>Estoque</th><th>Atualizado</th><th></th></tr></thead><tbody id="mg-sku-management-body"></tbody></table></div><div id="mg-sku-management-empty" class="mg-empty-state" hidden><strong>Nenhum SKU encontrado</strong><p>Ajuste os filtros ou sincronize o catálogo.</p></div><div class="mg-pagination"><button class="mg-secondary-btn" id="mg-sku-prev" type="button">← Anterior</button><span id="mg-sku-page-meta">0 SKUs</span><button class="mg-secondary-btn" id="mg-sku-next" type="button">Próxima →</button></div></section>
         <section class="mg-section-card mg-sku-batches-card"><div class="mg-section-head"><div><span class="mg-kicker">Processamento</span><h2>Operações recentes</h2><p class="mg-section-copy">Acompanhe lotes enviados ao worker e reverifique somente operações ambíguas.</p></div></div><div id="mg-sku-batch-list" class="mg-sku-batch-list"></div></section>
       </section>
 
@@ -419,12 +408,14 @@
           <div><span class="mg-kicker">Comercial · Magalu</span><h1>Promoções</h1><p>Consulte campanhas liberadas para a sua conta e acompanhe a participação atual. Adesão e remoção de SKUs serão exibidas somente quando a Open API disponibilizar essas ações.</p></div>
           <div class="mg-rich-hero__meta"><span class="mg-pill" id="mg-promotions-account">Conta Magalu</span><button class="mg-secondary-btn" id="mg-promotions-refresh" type="button">Atualizar</button></div>
         </header>
-        <nav class="mg-promotions-tabs" aria-label="Visões de promoções"><button class="is-active" data-promotions-tab="available" type="button">Promoções disponíveis <span id="mg-promotions-available-count">0</span></button><button data-promotions-tab="participating" type="button">Participando <span id="mg-promotions-participating-count">0</span></button></nav>
+        <nav class="mg-promotions-tabs" aria-label="Campanhas" role="tablist"><button data-campaigns-tab="pricing" type="button" role="tab" aria-selected="false">Precificação</button><button class="is-active" data-campaigns-tab="available" data-promotions-tab="available" type="button" role="tab" aria-selected="true">Promoções disponíveis <span id="mg-promotions-available-count">0</span></button><button data-campaigns-tab="participating" data-promotions-tab="participating" type="button" role="tab" aria-selected="false">Participando <span id="mg-promotions-participating-count">0</span></button></nav>
+        <div id="mg-promotions-campaign-content" data-campaign-panel="campaigns">
         <section class="mg-promotions-filter-card mg-ui-filter-card"><div class="mg-promotions-filters"><label class="mg-promotions-field mg-promotions-field--search"><span>Buscar</span><input id="mg-promotions-search" type="search" placeholder="Nome, benefício ou código"></label><label class="mg-promotions-field"><span>Tipo</span><select id="mg-promotions-type"><option value="">Todos</option></select></label><label class="mg-promotions-field"><span>Origem</span><select id="mg-promotions-origin"><option value="">Todas</option></select></label><label class="mg-promotions-field"><span>Período</span><select id="mg-promotions-period"><option value="active">Em vigência ou próxima</option><option value="all">Todos os períodos</option><option value="ended">Encerradas</option></select></label><div class="mg-promotions-filter-actions"><button class="mg-secondary-btn" id="mg-promotions-clear" type="button">Limpar</button><button class="mg-primary-btn" id="mg-promotions-filter" type="button">Filtrar</button></div></div></section>
         <section class="mg-promotions-summary"><article><span>Disponíveis</span><strong id="mg-promotions-summary-available">—</strong><small>campanhas retornadas pela Open API</small></article><article><span>Participando</span><strong id="mg-promotions-summary-participating">—</strong><small>participação identificada na consulta</small></article><article><span>Janela mais próxima</span><strong id="mg-promotions-summary-deadline">—</strong><small>prazo informado pela campanha</small></article></section>
         <section class="mg-promotions-notice"><span>ⓘ</span><p>Esta área é somente leitura enquanto a Open API Magalu não publicar operações de adesão, gerenciamento de SKU ou remoção para promoções.</p></section>
         <section id="mg-promotions-grid" class="mg-promotions-grid" aria-live="polite"><div class="mg-empty-state"><strong>Carregando promoções…</strong></div></section>
         <section id="mg-promotions-empty" class="mg-empty-state mg-promotions-empty" hidden><strong>Nenhuma promoção encontrada</strong><p>Ajuste os filtros ou atualize a consulta da conta selecionada.</p></section>
+        </div>
       </section>
 
       <section class="mg-promotions-dialog mg-ui-modal" id="mg-promotions-detail" hidden aria-modal="true" role="dialog" aria-labelledby="mg-promotions-detail-title"><div class="mg-promotions-dialog__card mg-ui-modal__dialog"><header><div><span class="mg-kicker">Promoção Magalu</span><h2 id="mg-promotions-detail-title">Detalhes da campanha</h2></div><button class="mg-icon-btn" id="mg-promotions-detail-close" type="button" aria-label="Fechar">×</button></header><div id="mg-promotions-detail-body"></div></div></section>
@@ -477,7 +468,7 @@
       <section class="mg-orders-dialog mg-ui-modal" id="mg-cost-history-modal" hidden><div class="mg-orders-dialog__card mg-ui-modal__dialog"><header class="mg-orders-dialog__head"><div><span class="mg-kicker">Precificação · custos</span><h2 id="mg-cost-history-title">Histórico do SKU</h2></div><button class="mg-icon-btn" id="mg-cost-history-close" type="button" aria-label="Fechar">×</button></header><div id="mg-cost-history-body" class="mg-cost-history-body"></div></div></section>
       <section class="mg-orders-dialog mg-ui-modal" id="mg-cost-ean-preview" hidden role="dialog" aria-modal="true" aria-labelledby="mg-cost-ean-preview-title"><div class="mg-orders-dialog__card mg-ui-modal__dialog"><header class="mg-orders-dialog__head"><div><span class="mg-kicker">Importação por EAN</span><h2 id="mg-cost-ean-preview-title">Revisar correspondências</h2></div><button class="mg-icon-btn" id="mg-cost-ean-close" type="button" aria-label="Fechar">×</button></header><p id="mg-cost-ean-summary"></p><p id="mg-cost-ean-missing"></p><div class="mg-table-wrap" style="max-height:50vh;overflow:auto"><table class="mg-table"><thead><tr><th>EAN</th><th>SKU</th><th>Custo atual</th><th>Novo custo</th></tr></thead><tbody id="mg-cost-ean-rows"></tbody></table></div><div class="mg-pagination"><button class="mg-secondary-btn" id="mg-cost-ean-prev" type="button">← Anterior</button><span id="mg-cost-ean-page"></span><button class="mg-secondary-btn" id="mg-cost-ean-next" type="button">Próxima →</button></div><div class="mg-cost-toolbar__actions"><button class="mg-secondary-btn" id="mg-cost-ean-cancel" type="button">Cancelar</button><button class="mg-primary-btn" id="mg-cost-ean-confirm" type="button">Confirmar custos</button></div></div></section>
 
-      <section id="mg-promo-prices-page" class="mg-product-page mg-financial-page mg-promo-prices" data-page="/precificacao-promocional" hidden>
+      <section id="mg-promo-prices-page" class="mg-product-page mg-financial-page mg-promo-prices" data-campaign-panel="pricing" hidden>
         <header class="mg-rich-hero mg-ui-hero"><div><span class="mg-kicker">Promoções · Magalu</span><h1>Precificação promocional</h1><p>Consulte os preços, defina a margem alvo e revise cada sugestão antes de gerar o arquivo Magalu.</p></div></header>
         <section class="mg-promo-prices__filters mg-ui-filter-card" aria-label="Filtros de preço">
           <label>Tipo de busca<select id="mg-promo-search-type"><option value="sku">SKU</option><option value="ean">EAN</option><option value="group">Família</option><option value="product">Produto</option></select></label>
@@ -542,14 +533,15 @@
         <button class="mg-process-launcher" id="mg-process-toggle" type="button" aria-expanded="false" aria-controls="mg-process-panel" hidden>Processos <span id="mg-process-count">0</span></button>
     <script src="/magalu/assets/js/magalu-loading.js?v=2026103001"></script>
     <script src="/magalu/assets/js/magalu-dashboard.js?v=2026092903"></script>
-        <script src="/magalu/assets/js/magalu-app.js?v=2026110404"></script>
+        <script src="/magalu/assets/js/magalu-app.js?v=2026110501"></script>
 <script src="/magalu/assets/js/magalu-account.js?v=2026092503"></script>
-        <script src="/magalu/assets/js/magalu-sku-management.js?v=2026101303"></script>
+        <script src="/magalu/assets/js/magalu-sku-management.js?v=2026110501"></script>
     <script src="/magalu/assets/js/magalu-orders.js?v=2026100101"></script>
 <script src="/magalu/assets/js/magalu-stock-price.js?v=2026092904"></script>
     <script src="/magalu/assets/js/magalu-financial.js?v=2026110402"></script>
 <script src="/magalu/assets/js/magalu-promotions.js?v=2026093001"></script>
+<script src="/magalu/assets/js/magalu-campaign-tabs.js?v=2026110501"></script>
 <script src="/magalu/assets/js/magalu-process-panel.js?v=2026110402"></script>
-<script src="/magalu/assets/js/magalu-promocoes-massa.js?v=2026110406"></script>
+<script src="/magalu/assets/js/magalu-promocoes-massa.js?v=2026110501"></script>
 </body>
 </html>

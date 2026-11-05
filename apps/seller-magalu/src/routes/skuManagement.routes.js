@@ -4,6 +4,7 @@ const controller=require("../controllers/skuManagementController");
 const router=express.Router();
 router.get("/status",controller.status);
 router.get("/skus",controller.list);
+router.get("/skus/export",controller.exportSkus);
 router.post("/selection/resolve",controller.resolveSelection);
 router.post("/bulk/selections",controller.createBulkSelection);
 router.post("/bulk/selections/:id/append",controller.appendBulkSelection);

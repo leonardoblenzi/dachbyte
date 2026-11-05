@@ -37,7 +37,6 @@
     "/estoque": { title: "Estoque", page: "mg-stock-page", group: "operations" },
     "/promocoes": { title: "Promoções", page: "mg-promotions-page", group: "promotions" },
     "/margem": { title: "Margem de venda", page: "mg-financial-margin-page", group: "financial" },
-    "/precificacao-promocional": { title: "Precificação promocional", page: "mg-promo-prices-page", group: "promotions" },
     "/calculadora": { title: "Calculadora", page: "mg-financial-calculator-page", group: "financial" },
     "/contas": { title: "Contas Magalu", page: "mg-accounts-page", group: "account" },
     "/usuarios": { title: "Usuários", page: "mg-users-page", group: "account" },
@@ -74,7 +73,7 @@
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (_error) {}
   }
 
-  async function fetchJson(url, options = {}) {
+  async function fetchResponse(url, options = {}) {
     const { loading = "modal", ...requestOptions } = options;
     if (loading === "modal") window.MagaluLoadingOverlay?.show({ message: "Carregando dados da conta Magalu..." });
     try {
@@ -87,15 +86,20 @@
         },
         ...requestOptions,
       });
-      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
+        const data = await response.clone().json().catch(() => ({}));
         const error = new Error(data.message || data.error || `HTTP ${response.status}`);
         error.status = response.status;
         error.payload = data;
         throw error;
       }
-      return data;
+      return response;
     } finally { if (loading === "modal") window.MagaluLoadingOverlay?.hide(); }
+  }
+
+  async function fetchJson(url, options = {}) {
+    const response = await fetchResponse(url, options);
+    return response.json().catch(() => ({}));
   }
 
   function escapeHtml(value) {
@@ -1036,7 +1040,7 @@
     getSelectedAccountId: () => state.selectedAccountId,
     getSelectedAccount: () => selected(),
     getAccounts: () => [...state.accounts],
-    fetchJson, showAlert, escapeHtml, formatDate, route,
+    fetchJson, fetchResponse, showAlert, escapeHtml, formatDate, route,
     isReady: () => document.body?.dataset?.magaluShellReady === "true",
   });
 

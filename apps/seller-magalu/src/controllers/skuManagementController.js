@@ -3,6 +3,7 @@
 const env = require("../config/env");
 const accountRepository = require("../repositories/accountRepository");
 const skuMassRepository = require("../repositories/skuMassRepository");
+const { createXlsx } = require("../services/simpleXlsx");
 const bulkSelections = require("../repositories/skuBulkSelectionRepository");
 const bulkGroups = require("../repositories/skuBulkGroupRepository");
 const { appendAuditEvent } = require("../repositories/auditRepository");
@@ -37,6 +38,43 @@ async function accountFor(req,{write=false,force=false,accountIdOverride=null}={
 }
 async function status(req,res,next){try{const accountId=int(req.query?.account_id);let account=null;if(accountId)account=await accountFor(req);return res.json({ok:true,enabled:env.MAGALU_SKU_WRITE_ENABLED,scope:WRITE_SCOPE,max_batch_size:env.MAGALU_SKU_MAX_BATCH_SIZE,preview_ttl_seconds:env.MAGALU_SKU_PREVIEW_TTL_SECONDS,concurrency:env.MAGALU_SKU_UPDATE_CONCURRENCY,rate_limit_per_minute:env.MAGALU_RATE_LIMIT_SKU_WRITE_PER_MINUTE,account:account?{id:account.id,status:account.status,has_write_scope:hasWriteScope(account.scopes)}:null});}catch(error){return fail(res,error,"Não foi possível carregar o status da Gestão de SKUs.");}}
 async function list(req,res){try{const account=await accountFor(req);const data=await skuMassRepository.listSkus(account.id,{q:req.query?.q,search_type:req.query?.search_type,status:req.query?.status,active:req.query?.active,page:req.query?.page,limit:req.query?.limit});return res.json({ok:true,...data,account:{id:account.id,magalu_tenant_id:account.magalu_tenant_id,name:account.magalu_tenant_name||null}});}catch(error){return fail(res,error,"Não foi possível listar os SKUs.");}}
+async function exportSkus(req, res) {
+  try {
+    const account = await accountFor(req);
+    const rows = await skuMassRepository.exportSkus(account.id, {
+      q: req.query?.q,
+      search_type: req.query?.search_type,
+      status: req.query?.status,
+      active: req.query?.active,
+    });
+    const normalized = rows.map((row) => ({
+      ...row,
+      active_label: row.active ? "Ativo" : "Inativo",
+      price_label: row.price == null ? "" : Number(row.price),
+      unit_cost_label: row.unit_cost == null ? "" : Number(row.unit_cost),
+      stock_label: row.quantity == null ? "" : Number(row.quantity),
+      synced_label: row.last_synced_at || row.updated_at ? new Date(row.last_synced_at || row.updated_at).toISOString() : "",
+    }));
+    const workbook = createXlsx(normalized, [
+      { key: "sku", header: "SKU" },
+      { key: "title", header: "Produto" },
+      { key: "ean", header: "EAN" },
+      { key: "group_id", header: "Família" },
+      { key: "status", header: "Status" },
+      { key: "active_label", header: "Situação" },
+      { key: "price_label", header: "Preço (R$)" },
+      { key: "unit_cost_label", header: "Custo (R$)" },
+      { key: "stock_label", header: "Estoque" },
+      { key: "synced_label", header: "Atualizado" },
+    ], "Catalogo Magalu");
+    const date = new Date().toISOString().slice(0, 10);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="catalogo-magalu-${date}.xlsx"`);
+    return res.send(workbook);
+  } catch (error) {
+    return fail(res, error, "Não foi possível exportar o catálogo.");
+  }
+}
 async function resolveSelection(req,res){try{const account=await accountFor(req);const data=await skuMassRepository.resolveExplicitSkus(account.id,req.body?.skus);return res.json({ok:true,...data,account:{id:account.id,magalu_tenant_id:account.magalu_tenant_id,name:account.magalu_tenant_name||null}});}catch(error){return fail(res,error,"Não foi possível validar a lista de SKUs.");}}
 async function validationInfo(req,res){try{const account=await accountFor(req);const sku=text(req.params.sku,64);if(!sku)return res.status(400).json({ok:false,error:"invalid_sku"});const response=await remote.validationInfo(account,sku);return res.json({ok:true,sku,status:response.status,request_id:response.requestId||null,data:response.data||null});}catch(error){return fail(res,error,"Não foi possível consultar validation-info.");}}
 async function preview(req,res){try{const account=await accountFor(req,{write:true,force:true});const identity=req.magaluIdentity;const preview=await skuMassRepository.createPreview({accountId:account.id,dachTenantId:identity.dachTenantId,dachUserId:identity.dachUserId,action:req.body?.action,selection:req.body?.selection||{}});await appendAuditEvent({accountId:account.id,dachTenantId:identity.dachTenantId,dachUserId:identity.dachUserId,magaluTenantId:account.magalu_tenant_id,action:"SKU_MASS_PREVIEW_CREATED",category:"write",outcome:"success",resourceType:"sku",batchId:preview.id,source:"sku-management",details:{action:preview.action,selection_mode:preview.selection_mode,selected_count:preview.selected_count,change_count:preview.change_count}}).catch(()=>{});return res.json({ok:true,preview:{id:preview.id,action:preview.action,selection_mode:preview.selection_mode,selected_count:preview.selected_count,change_count:preview.change_count,rows:preview.rows,created_at:preview.created_at,expires_at:preview.expires_at},write_enabled:env.MAGALU_SKU_WRITE_ENABLED});}catch(error){return fail(res,error,"Não foi possível gerar o preview massivo.");}}
@@ -44,4 +82,4 @@ async function apply(req,res){try{if(!env.MAGALU_SKU_WRITE_ENABLED)return res.st
 async function batches(req,res){try{await accountFor(req);const data=await skuMassRepository.listBatches(req.magaluIdentity.dachTenantId,{accountId:req.query?.account_id,status:req.query?.status,page:req.query?.page,limit:req.query?.limit});return res.json({ok:true,...data});}catch(error){return fail(res,error,"Não foi possível listar os lotes.");}}
 async function batch(req,res){try{const data=await skuMassRepository.batchDetail(req.params.batchId,req.magaluIdentity.dachTenantId);if(!data)return res.status(404).json({ok:false,error:"MAGALU_SKU_BATCH_NOT_FOUND"});return res.json({ok:true,...data});}catch(error){return fail(res,error,"Não foi possível abrir o lote.");}}
 async function reverify(req,res){try{const identity=req.magaluIdentity;const item=await skuMassRepository.getItemForTenant(req.params.itemId,identity.dachTenantId);if(!item)return res.status(404).json({ok:false,error:"MAGALU_SKU_ITEM_NOT_FOUND"});if(!["uncertain","divergent"].includes(String(item.status)))return res.status(409).json({ok:false,error:"MAGALU_SKU_REVERIFY_INVALID_STATE",message:"Somente itens uncertain/divergent podem ser reverificados."});await accountFor(req,{write:false,force:true,accountIdOverride:item.account_id});const jobs=await enqueueSkuMassReverify(item);await appendAuditEvent({accountId:item.account_id,dachTenantId:item.dach_tenant_id,dachUserId:identity.dachUserId,action:"SKU_MASS_REVERIFY_REQUESTED",category:"write",outcome:"info",resourceType:"sku",sku:item.sku,batchId:item.batch_id,requestId:item.request_id||null,source:"sku-management",details:{item_id:item.id,previous_status:item.status,mode:"verification_only"}}).catch(()=>{});return res.status(202).json({ok:true,item_id:item.id,batch_id:item.batch_id,queued:jobs.length,mode:"verification_only"});}catch(error){return fail(res,error,"Não foi possível reverificar o item.");}}
-module.exports={status,list,resolveSelection,validationInfo,preview,apply,batches,batch,reverify,createBulkSelection,appendBulkSelection,finalizeBulkSelection,pageBulkSelection,missingBulkSelection,bulkFromFilters,previewBulkGroup,applyBulkGroup,_test:{int,text}};
+module.exports={status,list,exportSkus,resolveSelection,validationInfo,preview,apply,batches,batch,reverify,createBulkSelection,appendBulkSelection,finalizeBulkSelection,pageBulkSelection,missingBulkSelection,bulkFromFilters,previewBulkGroup,applyBulkGroup,_test:{int,text}};

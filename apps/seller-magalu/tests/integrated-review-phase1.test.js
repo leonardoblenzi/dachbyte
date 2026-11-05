@@ -8,14 +8,13 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), "utf8");
 
-test("catalog navigation separates consultation from protected operations", () => {
+test("catalog navigation keeps one protected management entry and the legacy redirect", () => {
   const html = read("views", "app.html");
-  const app = read("public", "js", "magalu-app.js");
+  const routes = read("src", "routes", "index.js");
 
-  assert.match(html, /href="\/magalu\/catalogo"[^>]*>Consulta de catálogo<\/a>/);
   assert.match(html, /href="\/magalu\/gestao-skus"[^>]*>Gestão de catálogo<\/a>/);
-  assert.match(app, /"\/catalogo": \{ title: "Consulta de catálogo", page: "mg-catalog-page", group: "products" \}/);
-  assert.match(app, /"\/gestao-skus": \{ title: "Gestão de catálogo", page: "mg-sku-management-page", group: "operations" \}/);
+  assert.doesNotMatch(html, /data-group="products"/);
+  assert.match(routes, /router\.get\("\/catalogo"[^\n]*\/magalu\/gestao-skus/);
 });
 
 test("catalog management requires selection and action before protected preview", () => {

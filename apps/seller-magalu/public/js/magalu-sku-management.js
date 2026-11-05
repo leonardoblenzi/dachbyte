@@ -7,6 +7,7 @@
   const shell = () => window.MagaluSellerShell || null;
   const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
   const fmt = (n) => new Intl.NumberFormat("pt-BR").format(Number(n) || 0);
+  const money = (value) => value == null || value === "" ? "—" : new Intl.NumberFormat("pt-BR", { style:"currency", currency:"BRL" }).format(Number(value));
   const dt = (v) => { if (!v) return "—"; const d = new Date(v); return Number.isNaN(d.getTime()) ? "—" : new Intl.DateTimeFormat("pt-BR", { dateStyle:"short", timeStyle:"short" }).format(d); };
 
   function isPage() { return location.pathname.replace(/\/$/, "") === "/magalu/gestao-skus"; }
@@ -115,7 +116,7 @@
     const body = $("mg-sku-management-body");
     if (!state.accountId) {
       state.rows = []; state.total = 0;
-      if (body) body.innerHTML = '<tr><td colspan="8" class="mg-empty-cell">Selecione uma conta Magalu.</td></tr>';
+      if (body) body.innerHTML = '<tr><td colspan="9" class="mg-empty-cell">Selecione uma conta Magalu.</td></tr>';
       $("mg-sku-management-empty") && ($("mg-sku-management-empty").hidden = true);
       updateSelection(); return;
     }
@@ -129,7 +130,7 @@
       <td><code>${esc(r.sku)}</code><span class="mg-sku-row-sub">${esc(r.title || "Sem título")}</span>${r.ean||r.group_id?`<span class="mg-sku-row-sub">${r.ean?`EAN ${esc(r.ean)}`:""}${r.ean&&r.group_id?" · ":""}${r.group_id?`Família ${esc(r.group_id)}`:""}</span>`:""}</td>
       <td>${badge(r.status, r.status === "PUBLISHED" ? "ok" : ["BLOCKED","DELETED"].includes(r.status) ? "bad" : "warn")}</td>
       <td>${badge(r.active ? "Ativo" : "Inativo", r.active ? "ok" : "muted")}</td>
-      <td>${esc(r.price ?? "—")}</td><td>${esc(r.quantity ?? "—")}</td><td>${esc(dt(r.last_synced_at || r.updated_at))}</td>
+      <td>${esc(money(r.price))}</td><td>${esc(money(r.unit_cost))}</td><td>${esc(r.quantity ?? "—")}</td><td>${esc(dt(r.last_synced_at || r.updated_at))}</td>
       <td><button class="mg-secondary-btn mg-sku-table-action" data-sku-validation="${esc(r.sku)}" type="button">Validar</button></td>
     </tr>`).join("");
     if ($("mg-sku-management-empty")) $("mg-sku-management-empty").hidden = state.rows.length > 0;
@@ -138,6 +139,39 @@
     if ($("mg-sku-prev")) $("mg-sku-prev").disabled = state.page <= 1;
     if ($("mg-sku-next")) $("mg-sku-next").disabled = end >= state.total;
     updateSelection();
+  }
+
+  async function exportCatalog() {
+    if (!state.accountId) return alert("Selecione uma conta Magalu.", "warning");
+    if (state.inputMode !== "filters" || state.bulkSelectionId) {
+      return alert("A exportação usa os filtros do Catálogo atual. Para exportar, volte a esse modo e aplique um filtro simples.", "warning");
+    }
+    if (!state.appliedFilters || state.appliedFilters !== JSON.stringify(filters())) {
+      return alert("Os filtros foram alterados. Clique em Filtrar antes de exportar.", "warning");
+    }
+    const accountId = state.accountId;
+    const button = $("mg-sku-export");
+    const previous = button?.textContent || "Exportar XLSX";
+    if (button) { button.disabled = true; button.textContent = "Preparando XLSX…"; }
+    try {
+      const applied = JSON.parse(state.appliedFilters);
+      const client = shell();
+      if (!client?.fetchResponse) throw new Error("Shell Magalu indisponível.");
+      const response = await client.fetchResponse(`${API}/skus/export?${query({account_id:accountId, ...applied})}`, {
+        method: "GET", headers: { Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+      });
+      const blob = await response.blob();
+      if (state.accountId !== accountId) throw new Error("A conta mudou durante a exportação. Tente novamente.");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `catalogo-magalu-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      alert("Exportação XLSX concluída.", "success");
+    } catch (error) { alert(error.message); }
+    finally { if (button) { button.disabled = false; button.textContent = previous; } }
   }
 
   function batchTone(status) { return status === "completed" ? "ok" : ["failed","partial"].includes(status) ? "bad" : ["queued","running"].includes(status) ? "blue" : "warn"; }
@@ -224,6 +258,7 @@
     $("mg-sku-search-type")?.addEventListener("change", (event) => { const input=$("mg-sku-search"); if(input) input.placeholder=({sku:"Buscar SKU",product:"Buscar produto",ean:"Informe o EAN",group:"Informe o ID da família"})[event.target.value]||"Buscar SKU"; });
     $("mg-sku-filter")?.addEventListener("click", () => { state.page = 1; setInputMode("filters");const f=filters();if(["sku","ean","group"].includes(f.search_type)&&/[;,\r\n]/.test(f.q)){void buildBulkSelection(f.q,f.search_type,f.status,f.active).then(async result=>{const page=await api(`/bulk/selections/${state.bulkSelectionId}?${query({account_id:state.accountId,page:1,limit:state.limit})}`);state.resolution={...result,bulk:true,missing_identifiers:page.missing_identifiers};renderResolution();}).catch(e=>alert(e.message));}else void loadSkus().catch((e) => alert(e.message)); });
     $("mg-sku-refresh")?.addEventListener("click", () => void Promise.all([loadStatus(), loadSkus(), loadBatches()]).catch((e) => alert(e.message)));
+    $("mg-sku-export")?.addEventListener("click", () => void exportCatalog());
     $("mg-sku-prev")?.addEventListener("click", () => { if (state.page > 1) { state.page -= 1; void loadSkus(); } });
     $("mg-sku-next")?.addEventListener("click", () => { if (state.page * state.limit < state.total) { state.page += 1; void loadSkus(); } });
     $("mg-sku-select-page")?.addEventListener("change", (e) => { state.allFiltered = false; state.rows.forEach((r) => e.target.checked ? state.selected.add(r.sku) : state.selected.delete(r.sku)); updateSelection(); void loadSkus(); });

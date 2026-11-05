@@ -54,8 +54,11 @@ async function page(id,identity,page=1,limit=50){
   if(!selection||selection.state!=="ready")throw error("Seleção não encontrada.",404);
   const safePage=Math.max(1,Math.floor(Number(page)||1)),safeLimit=Math.min(100,Math.max(1,Math.floor(Number(limit)||50)));
   const {rows}=await db.query(`select s.sku,s.title,s.status,s.active,s.last_synced_at,s.updated_at,
-    (select marker->>'value' from jsonb_array_elements(coalesce(s.payload->'identifiers','[]'::jsonb)) marker where lower(marker->>'type')='ean' limit 1) ean,s.group_id
+    (select marker->>'value' from jsonb_array_elements(coalesce(s.payload->'identifiers','[]'::jsonb)) marker where lower(marker->>'type')='ean' limit 1) ean,s.group_id,p.price,st.quantity,c.unit_cost
     from magalu.sku_bulk_matches m join magalu.skus s on s.account_id=$2 and s.sku=m.sku
+    left join magalu.prices p on p.account_id=s.account_id and p.sku=s.sku and p.is_present=true
+    left join magalu.stocks st on st.account_id=s.account_id and st.sku=s.sku and st.is_present=true
+    left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku
     where m.selection_id=$1 order by m.sku limit $3 offset $4`,[id,Number(identity.accountId),safeLimit,(safePage-1)*safeLimit]);
   const missing=await db.query(`select i.identifier from magalu.sku_bulk_identifiers i where i.selection_id=$1 and not exists(select 1 from magalu.sku_bulk_found_identifiers f where f.selection_id=i.selection_id and f.identifier=i.identifier) order by i.identifier limit 100`,[id]);
   return{rows,total:Number(selection.matched_count),page:safePage,limit:safeLimit,identifier_count:Number(selection.identifier_count),missing_count:Number(selection.missing_count),missing_identifiers:missing.rows.map(row=>row.identifier)};

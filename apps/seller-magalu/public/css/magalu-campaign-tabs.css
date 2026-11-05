@@ -1,0 +1,14 @@
+.mg-promotions-page #mg-promotions-campaign-content[hidden],
+.mg-promotions-page #mg-promo-prices-page[hidden]{display:none!important}
+.mg-promotions-page #mg-promo-prices-page{display:grid;gap:16px;min-width:0}
+.mg-promotions-page #mg-promo-prices-page>.mg-rich-hero{display:none}
+.mg-promotions-page #mg-promotions-campaign-content{display:grid;gap:16px;min-width:0}
+.mg-promotions-tabs{flex-wrap:wrap}
+.mg-promotions-tabs button{white-space:nowrap}
+.mg-sku-support__actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+@media(max-width:760px){
+  .mg-promotions-tabs{display:grid;grid-template-columns:1fr;width:100%}
+  .mg-promotions-tabs button{justify-content:space-between}
+  .mg-sku-support__actions{width:100%}
+  .mg-sku-support__actions button{flex:1}
+}
