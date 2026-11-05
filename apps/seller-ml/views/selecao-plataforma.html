@@ -50,9 +50,16 @@
     .sidebar__bottom{margin-top:auto;border-top:1px solid var(--line);padding:16px 10px 0;display:grid;gap:8px}
     .side-link{appearance:none;border:0;background:transparent;color:var(--muted);text-align:left;padding:5px 0;cursor:pointer;font-size:.8rem}
     .main{min-width:0}
-    .topbar{height:72px;border-bottom:1px solid var(--line);background:rgba(9,11,16,.94);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 28px;position:sticky;top:0;z-index:15}
+    .topbar{height:72px;border-bottom:1px solid var(--line);background:rgba(9,11,16,.94);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 72px 0 28px;position:sticky;top:0;z-index:15}
     .tenant strong{font-size:.95rem}.tenant small{display:block;color:var(--muted);font-size:.7rem;margin-top:3px;font-family:"Share Tech Mono",monospace}
-    .userbox{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.78rem}
+    .userbox{position:relative;color:var(--muted);font-size:.78rem}
+    .user-menu-btn{appearance:none;border:1px solid transparent;background:transparent;color:inherit;display:flex;align-items:center;gap:10px;padding:5px 6px 5px 10px;border-radius:11px;cursor:pointer;text-align:right}
+    .user-menu-btn:hover,.user-menu-btn[aria-expanded="true"]{background:#121720;border-color:var(--line)}
+    .user-menu{position:absolute;right:0;top:calc(100% + 8px);min-width:190px;background:var(--panel);border:1px solid var(--line-strong);border-radius:12px;padding:6px;box-shadow:0 18px 40px rgba(0,0,0,.45);display:grid;gap:2px;z-index:40}
+    .user-menu button{appearance:none;border:0;background:transparent;color:var(--text);text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;font-weight:700;font-size:.82rem}
+    .user-menu button:hover{background:#181e27}
+    .user-menu .user-menu__danger{color:#ff8a7a}
+    .readonly-note{color:var(--muted);font-size:.74rem}
     .avatar{width:34px;height:34px;border-radius:9px;background:var(--panel-3);border:1px solid var(--line-strong);display:grid;place-items:center;color:#fff;font-weight:800}
     .content{max-width:1480px;margin:0 auto;padding:30px 30px 54px}
     .view{display:none}.view.is-active{display:block}
@@ -187,13 +194,13 @@
     @media(max-width:1120px){
       .app{grid-template-columns:82px minmax(0,1fr)}
       .brand__name{font-size:0}.brand__name::after{content:"D";font-size:1.4rem}.brand__line{display:none}
-      .nav__item{justify-content:center;font-size:0;padding:11px 8px}.nav__dot{width:10px;height:10px}.sidebar__bottom{display:none}
+      .nav__item{flex-direction:column;justify-content:center;gap:5px;font-size:.6rem;letter-spacing:.01em;padding:9px 3px;text-align:center}.nav__dot{width:10px;height:10px}.sidebar__bottom{display:none}
       .modules-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .summary{grid-template-columns:repeat(3,minmax(0,1fr))}
     }
     @media(max-width:760px){
       .app{display:block}.sidebar{position:sticky;top:0;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:7px;display:block}.brand,.sidebar__bottom{display:none}
-      .nav{grid-template-columns:repeat(5,1fr)}.nav__item{padding:10px 5px}.topbar{top:50px;height:62px;padding:0 14px}.content{padding:20px 13px 42px}
+      .nav{grid-template-columns:repeat(5,1fr)}.nav__item{padding:10px 5px}.topbar{top:62px;height:62px;padding:0 60px 0 14px}.user-menu-btn strong,.user-menu-btn small{display:none!important}.content{padding:20px 13px 42px}
       .modules-grid,.alerts,.company-grid{grid-template-columns:1fr}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}
       .plan-row{grid-template-columns:28px 1fr 1fr}.plan-row>*:nth-child(n+4){grid-column:auto}.plan-row .plan-action{grid-column:2/-1}
       .form-grid{grid-template-columns:1fr}.field--wide{grid-column:auto}
@@ -216,7 +223,7 @@
         <button class="nav__item" type="button" data-view-target="company"><span class="nav__dot"></span>Empresa</button>
       </nav>
       <div class="sidebar__bottom">
-        <a class="side-link" href="mailto:contato@davanttisuite.com.br">Suporte</a>
+        <button class="side-link" id="support-button" type="button">Suporte</button>
         <button class="side-link" id="logout-button" type="button">Sair</button>
       </div>
     </aside>
@@ -229,11 +236,17 @@
         </div>
         <div class="userbox">
           <span id="top-alert-count"></span>
-          <div>
-            <strong id="user-name">Usuário</strong>
-            <small id="user-role" style="display:block;color:var(--muted);margin-top:2px"></small>
+          <button class="user-menu-btn" id="user-menu-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu">
+            <span>
+              <strong id="user-name" style="display:block;color:var(--text)">Usuário</strong>
+              <small id="user-role" style="display:block;color:var(--muted);margin-top:2px"></small>
+            </span>
+            <span class="avatar" id="user-avatar">U</span>
+          </button>
+          <div class="user-menu" id="user-menu" role="menu" hidden>
+            <button type="button" role="menuitem" id="user-menu-support">Suporte</button>
+            <button type="button" role="menuitem" class="user-menu__danger" id="user-menu-logout">Sair</button>
           </div>
-          <div class="avatar" id="user-avatar">U</div>
         </div>
       </header>
 
@@ -285,6 +298,7 @@
           <div class="toolbar">
             <button class="btn" type="button" id="renew-selected" disabled>Renovar selecionadas</button>
             <span id="renew-selected-count" style="color:var(--muted);font-size:.72rem"></span>
+            <span class="readonly-note" id="plans-readonly-note" hidden>Somente quem gerencia a cobrança da empresa (owner ou administrador) pode renovar ou alterar planos.</span>
           </div>
           <div class="plans" id="plans-list"></div>
         </section>
@@ -432,6 +446,12 @@
       function safePaymentUrl(value){
         try{const url=new URL(String(value||""));return url.protocol==="https:"?url.href:null}catch{return null}
       }
+      // Papel na empresa em portugues (o Hub devolve owner/admin/operator).
+      const ROLE_LABELS={owner:"Proprietário",admin:"Administrador",administrador:"Administrador",operator:"Operador",operador:"Operador",member:"Membro"};
+      function roleLabel(role){ const key=String(role||"").trim().toLowerCase(); return ROLE_LABELS[key]||(key?key.charAt(0).toUpperCase()+key.slice(1):""); }
+      function countLabel(value,singular,plural){ const n=Number(value||0); return '<b>'+n+'</b> '+(n===1?singular:plural); }
+      // So owner/admin gerenciam cobranca; o Hub bloqueia os demais no servidor.
+      function canBill(){ return state.overview?.user?.can_manage_billing===true; }
       function firstName(value){ return String(value||"Usuário").trim().split(/\s+/)[0] || "Usuário"; }
       function greeting(){ const h=new Date().getHours(); return h<12?"Bom dia":h<18?"Boa tarde":"Boa noite"; }
       function showToast(message,isError=false){ const el=$("#toast"); el.textContent=message; el.classList.toggle("is-error",isError); el.hidden=false; clearTimeout(showToast.timer); showToast.timer=setTimeout(()=>el.hidden=true,4800); }
@@ -477,7 +497,7 @@
 
       function moduleCard(module){
         const stats = module.resource_required
-          ? '<div class="module-stats"><span><b>'+Number(module.accounts?.total||0)+'</b> contas</span><span><b>'+Number(module.accounts?.active||0)+'</b> ativas</span>'+(Number(module.accounts?.expiring||0)?'<span><b>'+Number(module.accounts.expiring)+'</b> a vencer</span>':"")+'</div>'
+          ? '<div class="module-stats"><span>'+countLabel(module.accounts?.total,"conta","contas")+'</span><span>'+countLabel(module.accounts?.active,"ativa","ativas")+'</span>'+(Number(module.accounts?.expiring||0)?'<span><b>'+Number(module.accounts.expiring)+'</b> a vencer</span>':"")+'</div>'
           : '<div class="module-stats"><span>'+(module.installed?"Produto instalado":"Disponível no catálogo")+'</span></div>';
         return '<article class="module-card '+(module.installed?"is-installed":"is-available")+'">'+
           '<div class="module-top"><div class="module-mark">'+esc(moduleMarks[module.slug]||module.slug.slice(0,2).toUpperCase())+'</div>'+badge(module.status)+'</div>'+
@@ -570,10 +590,13 @@
         if(resource.can_renew && ["expired","expiring"].includes(resource.status)) return '<button class="btn" type="button" data-renew-one="'+esc(resource.resource_key)+'">Renovar</button>';
         if(resource.can_activate) return '<button class="btn" type="button" data-activate-resource="'+esc(resource.resource_key)+'" data-activate-module="'+esc(resource.module_slug)+'">Contratar plano</button>';
         if(resource.can_enter) return '<a class="btn btn--ghost" href="'+esc(goRoutes[resource.module_slug]||"#")+'">Abrir</a>';
+        if(!canBill()) return '<span class="readonly-note">—</span>';
         return '<button class="btn btn--ghost" type="button" data-manage-account="'+esc(resource.resource_key)+'">Ver plano</button>';
       }
       function accountAction(resource){
-        return '<div class="account-actions">'+accountPrimaryAction(resource)+'<button class="icon-btn" type="button" data-manage-account="'+esc(resource.resource_key)+'" aria-label="Gerenciar '+esc(resource.label||"conta")+'">⋯</button></div>';
+        // Renomear/desvincular/plano so para quem gerencia a cobranca.
+        const manage=canBill()?'<button class="icon-btn" type="button" data-manage-account="'+esc(resource.resource_key)+'" aria-label="Gerenciar '+esc(resource.label||"conta")+'">⋯</button>':"";
+        return '<div class="account-actions">'+accountPrimaryAction(resource)+manage+'</div>';
       }
       function measurementLabel(resource){
         if(resource.measurement_status==="succeeded")return String(resource.measured_orders??"—");
@@ -604,16 +627,18 @@
         $("#plans-list").innerHTML=installed.map(module=>{
           const resources=module.resources||[];
           const rows=resources.length?resources.map(r=>{
-            const checkbox=r.can_renew?'<input type="checkbox" data-renew-check="'+esc(r.resource_key)+'" '+(state.selectedRenewals.has(r.resource_key)?"checked":"")+' aria-label="Selecionar '+esc(r.label)+'">':'';
+            const checkbox=r.can_renew&&canBill()?'<input type="checkbox" data-renew-check="'+esc(r.resource_key)+'" '+(state.selectedRenewals.has(r.resource_key)?"checked":"")+' aria-label="Selecionar '+esc(r.label)+'">':'';
             return '<div class="plan-row"><div>'+checkbox+'</div>'+
               '<div><strong>'+esc(r.label)+'</strong><small>'+esc(r.resource_key)+'</small></div>'+
               '<div><strong>'+esc(r.plan?.name||r.plan?.code||"—")+'</strong><small>'+esc(r.plan?.range_label||r.plan?.range_code||"")+'</small></div>'+
               '<div>'+statusText(r.status)+'</div><div>'+esc(formatDate(r.access_ends_at))+'</div>'+
               '<div>'+esc(formatMoney(r.plan?.monthly_price_cents))+'</div>'+
-              '<div class="plan-action">'+(r.can_renew?'<button class="btn btn--ghost" type="button" data-renew-one="'+esc(r.resource_key)+'">Renovar</button>':r.can_activate?'<button class="btn" type="button" data-activate-resource="'+esc(r.resource_key)+'" data-activate-module="'+esc(module.slug)+'">Contratar plano</button>':r.can_change_plan?'<button class="btn btn--ghost" type="button" data-change-plan="'+esc(r.resource_key)+'" data-change-module="'+esc(module.slug)+'">Alterar plano</button>':'<button class="btn btn--ghost" type="button" data-manage-account="'+esc(r.resource_key)+'">Gerenciar</button>')+'</div></div>';
+              '<div class="plan-action">'+(!canBill()?'':r.can_renew?'<button class="btn btn--ghost" type="button" data-renew-one="'+esc(r.resource_key)+'">Renovar</button>':r.can_activate?'<button class="btn" type="button" data-activate-resource="'+esc(r.resource_key)+'" data-activate-module="'+esc(module.slug)+'">Contratar plano</button>':r.can_change_plan?'<button class="btn btn--ghost" type="button" data-change-plan="'+esc(r.resource_key)+'" data-change-module="'+esc(module.slug)+'">Alterar plano</button>':'<button class="btn btn--ghost" type="button" data-manage-account="'+esc(r.resource_key)+'">Gerenciar</button>')+'</div></div>';
           }).join(""):'<div class="empty" style="margin:14px">Produto instalado sem conta faturável vinculada.</div>';
           return '<section class="plan-group"><div class="plan-head"><div><h3>'+esc(module.name)+'</h3><small>'+Number(module.accounts?.total||0)+' conta(s)</small></div>'+badge(module.status)+'</div>'+rows+'</section>';
         }).join("");
+        $("#renew-selected").hidden=!canBill();
+        $("#plans-readonly-note").hidden=canBill();
         updateRenewButton();
       }
       function updateRenewButton(){
@@ -631,10 +656,12 @@
           ["Empresa",o.tenant?.name||"—"],["Workspace",o.tenant?.tenant_id||"—"],["Usuário",o.user?.name||"—"],["E-mail",o.user?.email||"—"],["Acesso da empresa",o.tenant?.access_state||"active"]
         ].map(([l,v])=>'<div class="detail"><span>'+esc(l)+'</span><strong>'+esc(v)+'</strong></div>').join("");
         $("#billing-permissions").innerHTML=[
-          ["Perfil",o.user?.role||"member"],["Gerenciar cobrança",o.user?.can_manage_billing?"Sim":"Não"],["Perfil de cobrança",o.billing?.profile_complete?"Completo":"Requer dados no checkout"]
+          ["Perfil",roleLabel(o.user?.role)||"Membro"],["Gerenciar cobrança",o.user?.can_manage_billing?"Sim":"Não"],["Perfil de cobrança",o.billing?.profile_complete?"Completo":"Requer dados no checkout"]
         ].map(([l,v])=>'<div class="detail"><span>'+esc(l)+'</span><strong>'+esc(v)+'</strong></div>').join("");
         const invoices=Array.isArray(state.invoices)?state.invoices:[];
-        $("#company-invoices").innerHTML=state.invoicesError
+        $("#company-invoices").innerHTML=!canBill()
+          ?'<div class="empty">As faturas ficam visíveis apenas para quem gerencia a cobrança da empresa (owner ou administrador).</div>'
+          :state.invoicesError
           ?'<div class="empty">Não foi possível carregar as faturas. <button class="btn btn--ghost" type="button" id="retry-invoices">Tentar novamente</button></div>'
           :invoices.length?invoices.map(invoice=>{
           const items=Array.isArray(invoice.items)?invoice.items:[];
@@ -653,7 +680,7 @@
         const o=state.overview;
         $("#tenant-name").textContent=o.tenant?.name||"DACHBYTE Seller";
         $("#user-name").textContent=o.user?.name||"Usuário";
-        $("#user-role").textContent=o.user?.role||"";
+        $("#user-role").textContent=roleLabel(o.user?.role);
         $("#user-avatar").textContent=firstName(o.user?.name||"U").charAt(0).toUpperCase();
         $("#home-title").textContent=greeting()+", "+firstName(o.user?.name)+".";
       }
@@ -672,7 +699,7 @@
         document.querySelectorAll("[data-jump-plans]").forEach(btn=>btn.onclick=()=>setView("plans"));
         document.querySelectorAll("[data-account-filter]").forEach(btn=>btn.onclick=()=>{state.accountFilter=btn.dataset.accountFilter;renderAccounts();bindDynamicActions()});
         document.querySelectorAll("[data-renew-check]").forEach(input=>input.onchange=()=>{const key=input.dataset.renewCheck;input.checked?state.selectedRenewals.add(key):state.selectedRenewals.delete(key);updateRenewButton()});
-        const link=$("#link-account"); if(link) link.onclick=()=>{const candidates=(state.overview.modules||[]).filter(m=>m.installed&&m.resource_required); if(candidates.length===1) window.location.href=goRoutes[candidates[0].slug]||"/selecao-plataforma"; else {setView("modules");showToast("Escolha o marketplace e use Gerenciar/Vincular conta.")}};
+        const link=$("#link-account"); if(link) link.onclick=()=>{const candidates=(state.overview.modules||[]).filter(m=>m.installed&&m.resource_required); if(candidates.length===1) window.location.href=goRoutes[candidates[0].slug]||"/selecao-plataforma"; else {setView("modules");showToast(canBill()?"Escolha o marketplace e use Gerenciar/Vincular conta.":"Escolha o marketplace e use Entrar para conectar a conta dentro do módulo.")}};
         const retryInvoices=$("#retry-invoices"); if(retryInvoices)retryInvoices.onclick=refreshInvoices;
       }
 
@@ -967,6 +994,8 @@
       }
 
       async function refreshInvoices(){
+        // Sem permissao de cobranca o Hub recusa as faturas: nem consulta.
+        if(!canBill()){ state.invoices=[]; state.invoicesError=null; renderAll(); return; }
         try{
           const billing=await api("/api/portal/postpaid/invoices");
           state.invoices=Array.isArray(billing.invoices)?billing.invoices:[];
@@ -1001,6 +1030,15 @@
       $("#purchase-confirm").addEventListener("click",confirmPurchase);
       $("#renew-selected").addEventListener("click",()=>renew([...state.selectedRenewals]));
       $("#logout-button").addEventListener("click",logout);
+      // Suporte abre o SAC do portal; sem o widget, cai na Ajuda do Seller.
+      function openSupport(){ const sac=document.querySelector('[aria-label="Abrir suporte DACHBYTE"]'); if(sac) sac.click(); else window.location.href="/ml/ajuda"; }
+      function setUserMenu(open){ $("#user-menu").hidden=!open; $("#user-menu-button").setAttribute("aria-expanded",open?"true":"false"); }
+      $("#support-button").addEventListener("click",openSupport);
+      $("#user-menu-button").addEventListener("click",(event)=>{ event.stopPropagation(); setUserMenu($("#user-menu").hidden); });
+      $("#user-menu-support").addEventListener("click",()=>{ setUserMenu(false); openSupport(); });
+      $("#user-menu-logout").addEventListener("click",logout);
+      document.addEventListener("click",(event)=>{ if(!event.target.closest(".userbox")) setUserMenu(false); });
+      document.addEventListener("keydown",(event)=>{ if(event.key==="Escape") setUserMenu(false); });
       document.addEventListener("keydown",event=>{if(event.key==="Escape"){closePurchase();closeAccountDrawer()}});
 
       (async()=>{
