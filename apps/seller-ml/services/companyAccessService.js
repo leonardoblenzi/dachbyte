@@ -546,6 +546,7 @@ module.exports = {
   isMasterUser,
   requireNivelAdmin,
   requireModuleAccess,
+  hasModuleAccess,
   requireEditForWrites,
   requireWriterUser,
   isReadOnlyCompanyUser,

@@ -9,6 +9,7 @@ const { withPgAdvisoryLock } = require("../services/pgAdvisoryLock");
 const { itemsBulkPath } = require("../services/meliBulk");
 const {
   getUserId,
+  hasModuleAccess,
   isAdminUserFresh,
   userCompanyContext,
 } = require("../services/companyAccessService");
@@ -228,19 +229,24 @@ function snapshotModeLabel(limit) {
   return "Leve (30)";
 }
 
+// Mesmo fluxo para owner e operador: so administrador passa direto; os
+// demais precisam de "Editar" no modulo Ranking.
 async function canManageRankingConfig(req, res) {
   if (await isAdminUserFresh(req)) return true;
-  const reqRole = String(req?.user?.papel || req?.user?.role || req?.user?.nivel || "").trim().toLowerCase();
-  if (["owner", "admin", "administrador", "admin_master"].includes(reqRole)) return true;
   const userId = getUserId(req);
   if (!userId) return false;
-  const empresaId = Number(res?.locals?.empresaId || res?.locals?.mlCreds?.empresa_id || 0);
-  const context = await userCompanyContext(
+  let empresaId = Number(res?.locals?.empresaId || res?.locals?.mlCreds?.empresa_id || 0);
+  if (!Number.isFinite(empresaId) || empresaId <= 0) {
+    const context = await userCompanyContext(userId, null);
+    empresaId = Number(context?.empresa_id || 0);
+  }
+  return hasModuleAccess({
     userId,
-    Number.isFinite(empresaId) && empresaId > 0 ? empresaId : null,
-  );
-  const role = String(context?.papel || "").trim().toLowerCase();
-  return role === "owner" || role === "admin" || role === "administrador";
+    empresaId,
+    moduleKey: "ml.anuncios.ranking",
+    edit: true,
+    defaultAllowIfUnconfigured: true,
+  });
 }
 
 async function getSellerId(token) {

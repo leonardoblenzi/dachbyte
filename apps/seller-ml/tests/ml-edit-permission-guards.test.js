@@ -189,6 +189,22 @@ test("requireWriterUser barra somente leitura e libera quem edita algum modulo",
   assert.equal(await isReadOnlyCompanyUser(35, 16), false, "sem configuracao nao e somente leitura");
 });
 
+test("owner e operador seguem o mesmo fluxo; so administrador passa direto", () => {
+  const source = fs.readFileSync(path.join(__dirname, "..", "routes", "mercadolivreRankingRoutes.js"), "utf8");
+  const start = source.indexOf("async function canManageRankingConfig");
+  const body = source.slice(start, source.indexOf("\n}\n", start));
+  assert.ok(start > 0, "canManageRankingConfig deve existir");
+  assert.doesNotMatch(body, /owner|papel/, "papel na empresa nao pode liberar a configuracao");
+  assert.match(body, /isAdminUserFresh\(req\)/);
+  assert.match(body, /moduleKey: "ml\.anuncios\.ranking"/);
+  assert.match(body, /edit: true/);
+
+  // requireModuleAccess so tem atalho para o nivel de administrador do usuario.
+  const access = fs.readFileSync(path.join(__dirname, "..", "services", "companyAccessService.js"), "utf8");
+  const guard = access.slice(access.indexOf("function requireModuleAccess"), access.indexOf("const WRITE_METHODS"));
+  assert.doesNotMatch(guard, /papel|owner/);
+});
+
 test("todo modulo com escrita via API instala a trava de edicao", () => {
   const read = (name) => fs.readFileSync(path.join(__dirname, "..", "routes", name), "utf8");
   const expected = {
