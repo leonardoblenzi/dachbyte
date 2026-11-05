@@ -5,8 +5,12 @@ const accountRepository = require("../repositories/accountRepository");
 const catalogRepository = require("../repositories/catalogRepository");
 const syncRunRepository = require("../repositories/syncRunRepository");
 const portfolioReadService = require("./portfolioReadService");
+const { skuFields } = require("./catalogPayload");
 const MAX_SKU_LIST_OFFSET = 20_000;
 const CATALOG_SYNC_STATUSES = ["PUBLISHED", "UNPUBLISHED", "BLOCKED"];
+// Inativos continuam listados (status e "Ativar SKUs" dependem disso), mas não
+// recebem consulta de preço e estoque: são 2 chamadas por SKU economizadas.
+function inactiveSku(payload) { return skuFields(payload).active === false; }
 
 function text(value) {
   return String(value == null ? "" : value).trim();
@@ -174,6 +178,7 @@ async function refreshKnownSku(account, sku) {
   try {
     const response = await portfolioReadService.getSku(account.id, account.dach_tenant_id, sku);
     await catalogRepository.upsertSku(account.id, response.data, { seenAt: new Date(), httpStatus: response.status });
+    if (inactiveSku(response.data)) return { missing: false, skipped: true };
   } catch (error) {
     if (Number(error?.status) !== 404) throw error;
     await catalogRepository.markSkuMissing(account.id, sku, {
@@ -195,12 +200,16 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
   }
 
   const startedAt = new Date();
+  const expectedTotal = typeof catalogRepository.countKnownSkus === "function" ? await catalogRepository.countKnownSkus(account.id) : 0;
   const run = await syncRunRepository.createRun({
     dachTenantId: account.dach_tenant_id,
     accountId: account.id,
     syncType: "catalog_full",
-    result: { reason, job_id: jobId || null },
+    result: { reason, job_id: jobId || null, expected_total: expectedTotal },
   });
+  // Uma conta só roda um full-sync por vez (jobId fixo na fila); qualquer outro
+  // registro "running" é de uma execução interrompida (deploy, queda do worker).
+  if (typeof syncRunRepository.cancelStaleRuns === "function") await syncRunRepository.cancelStaleRuns(account.id, "catalog_full", run.id);
   await accountRepository.setCatalogSyncState(account.id, { status: "running", error: null });
 
   let scanned = 0;
@@ -215,6 +224,7 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
   let knownRefreshed = 0;
   let knownProcessed = 0;
   let knownMissing = 0;
+  let detailsSkipped = 0;
   const discoveryPartialStatuses = [];
   const fullyScannedStatuses = [];
   const progress = async (stage) => {
@@ -223,6 +233,7 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
       scannedCount: scanned + knownProcessed, createdCount: created,
       updatedCount: updated + knownRefreshed, failedCount: failed,
       result: { stage, pages, known_processed: knownProcessed, known_refreshed: knownRefreshed, known_missing: knownMissing,
+        details_skipped: detailsSkipped, expected_total: Math.max(expectedTotal, scanned + knownProcessed),
         discovery_partial_statuses: discoveryPartialStatuses },
     });
   };
@@ -292,7 +303,9 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
 
         currentStage = "price_stock_details";
         currentEndpoint = "/seller/v1/portfolios/prices/:sku + /seller/v1/portfolios/stocks/:sku";
-        await mapWithConcurrency(rows, env.MAGALU_SYNC_DETAIL_CONCURRENCY, async (skuPayload) => {
+        const detailRows = rows.filter((skuPayload) => !inactiveSku(skuPayload));
+        detailsSkipped += rows.length - detailRows.length;
+        await mapWithConcurrency(detailRows, env.MAGALU_SYNC_DETAIL_CONCURRENCY, async (skuPayload) => {
           const sku = text(skuPayload?.sku);
           if (!sku) {
             failed += 1;
@@ -335,6 +348,7 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
         try {
           const result = await refreshKnownSku(account, sku);
           if (result.missing) knownMissing += 1;
+          else if (result.skipped) { detailsSkipped += 1; knownRefreshed += 1; }
           else if (result.price_ok === false || result.stock_ok === false) {
             if (result.price_ok === false) failed += 1;
             if (result.stock_ok === false) failed += 1;
@@ -369,6 +383,9 @@ async function fullCatalogSync(accountId, { reason = "manual", jobId = null } = 
         known_processed: knownProcessed,
         known_refreshed: knownRefreshed,
         known_missing: knownMissing,
+        details_skipped: detailsSkipped,
+        expected_total: Math.max(expectedTotal, scanned + knownProcessed),
+        stage: "complete",
         discovery_partial_statuses: discoveryPartialStatuses,
         fully_scanned_statuses: fullyScannedStatuses,
         missing_marked: missing,

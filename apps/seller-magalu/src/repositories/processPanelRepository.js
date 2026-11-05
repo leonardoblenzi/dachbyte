@@ -1,8 +1,33 @@
 "use strict";
 const db = require("../config/postgres");
 const skuMassRepository = require("./skuMassRepository");
+const syncRunRepository = require("./syncRunRepository");
+
+const SYNC_TYPES = ["catalog_full"];
+const STALE_RUN_MS = 12 * 60 * 60 * 1000;
+// Sincronizações (leitura) no formato dos cards do painel: total estimado,
+// processados, pendentes e falhas de leitura; "running" antigo é exibido como interrompido.
+function syncRow(run, now = Date.now()) {
+  const result = run.result || {};
+  const interrupted = run.status === "running" && now - new Date(run.started_at).getTime() > STALE_RUN_MS;
+  const status = interrupted ? "canceled" : run.status;
+  const running = status === "running";
+  const processed = Number(run.scanned_count) || 0;
+  const expected = Math.max(Number(result.expected_total) || 0, processed);
+  return {
+    id: run.id, kind: "sync", action: run.sync_type, resource: "catálogo", status,
+    stage: running ? result.stage || "sku_list" : result.stage || null,
+    total_count: running ? Math.max(expected, 1) : processed,
+    success_count: processed, failed_count: Number(run.failed_count) || 0,
+    pending_count: running ? Math.max(expected - processed, 1) : 0,
+    details_skipped: Number(result.details_skipped) || 0,
+    error_message: ["failed", "canceled"].includes(status) ? run.error_message || "Execução interrompida antes de terminar." : null,
+    created_at: run.started_at, finished_at: run.finished_at,
+  };
+}
 
 async function list(accountId, tenantId) {
+  const syncRuns = await syncRunRepository.recentRuns(accountId, SYNC_TYPES, 10);
   const batches = await skuMassRepository.listBatches(tenantId, { accountId, page: 1, limit: 50 });
   const { rows: groups } = await db.query(`select g.id,g.action,g.created_at,g.applied_at,g.status,g.error_message,
     g.total_count,coalesce(b.success_count,0)::int success_count,
@@ -35,11 +60,20 @@ async function list(accountId, tenantId) {
     ...groups.map(row => ({ ...row, kind: "group", resource: "sku" })),
     ...batches.rows.filter(row=>!row.group_id).map(row => ({ ...row, kind: "catalog", resource: "sku" })),
     ...writes.map(row => ({ ...row, kind: "write" })),
+    ...syncRuns.map(run => syncRow(run)),
   ].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
   return all.slice(0, 100);
 }
 
 async function detail(accountId, tenantId, kind, id) {
+  if (kind === "sync") {
+    if (!Number.isSafeInteger(Number(id)) || Number(id) < 1) return null;
+    const run = await syncRunRepository.getRun(accountId, id);
+    if (!run || !SYNC_TYPES.includes(run.sync_type)) return null;
+    const row = syncRow(run), result = run.result || {};
+    return [{ ...row, pages: Number(result.pages) || 0, known_processed: Number(result.known_processed) || 0,
+      known_missing: Number(result.known_missing) || 0, discovery_partial_statuses: result.discovery_partial_statuses || [] }];
+  }
   if(kind==="group"){
     const group=await db.queryOne(`select id from magalu.sku_bulk_groups where id=$1 and account_id=$2 and dach_tenant_id=$3`,[id,Number(accountId),String(tenantId)]);
     if(!group)return null;
@@ -56,4 +90,4 @@ async function detail(accountId, tenantId, kind, id) {
     [id, Number(accountId), String(tenantId)]);
   return rows.length ? rows : null;
 }
-module.exports = { list, detail };
+module.exports = { list, detail, _test: { syncRow } };

@@ -806,6 +806,7 @@
         ? "Sincronização já está em andamento. Acompanhando a execução atual..."
         : "Sincronização enfileirada. Acompanhando a execução...";
       showAlert(message, "success", { sticky: true });
+      window.dispatchEvent(new CustomEvent("magalu:processqueued", { detail: { kind: "sync" } }));
       setSyncBanner("queued", queued.already_running ? "Sincronização em andamento" : "Sincronização na fila", queued.already_running ? "Acompanhando o worker atual." : "Aguardando o worker iniciar.");
       await pollSync(account.id);
     } catch (error) {
