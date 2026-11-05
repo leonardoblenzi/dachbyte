@@ -20,6 +20,9 @@ const MODULES = [
   { key: "ml.anuncios.estoque", label: "Estoque", group: "Anuncios", path: "/estoque" },
   { key: "ml.anuncios.ranking", label: "Ranking", group: "Anuncios", path: "/ranking-anuncios" },
   { key: "ml.anuncios.clonar", label: "Clonar anuncio", group: "Anuncios", path: "/clonar-anuncio" },
+  // A pagina /full ja usava esta chave; fora do catalogo, ela bloqueava o
+  // Full para todo usuario que nao fosse admin.
+  { key: "ml.anuncios.full", label: "Full", group: "Anuncios", path: "/full" },
   { key: "ml.operacao.excluir_massa", label: "Gestao de anuncios", group: "Operacoes", path: "/gestao-anuncios", restricted: true },
   { key: "ml.operacao.modelo_massa", label: "Modelo em massa", group: "Operacoes", path: "/modelo-massa", restricted: true },
   { key: "ml.operacao.caracteristicas", label: "Caracteristicas", group: "Operacoes", path: "/caracteristicas", restricted: true },

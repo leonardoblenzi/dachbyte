@@ -267,3 +267,17 @@ test("telas de usuarios enviam acesso completo explicito e todos os modulos quan
     assert.match(read("routes", route), /acessoCompleto: req\.body\?\.acesso_completo === true/, route);
   }
 });
+
+test("toda chave de modulo usada em pagina ou trava existe no catalogo", () => {
+  const { MODULE_KEYS } = loadAccessService(readOnlyState());
+  const routesDir = path.join(__dirname, "..", "routes");
+  const used = new Set();
+  for (const file of fs.readdirSync(routesDir).filter((name) => name.endsWith(".js"))) {
+    const source = fs.readFileSync(path.join(routesDir, file), "utf8");
+    for (const match of source.matchAll(/(?:requireModuleAccess|requireEditForWrites|allowLegacyUntilConfigured)\(\s*["'](ml\.[a-z0-9_.]+)["']/g)) {
+      used.add(match[1]);
+    }
+  }
+  assert.ok(used.has("ml.anuncios.full"));
+  for (const key of used) assert.ok(MODULE_KEYS.has(key), `${key} precisa estar no catalogo MODULES`);
+});
