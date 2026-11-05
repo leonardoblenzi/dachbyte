@@ -2521,6 +2521,17 @@ function normalizeApiPath(path) {
   return normalized;
 }
 
+// O apiGet devolve o corpo bruto no erro; extrai a mensagem para exibir.
+function apiErrorMessage(error) {
+  const raw = String(error?.message || error || "");
+  try {
+    const data = JSON.parse(raw);
+    return String(data?.message || data?.error || raw);
+  } catch (_error) {
+    return raw;
+  }
+}
+
 async function apiGet(path) {
   path = normalizeApiPath(path);
   const r = await fetch(path, { credentials: "include" });
@@ -12073,7 +12084,7 @@ function openShopSwitcherModal({ shops, role, activeShopId }) {
             `<div class="muted">Não foi possível gerar o link.</div>`,
           );
       } catch (e) {
-        openModal("Erro", `<div class="muted">${escapeHtml(e.message)}</div>`);
+        openModal("Conexão de loja", `<div class="muted">${escapeHtml(apiErrorMessage(e))}</div>`);
       }
     });
   }
@@ -12234,7 +12245,7 @@ async function startAdsOauthFlow() {
     window.location.href = url;
   } catch (e) {
     if (msg) {
-      msg.textContent = `Nao foi possivel iniciar a integracao de Ads: ${e.message}`;
+      msg.textContent = `Nao foi possivel iniciar a integracao de Ads: ${apiErrorMessage(e)}`;
     }
     if (btn) {
       btn.disabled = false;
@@ -12271,7 +12282,7 @@ async function startShopeeOauthFlowIfRequested() {
     if (url) window.location.href = url;
   } catch (e) {
     const preview = document.getElementById("auth-url-preview");
-    if (preview) preview.textContent = `Erro ao gerar link: ${e.message}`;
+    if (preview) preview.textContent = apiErrorMessage(e);
   }
 }
 
@@ -19653,7 +19664,7 @@ function initAuthTab() {
         preview.textContent = url ? url : "Não foi possível gerar o link.";
       if (url) window.location.href = url;
     } catch (e) {
-      if (preview) preview.textContent = `Erro: ${e.message}`;
+      if (preview) preview.textContent = apiErrorMessage(e);
     }
   });
 }

@@ -662,10 +662,12 @@ async function bootstrapShopeeSession(payload, res) {
   });
 
   const accountId = Number(user.accountId ?? user.account_id ?? 0) || null;
-  if (!accountId) return "/shopee/?tab=auth&startOauth=1";
+  // Sem disparar o OAuth automaticamente: o usuario conecta pelo botao, e
+  // uma conexao pausada mostra o aviso em vez de levar a um erro da Shopee.
+  if (!accountId) return "/shopee/?tab=auth";
 
   const shopsCount = await countShopeeShopsByAccountId(accountId).catch(() => 0);
-  return Number(shopsCount || 0) > 0 ? "/shopee/" : "/shopee/?tab=auth&startOauth=1";
+  return Number(shopsCount || 0) > 0 ? "/shopee/" : "/shopee/?tab=auth";
 }
 
 async function bootstrapMagaluSession(payload) {

@@ -16,6 +16,21 @@ const {
   createOAuthState,
 } = require("../repositories/oauthStateSqlRepository");
 const { hmacSha256Hex } = require("../utils/crypto");
+
+// Pausa a conexao de lojas (OAuth) enquanto o app Shopee nao esta liberado,
+// por exemplo durante a homologacao de um app novo. Sem isso o usuario cai
+// numa pagina de erro crua da Shopee (chave de parceiro expirada).
+const DEFAULT_CONNECT_PAUSED_MESSAGE =
+  "A conexão de lojas Shopee está temporariamente indisponível: o aplicativo DACHBYTE está em homologação na Shopee. Assim que for aprovado, você poderá conectar sua loja por aqui.";
+
+function shopConnectPaused() {
+  return String(process.env.SHOPEE_SHOP_CONNECT_PAUSED || "").trim().toLowerCase() === "true";
+}
+
+function sendConnectPaused(res) {
+  const message = String(process.env.SHOPEE_SHOP_CONNECT_PAUSED_MESSAGE || "").trim() || DEFAULT_CONNECT_PAUSED_MESSAGE;
+  return res.status(503).json({ error: "shopee_connect_paused", message });
+}
 const ShopeeAuthService = require("../services/ShopeeAuthService");
 const ShopeeAdsAuthService = require("../services/ShopeeAdsAuthService");
 const {
@@ -125,6 +140,7 @@ async function upsertAuthorizedShop({ accountId, shopeeShopId, existingShop }) {
 }
 
 async function getAuthUrl(req, res) {
+  if (shopConnectPaused()) return sendConnectPaused(res);
   const mode = String(req.query?.mode || "").toLowerCase();
 
   if (mode === "add_shop") {
@@ -181,6 +197,7 @@ async function getAuthUrl(req, res) {
 }
 
 async function getAdsAuthUrl(req, res) {
+  if (shopConnectPaused()) return sendConnectPaused(res);
   setAuthFlowCookie(res, "ads");
 
   const state = createOAuthStateToken();
