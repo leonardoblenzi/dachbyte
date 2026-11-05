@@ -163,10 +163,13 @@
 
 .mg-cost-filter-card__fields {
   display: grid;
-  grid-template-columns: minmax(120px, .8fr) minmax(250px, 3fr) minmax(130px, 1fr) minmax(130px, 1fr) minmax(150px, 1fr) auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: end;
   gap: 12px;
 }
+.mg-cost-filter-card__fields label:nth-child(2) { grid-column: span 2; }
+.mg-cost-filter-card__actions { display: flex; grid-column: 1 / -1; justify-content: flex-end; gap: 8px; }
+#mg-financial-margin-page .mg-cost-filter-card__actions .mg-primary-btn { min-width: 130px; }
 
 .mg-cost-filter-card__fields label { display: grid; gap: 5px; min-width: 0; }
 .mg-cost-filter-card__fields label span {
@@ -194,11 +197,18 @@
 
 .mg-cost-table-card__head { padding: 18px 20px; border-bottom: 1px solid var(--mg-border); }
 #mg-financial-margin-page .mg-cost-table-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-#mg-financial-margin-page .mg-cost-table-card .mg-table { min-width: 1050px; }
-#mg-financial-margin-page .mg-cost-row-actions { display: flex; gap: 5px; flex-wrap: wrap; min-width: 150px; }
+#mg-financial-margin-page .mg-cost-table-card .mg-table { min-width: 1080px; }
+#mg-financial-margin-page .mg-cost-table-card .mg-table :is(th, td) { padding-inline: 10px; }
+#mg-financial-margin-page .mg-cost-table-card .mg-table td:nth-child(2) { min-width: 180px; }
+#mg-financial-margin-page .mg-cost-row-actions { display: flex; gap: 4px; flex-wrap: nowrap; }
+#mg-financial-margin-page .mg-cost-tax-note { display: block; margin-top: 3px; color: var(--mg-muted); font-size: 10px; white-space: nowrap; }
+#mg-financial-margin-page .mg-cost-row-actions button { padding: 0 8px !important; }
+#mg-financial-margin-page .mg-cost-status-pill { display: inline-flex; padding: 3px 9px; border-radius: 999px; background: var(--mg-surface-soft); color: var(--mg-muted); font-size: 10px; font-weight: 850; white-space: nowrap; }
+#mg-financial-margin-page .mg-cost-status-pill[data-tone="positive"] { background: color-mix(in srgb, var(--mg-success) 14%, transparent); color: var(--mg-success); }
+#mg-financial-margin-page .mg-cost-status-pill[data-tone="attention"] { background: color-mix(in srgb, var(--mg-warning) 16%, transparent); color: var(--mg-warning); }
 #mg-financial-margin-page .mg-cost-row-actions button { min-height: 32px; padding: 0 9px; font-size: 10px; }
 #mg-financial-margin-page .mg-cost-inline-input { width: 96px; min-height: 36px; padding: 0 8px; border: 1px solid var(--mg-border); border-radius: 11px; background: var(--mg-surface); }
-#mg-financial-margin-page .mg-cost-identifier { display: grid; gap: 1px; min-width: 132px; max-width: 205px; }
+#mg-financial-margin-page .mg-cost-identifier { display: grid; gap: 1px; min-width: 118px; max-width: 190px; }
 #mg-financial-margin-page .mg-cost-identifier code { width: fit-content; }
 #mg-financial-margin-page .mg-cost-identifier small { display: block; color: var(--mg-muted); font-size: 10px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #mg-financial-margin-page .mg-fin-rank-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 12px; }
@@ -207,15 +217,18 @@
 .mg-cost-history-body article { display: grid; gap: 3px; padding: 12px; border: 1px solid var(--mg-border); border-radius: 12px; }
 .mg-cost-history-body span,.mg-cost-history-body small { color: var(--mg-muted); }
 #mg-financial-margin-page .mg-cost-table-card .mg-table-wrap { margin: 0; }
+/* ml-parity zera padding/margem da paginação com !important; aqui ela fica dentro do card. */
 #mg-financial-margin-page .mg-cost-table-card .mg-pagination {
-  margin: 0;
-  padding: 14px 18px;
+  margin: 0 !important;
+  padding: 14px 20px !important;
   border-top: 1px solid var(--mg-border);
+  font-size: 11px;
 }
 
 @media (max-width: 1180px) {
   #mg-financial-margin-page [data-margin-panel="costs"] .mg-fin-two-col { grid-template-columns: 1fr; }
   .mg-cost-filter-card__fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mg-cost-filter-card__fields label:nth-child(2) { grid-column: span 3; }
   .mg-cost-filter-card__fields label:nth-child(2) { grid-column: span 2; }
 }
 

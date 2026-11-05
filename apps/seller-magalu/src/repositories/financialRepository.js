@@ -41,7 +41,18 @@ async function saveAccountTax(accountId, value, changedBy = null) {
   });
 }
 
-function costFilter(accountId, { q = "", search_type = "sku", state = "", status = "", category = "" } = {}) {
+const MAGALU_SKU_STATUSES = ["PUBLISHED", "UNPUBLISHED", "BLOCKED", "INACTIVE"];
+// Vendas recentes vêm das entregas (onde a Magalu traz os itens) ou dos itens do pedido.
+const SOLD_90D_SQL = `exists(select 1 from magalu.delivery_items di
+    join magalu.deliveries d on d.id=di.delivery_id and d.account_id=di.account_id
+    join magalu.orders o on o.id=d.order_id and o.account_id=d.account_id
+    where di.account_id=s.account_id and di.sku=s.sku and o.purchased_at>=now()-interval '90 days'
+      and lower(coalesce(o.status,'')) not in ('cancelled','canceled'))
+  or exists(select 1 from magalu.order_items oi join magalu.orders o on o.id=oi.order_id and o.account_id=oi.account_id
+    where oi.account_id=s.account_id and oi.sku=s.sku and o.purchased_at>=now()-interval '90 days'
+      and lower(coalesce(o.status,'')) not in ('cancelled','canceled'))`;
+const IN_STOCK_SQL = `exists(select 1 from magalu.stocks st where st.account_id=s.account_id and st.sku=s.sku and st.is_present=true and st.quantity>0)`;
+function costFilter(accountId, { q = "", search_type = "sku", state = "", status = "", category = "", stock = "", sales = "" } = {}) {
   const params = [Number(accountId)], where = ["s.account_id=$1"];
   const tax = "coalesce(nullif(f.aliquota,0),c.tax_rate,0)";
   const query = text(q, 3000).toLowerCase();
@@ -61,6 +72,10 @@ function costFilter(accountId, { q = "", search_type = "sku", state = "", status
   }
   if (status === "active") where.push("s.active=true");
   if (status === "inactive") where.push("s.active=false");
+  if (MAGALU_SKU_STATUSES.includes(String(status))) { params.push(String(status)); where.push(`upper(coalesce(s.status,''))=$${params.length}`); }
+  if (stock === "with") where.push(IN_STOCK_SQL);
+  if (stock === "without") where.push(`not ${IN_STOCK_SQL}`);
+  if (sales === "sold90") where.push(`(${SOLD_90D_SQL})`);
   if (text(category,128)) { params.push(text(category,128)); where.push(`s.category_id=$${params.length}`); }
   const costState=text(state,30).toLowerCase();
   if(costState==="missing") where.push("c.unit_cost is null");
@@ -80,6 +95,12 @@ async function listCosts(accountId, options = {}) {
   const { rows } = await db.query(`select s.sku,s.title,s.status,s.active,s.category_id,s.group_id,
     (select identifier->>'value' from jsonb_array_elements(coalesce(s.payload->'identifiers','[]'::jsonb)) identifier where lower(identifier->>'type')='ean' and nullif(identifier->>'value','') is not null limit 1) as ean,
     p.price,c.unit_cost,c.tax_rate as legacy_tax_rate,
+    (select st.quantity from magalu.stocks st where st.account_id=s.account_id and st.sku=s.sku and st.is_present=true limit 1) as stock_quantity,
+    (select coalesce(sum(di.quantity),0) from magalu.delivery_items di
+      join magalu.deliveries d on d.id=di.delivery_id and d.account_id=di.account_id
+      join magalu.orders o on o.id=d.order_id and o.account_id=d.account_id
+      where di.account_id=s.account_id and di.sku=s.sku and o.purchased_at>=now()-interval '90 days'
+        and lower(coalesce(o.status,'')) not in ('cancelled','canceled'))::numeric as sold_units_90d,
     ${tax} as tax_rate,c.packaging_cost,c.operational_cost,c.other_cost,c.notes,c.updated_at,count(*) over()::int total_count
     from magalu.skus s
     left join magalu.prices p on p.account_id=s.account_id and p.sku=s.sku and p.is_present=true

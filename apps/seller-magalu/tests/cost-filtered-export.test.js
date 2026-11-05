@@ -61,7 +61,7 @@ test("browser and controller forward the applied filters to the XLSX query", () 
 
 test("the page loads a fresh financial script URL after changing export behavior", () => {
   const html = fs.readFileSync(path.join(__dirname, "../views/app.html"), "utf8");
-  assert.match(html, /magalu-financial\.js\?v=2026110502/);
+  assert.match(html, /magalu-financial\.js\?v=2026110505/);
 });
 
 test("SKU histórico vendido aparece somente em buscas específicas por SKU", async () => {
