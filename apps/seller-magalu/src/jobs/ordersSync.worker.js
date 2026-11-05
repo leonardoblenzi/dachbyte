@@ -4,6 +4,7 @@ const { Worker } = require("bullmq");
 const { ensureRedisConnected } = require("../config/redis");
 const queueNames = require("../config/queueNames");
 const accountRepository = require("../repositories/accountRepository");
+const orderRepository = require("../repositories/orderRepository");
 const { fullOrderSync, reconcileOrder, reconcileDelivery } = require("../services/orderSyncService");
 const { syncRange } = require("../services/financialAnalysisSyncService");
 const { runMarginFreshSync } = require("../services/marginFreshSyncService");
@@ -26,6 +27,7 @@ async function processOrdersJob(job){
       const result=await runMarginFreshSync({account,from:job.data.from,to:job.data.to,
         orders:(accountId,options)=>fullOrderSync(accountId,{...options,reason:"margin_filter",jobId:job.id}),
         finance:syncRange,
+        coverage:accountId=>orderRepository.itemCoverage(accountId,{from:job.data.from,to:job.data.to}),
         progress:stage=>job.updateProgress(stage),
       });
       await recordBestEffort({...base,eventKey:"margin_fresh_sync_completed",details:{job_id:job.id||null,...result,read_only:true}});

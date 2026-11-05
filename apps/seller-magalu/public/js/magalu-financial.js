@@ -44,7 +44,7 @@
   function setMarginTab(tab, updateUrl=false){state.marginTab=["summary","period","equilibrium","costs"].includes(tab)?tab:"summary";document.querySelectorAll("[data-margin-tab]").forEach(b=>{const active=b.dataset.marginTab===state.marginTab;b.classList.toggle("is-active",active);b.setAttribute("aria-current",active?"page":"false");});document.querySelectorAll("[data-margin-panel]").forEach(p=>p.hidden=p.dataset.marginPanel!==state.marginTab);const filters=document.querySelector(".mg-margin-filter-card"),note=document.querySelector(".mg-margin-context-note");if(filters)filters.hidden=state.marginTab==="costs";if(note)note.hidden=state.marginTab==="costs";if(updateUrl){const url=new URL(location.href);if(state.marginTab==="summary")url.searchParams.delete("aba");else url.searchParams.set("aba",state.marginTab);history.pushState({},"",url);}if(state.marginTab==="costs")void loadAccountTax().then(()=>Promise.all([loadCosts(),loadCostOverview()]));}
   function setMarginAwaiting(panel, awaiting){const node=document.querySelector(`[data-margin-panel="${panel}"]`);if(node)node.dataset.awaitingFilter=String(awaiting);}
   async function waitForMarginSync(jobId,accountId,stillCurrent){
-    const stageMessage={orders:"Buscando pedidos e entregas do período...",deliveries:"Identificando os itens nas entregas...",orders_detail:"Consultando detalhes e SKUs dos pedidos...",deliveries_detail:"Conferindo os produtos das entregas...",financial:"Consultando os relatórios financeiros...",complete:"Consolidando a margem..."};
+    const stageMessage={orders:"Buscando pedidos e entregas do período...",deliveries:"Identificando os itens nas entregas...",orders_detail:"Consultando detalhes e SKUs dos pedidos...",deliveries_detail:"Conferindo os produtos das entregas...",coverage:"Verificando a cobertura de itens e custos...",financial:"Consultando os relatórios financeiros...",complete:"Consolidando a margem..."};
     for(let attempt=0;attempt<300;attempt++){
       if(!stillCurrent())return false;
       const status=await shell().fetchJson(`/magalu/api/ux-analytics/margins/sync/${encodeURIComponent(jobId)}?account_id=${accountId}`,{loading:"none"});
@@ -114,7 +114,9 @@
       const unavailableCosts=Array.isArray(r.unavailable_cost_skus)?r.unavailable_cost_skus:[];
       const catalogNote=unavailableCosts.length?`<small class="mg-margin-period-note" title="Sincronize o catálogo para cadastrar o custo">${unavailableCosts.length} SKU(s) fora do catálogo</small>`:"";
       const product=[r.first_sku,r.first_product].filter(Boolean).map(esc).join(" · ")||"Item não identificado";
-      const status=r.identity_state==="delivery_only"?"Identificado na entrega":r.identity_state==="unavailable"?"Itens em conciliação":esc(r.status||"—");
+      const status=r.identity_state==="financial_only"?"Identificado no relatório financeiro":
+        r.identity_state==="delivery_only"?"Identificado na entrega":
+        r.identity_state==="unavailable"?"Itens em conciliação":esc(r.status||"—");
       const moneyOrDash=v=>v==null?"—":money(v);
       const amount=(v,allowed=true)=>allowed?moneyOrDash(v):"—";
       return `<tr>

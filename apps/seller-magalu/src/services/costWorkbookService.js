@@ -29,7 +29,11 @@ async function buildCostWorkbook(rows) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet("Custos por SKU");
   sheet.columns = COLUMNS.map(([header, key]) => ({ header, key, width: key === "title" ? 48 : 20, ...(key === "sku" || key === "ean" ? { style: { numFmt: "@" } } : {}) }));
-  for (const row of rows) sheet.addRow(row);
+  for (const row of rows) sheet.addRow({
+    ...row, sku:String(row.sku||""),ean:row.ean==null?"":String(row.ean),
+    unit_cost:row.unit_cost==null?null:Number(row.unit_cost),
+  });
+  sheet.getColumn(4).numFmt = '"R$" #,##0.00';
   sheet.getRow(1).font = { bold: true };
   sheet.views = [{ state: "frozen", ySplit: 1 }];
   sheet.autoFilter = { from: "A1", to: "D1" };

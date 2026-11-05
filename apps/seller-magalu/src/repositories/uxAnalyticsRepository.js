@@ -155,6 +155,20 @@ function marginOrderCte(){return `with order_quality as (
     and d.is_present=true and lower(coalesce(d.status,'')) not in ('cancelled','canceled')
     and not exists (select 1 from order_quality q where q.order_id=o.id and q.lines>0 and q.valid=q.lines
       and (o.item_count=0 or o.item_count=q.lines))
+  union all
+  select hint.idx::bigint,o.id,o.account_id,hint.item->>'sku',hint.item->>'name',
+    (hint.item->>'quantity')::numeric,(hint.item->>'amount_total')::numeric,
+    null::bigint,(hint.item->>'amount_normalizer')::int,'financial'::text
+  from magalu.orders o
+  join magalu.order_financial_reports fr on fr.account_id=o.account_id and fr.order_code=o.code
+  cross join lateral jsonb_array_elements(coalesce(o.operational_payload->'__dach_financial_item_evidence'->'items','[]'::jsonb))
+    with ordinality as hint(item,idx)
+  where o.account_id=$1 and o.is_present=true and o.purchased_at >= $2::date and o.purchased_at < ($3::date + interval '1 day')
+    and o.operational_payload->'__dach_financial_item_evidence'->>'complete'='true'
+    and not exists(select 1 from magalu.order_items oi where oi.order_id=o.id and oi.account_id=o.account_id)
+    and not exists(select 1 from magalu.deliveries d join magalu.delivery_items di
+      on di.delivery_id=d.id and di.account_id=d.account_id
+      where d.order_id=o.id and d.account_id=o.account_id and d.is_present=true)
 ), delivery_counts as (
   select d.id,d.order_id,d.item_count as expected_items,count(di.id)::int as actual_items,
     count(*) filter(where di.id is null or di.sku is null or di.quantity is null or di.quantity<=0
@@ -187,9 +201,19 @@ function marginOrderCte(){return `with order_quality as (
     coalesce(sum(case when c.unit_cost is not null then (coalesce(c.packaging_cost,0)+coalesce(c.operational_cost,0)+coalesce(c.other_cost,0))*coalesce(si.quantity,0) else 0 end),0)::numeric as operating_costs,
     count(*) filter(where si.id is not null and (c.unit_cost is null or si.sku is null or si.quantity is null or si.quantity<=0
       or (si.amount_total is null and si.unit_price is null) or coalesce(si.amount_normalizer,0)<=0))::int as missing_cost_rows,
+    count(*) filter(where c.sku is not null and c.sku<>si.sku)::int as cost_alias_lines,
     coalesce(sum(si.quantity),0)::numeric as units
   from magalu.orders o left join source_items si on si.order_id=o.id and si.account_id=o.account_id
-  left join magalu.sku_costs c on c.account_id=si.account_id and c.sku=si.sku
+  left join lateral (
+    select sc.* from magalu.sku_costs sc
+    where sc.account_id=si.account_id and si.sku is not null
+      and (sc.sku=si.sku or (
+        lower(btrim(sc.sku))=lower(btrim(si.sku)) and
+        (select count(*) from magalu.sku_costs candidate
+          where candidate.account_id=si.account_id and lower(btrim(candidate.sku))=lower(btrim(si.sku)))=1
+      ))
+    order by (sc.sku=si.sku) desc limit 1
+  ) c on true
   left join magalu.finance_settings f on f.account_id=o.account_id
   where o.account_id=$1 and o.is_present=true
     and o.purchased_at >= $2::date and o.purchased_at < ($3::date + interval '1 day')
@@ -199,9 +223,11 @@ function marginOrderCte(){return `with order_quality as (
   select o.id,o.code,o.status,o.purchased_at,o.item_count,oi_first.sku as first_sku,oi_first.name as first_product,
     case when o.amount_total is not null and coalesce(o.amount_normalizer,0)>0 then o.amount_total::numeric/o.amount_normalizer else 0 end as gmv,
     coalesce(ic.product_cost,0)::numeric as product_cost,
+    coalesce(ic.cost_alias_lines,0)::int as cost_alias_lines,
     coalesce(ic.tax_base,0)::numeric as tax_base,
     coalesce(ic.taxes,0)::numeric as taxes,
     coalesce(ic.operating_costs,0)::numeric as operating_costs,
+    ic.source_kind as item_source,
     (fr.order_code is not null and fr.transaction_count>0 and ($4::timestamptz is null or fr.fetched_at >= $4::timestamptz)) as financial_report_present,
     fr.fetched_at as financial_fetched_at,
     fr.sale as sale,fr.commission as commission,fr.fees as fees,fr.shipping_net as shipping_net,
@@ -210,6 +236,8 @@ function marginOrderCte(){return `with order_quality as (
     d.shipping_name,d.shipping_type,d.is_fulfillment,
     (coalesce(ic.missing_cost_rows,0) + case
       when ic.source_kind='order' then greatest(coalesce(o.item_count,0)-coalesce(ic.synced_item_rows,0),0)
+      when ic.source_kind='financial' and ic.synced_item_rows>0
+        and (o.item_count=0 or o.item_count=ic.synced_item_rows) then 0
       when ic.source_kind='delivery' and dc.deliveries>0 and dc.expected_items>0 and dc.expected_items=dc.actual_items and (o.item_count=0 or o.item_count=dc.actual_items) and dc.invalid_items=0 and coalesce(dup.duplicates,0)=0 then 0
       else 1 end)::int as missing_cost_items,
     coalesce(ic.units,0)::numeric as units
@@ -298,19 +326,53 @@ async function marginOverview(accountId, options={}){
   let enrichedRows=rows;
   if(rows.length){
     const ids=rows.map(row=>Number(row.id));
-    const [items,deliveries]=await Promise.all([
+    const [items,deliveries,financialItems]=await Promise.all([
       db.query(`select oi.order_id,oi.sku,oi.name,oi.quantity,oi.amount_total,oi.unit_price,oi.amount_normalizer,c.unit_cost,coalesce(s.is_present,false) as catalog_present
-        from magalu.order_items oi left join magalu.sku_costs c on c.account_id=oi.account_id and c.sku=oi.sku
+        from magalu.order_items oi left join lateral (
+          select sc.* from magalu.sku_costs sc
+          where sc.account_id=oi.account_id and oi.sku is not null
+            and (sc.sku=oi.sku or (lower(btrim(sc.sku))=lower(btrim(oi.sku))
+              and (select count(*) from magalu.sku_costs sc2
+                where sc2.account_id=oi.account_id
+                  and lower(btrim(sc2.sku))=lower(btrim(oi.sku)))=1))
+          order by (sc.sku=oi.sku) desc limit 1
+        ) c on true
         left join magalu.skus s on s.account_id=oi.account_id and s.sku=oi.sku
         where oi.account_id=$1 and oi.order_id=any($2::bigint[]) order by oi.order_id,oi.id`,[Number(accountId),ids]),
       db.query(`select d.order_id,di.sku,di.name,di.quantity,c.unit_cost,coalesce(s.is_present,false) as catalog_present
         from magalu.deliveries d join magalu.delivery_items di on di.delivery_id=d.id and di.account_id=d.account_id
-        left join magalu.sku_costs c on c.account_id=di.account_id and c.sku=di.sku
+        left join lateral (
+          select sc.* from magalu.sku_costs sc
+          where sc.account_id=di.account_id and di.sku is not null
+            and (sc.sku=di.sku or (lower(btrim(sc.sku))=lower(btrim(di.sku))
+              and (select count(*) from magalu.sku_costs sc2
+                where sc2.account_id=di.account_id
+                  and lower(btrim(sc2.sku))=lower(btrim(di.sku)))=1))
+          order by (sc.sku=di.sku) desc limit 1
+        ) c on true
         left join magalu.skus s on s.account_id=di.account_id and s.sku=di.sku
         where d.account_id=$1 and d.order_id=any($2::bigint[]) and d.is_present=true
-        order by d.order_id,d.id,di.id`,[Number(accountId),ids])
+        order by d.order_id,d.id,di.id`,[Number(accountId),ids]),
+      db.query(`select o.id as order_id,hint.item->>'sku' as sku,hint.item->>'name' as name,
+          (hint.item->>'quantity')::numeric as quantity,c.unit_cost,
+          coalesce(s.is_present,false) as catalog_present
+        from magalu.orders o
+        cross join lateral jsonb_array_elements(coalesce(o.operational_payload->'__dach_financial_item_evidence'->'items','[]'::jsonb))
+          as hint(item)
+        left join lateral (
+          select sc.* from magalu.sku_costs sc
+          where sc.account_id=o.account_id and (sc.sku=hint.item->>'sku' or
+            (lower(btrim(sc.sku))=lower(btrim(hint.item->>'sku')) and
+              (select count(*) from magalu.sku_costs sc2
+                where sc2.account_id=o.account_id
+                  and lower(btrim(sc2.sku))=lower(btrim(hint.item->>'sku')))=1))
+          order by (sc.sku=hint.item->>'sku') desc limit 1
+        ) c on true
+        left join magalu.skus s on s.account_id=o.account_id and s.sku=hint.item->>'sku'
+        where o.account_id=$1 and o.id=any($2::bigint[])
+          and o.operational_payload->'__dach_financial_item_evidence'->>'complete'='true'`,[Number(accountId),ids])
     ]);
-    enrichedRows=enrichMarginRows(rows,items.rows,deliveries.rows);
+    enrichedRows=enrichMarginRows(rows,items.rows,deliveries.rows,financialItems.rows);
   }
   const best=await db.queryOne(`${marginOrderCte()}
     select code,known_result,gmv from base ${whereSql}${whereSql?" and":" where"} result_complete=true

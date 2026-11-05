@@ -21,7 +21,7 @@ test("unknown financial data never becomes a zero-valued reconciled result", () 
 });
 
 test("paged margin identities and missing costs are loaded in account-scoped batches", () => {
-  assert.match(source, /enrichMarginRows\(rows,items\.rows,deliveries\.rows\)/);
+  assert.match(source, /enrichMarginRows\(rows,items\.rows,deliveries\.rows,financialItems\.rows\)/);
   assert.match(source, /oi\.account_id=\$1 and oi\.order_id=any\(\$2::bigint\[\]\)/);
   assert.match(source, /d\.account_id=\$1 and d\.order_id=any\(\$2::bigint\[\]\)/);
   assert.match(source, /coalesce\(s\.is_present,false\) as catalog_present/);

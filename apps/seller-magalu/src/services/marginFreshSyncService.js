@@ -17,7 +17,7 @@ function validate(account, from, to) {
   assertFinancialScope(account);
 }
 
-async function runMarginFreshSync({ account, from, to, orders, finance, progress = async () => {} }) {
+async function runMarginFreshSync({ account, from, to, orders, finance, coverage = null, progress = async () => {} }) {
   validate(account, from, to);
   if (typeof orders !== "function" || typeof finance !== "function") throw new Error("Fontes de sincronização indisponíveis.");
   await progress({ stage: "orders" });
@@ -25,9 +25,11 @@ async function runMarginFreshSync({ account, from, to, orders, finance, progress
   if (orderResult?.status === "partial" || Number(orderResult?.failed || 0) > 0) throw Object.assign(new Error("Sincronização parcial de pedidos ou entregas."), { code: "MAGALU_MARGIN_ORDERS_PARTIAL" });
   await progress({ stage: "financial" });
   const financialResult = await finance(account, { from, to });
+  if(typeof coverage==="function")await progress({ stage: "coverage" });
+  const reconciledCoverage=typeof coverage==="function"?await coverage(account.id):orderResult?.itemCoverage;
   await progress({ stage: "complete" });
   const result={ orders: Number(orderResult?.scanned || 0), reports: Number(financialResult?.persisted || 0) };
-  if(orderResult?.itemCoverage)result.item_coverage=orderResult.itemCoverage;
+  if(reconciledCoverage)result.item_coverage=reconciledCoverage;
   return result;
 }
 

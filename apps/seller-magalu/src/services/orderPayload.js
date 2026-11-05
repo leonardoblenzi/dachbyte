@@ -86,6 +86,11 @@ function normalizeOrder(payload) {
   const amount = moneyPart(payload?.amounts);
   const itemsPresent = Array.isArray(payload?.items);
   const items = itemsPresent ? payload.items.map(normalizeItem) : [];
+  // No contrato atual da Magalu, pedidos trazem produtos em deliveries[].items.
+  // Mantemos a origem como entrega: não somamos arbitrariamente linhas entre entregas.
+  const embeddedDeliveries=(Array.isArray(payload?.deliveries)?payload.deliveries:[])
+    .map(raw=>normalizeDelivery({ ...raw, order:{ code, channel:payload?.channel } }))
+    .filter(Boolean).map(d=>({...d,channel_id:d.channel_id||orderChannel(payload)}));
   return {
     code,
     remote_id: text(payload?.id || payload?.order?.id, 300) || null,
@@ -99,7 +104,7 @@ function normalizeOrder(payload) {
     item_count: items.length,
     items_present: itemsPresent,
     operational_payload: sanitizeOperational(payload),
-    items,
+    items,embedded_deliveries:embeddedDeliveries,
   };
 }
 function normalizeDelivery(payload) {

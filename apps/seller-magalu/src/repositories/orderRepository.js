@@ -153,14 +153,22 @@ async function itemCoverage(accountId,{from=null,to=null}={}) {
   const {rows}=await db.query(`select o.code,o.item_count,
     coalesce(oi.lines,0)::int order_lines,coalesce(oi.valid,0)::int order_valid,
     coalesce(di.expected,0)::int delivery_expected,coalesce(di.lines,0)::int delivery_lines,
-    coalesce(di.valid,0)::int delivery_valid
+    coalesce(di.valid,0)::int delivery_valid,
+    coalesce(di.distinct_lines,0)::int delivery_distinct_lines,
+    coalesce(o.operational_payload->'__dach_financial_item_evidence'->>'complete','false') as financial_complete,
+    jsonb_array_length(coalesce(o.operational_payload->'__dach_financial_item_evidence'->'items','[]'::jsonb))::int as financial_lines
     from magalu.orders o
     left join lateral(select count(*)::int lines,
-      count(*) filter(where nullif(sku,'') is not null and quantity>0)::int valid
+      count(*) filter(where nullif(sku,'') is not null and quantity>0
+        and (amount_total is not null or unit_price is not null)
+        and coalesce(amount_normalizer,0)>0)::int valid
       from magalu.order_items oi where oi.order_id=o.id and oi.account_id=o.account_id) oi on true
     left join lateral(select coalesce(sum(d.item_count),0)::int expected,
       count(di.id)::int lines,
-      count(di.id) filter(where nullif(di.sku,'') is not null and di.quantity>0)::int valid
+      count(di.id) filter(where nullif(di.sku,'') is not null and di.quantity>0
+        and (di.amount_total is not null or di.unit_price is not null)
+        and coalesce(di.amount_normalizer,0)>0)::int valid,
+      count(distinct coalesce(nullif(di.remote_item_id,''),di.item_key))::int distinct_lines
       from magalu.deliveries d left join magalu.delivery_items di on di.delivery_id=d.id and di.account_id=d.account_id
       where d.order_id=o.id and d.account_id=o.account_id and d.is_present
       and lower(coalesce(d.status,'')) not in ('cancelled','canceled')) di on true
@@ -169,12 +177,28 @@ async function itemCoverage(accountId,{from=null,to=null}={}) {
   for(const row of rows){
     const completeOrder=Number(row.order_lines)>0 && Number(row.order_valid)===Number(row.order_lines)
       && (!Number(row.item_count) || Number(row.item_count)===Number(row.order_lines));
-    const completeDelivery=Number(row.order_lines)===0 && Number(row.delivery_expected)>0
+    const completeDelivery=!completeOrder && Number(row.delivery_expected)>0
       && Number(row.delivery_lines)===Number(row.delivery_expected)
-      && Number(row.delivery_valid)===Number(row.delivery_lines);
-    if(completeOrder||completeDelivery)identified++;
+      && Number(row.delivery_valid)===Number(row.delivery_lines)
+      && Number(row.delivery_distinct_lines)===Number(row.delivery_lines);
+    const completeFinancial=Number(row.order_lines)===0 && Number(row.delivery_lines)===0
+      && String(row.financial_complete)==='true' && Number(row.financial_lines)>0
+      && (!Number(row.item_count)||Number(row.financial_lines)===Number(row.item_count));
+    if(completeOrder||completeDelivery||completeFinancial)identified++;
   }
   return {total:rows.length,identified,incomplete:rows.length-identified};
+}
+async function codesWithIdentifiedItems(accountId,codes){
+  const list=[...new Set((codes||[]).map(code=>text(code,300)).filter(Boolean))];
+  if(!list.length)return new Set();
+  const {rows}=await db.query(`select o.code from magalu.orders o
+    where o.account_id=$1 and o.code=any($2::text[]) and (
+      exists(select 1 from magalu.order_items oi where oi.order_id=o.id and oi.account_id=o.account_id
+        and nullif(oi.sku,'') is not null and oi.quantity>0)
+      or exists(select 1 from magalu.deliveries d join magalu.delivery_items di on di.delivery_id=d.id and di.account_id=d.account_id
+        where d.order_id=o.id and d.account_id=o.account_id and d.is_present and nullif(di.sku,'') is not null and di.quantity>0))`,
+    [Number(accountId),list]);
+  return new Set(rows.map(row=>String(row.code)));
 }
 async function knownChannels(accountId){const{rows}=await db.query(`select channel_id,count(*)::int uses from magalu.orders where account_id=$1 and channel_id is not null group by channel_id order by uses desc`,[Number(accountId)]);return rows;}
 async function getDelivery(accountId,remoteId){return db.queryOne(`select * from magalu.deliveries where account_id=$1 and remote_id=$2 limit 1`,[Number(accountId),text(remoteId,300)]);}
@@ -187,4 +211,4 @@ async function ownedCodes(accountId,codes){
 
 async function accountSyncState(accountId){return db.queryOne(`select orders_sync_status,orders_last_synced_at,orders_last_error from magalu.accounts where id=$1`,[Number(accountId)]);}
 async function runs(accountId,limit=12){const{rows}=await db.query(`select id,sync_type,status,scanned_count,created_count,updated_count,failed_count,result,error_message,started_at,finished_at from magalu.sync_runs where account_id=$1 and sync_type like 'orders_%' order by started_at desc limit $2`,[Number(accountId),int(limit,1,50,12)]);return rows;}
-module.exports={upsertOrder,upsertDelivery,setSyncState,accountSyncState,listOrders,orderDetail,stats,knownChannels,getDelivery,ownedCodes,runs,itemCoverage,_test:{text,int,whereFor}};
+module.exports={upsertOrder,upsertDelivery,setSyncState,accountSyncState,listOrders,orderDetail,stats,knownChannels,getDelivery,ownedCodes,runs,itemCoverage,codesWithIdentifiedItems,_test:{text,int,whereFor}};

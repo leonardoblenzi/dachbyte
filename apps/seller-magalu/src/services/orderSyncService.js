@@ -56,7 +56,7 @@ function completeItems(items) {
   return identifiedItems(items) && items.every(item=>
     (item.amount_total != null || item.unit_price != null) && Number(item.amount_normalizer)>0);
 }
-// Listagem sem itens não apaga o que já foi recuperado (item_count é preservado no upsert);
+// Entrega listada sem itens não apaga o que já foi recuperado (item_count é preservado no upsert);
 // nesse caso não repetimos o GET de detalhe a cada sincronização.
 function needsDetail(normalized,saved){
   if(completeItems(normalized.items))return false;
@@ -75,8 +75,10 @@ async function enrichDetails(account, list, kind, onProgress=null) {
           const response=await remote.getOrder(account,row.code);
           const normalized=payload.normalizeOrder(unwrapObject(response));
           if(!normalized || String(normalized.code)!==String(row.code)) throw new Error("Pedido detalhado não corresponde ao código solicitado.");
-          if(identifiedItems(normalized.items)){
+          const embedded=(normalized.embedded_deliveries||[]).filter(d=>identifiedItems(d.items));
+          if(identifiedItems(normalized.items) || embedded.length){
             await orderRepository.upsertOrder(account.id,normalized,{httpStatus:response.status||200});
+            for(const delivery of embedded)await orderRepository.upsertDelivery(account.id,delivery,{httpStatus:response.status||200});
             recovered++;
           }
         } else {
@@ -131,7 +133,11 @@ async function fullOrderSync(accountId,{reason="manual",jobId=null,from=null,to=
         const normalized=payload.normalizeOrder(raw);if(!normalized){failed+=1;continue;}
         if(normalized.channel_id)channels.add(normalized.channel_id);
         const saved=await orderRepository.upsertOrder(account.id,normalized,{httpStatus:response.status||200,seenAt});
-        if(syncDeliveries && needsDetail(normalized,saved))detailsNeeded.push({code:normalized.code});
+        // O pedido pode trazer as entregas completas (deliveries[].items) com SKU, quantidade e preço.
+        const embedded=normalized.embedded_deliveries||[];
+        for(const delivery of embedded)await orderRepository.upsertDelivery(account.id,delivery,{httpStatus:response.status||200,seenAt});
+        const embeddedComplete=embedded.length>0 && embedded.every(d=>completeItems(d.items));
+        if(syncDeliveries && !completeItems(normalized.items) && !embeddedComplete)detailsNeeded.push({code:normalized.code,listedItems:normalized.items.length});
         scanned+=1;if(saved?.inserted===true)created+=1;else updated+=1;
       }
       const fallback=offset+rawRows.length,next=payload.nextOffset(response,fallback);lastCursor=String(fallback);
@@ -142,7 +148,9 @@ async function fullOrderSync(accountId,{reason="manual",jobId=null,from=null,to=
     if(period&&ordersHaveMore){const e=new Error("Limite de páginas de pedidos atingido; reduza o período.");e.status=422;e.code="MAGALU_MARGIN_ORDERS_PAGE_LIMIT";throw e;}
     if(syncDeliveries && detailsNeeded.length){
       currentStage="orders_detail";currentEndpoint="/seller/v1/orders/:code";
-      detailedOrders=await enrichDetails(account,detailsNeeded,"order",onProgress);
+      // Listagem sem itens não apaga itens já gravados; não repetimos o GET para pedidos já identificados.
+      const known=await orderRepository.codesWithIdentifiedItems(account.id,detailsNeeded.filter(r=>!r.listedItems).map(r=>r.code));
+      detailedOrders=await enrichDetails(account,detailsNeeded.filter(r=>r.listedItems||!known.has(String(r.code))),"order",onProgress);
       failed+=detailedOrders.failed;
     }
     if(syncDeliveries&&deliveryAllowed){
@@ -178,6 +186,10 @@ async function reconcileOrder(accountId,code,{topic="manual"}={}){
   if(!normalized){const e=new Error("A API Magalu retornou um pedido sem código identificável.");e.code="MAGALU_ORDER_PAYLOAD_INVALID";e.status=502;throw e;}
   const saved=await orderRepository.upsertOrder(account.id,normalized,{httpStatus:response.status||200,seenAt:new Date()});
   let deliveries=0;
+  for(const delivery of normalized.embedded_deliveries||[]){
+    await orderRepository.upsertDelivery(account.id,delivery,{httpStatus:response.status||200,seenAt:new Date()});
+    deliveries++;
+  }
   if(hasScope(account,DELIVERY_SCOPE)&&normalized.channel_id){
     const d=await remote.listDeliveries(account,{channelId:normalized.channel_id,code:normalized.code,offset:0,limit:100});
     for(const raw of payload.listRows(d)){const nd=payload.normalizeDelivery(raw);if(!nd)continue;if(!nd.channel_id)nd.channel_id=normalized.channel_id;await orderRepository.upsertDelivery(account.id,nd,{httpStatus:d.status||200,seenAt:new Date()});deliveries+=1;}

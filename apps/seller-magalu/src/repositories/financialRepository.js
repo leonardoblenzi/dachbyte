@@ -42,9 +42,14 @@ async function saveAccountTax(accountId, value, changedBy = null) {
 }
 
 function costFilter(accountId, { q = "", search_type = "sku", state = "", status = "", category = "" } = {}) {
-  const params = [Number(accountId)], where = ["s.account_id=$1", "s.is_present=true"];
+  const params = [Number(accountId)], where = ["s.account_id=$1"];
   const tax = "coalesce(nullif(f.aliquota,0),c.tax_rate,0)";
   const query = text(q, 3000).toLowerCase();
+  if(query && search_type==="sku") where.push(`(s.is_present=true or exists(
+    select 1 from magalu.order_items oi where oi.account_id=s.account_id and oi.sku=s.sku
+  ) or exists(select 1 from magalu.delivery_items di
+    where di.account_id=s.account_id and di.sku=s.sku))`);
+  else where.push("s.is_present=true");
   if (query) {
     if (search_type === "product") { params.push(`%${query}%`); where.push(`lower(coalesce(s.title,'')) like $${params.length}`); }
     else if (search_type === "group") { params.push(query); where.push(`lower(coalesce(s.group_id,''))=$${params.length}`); }
@@ -111,7 +116,10 @@ async function upsertCost(accountId, sku, input = {}, { changedBy = null, source
     try {
       const selected = await client.query(`select s.sku,c.unit_cost,c.tax_rate,c.packaging_cost,c.operational_cost,c.other_cost,c.notes
         from magalu.skus s left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku
-        where s.account_id=$1 and s.sku=$2 and s.is_present=true for update of s`, [Number(accountId), normalizedSku]);
+        where s.account_id=$1 and s.sku=$2 and (s.is_present=true or exists(
+          select 1 from magalu.order_items oi where oi.account_id=s.account_id and oi.sku=s.sku
+        ) or exists(select 1 from magalu.delivery_items di
+          where di.account_id=s.account_id and di.sku=s.sku)) for update of s`, [Number(accountId), normalizedSku]);
       const current = selected.rows[0];
       if (!current) { const e = new Error("SKU não pertence ao catálogo ativo desta conta."); e.status = 404; throw e; }
       if (!has(input,"unit_cost") && current.unit_cost == null) { const e=new Error("Custo unitário obrigatório para iniciar o cadastro de custos."); e.status=422; throw e; }
@@ -163,7 +171,10 @@ async function importCosts(accountId, rows, changedBy = null) {
     try {
       const found = await client.query(`select s.sku,c.unit_cost,c.tax_rate,c.packaging_cost,c.operational_cost,c.other_cost,c.notes
         from magalu.skus s left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku
-        where s.account_id=$1 and s.sku=any($2::text[]) and s.is_present=true for update of s`, [Number(accountId), skus]);
+        where s.account_id=$1 and s.sku=any($2::text[]) and (s.is_present=true or exists(
+          select 1 from magalu.order_items oi where oi.account_id=s.account_id and oi.sku=s.sku
+        ) or exists(select 1 from magalu.delivery_items di
+          where di.account_id=s.account_id and di.sku=s.sku)) for update of s`, [Number(accountId), skus]);
       const currentBySku = new Map(found.rows.map((row) => [row.sku, row]));
       const missing = skus.filter((sku) => !currentBySku.has(sku));
       if (missing.length) { const e = new Error(`${missing.length} SKU(s) não pertencem ao catálogo ativo desta conta: ${missing.slice(0,5).join(", ")}.`); e.status = 422; throw e; }

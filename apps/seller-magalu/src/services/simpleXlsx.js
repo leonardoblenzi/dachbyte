@@ -38,7 +38,12 @@ function zip(files) {
 
 function createXlsx(rows, columns, sheetName = "Auditoria") {
   const data = [columns.map((c) => c.header), ...rows.map((row) => columns.map((c) => row[c.key]))];
-  const sheetRows = data.map((row, r) => `<row r="${r+1}">${row.map((value,c) => `<c r="${colName(c)}${r+1}" t="inlineStr"><is><t xml:space="preserve">${xml(value && typeof value === "object" ? JSON.stringify(value) : value)}</t></is></c>`).join("")}</row>`).join("");
+  const sheetRows = data.map((row, r) => `<row r="${r+1}">${row.map((value,c) => {
+    const ref=`${colName(c)}${r+1}`;
+    if(typeof value==="number" && Number.isFinite(value))return `<c r="${ref}" t="n"><v>${value}</v></c>`;
+    if(typeof value==="boolean")return `<c r="${ref}" t="b"><v>${value?1:0}</v></c>`;
+    return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xml(value && typeof value === "object" ? JSON.stringify(value) : value)}</t></is></c>`;
+  }).join("")}</row>`).join("");
   const files = [
     { name:"[Content_Types].xml", data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>` },
     { name:"_rels/.rels", data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },

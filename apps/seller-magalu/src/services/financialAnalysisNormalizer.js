@@ -1,4 +1,5 @@
 "use strict";
+const {extractFinancialItemEvidence}=require("./financialItemEvidence");
 
 function amount(transaction) {
   const value = Number(transaction?.value);
@@ -16,6 +17,8 @@ function normalizeReport(report) {
   const orderCode = String(report?.extras?.order_code || report?.external_id || "").trim();
   if (!orderCode) throw new Error("Relatório financeiro sem código do pedido.");
   if (!Array.isArray(report.transactions)) throw new Error("Relatório financeiro sem lista de transações.");
+  const itemEvidence=extractFinancialItemEvidence(report);
+  let effectiveTransactions=0;
   const sums = { sale: 0, commission: 0, fees: 0, shippingNet: 0, promotionNet: 0, subsidy: 0, discountNet: 0, refundNet: 0, otherNet: 0, ignoredAbsoluteDiscount: 0, netReceivable: 0 };
   for (const row of report.transactions) {
     const type = String(row?.type || "").toUpperCase();
@@ -28,6 +31,7 @@ function normalizeReport(report) {
       sums.ignoredAbsoluteDiscount += value;
       continue;
     }
+    effectiveTransactions++;
     const signed = type === "CREDIT" ? value : -value;
     sums.netReceivable += signed;
     if (category === "SALE") sums.sale += signed;
@@ -42,7 +46,7 @@ function normalizeReport(report) {
     else sums.otherNet += signed;
   }
   for (const key of Object.keys(sums)) sums[key] = Math.round(sums[key] * 100) / 100;
-  return { orderCode, reportId: String(report.id || ""), remoteUpdatedAt: report.updated_at || null, transactionCount: report.transactions.length, ...sums };
+  return { orderCode, reportId: String(report.id || ""), remoteUpdatedAt: report.updated_at || null, transactionCount: effectiveTransactions, rawTransactionCount: report.transactions.length, itemEvidence, ...sums };
 }
 
 module.exports = { normalizeReport };

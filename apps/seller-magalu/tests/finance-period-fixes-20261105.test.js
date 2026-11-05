@@ -27,7 +27,7 @@ test("frontend não solicita identificação manual e mantém a navegação por 
 });
 test("consulta por período reconcilia detalhes e valida cobertura antes do retorno",()=>{
   const orders=read("src/services/orderSyncService.js"),repo=read("src/repositories/orderRepository.js"),analytics=read("src/repositories/uxAnalyticsRepository.js");
-  assert.match(orders,/await enrichDetails\(account,detailsNeeded,"order"/);
+  assert.match(orders,/await enrichDetails\(account,detailsNeeded\.filter\(r=>r\.listedItems\|\|!known\.has\(String\(r\.code\)\)\),"order"/);
   assert.match(orders,/await enrichDetails\(account,deliveryDetailsNeeded,"delivery"/);
   assert.match(repo,/async function itemCoverage/);
   assert.match(analytics,/dc\.expected_items>0/);
@@ -52,6 +52,12 @@ test("sincronização não repete o detalhe de pedidos já recuperados",()=>{
   const src=read("src/services/orderSyncService.js");
   assert.match(src,/function needsDetail\(normalized,saved\)/);
   assert.match(src,/normalized\.items\.length===0 && Number\(saved\?\.item_count\)>0/);
-  assert.match(src,/if\(syncDeliveries && needsDetail\(normalized,saved\)\)detailsNeeded\.push/);
   assert.match(src,/if\(needsDetail\(normalized,saved\)\)details\.push/);
+  assert.match(src,/orderRepository\.codesWithIdentifiedItems\(account\.id,detailsNeeded\.filter\(r=>!r\.listedItems\)/);
+  assert.match(read("src/repositories/orderRepository.js"),/async function codesWithIdentifiedItems\(accountId,codes\)/);
+});
+test("detalhe do pedido grava as entregas aninhadas com itens identificados",()=>{
+  const src=read("src/services/orderSyncService.js");
+  assert.match(src,/const embedded=\(normalized\.embedded_deliveries\|\|\[\]\)\.filter\(d=>identifiedItems\(d\.items\)\);/);
+  assert.match(src,/for\(const delivery of embedded\)await orderRepository\.upsertDelivery\(account\.id,delivery,\{httpStatus:response\.status\|\|200\}\);/);
 });

@@ -18,6 +18,13 @@ async function upsert(accountId, row, client = db) {
     row.sale,row.commission,row.fees,row.shippingNet,row.promotionNet,row.subsidy,row.discountNet,
     row.refundNet,row.otherNet,row.ignoredAbsoluteDiscount,row.netReceivable,
   ]);
+  if(row.itemEvidence && typeof row.itemEvidence==="object"){
+    await client.query(`update magalu.orders
+      set operational_payload=jsonb_set(coalesce(operational_payload,'{}'::jsonb),
+        '{__dach_financial_item_evidence}',$3::jsonb,true),updated_at=now()
+      where account_id=$1 and code=$2`,
+      [Number(accountId),row.orderCode,JSON.stringify(row.itemEvidence)]);
+  }
 }
 
 async function upsertBatch(accountId, rows) {
