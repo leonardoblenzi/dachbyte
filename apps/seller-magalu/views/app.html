@@ -25,7 +25,7 @@
   <link rel="stylesheet" href="/magalu/assets/css/magalu-cost-visual-parity.css?v=2026101303">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-process-panel.css?v=2026110402">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-fixes-20261105.css?v=2026110502">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-canonical-ui.css?v=2026093001">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-canonical-ui.css?v=2026110503">
 </head>
 <body>
 <div class="mg-app" data-theme="light">
@@ -145,7 +145,7 @@
       <div class="mg-alert" id="mg-oauth-alert" hidden></div>
 
       <section id="mg-dashboard" class="mg-product-page mg-dashboard-page" data-page="/">
-        <header class="mg-page-head">
+        <header class="mg-page-head mg-ui-hero">
           <div>
             <span class="mg-kicker">Visão geral · Magalu</span><h1>Painel</h1><p>Acompanhe desempenho comercial, cobertura de custos e riscos operacionais da conta.</p>
             <div class="mg-dashboard-meta"><span>Magalu</span><i class="mg-dashboard-meta__dot"></i><strong id="mg-dashboard-account-name">Conta Magalu</strong><i class="mg-dashboard-meta__dot"></i><span id="mg-dashboard-period-label">Últimos 7 dias</span><i class="mg-dashboard-meta__dot"></i><span id="mg-dashboard-updated">Atualizando...</span></div>
@@ -299,11 +299,11 @@
       </section>
 
       <section id="mg-stock-page" class="mg-product-page mg-operation-page" data-page="/estoque" hidden>
+        <section class="mg-page-hero mg-rich-hero mg-ui-hero"><div><span class="mg-kicker">Operações · Estoque</span><h1>Estoque</h1><p>Use vendas sincronizadas e o saldo atual para identificar ruptura, cobertura baixa, itens sem giro e uma reposição de referência.</p></div><div class="mg-rich-hero__meta"><span class="mg-pill">Leitura local</span><button class="mg-secondary-btn" id="mg-stock-analysis-refresh" type="button">Atualizar análise</button></div></section>
         <nav class="mg-workspace-nav" aria-label="Navegação de estoque"><button class="is-active" data-stock-workspace="analysis" type="button">Análise de estoque</button><button data-stock-workspace="update" data-tone="write" type="button">Atualizar estoque</button></nav>
 
         <div class="mg-workspace-panel" data-stock-panel="analysis">
-          <section class="mg-page-hero mg-rich-hero mg-ui-hero"><div><span class="mg-kicker">Operações · Estoque</span><h1>Estoque</h1><p>Use vendas sincronizadas e o saldo atual para identificar ruptura, cobertura baixa, itens sem giro e uma reposição de referência.</p></div><div class="mg-rich-hero__meta"><span class="mg-pill">Leitura local</span><button class="mg-secondary-btn" id="mg-stock-analysis-refresh" type="button">Atualizar análise</button></div></section>
-          <div class="mg-analysis-toolbar"><div class="mg-analysis-toolbar__left"><div class="mg-analysis-period" aria-label="Período de giro"><button class="is-active" data-stock-days="30" type="button">30 dias</button><button data-stock-days="60" type="button">60 dias</button><button data-stock-days="90" type="button">90 dias</button></div><div class="mg-analysis-tabs" aria-label="Recorte da análise"><button class="is-active" data-stock-view="all" type="button">Visão geral</button><button data-stock-view="replacement" type="button">Reposição</button><button data-stock-view="no_sales" type="button">Sem giro</button></div></div><div class="mg-analysis-toolbar__right"><input class="mg-analysis-search" id="mg-stock-analysis-search" placeholder="Buscar SKU ou produto"><span id="mg-stock-analysis-meta" class="mg-pill">Carregando...</span></div></div>
+          <div class="mg-analysis-toolbar mg-ui-filter-card"><div class="mg-analysis-toolbar__left"><div class="mg-analysis-period" aria-label="Período de giro"><button class="is-active" data-stock-days="30" type="button">30 dias</button><button data-stock-days="60" type="button">60 dias</button><button data-stock-days="90" type="button">90 dias</button></div><div class="mg-analysis-tabs" aria-label="Recorte da análise"><button class="is-active" data-stock-view="all" type="button">Visão geral</button><button data-stock-view="replacement" type="button">Reposição</button><button data-stock-view="no_sales" type="button">Sem giro</button></div></div><div class="mg-analysis-toolbar__right"><input class="mg-analysis-search" id="mg-stock-analysis-search" placeholder="Buscar SKU ou produto"><span id="mg-stock-analysis-meta" class="mg-pill">Carregando...</span></div></div>
           <section class="mg-rich-kpis" aria-label="Indicadores de estoque"><article class="mg-rich-kpi" data-tone="critical"><span>Críticos</span><strong id="mg-stock-critical">—</strong><small id="mg-stock-critical-meta">estoque zerado ou até 7 dias</small></article><article class="mg-rich-kpi" data-tone="warning"><span>Atenção</span><strong id="mg-stock-attention">—</strong><small id="mg-stock-attention-meta">cobertura entre 8 e 15 dias</small></article><article class="mg-rich-kpi"><span>Cobertura média</span><strong id="mg-stock-coverage">—</strong><small id="mg-stock-coverage-meta">SKUs com giro conhecido</small></article><article class="mg-rich-kpi" data-tone="success"><span>Reposição sugerida</span><strong id="mg-stock-suggested">—</strong><small id="mg-stock-suggested-meta">referência para 30 dias</small></article></section>
           <section class="mg-priority-banner" id="mg-stock-priority"><span class="mg-priority-banner__index">…</span><div><strong>Calculando prioridades</strong><span>Aguardando leitura do catálogo e pedidos.</span></div></section>
           <section class="mg-analysis-grid"><article class="mg-analysis-action"><span>Risco imediato</span><strong id="mg-stock-action-critical">—</strong><small>Ruptura ou cobertura de até 7 dias.</small></article><article class="mg-analysis-action"><span>Alto risco</span><strong id="mg-stock-action-attention">—</strong><small>Cobertura estimada entre 8 e 15 dias.</small></article><article class="mg-analysis-action"><span>Sem giro</span><strong id="mg-stock-action-nosales">—</strong><small>Sem venda no período escolhido.</small></article><article class="mg-analysis-action"><span>Compra de referência</span><strong id="mg-stock-action-value">—</strong><small>Valor usa somente custos já cadastrados.</small></article></section>
@@ -530,10 +530,10 @@
     <script src="/magalu/assets/js/magalu-loading.js?v=2026103001"></script>
     <script src="/magalu/assets/js/magalu-dashboard.js?v=2026092903"></script>
         <script src="/magalu/assets/js/magalu-app.js?v=2026110501"></script>
-<script src="/magalu/assets/js/magalu-account.js?v=2026092503"></script>
+<script src="/magalu/assets/js/magalu-account.js?v=2026110503"></script>
         <script src="/magalu/assets/js/magalu-sku-management.js?v=2026110501"></script>
     <script src="/magalu/assets/js/magalu-orders.js?v=2026110502"></script>
-<script src="/magalu/assets/js/magalu-stock-price.js?v=2026092904"></script>
+<script src="/magalu/assets/js/magalu-stock-price.js?v=2026110503"></script>
     <script src="/magalu/assets/js/magalu-financial.js?v=2026110502"></script>
 <script src="/magalu/assets/js/magalu-promotions.js?v=2026093001"></script>
 <script src="/magalu/assets/js/magalu-campaign-tabs.js?v=2026110502"></script>

@@ -10,7 +10,7 @@
   function account(){return Number(shell()?.getSelectedAccountId?.())||null;}
   async function api(path){return shell().fetchJson(`/magalu/api/ux-analytics${path}`);}
   function isStock(){return shell()?.route?.()==="/estoque";}
-  function setPanel(name){document.querySelectorAll("[data-stock-workspace]").forEach(b=>b.classList.toggle("is-active",b.dataset.stockWorkspace===name));document.querySelectorAll("[data-stock-panel]").forEach(p=>p.hidden=p.dataset.stockPanel!==name);}
+  function setPanel(name){document.querySelectorAll("[data-stock-workspace]").forEach(b=>b.classList.toggle("is-active",b.dataset.stockWorkspace===name));document.querySelectorAll("[data-stock-panel]").forEach(p=>p.hidden=p.dataset.stockPanel!==name);const page=document.getElementById("mg-stock-page");if(page)page.dataset.workspace=name;}
   function riskLabel(r){return r==="critical"?"Crítico":r==="attention"?"Atenção":r==="no_sales"?"Sem giro":"Saudável";}
   function renderStock(data){
     const s=data.summary||{};state.total=Number(data.total||0);

@@ -9,7 +9,7 @@
   --mg-ui-primary-strong: var(--mg-primary-strong, #0868c7);
   --mg-ui-primary-soft: var(--mg-primary-soft, #dceeff);
   --mg-ui-shadow: var(--mg-shadow-sm, 0 12px 30px rgba(18, 59, 100, .07));
-  --mg-ui-radius: 18px;
+  --mg-ui-radius: 20px;
 }
 
 .mg-ui-hero {
@@ -17,17 +17,24 @@
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: clamp(20px, 3vw, 30px);
+  margin: 0 0 16px;
+  padding: 15px 20px;
   border: 1px solid var(--mg-ui-border);
-  border-radius: calc(var(--mg-ui-radius) + 4px);
+  border-radius: 22px;
   background: linear-gradient(135deg, var(--mg-ui-surface), var(--mg-ui-surface-muted));
   box-shadow: var(--mg-ui-shadow);
 }
 
 .mg-ui-hero__copy { min-width: 0; }
 .mg-ui-hero__eyebrow { margin: 0; color: var(--mg-ui-primary-strong); font-size: .68rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
-.mg-ui-hero h1, .mg-ui-hero__title { margin: 6px 0 0; color: var(--mg-ui-title); font: 800 clamp(1.55rem, 3vw, 2.35rem)/1.08 var(--dachbyte-font-display, Inter, system-ui, sans-serif); letter-spacing: -.04em; }
-.mg-ui-hero p, .mg-ui-hero__description { max-width: 760px; margin: 8px 0 0; color: var(--mg-ui-muted); font-size: .8rem; line-height: 1.55; }
+.mg-ui-hero h1, .mg-ui-hero__title { margin: 4px 0 0; color: var(--mg-ui-title); font: 800 22px/1.04 var(--dachbyte-font-display, Inter, system-ui, sans-serif); letter-spacing: -.03em; }
+.mg-ui-hero p, .mg-ui-hero__description { max-width: 760px; margin: 4px 0 0; color: var(--mg-ui-muted); font-size: 11px; line-height: 1.5; }
+/* Padrão visual da Margem de venda aplicado a todas as telas. */
+.mg-ui-hero .mg-kicker, .mg-ui-hero__eyebrow { margin: 0 0 2px!important; font-size: 10px!important; letter-spacing: .13em!important; }
+/* Cabeçalhos legados (.mg-page-head) recebem o mesmo card compacto; vence o !important do ml-parity. */
+.mg-page-head.mg-ui-hero { align-items: center!important; gap: 20px!important; margin: 0 0 16px!important; padding: 15px 20px!important; border: 1px solid var(--mg-ui-border)!important; border-radius: 22px!important; background: linear-gradient(135deg, var(--mg-ui-surface), var(--mg-ui-surface-muted))!important; box-shadow: var(--mg-ui-shadow)!important; }
+.mg-page-head.mg-ui-hero h1, .mg-page-head.mg-ui-hero h2 { margin: 4px 0 0!important; font-size: 22px!important; font-weight: 800!important; line-height: 1.04!important; letter-spacing: -.03em!important; }
+.mg-page-head.mg-ui-hero p { margin: 4px 0 0!important; font-size: 11px!important; line-height: 1.5!important; }
 .mg-ui-hero__actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 
 .mg-ui-filter-card {
@@ -37,14 +44,14 @@
   box-shadow: var(--mg-ui-shadow);
 }
 
-.mg-ui-filter-card { padding: 18px; }
+.mg-ui-filter-card { padding: 12px 14px; border-radius: 20px; }
 .mg-ui-filter-card__head, .mg-ui-surface__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .mg-ui-filter-card__title, .mg-ui-surface__title { margin: 0; color: var(--mg-ui-title); font-size: .95rem; }
 .mg-ui-filter-card__hint, .mg-ui-surface__hint { margin: 4px 0 0; color: var(--mg-ui-muted); font-size: .72rem; line-height: 1.45; }
 .mg-ui-filter-card__fields { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; margin-top: 15px; }
 .mg-ui-filter-card__field { display: grid; grid-column: span 3; gap: 6px; min-width: 0; }
-.mg-ui-filter-card__field label, .mg-ui-filter-card__field > span { color: var(--mg-ui-muted); font-size: .64rem; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
-.mg-ui-filter-card input, .mg-ui-filter-card select, .mg-ui-filter-card textarea { width: 100%; min-height: 40px; border: 1px solid var(--mg-ui-border); border-radius: 10px; background: var(--mg-ui-surface); color: var(--mg-ui-title); padding: 0 10px; font: inherit; font-size: .78rem; }
+.mg-ui-filter-card__field label, .mg-ui-filter-card__field > span { color: var(--mg-ui-muted); font-size: 10px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.mg-ui-filter-card input, .mg-ui-filter-card select, .mg-ui-filter-card textarea { width: 100%; min-height: 38px; border: 1px solid var(--mg-ui-border); border-radius: 10px; background: var(--mg-ui-surface); color: var(--mg-ui-title); padding: 0 10px; font: inherit; font-size: 11px; }
 .mg-ui-filter-card textarea { min-height: 92px; padding-block: 10px; resize: vertical; }
 .mg-ui-filter-card input:focus, .mg-ui-filter-card select:focus, .mg-ui-filter-card textarea:focus { outline: 0; border-color: var(--mg-ui-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mg-ui-primary) 18%, transparent); }
 .mg-ui-filter-card__actions { display: flex; grid-column: span 3; align-items: end; gap: 8px; }
@@ -82,6 +89,27 @@
 .mg-ui-modal__body { color: var(--mg-ui-muted); font-size: .8rem; line-height: 1.55; }
 .mg-ui-modal__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--mg-ui-border); background: var(--mg-ui-surface-muted); }
 
+/* Geometria e abas da Margem de venda aplicadas a todas as telas do produto. */
+.mg-content > section[data-page] { width: calc(100% - 40px); margin-top: 26px; }
+.mg-workspace-nav { display: flex; width: 100%; gap: 10px; margin: 0 0 16px; padding: 8px; border: 1px solid var(--mg-ui-border); border-radius: 18px; background: var(--mg-surface, var(--mg-ui-surface)); box-shadow: var(--mg-ui-shadow); }
+.mg-workspace-nav button { min-height: 38px; padding: 0 16px; border-radius: 13px; font-size: 11px; }
+.mg-workspace-nav button.is-active { background: linear-gradient(135deg, var(--mg-primary), var(--mg-accent)); color: #fff; box-shadow: none; }
+.mg-analysis-toolbar.mg-ui-filter-card { margin-bottom: 14px; }
+#mg-stock-page[data-workspace="update"] > .mg-ui-hero .mg-rich-hero__meta { display: none; }
+.mg-content > section[data-page] :is(.mg-section-head, .mg-dashboard-surface__head) h2, .mg-content > section[data-page] .mg-ui-surface__title { font-size: 17px!important; font-weight: 700!important; letter-spacing: -.03em!important; }
+.mg-content > section[data-page] :is(.mg-section-card, .mg-rich-kpi, .mg-kpi, .mg-dashboard-kpi, .mg-status-banner, .mg-calculator-card, .mg-accounts-list-card, .mg-operation-flow) { border-radius: 20px!important; }
+.mg-content > section[data-page] :is(.mg-rich-kpi, .mg-kpi, .mg-dashboard-kpi, .mg-dashboard-risk-card) strong { font-size: 20px!important; font-weight: 700!important; }
+.mg-content > section[data-page] :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), select) { min-height: 38px; font-size: 11px; border-radius: 10px; }
+.mg-content > section[data-page] :is(.mg-promotions-tabs, .mg-calculator-mode-tabs) { width: 100%; gap: 10px; margin: 0 0 16px; padding: 8px; border: 1px solid var(--mg-ui-border); border-radius: 18px; background: var(--mg-surface, var(--mg-ui-surface)); box-shadow: var(--mg-ui-shadow); }
+.mg-content > section[data-page] :is(.mg-promotions-tabs, .mg-calculator-mode-tabs) button { min-height: 38px; padding: 0 16px; border-radius: 13px; font-size: 11px; font-weight: 850; box-shadow: none; }
+.mg-content > section[data-page] .mg-help-form > label > span, .mg-content > section[data-page] .mg-help-form legend { color: var(--mg-ui-muted); font-size: 10px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.mg-content > section[data-page] .mg-help-form :is(input, select, textarea) { border-radius: 10px; font-size: 11px; }
+.mg-content > section[data-page] .mg-help-form fieldset { border-radius: 14px; }
+.mg-content > section[data-page] .mg-danger-btn { border-radius: 12px; font-size: 12.48px; font-weight: 850; }
+@media (max-width: 1280px) {
+  .mg-content > section[data-page] { width: 100%; margin-top: 12px; }
+}
+
 .mg-app[data-theme="dark"] {
   --mg-ui-border: rgba(184, 218, 244, .2);
   --mg-ui-surface: #102d47;
@@ -99,6 +127,7 @@
 
 @media (max-width: 760px) {
   .mg-ui-hero { align-items: stretch; flex-direction: column; padding: 18px; }
+  .mg-page-head.mg-ui-hero { align-items: stretch!important; padding: 18px!important; }
   .mg-ui-hero__actions { justify-content: stretch; }
   .mg-ui-hero__actions > * { flex: 1; }
   .mg-ui-filter-card { padding: 15px; }
