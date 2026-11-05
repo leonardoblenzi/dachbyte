@@ -103,5 +103,5 @@ test("Botões de reconexão usam a conta selecionada e não o OAuth genérico", 
   assert.match(appJs, /mg-reconnect-account[\s\S]*auth\/accounts/);
   assert.match(appJs, /A conta aparecerá após o Hub confirmar o acesso comercial/);
   assert.match(appJs, /magalu_reconnect_account_mismatch:/);
-  assert.match(ordersJs, /reconnect\.href\s*=\s*`\/magalu\/auth\/accounts\/\$\{state\.accountId\}\/reconnect`/);
+  assert.doesNotMatch(ordersJs, /mg-orders-reconnect|\/reconnect`/); // Pedidos não oferece reconexão; ela fica em Contas
 });

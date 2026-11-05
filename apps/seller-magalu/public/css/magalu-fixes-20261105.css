@@ -1,0 +1,29 @@
+/* Seller Magalu — ajustes de UX, 05/11/2026 */
+@media(min-width:1101px){
+  #mg-sku-management-page .mg-sku-workspace{grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:start!important}
+  #mg-sku-management-page .mg-sku-stage{min-height:0!important;height:auto!important}
+  #mg-sku-management-page .mg-sku-action-option{padding:11px 13px!important}
+  #mg-sku-management-page .mg-sku-action-stack{gap:9px!important}
+}
+#mg-sku-management-page .mg-sku-stage__head{padding-bottom:0!important}
+#mg-sku-management-page .mg-sku-action-option small{line-height:1.35}
+#mg-financial-margin-page .mg-margin-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:10px 0 12px}
+#mg-financial-margin-page .mg-margin-table-toolbar span{color:var(--mg-muted);font-size:.79rem}
+#mg-financial-margin-page .mg-margin-scroll{max-width:100%;overflow:auto;max-height:72vh;border:1px solid var(--mg-border);border-radius:12px}
+#mg-financial-margin-page .mg-margin-data-table{min-width:1770px;width:100%;border-collapse:separate;border-spacing:0;font-size:.76rem}
+#mg-financial-margin-page .mg-margin-data-table thead th{position:sticky;top:0;z-index:3;white-space:nowrap;background:var(--mg-surface);box-shadow:0 1px 0 var(--mg-border);font-size:.73rem}
+#mg-financial-margin-page .mg-margin-data-table tbody td{vertical-align:top;white-space:nowrap;padding:10px 12px;border-bottom:1px solid var(--mg-border)}
+#mg-financial-margin-page .mg-margin-data-table tbody tr:hover{background:var(--mg-surface-soft)}
+#mg-financial-margin-page .mg-margin-order-ident{min-width:190px;max-width:285px;white-space:normal!important}
+#mg-financial-margin-page .mg-margin-order-ident strong{display:block;font-weight:850}
+#mg-financial-margin-page .mg-margin-order-ident small{display:block;margin-top:4px;color:var(--mg-muted);line-height:1.35}
+#mg-financial-margin-page .mg-margin-data-table td:nth-child(n+4):not(:last-child){font-variant-numeric:tabular-nums}
+#mg-financial-margin-page .mg-margin-data-table td .mg-risk-badge{white-space:nowrap}
+#mg-financial-margin-page .mg-margin-cost-link{display:block;margin-top:6px;border:0;background:none;padding:0;color:var(--mg-primary-strong);text-decoration:underline;cursor:pointer;font-size:.71rem;text-align:left}
+#mg-financial-margin-page .mg-money-positive{color:var(--mg-success)!important;font-weight:850}
+#mg-financial-margin-page .mg-money-negative{color:var(--mg-danger)!important;font-weight:850}
+@media(max-width:760px){
+  #mg-financial-margin-page .mg-margin-scroll{max-height:68vh}
+  #mg-financial-margin-page .mg-margin-table-toolbar button{width:100%}
+}
+#mg-financial-margin-page .mg-margin-data-table .mg-margin-period-note{display:block;margin-top:4px;color:var(--mg-warning);font-size:.7rem;white-space:normal}

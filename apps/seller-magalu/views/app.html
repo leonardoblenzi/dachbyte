@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="/magalu/assets/css/magalu-margin-parity.css?v=2026101401">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-cost-visual-parity.css?v=2026101303">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-process-panel.css?v=2026110402">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-fixes-20261105.css?v=2026110502">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-canonical-ui.css?v=2026093001">
 </head>
 <body>
@@ -202,7 +203,6 @@
 
         <section class="mg-orders-scope-banner" id="mg-orders-scope-banner" data-state="checking">
           <div><strong id="mg-orders-scope-title">Verificando permissões…</strong><span id="mg-orders-scope-copy">Consultando os scopes de Pedidos e Entregas.</span></div>
-          <a class="mg-secondary-btn" id="mg-orders-reconnect" href="/magalu/contas" hidden>Reconectar conta</a>
         </section>
 
         <section class="mg-orders-operational-state" id="mg-orders-operational-state" data-state="checking" aria-live="polite" hidden>
@@ -234,11 +234,6 @@
         <section class="mg-section-card mg-ui-surface">
           <div class="mg-section-head"><div><span class="mg-kicker">Escrita protegida</span><h2>Operações de expedição</h2><p class="mg-section-copy">NF-e e finalização passam por preview, Hub WRITE e reconciliação remota.</p></div></div>
           <div class="mg-orders-runs" id="mg-orders-delivery-ops"><div class="mg-empty-state"><strong>Nenhuma operação carregada</strong></div></div>
-        </section>
-
-        <section class="mg-section-card mg-ui-surface">
-          <div class="mg-section-head"><div><span class="mg-kicker">Worker Magalu</span><h2>Sincronizações recentes</h2><p class="mg-section-copy">Histórico da réplica de pedidos e entregas.</p></div></div>
-          <div class="mg-orders-runs" id="mg-orders-runs"><div class="mg-empty-state"><strong>Nenhuma execução carregada</strong></div></div>
         </section>
 
         <section class="mg-orders-dialog mg-ui-modal" id="mg-orders-detail-modal" hidden>
@@ -408,7 +403,7 @@
           <div><span class="mg-kicker">Comercial · Magalu</span><h1>Promoções</h1><p>Consulte campanhas liberadas para a sua conta e acompanhe a participação atual. Adesão e remoção de SKUs serão exibidas somente quando a Open API disponibilizar essas ações.</p></div>
           <div class="mg-rich-hero__meta"><span class="mg-pill" id="mg-promotions-account">Conta Magalu</span><button class="mg-secondary-btn" id="mg-promotions-refresh" type="button">Atualizar</button></div>
         </header>
-        <nav class="mg-promotions-tabs" aria-label="Campanhas" role="tablist"><button data-campaigns-tab="pricing" type="button" role="tab" aria-selected="false">Precificação</button><button class="is-active" data-campaigns-tab="available" data-promotions-tab="available" type="button" role="tab" aria-selected="true">Promoções disponíveis <span id="mg-promotions-available-count">0</span></button><button data-campaigns-tab="participating" data-promotions-tab="participating" type="button" role="tab" aria-selected="false">Participando <span id="mg-promotions-participating-count">0</span></button></nav>
+        <nav class="mg-promotions-tabs" aria-label="Campanhas" role="tablist"><button class="is-active" data-campaigns-tab="pricing" type="button" role="tab" aria-selected="true">Precificação</button><button data-campaigns-tab="available" data-promotions-tab="available" type="button" role="tab" aria-selected="false">Promoções disponíveis <span id="mg-promotions-available-count">0</span></button><button data-campaigns-tab="participating" data-promotions-tab="participating" type="button" role="tab" aria-selected="false">Participando <span id="mg-promotions-participating-count">0</span></button></nav>
         <div id="mg-promotions-campaign-content" data-campaign-panel="campaigns">
         <section class="mg-promotions-filter-card mg-ui-filter-card"><div class="mg-promotions-filters"><label class="mg-promotions-field mg-promotions-field--search"><span>Buscar</span><input id="mg-promotions-search" type="search" placeholder="Nome, benefício ou código"></label><label class="mg-promotions-field"><span>Tipo</span><select id="mg-promotions-type"><option value="">Todos</option></select></label><label class="mg-promotions-field"><span>Origem</span><select id="mg-promotions-origin"><option value="">Todas</option></select></label><label class="mg-promotions-field"><span>Período</span><select id="mg-promotions-period"><option value="active">Em vigência ou próxima</option><option value="all">Todos os períodos</option><option value="ended">Encerradas</option></select></label><div class="mg-promotions-filter-actions"><button class="mg-secondary-btn" id="mg-promotions-clear" type="button">Limpar</button><button class="mg-primary-btn" id="mg-promotions-filter" type="button">Filtrar</button></div></div></section>
         <section class="mg-promotions-summary"><article><span>Disponíveis</span><strong id="mg-promotions-summary-available">—</strong><small>campanhas retornadas pela Open API</small></article><article><span>Participando</span><strong id="mg-promotions-summary-participating">—</strong><small>participação identificada na consulta</small></article><article><span>Janela mais próxima</span><strong id="mg-promotions-summary-deadline">—</strong><small>prazo informado pela campanha</small></article></section>
@@ -453,7 +448,8 @@
           <div class="mg-margin-filter-empty" role="status"><strong>Escolha o período e clique em Filtrar</strong><span>Os pedidos aparecerão com os filtros selecionados.</span></div>
           <section class="mg-section-card mg-ui-surface">
             <div class="mg-section-head"><div><span class="mg-kicker">Pedidos</span><h2>Margem por período</h2><p class="mg-section-copy">Conciliação por pedido. Valores financeiros ausentes não são presumidos como zero.</p></div></div>
-            <div id="mg-financial-margin-body" class="mg-margin-period-list" role="list"></div>
+            <div class="mg-margin-table-toolbar"><span id="mg-margin-table-coverage" role="status">Dados do período conciliados com a API Magalu.</span><button id="mg-margin-export" class="mg-secondary-btn" type="button">Exportar XLSX</button></div>
+            <div class="mg-table-wrap mg-margin-scroll" role="region" aria-label="Tabela da margem por período" tabindex="0"><table class="mg-table mg-margin-data-table"><thead><tr><th>Pedido / Produto</th><th>Data</th><th>Envio</th><th>GMV</th><th>Preço produto</th><th>CMV</th><th>Comissões</th><th>Frete</th><th>Base imposto</th><th>Impostos</th><th>Tarifas</th><th>Descontos</th><th>Subsídios</th><th>Repasse</th><th>Resultado</th><th>Margem</th><th>Equilíbrio/un.</th><th>Status</th></tr></thead><tbody id="mg-financial-margin-body"><tr><td colspan="18">Selecione o período e clique em Filtrar.</td></tr></tbody></table></div>
             <div class="mg-pagination"><button class="mg-secondary-btn" id="mg-margin-prev" type="button">← Anterior</button><span id="mg-margin-page">—</span><button class="mg-secondary-btn" id="mg-margin-next" type="button">Próxima →</button></div>
           </section>
         </div>
@@ -536,11 +532,11 @@
         <script src="/magalu/assets/js/magalu-app.js?v=2026110501"></script>
 <script src="/magalu/assets/js/magalu-account.js?v=2026092503"></script>
         <script src="/magalu/assets/js/magalu-sku-management.js?v=2026110501"></script>
-    <script src="/magalu/assets/js/magalu-orders.js?v=2026100101"></script>
+    <script src="/magalu/assets/js/magalu-orders.js?v=2026110502"></script>
 <script src="/magalu/assets/js/magalu-stock-price.js?v=2026092904"></script>
-    <script src="/magalu/assets/js/magalu-financial.js?v=2026110402"></script>
+    <script src="/magalu/assets/js/magalu-financial.js?v=2026110502"></script>
 <script src="/magalu/assets/js/magalu-promotions.js?v=2026093001"></script>
-<script src="/magalu/assets/js/magalu-campaign-tabs.js?v=2026110501"></script>
+<script src="/magalu/assets/js/magalu-campaign-tabs.js?v=2026110502"></script>
 <script src="/magalu/assets/js/magalu-process-panel.js?v=2026110402"></script>
 <script src="/magalu/assets/js/magalu-promocoes-massa.js?v=2026110501"></script>
 </body>

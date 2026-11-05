@@ -15,14 +15,22 @@ test("returns confirmed missing-cost SKUs without duplicates",()=>{
   assert.deepEqual(rows[0].missing_cost_skus,[{sku:"SKU-1",name:"Produto",quantity:3}]);
 });
 
-test("delivery-only identity never becomes an actionable missing cost",()=>{
+test("delivery-only identity offers the delivery SKU cost without inventing a value",()=>{
   const rows=enrichMarginRows([{id:10,code:"A",cost_complete:false}],[],[
-    {order_id:10,sku:"DEL-SKU",name:"Na entrega",quantity:1}
+    {order_id:10,sku:"DEL-SKU",name:"Na entrega",quantity:1,unit_cost:null}
   ]);
   assert.equal(rows[0].identity_state,"delivery_only");
   assert.equal(rows[0].first_sku,"DEL-SKU");
-  assert.deepEqual(rows[0].missing_cost_skus,[]);
+  assert.deepEqual(rows[0].missing_cost_skus,[{sku:"DEL-SKU",name:"Na entrega",quantity:1}]);
   assert.equal(rows[0].cost_complete,false);
+});
+
+test("delivery SKU outside the synchronized catalog is not offered for cost editing",()=>{
+  const rows=enrichMarginRows([{id:10,code:"A",cost_complete:false}],[],[
+    {order_id:10,sku:"OLD-DEL",name:"Antigo",quantity:1,unit_cost:null,catalog_present:false}
+  ]);
+  assert.deepEqual(rows[0].missing_cost_skus,[]);
+  assert.deepEqual(rows[0].unavailable_cost_skus,["OLD-DEL"]);
 });
 
 test("unknown SKU stays unavailable and does not create a cost action",()=>{

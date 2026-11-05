@@ -32,8 +32,25 @@ function priceFields(payload) {
 }
 function stockQuantity(payload) {
   const data = payloadObject(payload);
-  const candidates = [data.quantity, data.available_quantity, data.available, data.stock, data.amount, data?.inventory?.quantity, data?.inventory?.available_quantity];
-  for (const candidate of candidates) { const parsed = numberOrNull(candidate); if (parsed !== null) return parsed; }
+  // GET /seller/v1/portfolios/stocks/:sku retorna results[] por centro e canal.
+  // RESERVED não integra estoque disponível; campos desconhecidos continuam null.
+  if (Array.isArray(data.results)) {
+    const seen = new Set();
+    let quantity = 0, count = 0;
+    for (const stock of data.results) {
+      if (String(stock?.type || "").toUpperCase() !== "AVAILABLE") continue;
+      const q = stock?.quantity == null ? null : numberOrNull(stock.quantity);
+      if (q == null || q < 0) continue;
+      const branch = String(stock?.branch?.id || "default");
+      const channel = String(stock?.channel?.id || "default");
+      const key = `${branch}:${channel}:AVAILABLE`;
+      if (seen.has(key)) continue;
+      seen.add(key); quantity += q; count++;
+    }
+    return count ? quantity : null;
+  }
+  const candidates = [data.quantity,data.available_quantity,data.available,data.stock,data.amount,data?.inventory?.quantity,data?.inventory?.available_quantity];
+  for (const candidate of candidates) { if(candidate == null) continue; const parsed=numberOrNull(candidate); if(parsed!==null) return parsed; }
   return null;
 }
 module.exports = { text, numberOrNull, payloadObject, skuFields, priceFields, stockQuantity };

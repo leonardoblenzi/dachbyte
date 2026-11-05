@@ -1,6 +1,7 @@
 "use strict";
 const accountRepository=require("../repositories/accountRepository");
 const analytics=require("../repositories/uxAnalyticsRepository");
+const {buildMarginWorkbook}=require("../services/marginWorkbookService");
 const marginFresh=require("../services/marginFreshSyncService");
 const {enqueueMarginRangeSync,getQueue,queueNames}=require("../queues/magaluQueue");
 const orderRepository=require("../repositories/orderRepository");
@@ -13,6 +14,21 @@ function fail(res,e){const status=Number(e?.status)||500;return res.status(statu
 async function stock(req,res){try{const a=await accountFor(req);return res.json({ok:true,...await analytics.stockAnalysis(a.id,req.query)});}catch(e){return fail(res,e);}}
 async function costs(req,res){try{const a=await accountFor(req);return res.json({ok:true,...await analytics.costOverview(a.id)});}catch(e){return fail(res,e);}}
 async function margins(req,res){try{const a=await accountFor(req);return res.json({ok:true,...await analytics.marginOverview(a.id,req.query)});}catch(e){return fail(res,e);}}
+async function exportMargins(req,res){try{
+  const a=await accountFor(req);
+  const all=[],limit=100,MAX=5000;
+  const options={...req.query,limit};
+  for(let page=1;page<=MAX/limit+1;page++){
+    const data=await analytics.marginOverview(a.id,{...options,page});
+    all.push(...(data.rows||[]));
+    if(all.length>MAX){const error=new Error("A exportação de margem excede 5.000 pedidos; reduza o período.");error.status=413;throw error;}
+    if(all.length>=Number(data.total||0)||!(data.rows||[]).length)break;
+  }
+  const workbook=await buildMarginWorkbook(all);
+  res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition",'attachment; filename="margem-magalu.xlsx"');
+  return res.send(workbook);
+}catch(error){return fail(res,error);}}
 async function syncMargins(req,res){try{
   const a=await accountFor(req),from=req.body?.from,to=req.body?.to;
   marginFresh.validate(a,from,to);
@@ -59,4 +75,4 @@ async function identifyMarginOrders(req,res){try{
   return res.json({ok:true,rows});
 }catch(e){return fail(res,e);}}
 async function equilibrium(req,res){try{const a=await accountFor(req);return res.json({ok:true,...await analytics.equilibrium(a.id,req.query)});}catch(e){return fail(res,e);}}
-module.exports={stock,costs,margins,syncMargins,marginSyncStatus,identifyMarginOrders,equilibrium,_test:{int}};
+module.exports={stock,costs,margins,exportMargins,syncMargins,marginSyncStatus,identifyMarginOrders,equilibrium,_test:{int}};

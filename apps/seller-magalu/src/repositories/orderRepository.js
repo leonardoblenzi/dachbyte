@@ -36,10 +36,10 @@ async function upsertOrder(accountId, row, { httpStatus = 200, seenAt = new Date
         is_present=true,last_seen_at=excluded.last_seen_at,last_synced_at=now(),last_http_status=excluded.last_http_status,last_error=null,updated_at=now()
       returning *, (xmax=0) as inserted`, [
         Number(accountId),row.code,row.remote_id,row.channel_id,row.status,row.purchased_at,row.remote_updated_at,row.amount_total,row.amount_currency,row.amount_normalizer,
-        row.item_count||0,json(row.operational_payload),seenAt,row.last_http_status||httpStatus,row.items_present===true,
+        row.item_count||0,json(row.operational_payload),seenAt,row.last_http_status||httpStatus,row.items_present===true && Array.isArray(row.items) && row.items.length > 0,
       ]);
       const saved=result.rows[0];
-      if (row.items_present===true) await replaceOrderItems(client,saved.id,accountId,row.items||[]);
+      if (row.items_present===true && Array.isArray(row.items) && row.items.length > 0) await replaceOrderItems(client,saved.id,accountId,row.items);
       await client.query("commit");
       return saved;
     } catch(error) { await client.query("rollback").catch(()=>{}); throw error; }
@@ -86,10 +86,10 @@ async function upsertDelivery(accountId, row, { httpStatus = 200, seenAt = new D
       returning *, (xmax=0) as inserted`,[
         Number(accountId),order?.id||null,row.remote_id,row.order_code,row.channel_id,row.status,row.purchased_at,row.handling_limit_at,row.delivery_limit_at,row.posting_at,
         row.provider_id,row.provider_name,row.shipping_type,row.shipping_name,row.is_mle,row.is_fulfillment,row.tracking_code,row.tracking_url,
-        row.amount_total,row.amount_freight,row.amount_discount,row.amount_currency,row.amount_normalizer,row.item_count||0,json(row.operational_payload),seenAt,httpStatus,row.items_present===true,
+        row.amount_total,row.amount_freight,row.amount_discount,row.amount_currency,row.amount_normalizer,row.item_count||0,json(row.operational_payload),seenAt,httpStatus,row.items_present===true && Array.isArray(row.items) && row.items.length > 0,
       ]);
       const saved=result.rows[0];
-      if(row.items_present===true)await replaceDeliveryItems(client,saved.id,accountId,row.items||[]);
+      if(row.items_present===true && Array.isArray(row.items) && row.items.length > 0)await replaceDeliveryItems(client,saved.id,accountId,row.items);
       if(saved.order_id){await client.query(`update magalu.orders o set delivery_count=(select count(*)::int from magalu.deliveries d where d.order_id=o.id and d.is_present),updated_at=now() where o.id=$1`,[saved.order_id]);}
       await client.query("commit");return saved;
     }catch(error){await client.query("rollback").catch(()=>{});throw error;}
@@ -101,7 +101,9 @@ async function setSyncState(accountId,{status,error=null,syncedAt=null}={}){
 function whereFor(accountId,filters={}){
   const where=["o.account_id=$1","o.is_present=true"],params=[Number(accountId)];
   const q=text(filters.q,200).toLowerCase(),status=text(filters.status,80).toLowerCase();
-  if(q){params.push(`%${q}%`);where.push(`(lower(o.code) like $${params.length} or lower(coalesce(o.remote_id,'')) like $${params.length} or exists(select 1 from magalu.order_items oi where oi.order_id=o.id and (lower(coalesce(oi.sku,'')) like $${params.length} or lower(coalesce(oi.name,'')) like $${params.length})))`);}
+  if(q){params.push(`%${q}%`);where.push(`(lower(o.code) like $${params.length} or lower(coalesce(o.remote_id,'')) like $${params.length} or exists(select 1 from magalu.order_items oi where oi.order_id=o.id and (lower(coalesce(oi.sku,'')) like $${params.length} or lower(coalesce(oi.name,'')) like $${params.length}))
+        or exists(select 1 from magalu.deliveries d join magalu.delivery_items di on di.delivery_id=d.id and di.account_id=d.account_id
+          where d.order_id=o.id and (lower(coalesce(di.sku,'')) like $${params.length} or lower(coalesce(di.name,'')) like $${params.length})))`);}
   if(status){params.push(status);where.push(`(lower(coalesce(o.status,''))=$${params.length} or exists(select 1 from magalu.deliveries d where d.order_id=o.id and lower(coalesce(d.status,''))=$${params.length}))`);}
   if(filters.from){params.push(String(filters.from));where.push(`o.purchased_at >= $${params.length}::timestamptz`);}
   if(filters.to){params.push(String(filters.to));where.push(`o.purchased_at <= $${params.length}::timestamptz`);}
@@ -110,9 +112,14 @@ function whereFor(accountId,filters={}){
 async function listOrders(accountId,filters={}){
   const page=int(filters.page,1,100000,1),limit=int(filters.limit,1,100,40),offset=(page-1)*limit,f=whereFor(accountId,filters);
   const total=await db.queryOne(`select count(*)::int total from magalu.orders o where ${f.where.join(" and ")}`,f.params);
-  const {rows}=await db.query(`select o.id,o.code,o.remote_id,o.channel_id,o.status,o.purchased_at,o.remote_updated_at,o.amount_total,o.amount_currency,o.amount_normalizer,o.item_count,o.delivery_count,o.last_synced_at,
+  const {rows}=await db.query(`select o.id,o.code,o.remote_id,o.channel_id,o.status,o.purchased_at,o.remote_updated_at,o.amount_total,o.amount_currency,o.amount_normalizer,coalesce(nullif(o.item_count,0),nullif(di_count.lines,0))::int as item_count,o.delivery_count,o.last_synced_at,
     coalesce(d.status,'') latest_delivery_status,d.provider_name,d.shipping_name,d.tracking_code,d.delivery_limit_at,d.handling_limit_at
-    from magalu.orders o left join lateral(select status,provider_name,shipping_name,tracking_code,delivery_limit_at,handling_limit_at from magalu.deliveries d where d.order_id=o.id and d.is_present order by d.updated_at desc limit 1)d on true
+    from magalu.orders o
+    left join lateral(select count(distinct coalesce(nullif(di.remote_item_id,''),di.item_key))::int as lines
+      from magalu.deliveries d join magalu.delivery_items di on di.delivery_id=d.id and di.account_id=d.account_id
+      where d.order_id=o.id and d.is_present and nullif(di.sku,'') is not null and di.quantity>0
+      and lower(coalesce(d.status,'')) not in ('cancelled','canceled')) di_count on true
+    left join lateral(select status,provider_name,shipping_name,tracking_code,delivery_limit_at,handling_limit_at from magalu.deliveries d where d.order_id=o.id and d.is_present order by d.updated_at desc limit 1)d on true
     where ${f.where.join(" and ")} order by o.purchased_at desc nulls last,o.updated_at desc limit $${f.params.length+1} offset $${f.params.length+2}`,[...f.params,limit,offset]);
   return{rows,total:Number(total?.total||0),page,limit};
 }
@@ -123,7 +130,13 @@ async function orderDetail(accountId,code){
     db.query(`select id,remote_id,order_code,channel_id,status,purchased_at,handling_limit_at,delivery_limit_at,posting_at,provider_id,provider_name,shipping_type,shipping_name,is_mle,is_fulfillment,tracking_code,tracking_url,amount_total,amount_freight,amount_discount,amount_currency,amount_normalizer,item_count,operational_payload,last_synced_at from magalu.deliveries where order_id=$1 order by created_at`,[order.id]),
   ]);
   const deliveryRows=[];for(const delivery of deliveries.rows){const di=await db.query(`select id,item_key,sku,remote_item_id,name,brand,quantity,measure_unit,unit_price,amount_total,amount_currency,amount_normalizer,operational_payload from magalu.delivery_items where delivery_id=$1 order by id`,[delivery.id]);deliveryRows.push({...delivery,items:di.rows});}
-  return{order,items:items.rows,deliveries:deliveryRows};
+  // Itens de entrega: fallback visual com origem, sem sobrescrever itens oficiais.
+  const fallback=[...new Map(deliveryRows.flatMap(delivery=>delivery.items||[])
+    .filter(item=>item.sku&&Number(item.quantity)>0)
+    .map(item=>[String(item.remote_item_id||item.item_key),{...item,source_kind:'delivery'}])).values()];
+  const ownValid=items.rows.length>0 && items.rows.every(item=>item.sku&&Number(item.quantity)>0);
+  const effective=ownValid?items.rows:fallback;
+  return{order:{...order,item_count:Number(order.item_count)||effective.length||null},items:effective,deliveries:deliveryRows};
 }
 async function stats(accountId, days=30, offsetDays=0){
   const safeDays=Math.max(1,Math.min(60,Number(days)||30));
@@ -131,6 +144,37 @@ async function stats(accountId, days=30, offsetDays=0){
   const totals=await db.queryOne(`select count(*)::int total,count(*) filter(where purchased_at>=date_trunc('day',now()))::int today,count(*) filter(where purchased_at>=now()-interval '7 days')::int last_7d,sum(case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else 0 end)::numeric as gross_value_30d,avg(case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else null end)::numeric as ticket_average_30d from magalu.orders where account_id=$1 and is_present and lower(coalesce(status,'')) not in ('cancelled','canceled') and purchased_at>=now()-(($2::int + $3::int) * interval '1 day') and purchased_at<now()-($3::int * interval '1 day')`,[Number(accountId),safeDays,safeOffset]);
   const {rows}=await db.query(`select coalesce(nullif(status,''),'unknown') status,count(*)::int total from magalu.deliveries where account_id=$1 and is_present group by 1 order by total desc`,[Number(accountId)]);
   return{...(totals||{}),delivery_statuses:rows,days:safeDays};
+}
+async function itemCoverage(accountId,{from=null,to=null}={}) {
+  const params=[Number(accountId)];
+  const where=["o.account_id=$1","o.is_present=true","lower(coalesce(o.status,'')) not in ('cancelled','canceled')"];
+  if(from){params.push(`${from}T00:00:00Z`);where.push(`o.purchased_at >= $${params.length}::timestamptz`);}
+  if(to){params.push(`${to}T23:59:59.999Z`);where.push(`o.purchased_at <= $${params.length}::timestamptz`);}
+  const {rows}=await db.query(`select o.code,o.item_count,
+    coalesce(oi.lines,0)::int order_lines,coalesce(oi.valid,0)::int order_valid,
+    coalesce(di.expected,0)::int delivery_expected,coalesce(di.lines,0)::int delivery_lines,
+    coalesce(di.valid,0)::int delivery_valid
+    from magalu.orders o
+    left join lateral(select count(*)::int lines,
+      count(*) filter(where nullif(sku,'') is not null and quantity>0)::int valid
+      from magalu.order_items oi where oi.order_id=o.id and oi.account_id=o.account_id) oi on true
+    left join lateral(select coalesce(sum(d.item_count),0)::int expected,
+      count(di.id)::int lines,
+      count(di.id) filter(where nullif(di.sku,'') is not null and di.quantity>0)::int valid
+      from magalu.deliveries d left join magalu.delivery_items di on di.delivery_id=d.id and di.account_id=d.account_id
+      where d.order_id=o.id and d.account_id=o.account_id and d.is_present
+      and lower(coalesce(d.status,'')) not in ('cancelled','canceled')) di on true
+    where ${where.join(' and ')}`,params);
+  let identified=0;
+  for(const row of rows){
+    const completeOrder=Number(row.order_lines)>0 && Number(row.order_valid)===Number(row.order_lines)
+      && (!Number(row.item_count) || Number(row.item_count)===Number(row.order_lines));
+    const completeDelivery=Number(row.order_lines)===0 && Number(row.delivery_expected)>0
+      && Number(row.delivery_lines)===Number(row.delivery_expected)
+      && Number(row.delivery_valid)===Number(row.delivery_lines);
+    if(completeOrder||completeDelivery)identified++;
+  }
+  return {total:rows.length,identified,incomplete:rows.length-identified};
 }
 async function knownChannels(accountId){const{rows}=await db.query(`select channel_id,count(*)::int uses from magalu.orders where account_id=$1 and channel_id is not null group by channel_id order by uses desc`,[Number(accountId)]);return rows;}
 async function getDelivery(accountId,remoteId){return db.queryOne(`select * from magalu.deliveries where account_id=$1 and remote_id=$2 limit 1`,[Number(accountId),text(remoteId,300)]);}
@@ -143,4 +187,4 @@ async function ownedCodes(accountId,codes){
 
 async function accountSyncState(accountId){return db.queryOne(`select orders_sync_status,orders_last_synced_at,orders_last_error from magalu.accounts where id=$1`,[Number(accountId)]);}
 async function runs(accountId,limit=12){const{rows}=await db.query(`select id,sync_type,status,scanned_count,created_count,updated_count,failed_count,result,error_message,started_at,finished_at from magalu.sync_runs where account_id=$1 and sync_type like 'orders_%' order by started_at desc limit $2`,[Number(accountId),int(limit,1,50,12)]);return rows;}
-module.exports={upsertOrder,upsertDelivery,setSyncState,accountSyncState,listOrders,orderDetail,stats,knownChannels,getDelivery,ownedCodes,runs,_test:{text,int,whereFor}};
+module.exports={upsertOrder,upsertDelivery,setSyncState,accountSyncState,listOrders,orderDetail,stats,knownChannels,getDelivery,ownedCodes,runs,itemCoverage,_test:{text,int,whereFor}};

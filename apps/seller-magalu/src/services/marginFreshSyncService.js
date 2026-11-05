@@ -26,7 +26,9 @@ async function runMarginFreshSync({ account, from, to, orders, finance, progress
   await progress({ stage: "financial" });
   const financialResult = await finance(account, { from, to });
   await progress({ stage: "complete" });
-  return { orders: Number(orderResult?.scanned || 0), reports: Number(financialResult?.persisted || 0) };
+  const result={ orders: Number(orderResult?.scanned || 0), reports: Number(financialResult?.persisted || 0) };
+  if(orderResult?.itemCoverage)result.item_coverage=orderResult.itemCoverage;
+  return result;
 }
 
 module.exports = { jobKey, validate, runMarginFreshSync };

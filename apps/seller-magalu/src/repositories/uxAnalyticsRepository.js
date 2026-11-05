@@ -132,17 +132,29 @@ async function costOverview(accountId){
   return {summary:summary||{},ranking:rows};
 }
 
-function marginOrderCte(){return `with source_items as (
+function marginOrderCte(){return `with order_quality as (
+  select oi.order_id,count(*)::int lines,
+    count(*) filter(where nullif(oi.sku,'') is not null and oi.quantity>0
+      and (oi.amount_total is not null or oi.unit_price is not null)
+      and coalesce(oi.amount_normalizer,0)>0)::int valid
+  from magalu.order_items oi join magalu.orders o on o.id=oi.order_id and o.account_id=oi.account_id
+  where o.account_id=$1 and o.is_present=true and o.purchased_at >= $2::date
+    and o.purchased_at < ($3::date + interval '1 day')
+  group by oi.order_id
+),source_items as (
   select oi.id,oi.order_id,oi.account_id,oi.sku,oi.name,oi.quantity,oi.amount_total,oi.unit_price,oi.amount_normalizer,'order'::text as source_kind
   from magalu.order_items oi join magalu.orders o on o.id=oi.order_id and o.account_id=oi.account_id
+  join order_quality q on q.order_id=o.id
   where o.account_id=$1 and o.is_present=true and o.purchased_at >= $2::date and o.purchased_at < ($3::date + interval '1 day')
+    and q.lines>0 and q.valid=q.lines and (o.item_count=0 or o.item_count=q.lines)
   union all
   select di.id,d.order_id,di.account_id,di.sku,di.name,di.quantity,di.amount_total,di.unit_price,di.amount_normalizer,'delivery'::text as source_kind
   from magalu.delivery_items di join magalu.deliveries d on d.id=di.delivery_id and di.account_id=d.account_id
   join magalu.orders o on o.id=d.order_id and o.account_id=d.account_id
   where o.account_id=$1 and o.is_present=true and o.purchased_at >= $2::date and o.purchased_at < ($3::date + interval '1 day')
     and d.is_present=true and lower(coalesce(d.status,'')) not in ('cancelled','canceled')
-    and not exists (select 1 from magalu.order_items oi where oi.order_id=o.id and oi.account_id=o.account_id)
+    and not exists (select 1 from order_quality q where q.order_id=o.id and q.lines>0 and q.valid=q.lines
+      and (o.item_count=0 or o.item_count=q.lines))
 ), delivery_counts as (
   select d.id,d.order_id,d.item_count as expected_items,count(di.id)::int as actual_items,
     count(*) filter(where di.id is null or di.sku is null or di.quantity is null or di.quantity<=0
@@ -198,7 +210,7 @@ function marginOrderCte(){return `with source_items as (
     d.shipping_name,d.shipping_type,d.is_fulfillment,
     (coalesce(ic.missing_cost_rows,0) + case
       when ic.source_kind='order' then greatest(coalesce(o.item_count,0)-coalesce(ic.synced_item_rows,0),0)
-      when ic.source_kind='delivery' and dc.deliveries>0 and dc.expected_items=dc.actual_items and o.item_count>0 and o.item_count=dc.actual_items and dc.invalid_items=0 and coalesce(dup.duplicates,0)=0 then 0
+      when ic.source_kind='delivery' and dc.deliveries>0 and dc.expected_items>0 and dc.expected_items=dc.actual_items and (o.item_count=0 or o.item_count=dc.actual_items) and dc.invalid_items=0 and coalesce(dup.duplicates,0)=0 then 0
       else 1 end)::int as missing_cost_items,
     coalesce(ic.units,0)::numeric as units
   from magalu.orders o left join item_costs ic on ic.order_id=o.id
@@ -236,6 +248,9 @@ function marginFilters(options, start, end) {
   if(q){params.push(`%${q}%`);where.push(`(lower(code) like $${params.length} or exists(
     select 1 from magalu.order_items oi where oi.order_id=base.id
       and (lower(coalesce(oi.sku,'')) like $${params.length} or lower(coalesce(oi.name,'')) like $${params.length})
+  ) or exists(
+    select 1 from magalu.deliveries d join magalu.delivery_items di on di.delivery_id=d.id and di.account_id=d.account_id
+      where d.order_id=base.id and (lower(coalesce(di.sku,'')) like $${params.length} or lower(coalesce(di.name,'')) like $${params.length})
   ))`);}
   if(costCoverage === "complete") where.push("cost_complete=true");
   if(costCoverage === "incomplete") where.push("cost_complete=false");
@@ -284,12 +299,14 @@ async function marginOverview(accountId, options={}){
   if(rows.length){
     const ids=rows.map(row=>Number(row.id));
     const [items,deliveries]=await Promise.all([
-      db.query(`select oi.order_id,oi.sku,oi.name,oi.quantity,c.unit_cost,coalesce(s.is_present,false) as catalog_present
+      db.query(`select oi.order_id,oi.sku,oi.name,oi.quantity,oi.amount_total,oi.unit_price,oi.amount_normalizer,c.unit_cost,coalesce(s.is_present,false) as catalog_present
         from magalu.order_items oi left join magalu.sku_costs c on c.account_id=oi.account_id and c.sku=oi.sku
         left join magalu.skus s on s.account_id=oi.account_id and s.sku=oi.sku
         where oi.account_id=$1 and oi.order_id=any($2::bigint[]) order by oi.order_id,oi.id`,[Number(accountId),ids]),
-      db.query(`select d.order_id,di.sku,di.name,di.quantity
+      db.query(`select d.order_id,di.sku,di.name,di.quantity,c.unit_cost,coalesce(s.is_present,false) as catalog_present
         from magalu.deliveries d join magalu.delivery_items di on di.delivery_id=d.id and di.account_id=d.account_id
+        left join magalu.sku_costs c on c.account_id=di.account_id and c.sku=di.sku
+        left join magalu.skus s on s.account_id=di.account_id and s.sku=di.sku
         where d.account_id=$1 and d.order_id=any($2::bigint[]) and d.is_present=true
         order by d.order_id,d.id,di.id`,[Number(accountId),ids])
     ]);

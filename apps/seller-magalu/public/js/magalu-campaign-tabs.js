@@ -1,11 +1,11 @@
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  let active = "available";
+  let active = "pricing";
   const choices = new Set(["pricing", "available", "participating"]);
   function tabFromUrl() {
     const name = new URLSearchParams(location.search).get("aba");
-    return ({ precificacao: "pricing", disponiveis: "available", participando: "participating" })[name] || "available";
+    return ({ precificacao: "pricing", disponiveis: "available", participando: "participating" })[name] || "pricing";
   }
   function mount() {
     const parent = $("mg-promotions-page");

@@ -31,9 +31,11 @@
     return { account_id:state.accountId, q:$("mg-orders-q")?.value?.trim() || "", status:$("mg-orders-status")?.value || "", from:from ? `${from}T00:00:00-03:00` : "", to:to ? `${to}T23:59:59-03:00` : "", page:state.page, limit:state.limit };
   }
   function setScopeBanner(data) {
-    const order=data?.scopes?.order, delivery=data?.scopes?.delivery, banner=$("mg-orders-scope-banner"), reconnect=$("mg-orders-reconnect"); if (!banner) return;
-    if (order?.ok && delivery?.ok) { banner.dataset.state="ok"; $("mg-orders-scope-title").textContent="Pedidos e entregas autorizados"; $("mg-orders-scope-copy").textContent="Réplica read-only pronta. Webhooks reconciliam mudanças em segundo plano."; if (reconnect) reconnect.hidden=true; if ($("mg-orders-sync")) $("mg-orders-sync").disabled=false; }
-    else { banner.dataset.state="missing"; $("mg-orders-scope-title").textContent="Reconexão OAuth necessária"; const missing=[!order?.ok?order?.scope:null,!delivery?.ok?delivery?.scope:null].filter(Boolean); $("mg-orders-scope-copy").textContent=`Scope(s) ausente(s): ${missing.join(", ")}. A réplica local continua disponível.`; if (reconnect) { reconnect.href=`/magalu/auth/accounts/${state.accountId}/reconnect`; reconnect.hidden=false; } if ($("mg-orders-sync")) $("mg-orders-sync").disabled=!order?.ok; }
+    const order=data?.scopes?.order, delivery=data?.scopes?.delivery, banner=$("mg-orders-scope-banner");
+    if(!banner)return;
+    if(order?.ok && delivery?.ok){banner.dataset.state="ok";$("mg-orders-scope-title").textContent="Pedidos e entregas autorizados";$("mg-orders-scope-copy").textContent="Sincronização habilitada para esta conta.";}
+    else {banner.dataset.state="missing";$("mg-orders-scope-title").textContent="Autorização da conta precisa de revisão";$("mg-orders-scope-copy").textContent="A integração não tem todas as permissões de leitura. Solicite a revisão da conexão a um administrador.";}
+    if($("mg-orders-sync"))$("mg-orders-sync").disabled=!order?.ok;
   }
   function updateOperationalState(kind, data={}) {
     const host=$("mg-orders-operational-state"), title=$("mg-orders-operational-state-title"), copy=$("mg-orders-operational-state-copy"), action=$("mg-orders-operational-state-action");
@@ -72,7 +74,7 @@
     const body=$("mg-orders-body");
     if (!state.accountId) { state.total=0; updateOperationalState("account"); if (body) body.innerHTML='<tr><td colspan="8" class="mg-orders-empty-cell">Selecione uma conta Magalu.</td></tr>'; return; }
     const data=await api(`/orders/list?${query(filters())}`); state.total=Number(data.total || 0); state.page=Number(data.page || 1);
-    if (body) body.innerHTML=(data.rows || []).length ? data.rows.map((row)=>`<tr><td><strong>${esc(row.code)}</strong><small>${esc(row.remote_id || row.channel_id || "—")}</small></td><td>${fmtDate(row.purchased_at)}</td><td>${pill(row.status)}</td><td>${row.latest_delivery_status ? pill(row.latest_delivery_status) : '<span class="mg-orders-muted">sem entrega</span>'}<small>${esc(row.shipping_name || row.provider_name || "")}</small></td><td>${fmtInt(row.item_count)}</td><td>${fmtMoney(row.amount_total,row.amount_normalizer,row.amount_currency)}</td><td>${fmtDate(row.last_synced_at)}</td><td><button class="mg-secondary-btn" data-order-code="${esc(row.code)}" type="button">Abrir</button></td></tr>`).join("") : '<tr><td colspan="8" class="mg-orders-empty-cell">Nenhum pedido encontrado.</td></tr>';
+    if (body) body.innerHTML=(data.rows || []).length ? data.rows.map((row)=>`<tr><td><strong>${esc(row.code)}</strong><small>${esc(row.remote_id || row.channel_id || "—")}</small></td><td>${fmtDate(row.purchased_at)}</td><td>${pill(row.status)}</td><td>${row.latest_delivery_status ? pill(row.latest_delivery_status) : '<span class="mg-orders-muted">sem entrega</span>'}<small>${esc(row.shipping_name || row.provider_name || "")}</small></td><td>${row.item_count == null || Number(row.item_count) <= 0 ? '<span class="mg-orders-muted" title="Itens em conciliação; não equivale a pedido sem produtos">—</span>' : fmtInt(row.item_count)}</td><td>${fmtMoney(row.amount_total,row.amount_normalizer,row.amount_currency)}</td><td>${fmtDate(row.last_synced_at)}</td><td><button class="mg-secondary-btn" data-order-code="${esc(row.code)}" type="button">Abrir</button></td></tr>`).join("") : '<tr><td colspan="8" class="mg-orders-empty-cell">Nenhum pedido encontrado.</td></tr>';
     const start=state.total ? (state.page-1)*state.limit+1 : 0, end=Math.min(state.total,state.page*state.limit); $("mg-orders-range").textContent=`${fmtInt(start)}–${fmtInt(end)} de ${fmtInt(state.total)} pedidos`; $("mg-orders-prev").disabled=state.page<=1; $("mg-orders-next").disabled=end>=state.total;
     const status=state.statusData?.account?.orders_sync_status;
     if (state.statusData?.scopes?.order?.ok) {
@@ -80,19 +82,14 @@
       updateOperationalState(["queued","running"].includes(status) ? "syncing" : state.total ? "ready" : replicaHasOrders ? "filtered" : "empty");
     }
   }
-  async function loadRuns() {
-    const host=$("mg-orders-runs"); if (!host || !state.accountId) return;
-    const data=await api(`/orders/runs?account_id=${state.accountId}&limit=12`);
-    host.innerHTML=data.runs?.length ? data.runs.map((run)=>`<article class="mg-orders-run"><div>${pill(run.status)}<small>#${run.id}</small></div><div><strong>${esc(run.sync_type)}</strong><small>${fmtDate(run.started_at)}</small></div><div><b>${fmtInt(run.scanned_count)}</b><small>lidos</small></div><div><b>${fmtInt(run.created_count)}</b><small>novos</small></div><div><b>${fmtInt(run.updated_count)}</b><small>atualizados</small></div><div><b>${fmtInt(run.failed_count)}</b><small>falhas</small></div><div><strong>${esc(run.error_message || "Execução sem erro fatal")}</strong><small>${run.finished_at ? `fim ${fmtDate(run.finished_at)}` : "em andamento"}</small></div></article>`).join("") : '<div class="mg-empty-state"><strong>Nenhuma sincronização registrada</strong><p>As próximas execuções aparecerão aqui.</p></div>';
-  }
   async function loadDeliveryOperations() {
     const host=$("mg-orders-delivery-ops"); if (!host || !state.accountId) return;
     const data=await api(`/orders/delivery-writes/operations?account_id=${state.accountId}&limit=12`);
     host.innerHTML=data.rows?.length ? data.rows.map((op)=>`<article class="mg-orders-run"><div>${pill(op.status)}<small>#${op.id}</small></div><div><strong>${esc(op.action)}</strong><small>${esc(op.delivery_id)}</small></div><div><strong>${esc(op.order_code || "—")}</strong><small>pedido</small></div><div><b>${esc(op.response_status || "—")}</b><small>HTTP</small></div><div><b>${esc(op.error_code || "—")}</b><small>resultado</small></div><div><strong>${fmtDate(op.created_at)}</strong><small>criado</small></div><div>${["uncertain","divergent"].includes(op.status) ? `<button class="mg-secondary-btn" data-delivery-reverify="${op.id}" type="button">Reverificar</button>` : ""}</div></article>`).join("") : '<div class="mg-empty-state"><strong>Nenhuma operação de expedição</strong><p>NF-e e finalizações protegidas aparecerão aqui.</p></div>';
   }
-  async function refreshAll() { if (!isPage()) return; alert(null); try { await Promise.all([loadStatus(),loadOrders(),loadRuns(),loadDeliveryOperations()]); } catch (e) { alert(e.message); } }
+  async function refreshAll() { if (!isPage()) return; alert(null); try { await Promise.all([loadStatus(),loadOrders(),loadDeliveryOperations()]); } catch (e) { alert(e.message); } }
   async function sync() { if (!state.accountId) return alert("Selecione uma conta Magalu."); const btn=$("mg-orders-sync"); btn.disabled=true; try { await api("/orders/sync",{method:"POST",body:JSON.stringify({account_id:state.accountId})}); alert("Sincronização de pedidos enfileirada.","success"); await poll(); } catch(e){ alert(e.message); } finally { btn.disabled=false; } }
-  async function poll() { if (state.polling) return; state.polling=true; try { for(let i=0;i<40;i+=1){ const data=await loadStatus(); const status=data?.account?.orders_sync_status; if(!["queued","running"].includes(status)){ await Promise.all([loadOrders(),loadRuns()]); return; } await new Promise((r)=>setTimeout(r,1500)); } alert("A sincronização continua em segundo plano.","warning"); } finally { state.polling=false; } }
+  async function poll() { if (state.polling) return; state.polling=true; try { for(let i=0;i<40;i+=1){ const data=await loadStatus(); const status=data?.account?.orders_sync_status; if(!["queued","running"].includes(status)){ await Promise.all([loadOrders()]); return; } await new Promise((r)=>setTimeout(r,1500)); } alert("A sincronização continua em segundo plano.","warning"); } finally { state.polling=false; } }
   function fact(label,value){ return `<div class="mg-orders-fact"><span>${esc(label)}</span><strong>${esc(value == null || value === "" ? "—" : value)}</strong></div>`; }
   async function openOrder(code) {
     const data=await api(`/orders/${encodeURIComponent(code)}?account_id=${state.accountId}`); state.detailCode=code; const o=data.order; $("mg-orders-detail-title").textContent=code;
