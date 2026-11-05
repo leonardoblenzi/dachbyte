@@ -139,6 +139,7 @@ test("accepted operation resumes verification without resending remote write", a
 test("apply revalidates Hub with WRITE magalu for the account resource before creating operations", async () => {
   let hubArgs = null;
   let created = 0;
+  let editModule = null;
   clearModule("../src/controllers/writeController");
   await withLoadStubs({
     "../config/env": { MAGALU_WRITE_ENABLED:true, MAGALU_WRITE_MAX_BATCH_SIZE:50, MAGALU_WRITE_PREVIEW_TTL_SECONDS:300 },
@@ -151,6 +152,7 @@ test("apply revalidates Hub with WRITE magalu for the account resource before cr
     "../services/hubResourceAccessService": { checkAccountAccess: async (...args) => { hubArgs = args; return { allow:true }; } },
     "../queues/magaluQueue": { enqueueWriteOperation: async () => ({ id:"j" }) },
     "../services/writePayload": { PRICE_WRITE_SCOPE:"p", STOCK_WRITE_SCOPE:"s", hasScope:()=>true },
+    "../services/userAccessService": { assertModuleEdit: async (_req, key) => { editModule = key; } },
   }, () => require("../src/controllers/writeController"), async (controller) => {
     const req = { body:{ preview_id:"pv" }, params:{}, query:{}, magaluIdentity:{ dachTenantId:"dach-7", dachUserId:"u" } };
     const result = {};
@@ -159,6 +161,7 @@ test("apply revalidates Hub with WRITE magalu for the account resource before cr
     assert.deepEqual(hubArgs,[req.magaluIdentity,{ id:7, dach_tenant_id:"dach-7", magalu_tenant_id:"magalu-7", status:"active", scopes:["open:portfolio-prices-seller:write"] },{ force:true, action:"WRITE magalu" }]);
     assert.equal(created,1);
     assert.equal(result.status,202);
+    assert.equal(editModule,"magalu.operacoes.precos","aplicar preco exige Editar em Precos");
   });
 });
 

@@ -38,7 +38,7 @@
     "/promocoes": { title: "Promoções", page: "mg-promotions-page", group: "promotions" },
     "/margem": { title: "Margem de venda", page: "mg-financial-margin-page", group: "financial" },
     "/calculadora": { title: "Calculadora", page: "mg-financial-calculator-page", group: "financial" },
-    "/contas": { title: "Contas Magalu", page: "mg-accounts-page", group: "account" },
+    "/contas": { title: "Contas vinculadas", page: "mg-accounts-page", group: "account" },
     "/usuarios": { title: "Usuários", page: "mg-users-page", group: "account" },
     "/plano": { title: "Plano e créditos", page: "mg-plan-page", group: "account" },
     "/sincronizacao": { title: "Integrações", page: "mg-sync-page", group: "account" },
@@ -326,33 +326,81 @@
     }
   }
 
+  function accountInitials(account) {
+    const words = String(accountLabel(account)).replace(/[^\p{L}\p{N} ]/gu, " ").trim().split(/\s+/).filter(Boolean);
+    return (words.length > 1 ? `${words[0][0]}${words[1][0]}` : String(words[0] || "MG").slice(0, 2)).toUpperCase();
+  }
+
+  function accountDate(value) {
+    if (!value) return "—";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  function accountHasWriteScopes(account) {
+    const scopes = new Set(Array.isArray(account.scopes) ? account.scopes : []);
+    return scopes.has("open:portfolio-prices-seller:write") && scopes.has("open:portfolio-stocks-seller:write");
+  }
+
+  function accountPill(label, tone) {
+    return `<span class="mg-acct-pill mg-acct-pill--${tone}">${escapeHtml(label)}</span>`;
+  }
+
+  // Cards no padrao "Contas vinculadas" do ML: identidade, status, dados e acoes.
   function renderAccounts() {
     const list = $("mg-account-list");
     if (!list) return;
+    const accounts = state.accounts || [];
+    const term = String($("mg-accounts-search")?.value || "").trim().toLowerCase();
+    const visible = term
+      ? accounts.filter((account) => `${accountLabel(account)} ${account.magalu_tenant_id || ""}`.toLowerCase().includes(term))
+      : accounts;
+    const setText = (id, value) => { const element = $(id); if (element) element.textContent = String(value); };
+    setText("mg-accounts-count", `${accounts.length} conta${accounts.length === 1 ? "" : "s"}`);
+    setText("mg-accounts-stat-total", accounts.length);
+    setText("mg-accounts-stat-active", accounts.filter((account) => account.status === "active").length);
+    setText("mg-accounts-stat-write", accounts.filter(accountHasWriteScopes).length);
+    setText("mg-accounts-stat-error", accounts.filter((account) => ["failed", "error"].includes(String(account.catalog_sync_status || "").toLowerCase())).length);
+    const empty = $("mg-accounts-empty");
+    if (empty) empty.hidden = accounts.length > 0;
+
     list.replaceChildren();
-    $("mg-accounts-count").textContent = `${state.accounts.length} conta${state.accounts.length === 1 ? "" : "s"}`;
-    $("mg-accounts-empty").hidden = state.accounts.length > 0;
-    for (const account of state.accounts) {
-      const row = document.createElement("article");
-      row.className = "mg-account-row";
-      row.dataset.accountId = String(account.id);
-      if (Number(account.id) === Number(state.selectedAccountId)) row.dataset.selected = "true";
-      const scopeSet = new Set(Array.isArray(account.scopes) ? account.scopes : []);
-      const writeLabel = scopeSet.has("open:portfolio-prices-seller:write") && scopeSet.has("open:portfolio-stocks-seller:write")
-        ? "leitura + escrita"
-        : "somente leitura";
-      row.innerHTML = `<div class="mg-account-row__identity"><strong>${escapeHtml(accountLabel(account))}</strong><small>${escapeHtml(account.magalu_tenant_id || "")}</small></div><div class="mg-account-row__meta"><span>Conexão</span><strong>${escapeHtml(account.status || "—")}</strong></div><div class="mg-account-row__meta"><span>Permissões</span><strong>${escapeHtml(writeLabel)}</strong></div>`;
-      const actions = document.createElement("div");
-      actions.className = "mg-account-row__actions";
-      const button = document.createElement("button");
-      button.className = "mg-secondary-btn";
-      button.type = "button";
-      button.textContent = Number(account.id) === Number(state.selectedAccountId) ? "Selecionada" : "Selecionar";
-      button.disabled = Number(account.id) === Number(state.selectedAccountId);
-      button.onclick = () => chooseAccount(account.id);
-      actions.append(button);
-      row.append(actions);
-      list.append(row);
+    if (accounts.length && !visible.length) {
+      list.innerHTML = '<div class="mg-acct-empty">Nenhuma organização encontrada para esta busca.</div>';
+      return;
+    }
+    for (const account of visible) {
+      const id = Number(account.id);
+      const isSelected = id === Number(state.selectedAccountId);
+      const isActive = account.status === "active";
+      const syncStatus = String(account.catalog_sync_status || "idle").toLowerCase();
+      const card = document.createElement("article");
+      card.className = "mg-acct-card";
+      card.dataset.accountId = String(id);
+      if (isSelected) card.dataset.selected = "true";
+      const pills = [
+        isSelected ? accountPill("Selecionada", "primary") : "",
+        isActive ? accountPill("Conectada", "ok") : accountPill(account.status || "Indisponível", "danger"),
+        accountHasWriteScopes(account) ? accountPill("Leitura + escrita", "muted") : accountPill("Somente leitura", "warn"),
+        ["failed", "error"].includes(syncStatus) ? accountPill("Erro de sync", "danger") : accountPill(`Sync: ${syncStatus}`, "muted"),
+      ].join("");
+      card.innerHTML = `
+        <header class="mg-acct-card__head"><span class="mg-acct-avatar" aria-hidden="true">${escapeHtml(accountInitials(account))}</span><div><strong>${escapeHtml(accountLabel(account))}</strong><small>${escapeHtml(account.magalu_tenant_id || "")}</small></div></header>
+        <div class="mg-acct-pills">${pills}</div>
+        <dl class="mg-acct-meta">
+          <div><dt>Último OAuth</dt><dd>${escapeHtml(accountDate(account.last_oauth_at || account.connected_at))}</dd></div>
+          <div><dt>Última sincronização</dt><dd>${escapeHtml(accountDate(account.catalog_last_synced_at))}</dd></div>
+          <div><dt>Token expira</dt><dd>${escapeHtml(accountDate(account.access_expires_at))}</dd></div>
+          <div><dt>Recurso no Hub</dt><dd>${escapeHtml(account.hub_sync_status || "—")}</dd></div>
+        </dl>
+        <div class="mg-acct-card__actions">
+          <button class="mg-secondary-btn" type="button" data-account-select="${id}" ${isSelected ? "disabled" : ""}>${isSelected ? "Selecionada" : "Selecionar"}</button>
+          <a class="mg-secondary-btn" href="/magalu/auth/accounts/${id}/reconnect">Reconectar</a>
+          <button class="mg-secondary-btn" type="button" data-account-test="${id}">Testar conexão</button>
+          <button class="mg-danger-btn mg-danger-btn--soft" type="button" data-account-unlink="${id}">Desvincular</button>
+        </div>`;
+      card.querySelector("[data-account-select]")?.addEventListener("click", () => chooseAccount(id));
+      list.append(card);
     }
   }
 
@@ -1063,6 +1111,9 @@
     $("mg-next")?.addEventListener("click", () => { if (state.offset + state.limit < state.total) { state.offset += state.limit; void loadCatalog(); } });
     $("mg-logout")?.addEventListener("click", () => void logout());
   }
+
+  $("mg-accounts-search")?.addEventListener("input", () => renderAccounts());
+  $("mg-accounts-refresh")?.addEventListener("click", () => void loadAccounts());
 
   window.MagaluSellerShell = Object.freeze({
     getSelectedAccountId: () => state.selectedAccountId,

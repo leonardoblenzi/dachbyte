@@ -1,9 +1,12 @@
 (() => {
   "use strict";
 
+  // Secao Conta da Magalu: Contas vinculadas, Usuarios, Plano e creditos,
+  // Integracoes e Ajuda e contato, no mesmo fluxo da secao Conta do Seller.
   const $ = (id) => document.getElementById(id);
   const ACCOUNT_KEY = "dachbyte_magalu_account_id";
-  let unlinkTarget = null;
+  const ROLE_LABELS = { admin: "Administrador", administrador: "Administrador", owner: "Owner", operator: "Operador", operador: "Operador", member: "Membro" };
+  const state = { viewer: null, users: [], modules: [], editing: null, unlinkTarget: null };
 
   async function fetchJson(url, options = {}) {
     const client = window.MagaluSellerShell;
@@ -17,8 +20,17 @@
     return data;
   }
 
+  function notify(message, tone = "success") {
+    const client = window.MagaluSellerShell;
+    if (client?.showAlert) client.showAlert(message, tone);
+  }
+
   function escapeHtml(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+  }
+
+  function currentPath() {
+    return location.pathname.replace(/^\/magalu/, "").replace(/\/$/, "") || "/";
   }
 
   function selectedAccountId() {
@@ -28,12 +40,29 @@
 
   function accountApi(path = "") { return `/magalu/api/account${path}`; }
 
+  function dateLabel(value) {
+    if (!value) return "—";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  }
+
+  function roleLabel(role) {
+    const key = String(role || "").toLowerCase();
+    return ROLE_LABELS[key] || (key ? key.charAt(0).toUpperCase() + key.slice(1) : "Não informado");
+  }
+
+  function setText(id, value) {
+    const element = $(id);
+    if (element) element.textContent = value;
+  }
+
+  // Menu Conta fixo, com os mesmos itens da secao Conta do Seller.
   function ensureStructure() {
     const accountGroup = document.querySelector('.mg-nav__group[data-group="account"]');
     const children = accountGroup?.querySelector(".mg-nav__children");
     const copy = accountGroup?.querySelector(".mg-nav__group-copy small");
     if (copy) copy.textContent = "Conta e acesso";
-    if (children) {
+    if (children && !children.querySelector('[data-nav-path="/usuarios"]')) {
       children.innerHTML = `
         <a href="/magalu/contas" data-nav-path="/contas" class="mg-nav__item">Contas vinculadas</a>
         <a href="/magalu/usuarios" data-nav-path="/usuarios" class="mg-nav__item">Usuários</a>
@@ -41,166 +70,196 @@
         <a href="/magalu/integracoes" data-nav-path="/integracoes" class="mg-nav__item">Integrações</a>
         <a href="/magalu/ajuda" data-nav-path="/ajuda" class="mg-nav__item">Ajuda e contato</a>`;
     }
-
-    const sync = $("mg-sync-page");
-    if (sync) {
-      sync.dataset.page = "/integracoes";
-      const title = sync.querySelector("h1");
-      const kicker = sync.querySelector(".mg-kicker");
-      const intro = sync.querySelector(".mg-page-head p");
-      if (title) title.textContent = "Integrações";
-      if (kicker) kicker.textContent = "Conta · integração";
-      if (intro) intro.textContent = "Acompanhe OAuth, permissões, API do Portfólio, sincronizações e diagnóstico da conta selecionada.";
-    }
-
-    const accountsTitle = $("mg-accounts-page")?.querySelector("h1");
-    if (accountsTitle) accountsTitle.textContent = "Contas vinculadas";
-
-    const content = document.querySelector(".mg-content");
-    if (!content || $("mg-users-page")) return;
-    content.insertAdjacentHTML("beforeend", `
-      <section id="mg-users-page" data-page="/usuarios" hidden>
-        <section class="mg-page-head mg-ui-hero"><div><span class="mg-kicker">Conta · acesso</span><h1>Usuários</h1><p>O Magalu usa a identidade central do Hub DACHBYTE e não mantém usuários locais.</p></div></section>
-        <section class="mg-account-grid">
-          <article class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Sessão atual</span><h2>Usuário conectado</h2></div><span class="mg-pill" id="mg-user-access-state">—</span></div><dl class="mg-facts"><div><dt>Nome</dt><dd id="mg-account-user-name">—</dd></div><div><dt>Email</dt><dd id="mg-account-user-email">—</dd></div><div><dt>ID global</dt><dd id="mg-account-user-id">—</dd></div><div><dt>Tenant DACH</dt><dd id="mg-account-tenant-id">—</dd></div></dl></article>
-          <article class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Fonte de verdade</span><h2>Hub DACHBYTE</h2></div></div><div class="mg-info-callout"><strong>Gestão centralizada</strong><p>Convites, papéis e permissões pertencem ao Hub. O módulo Magalu apenas consome a identidade e o entitlement <code>magalu</code>; nenhuma cópia local de usuários é criada.</p></div><a class="mg-secondary-btn" href="/selecao-plataforma">Voltar ao Hub</a></article>
-        </section>
-      </section>
-
-      <section id="mg-plan-page" data-page="/plano" hidden>
-        <section class="mg-page-head mg-ui-hero"><div><span class="mg-kicker">Conta · cobrança</span><h1>Plano e créditos</h1><p>Informações de assinatura vêm da sessão do Hub. Créditos só são exibidos quando o Hub fornece uma carteira para o módulo Magalu.</p></div><button class="mg-secondary-btn" id="mg-plan-refresh" type="button">Atualizar</button></section>
-        <section class="mg-account-grid">
-          <article class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Assinatura</span><h2>Plano atual</h2></div><span class="mg-pill" id="mg-plan-status">—</span></div><dl class="mg-facts"><div><dt>Plano</dt><dd id="mg-plan-name">—</dd></div><div><dt>Código</dt><dd id="mg-plan-code">—</dd></div><div><dt>Ciclo</dt><dd id="mg-plan-cycle">—</dd></div><div><dt>Validade</dt><dd id="mg-plan-expiry">—</dd></div></dl><a class="mg-primary-btn" id="mg-plan-renew" href="#" hidden>Gerenciar assinatura</a></article>
-          <article class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Consumo</span><h2>Créditos</h2></div></div><div class="mg-credit-balance"><span>Saldo informado pelo Hub</span><strong id="mg-credit-balance">—</strong><small id="mg-credit-note">Carregando...</small></div><dl class="mg-facts"><div><dt>Modo de cobrança</dt><dd id="mg-billing-mode">—</dd></div><div><dt>Política de uso</dt><dd id="mg-usage-policy">—</dd></div><div><dt>Recurso Magalu</dt><dd id="mg-resource-status">—</dd></div></dl></article>
-        </section>
-      </section>
-
-      <section id="mg-help-page" data-page="/ajuda" hidden>
-        <section class="mg-page-head mg-ui-hero"><div><span class="mg-kicker">Conta · suporte</span><h1>Ajuda e contato</h1><p>Envie uma mensagem ao suporte com o contexto da conta Magalu e da última sincronização.</p></div></section>
-        <section class="mg-account-grid">
-          <article class="mg-section-card"><form id="mg-help-form" class="mg-help-form"><label><span>Assunto</span><select id="mg-help-topic" required><option value="duvidas">Dúvidas</option><option value="integracao">Integração Magalu</option><option value="bugs">Problemas / Bugs</option><option value="financeiro">Financeiro</option><option value="sugestoes">Sugestões</option><option value="reclamacoes">Reclamações</option><option value="outro">Outro</option></select></label><label><span>Mensagem</span><textarea id="mg-help-message" rows="8" minlength="10" maxlength="5000" required placeholder="Descreva o que aconteceu e o que você esperava que ocorresse."></textarea></label><fieldset><legend>Como prefere receber retorno?</legend><label class="mg-radio"><input type="radio" name="mg_reply" value="email" checked> Email do login</label><label class="mg-radio"><input type="radio" name="mg_reply" value="cellphone"> Celular</label></fieldset><label id="mg-help-phone-row" hidden><span>Celular</span><input id="mg-help-phone" type="tel" autocomplete="tel" placeholder="(43) 99999-9999"></label><div class="mg-help-actions"><button class="mg-primary-btn" id="mg-help-submit" type="submit">Enviar mensagem</button><span id="mg-help-feedback" class="mg-form-feedback"></span></div></form></article>
-          <article class="mg-section-card"><div class="mg-section-head"><div><span class="mg-kicker">Contexto</span><h2>Informações anexadas</h2></div></div><dl class="mg-facts"><div><dt>Usuário</dt><dd id="mg-help-user">—</dd></div><div><dt>Conta Magalu</dt><dd id="mg-help-account">—</dd></div><div><dt>Tenant DACH</dt><dd id="mg-help-tenant">—</dd></div><div><dt>Página</dt><dd id="mg-help-page-path">—</dd></div></dl><div class="mg-info-callout"><strong>Sem credenciais</strong><p>Tokens OAuth, secrets e headers de autorização nunca são enviados no formulário de suporte.</p></div></article>
-        </section>
-      </section>
-
-      <dialog class="mg-unlink-dialog" id="mg-unlink-dialog">
-        <form method="dialog" class="mg-unlink-dialog__card">
-          <div class="mg-section-head"><div><span class="mg-kicker">Conta Magalu</span><h2>Desvincular conexão?</h2></div><button class="mg-icon-btn" value="cancel" aria-label="Fechar">×</button></div>
-          <p>Os tokens OAuth serão removidos, webhooks locais serão desativados e a conta deixará de aparecer como ativa. Histórico de sincronização e auditoria serão preservados.</p>
-          <div class="mg-warning-callout" id="mg-unlink-warning">Se existir uma escrita de preço ou estoque pendente, a desvinculação será bloqueada até a reverificação.</div>
-          <label><span>Motivo (opcional)</span><textarea id="mg-unlink-reason" rows="3" maxlength="500" placeholder="Ex.: conectei a conta pessoal por engano"></textarea></label>
-          <label class="mg-confirm-unlink"><input id="mg-unlink-confirm" type="checkbox"> <span>Entendi que terei de autorizar novamente para usar esta organização.</span></label>
-          <div class="mg-dialog-actions"><button class="mg-secondary-btn" value="cancel">Cancelar</button><button class="mg-danger-btn" id="mg-unlink-submit" type="button" disabled>Desvincular conta</button></div>
-        </form>
-      </dialog>`);
   }
 
-  function decorateAccountRows() {
-    const list = $("mg-account-list");
-    if (!list) return;
-    list.querySelectorAll(".mg-account-row[data-account-id]").forEach((row) => {
-      const actions = row.querySelector(".mg-account-row__actions");
-      if (!actions || actions.dataset.enhanced === "1") return;
-      actions.dataset.enhanced = "1";
-      const id = row.dataset.accountId;
-      const reconnect = document.createElement("a");
-      reconnect.className = "mg-secondary-btn";
-      reconnect.href = `/magalu/auth/accounts/${id}/reconnect`;
-      reconnect.textContent = "Reconectar";
-      const test = document.createElement("button");
-      test.type = "button"; test.className = "mg-secondary-btn"; test.dataset.accountTest = id; test.textContent = "Testar conexão";
-      const unlink = document.createElement("button");
-      unlink.type = "button"; unlink.className = "mg-danger-btn mg-danger-btn--soft"; unlink.dataset.accountUnlink = id; unlink.textContent = "Desvincular";
-      actions.append(reconnect, test, unlink);
+  // Esconde do menu as telas que o usuario nao pode abrir (o servidor bloqueia
+  // do mesmo jeito; aqui so evitamos um clique que volta ao painel).
+  function applyNavPermissions(viewer) {
+    const pages = viewer?.pages || {};
+    document.querySelectorAll(".mg-nav__item[data-nav-path]").forEach((link) => {
+      const path = link.dataset.navPath;
+      if (Object.prototype.hasOwnProperty.call(pages, path)) link.hidden = pages[path] === false;
+    });
+    document.querySelectorAll(".mg-nav__group").forEach((group) => {
+      const items = [...group.querySelectorAll(".mg-nav__item")];
+      if (items.length) group.hidden = items.every((item) => item.hidden);
     });
   }
 
   async function loadContext() {
     const id = selectedAccountId();
-    return fetchJson(accountApi(`/context${id ? `?account_id=${id}` : ""}`));
+    const data = await fetchJson(accountApi(`/context${id ? `?account_id=${id}` : ""}`));
+    state.viewer = data.viewer || null;
+    applyNavPermissions(state.viewer);
+    return data;
   }
 
-  function dateLabel(value) {
-    if (!value) return "—";
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("pt-BR");
+  // ---------- Usuarios ----------
+  function moduleCount(user) {
+    const total = state.modules.length || 0;
+    const allowed = user.modules.filter((item) => item.can_access).length;
+    const editable = user.modules.filter((item) => item.can_edit).length;
+    return { total, allowed, editable };
   }
 
-  async function renderAccountPages() {
-    const path = location.pathname.replace(/^\/magalu/, "").replace(/\/$/, "") || "/";
-    if (!["/usuarios", "/plano", "/ajuda"].includes(path)) return;
+  function accessSummary(user) {
+    if (user.is_admin) return '<span class="mg-acct-pill mg-acct-pill--admin">Acesso completo · administrador</span>';
+    if (user.access_mode === "full") return '<span class="mg-acct-pill mg-acct-pill--ok">Acesso completo</span>';
+    const { total, allowed, editable } = moduleCount(user);
+    if (!allowed) return '<span class="mg-acct-pill mg-acct-pill--danger">Sem módulos</span>';
+    return `<span class="mg-acct-pill mg-acct-pill--muted">${allowed} de ${total} módulos</span><small class="mg-acct-sub">${editable ? `${editable} com edição` : "somente leitura"}</small>`;
+  }
+
+  function renderUsers() {
+    const body = $("mg-users-body");
+    if (!body) return;
+    const users = state.users;
+    setText("mg-users-stat-total", String(users.length));
+    setText("mg-users-stat-admin", String(users.filter((user) => user.is_admin).length));
+    setText("mg-users-stat-full", String(users.filter((user) => !user.is_admin && user.access_mode === "full").length));
+    setText("mg-users-stat-restricted", String(users.filter((user) => user.access_mode === "restricted").length));
+
+    const term = String($("mg-users-search")?.value || "").trim().toLowerCase();
+    const visible = term ? users.filter((user) => `${user.name} ${user.email}`.toLowerCase().includes(term)) : users;
+    if (!visible.length) {
+      body.innerHTML = `<tr><td colspan="5" class="mg-acct-empty">${users.length ? "Nenhum usuário encontrado para esta busca." : "Nenhum usuário acessou o módulo ainda."}</td></tr>`;
+      return;
+    }
+    body.innerHTML = visible.map((user) => `
+      <tr>
+        <td><div class="mg-acct-user"><strong>${escapeHtml(user.name)}</strong><span>${escapeHtml(user.email)}</span></div></td>
+        <td><span class="mg-acct-pill ${user.is_admin ? "mg-acct-pill--admin" : "mg-acct-pill--muted"}">${escapeHtml(roleLabel(user.company_role))}</span></td>
+        <td><div class="mg-acct-access">${accessSummary(user)}</div></td>
+        <td>${escapeHtml(dateLabel(user.last_seen_at))}</td>
+        <td>${user.is_admin
+          ? '<span class="mg-acct-sub">Gerenciado no Hub</span>'
+          : `<button class="mg-secondary-btn" type="button" data-user-edit="${escapeHtml(user.user_id)}">Editar acessos</button>`}</td>
+      </tr>`).join("");
+  }
+
+  async function loadUsers() {
+    const body = $("mg-users-body");
+    if (body) body.innerHTML = '<tr><td colspan="5" class="mg-acct-empty">Carregando usuários...</td></tr>';
     try {
-      const data = await loadContext();
-      if (path === "/usuarios") {
-        $("mg-account-user-name").textContent = data.user?.name || "—";
-        $("mg-account-user-email").textContent = data.user?.email || "—";
-        $("mg-account-user-id").textContent = data.user?.id || "—";
-        $("mg-account-tenant-id").textContent = data.tenant_id || "—";
-        $("mg-user-access-state").textContent = data.access?.allow ? "Acesso ativo" : (data.access?.status || data.access?.reason || "Indisponível");
-        $("mg-user-access-state").dataset.state = data.access?.allow ? "active" : "warning";
-      }
-      if (path === "/plano") {
-        const subscription = data.subscription || {};
-        const access = data.access || {};
-        $("mg-plan-status").textContent = subscription.status || (subscription.active ? "active" : "não informado");
-        $("mg-plan-status").dataset.state = subscription.active ? "active" : "idle";
-        $("mg-plan-name").textContent = subscription.plan_name || subscription.plan_code || "Não informado pelo Hub";
-        $("mg-plan-code").textContent = subscription.plan_code || "—";
-        $("mg-plan-cycle").textContent = subscription.cycle || "—";
-        $("mg-plan-expiry").textContent = dateLabel(subscription.expires_at);
-        const renew = $("mg-plan-renew");
-        if (subscription.renewal_url) { renew.href = subscription.renewal_url; renew.hidden = false; }
-        const balance = data.credits?.balance;
-        $("mg-credit-balance").textContent = Number.isFinite(Number(balance)) ? `${Number(balance).toLocaleString("pt-BR")} c` : "—";
-        $("mg-credit-note").textContent = Number.isFinite(Number(balance)) ? "Carteira informada pelo Hub." : "O Hub ainda não informou uma carteira de créditos para o módulo Magalu.";
-        $("mg-billing-mode").textContent = access.billing_mode || "—";
-        $("mg-usage-policy").textContent = access.usage_policy || "—";
-        $("mg-resource-status").textContent = access.resource_status || access.status || "—";
-      }
-      if (path === "/ajuda") {
-        $("mg-help-user").textContent = `${data.user?.name || "Usuário"} · ${data.user?.email || "—"}`;
-        $("mg-help-account").textContent = data.selected_account?.magalu_tenant_name || data.selected_account?.magalu_tenant_id || "Nenhuma conta selecionada";
-        $("mg-help-tenant").textContent = data.tenant_id || "—";
-        $("mg-help-page-path").textContent = location.pathname;
-      }
+      const data = await fetchJson(accountApi("/users"));
+      state.users = Array.isArray(data.users) ? data.users : [];
+      state.modules = Array.isArray(data.modules) ? data.modules : [];
+      renderUsers();
     } catch (error) {
-      console.warn("[magalu-account] context", error);
+      if (body) body.innerHTML = `<tr><td colspan="5" class="mg-acct-empty">${escapeHtml(error.message || "Não foi possível carregar os usuários.")}</td></tr>`;
     }
   }
 
-  function openUnlink(accountId) {
-    unlinkTarget = Number(accountId);
-    $("mg-unlink-reason").value = "";
-    $("mg-unlink-confirm").checked = false;
-    $("mg-unlink-submit").disabled = true;
-    $("mg-unlink-dialog")?.showModal();
+  function groupedModules() {
+    const groups = new Map();
+    for (const item of state.modules) {
+      if (!groups.has(item.group)) groups.set(item.group, []);
+      groups.get(item.group).push(item);
+    }
+    return groups;
   }
 
-  async function submitUnlink() {
-    if (!unlinkTarget || !$("mg-unlink-confirm")?.checked) return;
-    const button = $("mg-unlink-submit");
+  function renderAccessModules(user, fullAccess) {
+    const host = $("mg-access-modules");
+    if (!host) return;
+    const rows = new Map(user.modules.map((item) => [item.module_key, item]));
+    const restricted = user.access_mode === "restricted";
+    host.innerHTML = [...groupedModules()].map(([group, items]) => `
+      <section class="mg-access-group">
+        <h4>${escapeHtml(group)}</h4>
+        ${items.map((item) => {
+          const row = rows.get(item.key);
+          const canAccess = restricted ? row?.can_access === true : true;
+          const canEdit = restricted ? row?.can_edit === true : true;
+          return `
+          <div class="mg-access-module" data-module-key="${escapeHtml(item.key)}">
+            <div><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.path)}</small></div>
+            <label class="mg-access-toggle"><input type="checkbox" data-module-access ${canAccess ? "checked" : ""} ${fullAccess ? "disabled" : ""}> Acessar</label>
+            <label class="mg-access-toggle"><input type="checkbox" data-module-edit ${canEdit ? "checked" : ""} ${fullAccess || !canAccess ? "disabled" : ""}> Editar</label>
+          </div>`;
+        }).join("")}
+      </section>`).join("");
+  }
+
+  function openAccess(userId) {
+    const user = state.users.find((item) => item.user_id === userId);
+    if (!user || user.is_admin) return;
+    state.editing = user;
+    setText("mg-access-title", user.name);
+    setText("mg-access-subtitle", `${user.email} · último acesso ${dateLabel(user.last_seen_at)}`);
+    setText("mg-access-role", roleLabel(user.company_role));
+    const full = $("mg-access-full");
+    full.checked = user.access_mode === "full";
+    renderAccessModules(user, full.checked);
+    $("mg-user-access-modal").hidden = false;
+  }
+
+  function closeAccess() {
+    state.editing = null;
+    $("mg-user-access-modal").hidden = true;
+  }
+
+  function collectAccessPayload() {
+    if ($("mg-access-full")?.checked) return { full_access: true };
+    const modules = [...document.querySelectorAll("#mg-access-modules [data-module-key]")].map((row) => {
+      const canAccess = row.querySelector("[data-module-access]")?.checked === true;
+      return {
+        module_key: row.dataset.moduleKey,
+        can_access: canAccess,
+        can_edit: canAccess && row.querySelector("[data-module-edit]")?.checked === true,
+      };
+    });
+    return { full_access: false, modules };
+  }
+
+  async function saveAccess() {
+    const user = state.editing;
+    if (!user) return;
+    const button = $("mg-access-save");
     button.disabled = true;
-    button.textContent = "Desvinculando...";
     try {
-      const result = await fetchJson(accountApi(`/accounts/${unlinkTarget}/unlink`), {
-        method: "POST",
-        body: JSON.stringify({ reason: $("mg-unlink-reason")?.value || "" }),
+      await fetchJson(accountApi(`/users/${encodeURIComponent(user.user_id)}/access`), {
+        method: "PUT",
+        body: JSON.stringify(collectAccessPayload()),
       });
-      if (result.replacement_account_id) localStorage.setItem(ACCOUNT_KEY, String(result.replacement_account_id));
-      else localStorage.removeItem(ACCOUNT_KEY);
-      $("mg-unlink-dialog")?.close();
-      if (result.hub_unlink?.ok === false) {
-        alert("A conexão foi removida do DACHBYTE e os tokens foram apagados, mas o Hub não confirmou o unlink. O evento foi registrado para correção.");
-      }
-      location.href = "/magalu/contas?unlinked=1";
+      closeAccess();
+      notify(`Acessos de ${user.name} atualizados.`);
+      await loadUsers();
     } catch (error) {
-      const blockers = Array.isArray(error.payload?.blockers) ? error.payload.blockers : [];
-      const detail = blockers.length ? `\n\nOperações pendentes: ${blockers.map((item) => `#${item.id} ${item.resource_type}/${item.sku} (${item.status})`).join(", ")}` : "";
-      alert(`${error.message}${detail}`);
-      button.disabled = false;
+      notify(error.message || "Não foi possível salvar os acessos.", "danger");
     } finally {
-      button.textContent = "Desvincular conta";
+      button.disabled = false;
     }
+  }
+
+  // ---------- Plano e creditos ----------
+  function renderPlan(data) {
+    const subscription = data.subscription || {};
+    const access = data.access || {};
+    setText("mg-plan-status", subscription.active ? "Ativo" : (subscription.status || "Não informado"));
+    setText("mg-plan-name", subscription.plan_name || subscription.plan_code || "Não informado");
+    setText("mg-plan-code", subscription.plan_code || "—");
+    setText("mg-plan-cycle", subscription.cycle || "—");
+    setText("mg-plan-expiry", subscription.expires_at ? dateLabel(subscription.expires_at) : "—");
+    const renew = $("mg-plan-renew");
+    if (renew) {
+      renew.hidden = !subscription.renewal_url;
+      if (subscription.renewal_url) renew.href = subscription.renewal_url;
+    }
+    const balance = Number(data.credits?.balance);
+    const hasBalance = data.credits?.balance != null && Number.isFinite(balance);
+    setText("mg-credit-balance", hasBalance ? balance.toLocaleString("pt-BR") : "—");
+    setText("mg-credit-note", hasBalance ? "Saldo informado pelo Hub para o módulo Magalu." : "O Hub ainda não informou uma carteira de créditos para o módulo Magalu.");
+    setText("mg-billing-mode", access.billing_mode || "—");
+    setText("mg-usage-policy", access.usage_policy || "—");
+    setText("mg-resource-status", access.resource_status || access.status || "—");
+  }
+
+  // ---------- Ajuda ----------
+  function renderHelp(data) {
+    setText("mg-help-user", `${data.user?.name || "Usuário"} · ${data.user?.email || "—"}`);
+    setText("mg-help-account", data.selected_account?.magalu_tenant_name || data.selected_account?.magalu_tenant_id || "Nenhuma conta selecionada");
+    setText("mg-help-page-path", location.pathname);
   }
 
   async function submitHelp(event) {
@@ -232,24 +291,95 @@
     } finally { submit.disabled = false; }
   }
 
+  // ---------- Desvincular ----------
+  function openUnlink(accountId) {
+    state.unlinkTarget = Number(accountId);
+    $("mg-unlink-reason").value = "";
+    $("mg-unlink-confirm").checked = false;
+    $("mg-unlink-submit").disabled = true;
+    $("mg-unlink-dialog").hidden = false;
+  }
+
+  function closeUnlink() {
+    state.unlinkTarget = null;
+    $("mg-unlink-dialog").hidden = true;
+  }
+
+  async function submitUnlink() {
+    if (!state.unlinkTarget || !$("mg-unlink-confirm")?.checked) return;
+    const button = $("mg-unlink-submit");
+    button.disabled = true;
+    button.textContent = "Desvinculando...";
+    try {
+      const result = await fetchJson(accountApi(`/accounts/${state.unlinkTarget}/unlink`), {
+        method: "POST",
+        body: JSON.stringify({ reason: $("mg-unlink-reason")?.value || "" }),
+      });
+      if (result.replacement_account_id) localStorage.setItem(ACCOUNT_KEY, String(result.replacement_account_id));
+      else localStorage.removeItem(ACCOUNT_KEY);
+      closeUnlink();
+      if (result.hub_unlink?.ok === false) {
+        notify("A conexão foi removida e os tokens apagados, mas o Hub não confirmou a desvinculação. O evento foi registrado para correção.", "warning");
+      }
+      location.href = "/magalu/contas?unlinked=1";
+    } catch (error) {
+      const blockers = Array.isArray(error.payload?.blockers) ? error.payload.blockers : [];
+      const detail = blockers.length ? ` Operações pendentes: ${blockers.map((item) => `#${item.id} ${item.resource_type}/${item.sku} (${item.status})`).join(", ")}.` : "";
+      notify(`${error.message}${detail}`, "danger");
+      button.disabled = false;
+    } finally {
+      button.textContent = "Desvincular conta";
+    }
+  }
+
+  async function renderAccountPages() {
+    const path = currentPath();
+    try {
+      const data = await loadContext();
+      if (path === "/plano") renderPlan(data);
+      if (path === "/ajuda") renderHelp(data);
+      if (path === "/usuarios") await loadUsers();
+    } catch (error) {
+      console.warn("[magalu-account] context", error);
+    }
+  }
+
   function bind() {
     const list = $("mg-account-list");
-    if (list) {
-      new MutationObserver(decorateAccountRows).observe(list, { childList: true, subtree: true });
-      decorateAccountRows();
-      list.addEventListener("click", (event) => {
-        const test = event.target.closest("[data-account-test]");
-        if (test) {
-          localStorage.setItem(ACCOUNT_KEY, test.dataset.accountTest);
-          location.href = "/magalu/integracoes?test=1";
-          return;
-        }
-        const unlink = event.target.closest("[data-account-unlink]");
-        if (unlink) openUnlink(unlink.dataset.accountUnlink);
-      });
-    }
+    list?.addEventListener("click", (event) => {
+      const test = event.target.closest("[data-account-test]");
+      if (test) {
+        localStorage.setItem(ACCOUNT_KEY, test.dataset.accountTest);
+        location.href = "/magalu/integracoes?test=1";
+        return;
+      }
+      const unlink = event.target.closest("[data-account-unlink]");
+      if (unlink) openUnlink(unlink.dataset.accountUnlink);
+    });
+
+    $("mg-users-search")?.addEventListener("input", renderUsers);
+    $("mg-users-refresh")?.addEventListener("click", () => void loadUsers());
+    $("mg-users-body")?.addEventListener("click", (event) => {
+      const edit = event.target.closest("[data-user-edit]");
+      if (edit) openAccess(edit.dataset.userEdit);
+    });
+    $("mg-access-full")?.addEventListener("change", (event) => {
+      if (state.editing) renderAccessModules({ ...state.editing, access_mode: event.target.checked ? "full" : "restricted" }, event.target.checked);
+    });
+    $("mg-access-modules")?.addEventListener("change", (event) => {
+      if (!event.target.matches("[data-module-access]")) return;
+      const edit = event.target.closest("[data-module-key]")?.querySelector("[data-module-edit]");
+      if (!edit) return;
+      edit.disabled = !event.target.checked;
+      if (!event.target.checked) edit.checked = false;
+    });
+    document.querySelectorAll("[data-access-close]").forEach((button) => button.addEventListener("click", closeAccess));
+    $("mg-access-save")?.addEventListener("click", () => void saveAccess());
+
     $("mg-unlink-confirm")?.addEventListener("change", (event) => { $("mg-unlink-submit").disabled = !event.target.checked; });
     $("mg-unlink-submit")?.addEventListener("click", () => void submitUnlink());
+    document.querySelectorAll("[data-unlink-close]").forEach((button) => button.addEventListener("click", closeUnlink));
+
     $("mg-plan-refresh")?.addEventListener("click", () => void renderAccountPages());
     $("mg-help-form")?.addEventListener("submit", (event) => void submitHelp(event));
     document.querySelectorAll('input[name="mg_reply"]').forEach((input) => input.addEventListener("change", () => {
@@ -257,6 +387,11 @@
       $("mg-help-phone-row").hidden = !mobile;
       $("mg-help-phone").required = mobile;
     }));
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      if (!$("mg-user-access-modal")?.hidden) closeAccess();
+      if (!$("mg-unlink-dialog")?.hidden) closeUnlink();
+    });
     if (location.pathname === "/magalu/integracoes" && new URLSearchParams(location.search).get("test") === "1") {
       setTimeout(() => $("mg-test-connection")?.click(), 500);
     }
@@ -266,9 +401,8 @@
   document.addEventListener("DOMContentLoaded", () => {
     bind();
     void renderAccountPages();
-    if (new URLSearchParams(location.search).get("unlinked") === "1") {
-      const alertBox = $("mg-oauth-alert");
-      if (alertBox) { alertBox.hidden = false; alertBox.className = "mg-alert success"; alertBox.textContent = "Conta Magalu desvinculada. Você já pode conectar a organização correta."; }
-    }
+    const params = new URLSearchParams(location.search);
+    if (params.get("unlinked") === "1") notify("Conta Magalu desvinculada. Você já pode conectar a organização correta.");
+    if (params.get("acesso") === "negado") notify("Você não tem permissão para abrir essa tela. Fale com o administrador da empresa.", "warning");
   });
 })();

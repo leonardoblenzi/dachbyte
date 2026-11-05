@@ -15,8 +15,37 @@ const promotionRoutes = require("./promotion.routes");
 const processPanelController = require("../controllers/processPanelController");
 const promoPriceController = require("../controllers/promoPriceController");
 const env = require("../config/env");
+const userAccess = require("../services/userAccessService");
 
 const router = express.Router();
+
+// Escrita de preco e estoque usa o mesmo endpoint: o modulo vem do recurso.
+function writeModuleFor(resource) {
+  const value = String(resource || "").trim().toLowerCase();
+  if (value === "price") return "magalu.operacoes.precos";
+  if (value === "stock") return "magalu.operacoes.estoque";
+  return null;
+}
+const requireWritePreviewEdit = userAccess.requireEditForWrites((req) => writeModuleFor(req.body?.resource) || "magalu.operacoes.precos");
+const requireCampaignEdit = userAccess.requireEditForWrites("magalu.promocoes.campanhas");
+
+// Escritas exigem "Editar" do modulo; consultas via POST seguem liberadas.
+router.use("/orders", userAccess.requireEditForWrites("magalu.pedidos", {
+  readOnlyPaths: ["/sync", "/:code/reconcile", "/delivery-writes/operations/:operationId/reverify"],
+}));
+router.use("/sku-management", userAccess.requireEditForWrites("magalu.operacoes.catalogo", {
+  readOnlyPaths: [
+    "/selection/resolve",
+    "/bulk/selections",
+    "/bulk/selections/:id/append",
+    "/bulk/selections/:id/finalize",
+    "/bulk/selections/from-filter",
+    "/items/:itemId/reverify",
+  ],
+}));
+router.use("/financial", userAccess.requireEditForWrites("magalu.precificacao.margem", {
+  readOnlyPaths: ["/calculator/calculate"],
+}));
 router.get("/session", (req, res) => { const identity=req.magaluIdentity; return res.json({ok:true,module:"magalu",user:{email:identity.email,name:identity.name},subscription:identity.subscription||null}); });
 router.get("/dashboard",dashboardController.status);
 router.post("/dashboard/refresh",dashboardController.refresh);
@@ -33,7 +62,7 @@ router.post("/catalog/test", catalogController.diagnostics);
 router.post("/catalog/skus/:sku/reconcile", catalogController.reconcile);
 router.get("/catalog/runs", catalogController.runs);
 router.get("/writes/status", writeController.status);
-router.post("/writes/preview", writeController.preview);
+router.post("/writes/preview", requireWritePreviewEdit, writeController.preview);
 router.post("/writes/apply", writeController.apply);
 router.get("/writes/operations", writeController.operations);
 router.post("/writes/operations/:operationId/reverify", writeController.reverify);
@@ -44,10 +73,10 @@ router.get("/promo-prices",promoPriceController.list);
 router.post("/promo-prices/search",promoPriceController.list);
 router.post("/promo-prices/refresh",promoPriceController.refresh);
 router.get("/promo-prices/refresh/:id",promoPriceController.refreshStatus);
-router.post("/promo-prices/previews",promoPriceController.createPreview);
+router.post("/promo-prices/previews",requireCampaignEdit,promoPriceController.createPreview);
 router.get("/promo-prices/previews/jobs/:id",promoPriceController.previewJobStatus);
 router.get("/promo-prices/previews/:id",promoPriceController.previewPage);
-router.put("/promo-prices/previews/:id/rows/:sku",promoPriceController.updatePreviewRow);
+router.put("/promo-prices/previews/:id/rows/:sku",requireCampaignEdit,promoPriceController.updatePreviewRow);
 router.get("/promo-prices/previews/:id/export-check",promoPriceController.exportCheck);
 router.get("/promo-prices/previews/:id/export",promoPriceController.exportWorkbook);
 router.use("/sku-management", skuManagementRoutes);

@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="/magalu/assets/css/magalu-ml-parity.css?v=2026092907">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-dashboard.css?v=2026092903">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-operations.css?v=2026092905">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-account.css?v=2026092503">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-account.css?v=2026110601">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-sku-management.css?v=2026110504">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-orders.css?v=2026100101">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-financial.css?v=2026101401">
@@ -109,12 +109,15 @@
       <section class="mg-nav__group" data-group="account">
         <button class="mg-nav__group-button" type="button" data-group-toggle="account" aria-expanded="false">
           <span class="mg-nav__group-icon">◎</span>
-          <span class="mg-nav__group-copy"><strong>Conta</strong><small>Acesso e integração</small></span>
+          <span class="mg-nav__group-copy"><strong>Conta</strong><small>Conta e acesso</small></span>
           <span class="mg-nav__group-arrow">›</span>
         </button>
         <div class="mg-nav__children" hidden>
-          <a href="/magalu/contas" data-nav-path="/contas" class="mg-nav__item">Contas Magalu</a>
+          <a href="/magalu/contas" data-nav-path="/contas" class="mg-nav__item">Contas vinculadas</a>
+          <a href="/magalu/usuarios" data-nav-path="/usuarios" class="mg-nav__item">Usuários</a>
+          <a href="/magalu/plano" data-nav-path="/plano" class="mg-nav__item">Plano e créditos</a>
           <a href="/magalu/integracoes" data-nav-path="/integracoes" class="mg-nav__item">Integrações</a>
+          <a href="/magalu/ajuda" data-nav-path="/ajuda" class="mg-nav__item">Ajuda e contato</a>
         </div>
       </section>
     </nav>
@@ -335,8 +338,46 @@
       </section>
 
       <section id="mg-accounts-page" data-page="/contas" hidden>
-        <section class="mg-page-hero mg-ui-hero"><div><span class="mg-kicker">Conta Magalu</span><h1>Organizações vinculadas</h1><p>Gerencie as organizações autorizadas pelo ID Magalu e escolha qual conta será usada no módulo.</p></div><div class="mg-page-actions"><a class="mg-primary-btn" id="mg-connect-account" href="/magalu/auth/start?return=%2Fmagalu%2Fcontas">Vincular organização</a></div></section>
-        <section class="mg-accounts-list-card mg-ui-surface"><div class="mg-section-head"><div><span class="mg-kicker">Organizações</span><h2>Contas vinculadas</h2></div><span class="mg-pill" id="mg-accounts-count">0 contas</span></div><div id="mg-account-list" class="mg-account-list"></div><div id="mg-accounts-empty" class="mg-empty-state"><strong>Seu portfólio Magalu começa aqui</strong><p>Conecte uma organização para sincronizar catálogo, preços e estoque pelo OAuth oficial.</p></div></section>
+        <section class="mg-page-hero mg-ui-hero"><div><span class="mg-kicker">Conta · organizações</span><h1>Contas vinculadas</h1><p>Organizações autorizadas pelo ID Magalu. Escolha qual conta o módulo usa e gerencie a conexão de cada uma.</p></div><div class="mg-page-actions"><button class="mg-secondary-btn" id="mg-accounts-refresh" type="button">Atualizar</button><a class="mg-primary-btn" id="mg-connect-account" href="/magalu/auth/start?return=%2Fmagalu%2Fcontas">Vincular organização</a></div></section>
+        <section class="mg-acct-summary" aria-label="Resumo das contas"><article class="mg-acct-stat"><span>Total</span><strong id="mg-accounts-stat-total">0</strong></article><article class="mg-acct-stat"><span>Ativas</span><strong id="mg-accounts-stat-active">0</strong></article><article class="mg-acct-stat"><span>Leitura + escrita</span><strong id="mg-accounts-stat-write">0</strong></article><article class="mg-acct-stat"><span>Com erro de sync</span><strong id="mg-accounts-stat-error">0</strong></article></section>
+        <section class="mg-accounts-list-card mg-ui-surface"><div class="mg-acct-toolbar"><label class="mg-acct-search"><span>Buscar organização</span><input id="mg-accounts-search" type="search" placeholder="Nome ou ID da organização" autocomplete="off"></label><span class="mg-acct-pill" id="mg-accounts-count">0 contas</span></div><div id="mg-account-list" class="mg-acct-grid"></div><div id="mg-accounts-empty" class="mg-empty-state"><strong>Seu portfólio Magalu começa aqui</strong><p>Conecte uma organização para sincronizar catálogo, preços e estoque pelo OAuth oficial.</p></div></section>
+      </section>
+
+      <section id="mg-users-page" data-page="/usuarios" hidden>
+        <section class="mg-page-hero mg-ui-hero"><div><span class="mg-kicker">Conta · acesso</span><h1>Usuários</h1><p>Usuários da empresa que já entraram no módulo Magalu. Defina, por módulo, quem pode acessar e quem pode editar.</p></div><div class="mg-page-actions"><button class="mg-secondary-btn" id="mg-users-refresh" type="button">Atualizar</button></div></section>
+        <section class="mg-acct-summary" aria-label="Resumo dos usuários"><article class="mg-acct-stat"><span>Total</span><strong id="mg-users-stat-total">0</strong></article><article class="mg-acct-stat"><span>Administradores</span><strong id="mg-users-stat-admin">0</strong></article><article class="mg-acct-stat"><span>Acesso completo</span><strong id="mg-users-stat-full">0</strong></article><article class="mg-acct-stat"><span>Acesso restrito</span><strong id="mg-users-stat-restricted">0</strong></article></section>
+        <section class="mg-acct-list mg-ui-surface"><div class="mg-acct-toolbar"><label class="mg-acct-search"><span>Buscar usuário</span><input id="mg-users-search" type="search" placeholder="Nome ou e-mail" autocomplete="off"></label><p class="mg-acct-note">Novos usuários aparecem aqui depois do primeiro acesso ao módulo. Administradores da empresa têm acesso completo.</p></div><div class="mg-acct-table-wrap"><table class="mg-acct-table"><thead><tr><th>Usuário</th><th>Papel na empresa</th><th>Módulos</th><th>Último acesso</th><th>Ação</th></tr></thead><tbody id="mg-users-body"><tr><td colspan="5" class="mg-acct-empty">Carregando usuários...</td></tr></tbody></table></div></section>
+      </section>
+
+      <section id="mg-plan-page" data-page="/plano" hidden>
+        <section class="mg-page-hero mg-ui-hero"><div><span class="mg-kicker">Conta · cobrança</span><h1>Plano e créditos</h1><p>Assinatura e créditos do módulo Magalu, conforme informados pelo Hub DACHBYTE.</p></div><div class="mg-page-actions"><button class="mg-secondary-btn" id="mg-plan-refresh" type="button">Atualizar</button><a class="mg-primary-btn" id="mg-plan-renew" href="#" hidden>Gerenciar assinatura</a></div></section>
+        <section class="mg-acct-summary" aria-label="Resumo do plano"><article class="mg-acct-stat"><span>Status</span><strong id="mg-plan-status">—</strong></article><article class="mg-acct-stat"><span>Plano</span><strong id="mg-plan-name">—</strong></article><article class="mg-acct-stat"><span>Validade</span><strong id="mg-plan-expiry">—</strong></article><article class="mg-acct-stat"><span>Saldo de créditos</span><strong id="mg-credit-balance">—</strong></article></section>
+        <section class="mg-acct-columns"><article class="mg-acct-panel mg-ui-surface"><div class="mg-ui-surface__head"><div><span class="mg-kicker">Assinatura</span><h2 class="mg-ui-surface__title">Plano atual</h2></div></div><dl class="mg-acct-facts"><div><dt>Código</dt><dd id="mg-plan-code">—</dd></div><div><dt>Ciclo</dt><dd id="mg-plan-cycle">—</dd></div></dl></article><article class="mg-acct-panel mg-ui-surface"><div class="mg-ui-surface__head"><div><span class="mg-kicker">Consumo</span><h2 class="mg-ui-surface__title">Créditos no Hub</h2></div></div><dl class="mg-acct-facts"><div><dt>Modo de cobrança</dt><dd id="mg-billing-mode">—</dd></div><div><dt>Política de uso</dt><dd id="mg-usage-policy">—</dd></div><div><dt>Recurso Magalu</dt><dd id="mg-resource-status">—</dd></div></dl><p class="mg-acct-note" id="mg-credit-note">Carregando...</p></article></section>
+      </section>
+
+      <section id="mg-help-page" data-page="/ajuda" hidden>
+        <section class="mg-page-hero mg-ui-hero"><div><span class="mg-kicker">Conta · suporte</span><h1>Ajuda e contato</h1><p>Envie uma mensagem ao suporte. O contexto da conta Magalu e da última sincronização vai junto, sem tokens nem senhas.</p></div></section>
+        <section class="mg-acct-columns mg-acct-columns--help"><article class="mg-acct-panel mg-ui-surface"><div class="mg-ui-surface__head"><div><span class="mg-kicker">Mensagem</span><h2 class="mg-ui-surface__title">Fale com o suporte</h2></div></div><form id="mg-help-form" class="mg-help-form"><label><span>Assunto</span><select id="mg-help-topic" required><option value="duvidas">Dúvidas</option><option value="integracao">Integração Magalu</option><option value="bugs">Problemas / Bugs</option><option value="financeiro">Financeiro</option><option value="sugestoes">Sugestões</option><option value="reclamacoes">Reclamações</option><option value="outro">Outro</option></select></label><label><span>Mensagem</span><textarea id="mg-help-message" rows="8" minlength="10" maxlength="5000" required placeholder="Descreva o que aconteceu e o que você esperava que ocorresse."></textarea></label><fieldset><legend>Como prefere receber retorno?</legend><label class="mg-radio"><input type="radio" name="mg_reply" value="email" checked> E-mail do login</label><label class="mg-radio"><input type="radio" name="mg_reply" value="cellphone"> Celular</label></fieldset><label id="mg-help-phone-row" hidden><span>Celular</span><input id="mg-help-phone" type="tel" autocomplete="tel" placeholder="(43) 99999-9999"></label><div class="mg-help-actions"><button class="mg-primary-btn" id="mg-help-submit" type="submit">Enviar mensagem</button><span id="mg-help-feedback" class="mg-form-feedback"></span></div></form></article><article class="mg-acct-panel mg-ui-surface"><div class="mg-ui-surface__head"><div><span class="mg-kicker">Contexto</span><h2 class="mg-ui-surface__title">Informações anexadas</h2></div></div><dl class="mg-acct-facts mg-acct-facts--stacked"><div><dt>Usuário</dt><dd id="mg-help-user">—</dd></div><div><dt>Conta Magalu</dt><dd id="mg-help-account">—</dd></div><div><dt>Página</dt><dd id="mg-help-page-path">—</dd></div></dl><p class="mg-acct-note">Tokens OAuth, segredos e cabeçalhos de autorização nunca são enviados no formulário de suporte.</p></article></section>
+      </section>
+
+      <section class="mg-access-dialog mg-ui-modal" id="mg-user-access-modal" hidden>
+        <div class="mg-access-dialog__card mg-ui-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="mg-access-title">
+          <header class="mg-ui-modal__head"><div><span class="mg-kicker">Acessos do usuário</span><h2 id="mg-access-title">—</h2><p class="mg-access-subtitle" id="mg-access-subtitle">—</p></div><button class="mg-icon-btn" type="button" data-access-close aria-label="Fechar">×</button></header>
+          <div class="mg-ui-modal__body mg-access-body">
+            <div class="mg-access-row"><div><strong>Papel na empresa</strong><p>Definido no Hub. Só administradores ignoram as permissões abaixo.</p></div><span class="mg-acct-pill" id="mg-access-role">—</span></div>
+            <label class="mg-access-row mg-access-row--toggle"><div><strong>Acesso completo</strong><p>Libera todos os módulos, sem restrições.</p></div><input type="checkbox" id="mg-access-full"></label>
+            <div class="mg-access-row mg-access-row--modules"><div><strong>Módulos liberados</strong><p>Com restrições, o usuário acessa só os módulos marcados. "Editar" permite alterar dados.</p></div><div id="mg-access-modules" class="mg-access-modules"></div></div>
+          </div>
+          <footer class="mg-ui-modal__actions"><button class="mg-secondary-btn" type="button" data-access-close>Cancelar</button><button class="mg-primary-btn" type="button" id="mg-access-save">Salvar acessos</button></footer>
+        </div>
+      </section>
+
+      <section class="mg-unlink-modal mg-ui-modal" id="mg-unlink-dialog" hidden>
+        <div class="mg-unlink-modal__card mg-ui-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="mg-unlink-title">
+          <header class="mg-ui-modal__head"><div><span class="mg-kicker">Conta Magalu</span><h2 id="mg-unlink-title">Desvincular organização?</h2></div><button class="mg-icon-btn" type="button" data-unlink-close aria-label="Fechar">×</button></header>
+          <div class="mg-ui-modal__body mg-unlink-body"><p>Os tokens OAuth serão removidos, os webhooks locais serão desativados e a conta deixará de aparecer como ativa. O histórico de sincronização e a auditoria são preservados.</p><div class="mg-warning-callout">Se houver uma escrita de preço ou estoque pendente, a desvinculação fica bloqueada até a reverificação.</div><label><span>Motivo (opcional)</span><textarea id="mg-unlink-reason" rows="3" maxlength="500" placeholder="Ex.: conectei a conta pessoal por engano"></textarea></label><label class="mg-confirm-unlink"><input id="mg-unlink-confirm" type="checkbox"> <span>Entendi que terei de autorizar novamente para usar esta organização.</span></label></div>
+          <footer class="mg-ui-modal__actions"><button class="mg-secondary-btn" type="button" data-unlink-close>Cancelar</button><button class="mg-danger-btn" id="mg-unlink-submit" type="button" disabled>Desvincular conta</button></footer>
+        </div>
       </section>
 
 
@@ -529,8 +570,8 @@
         <button class="mg-process-launcher" id="mg-process-toggle" type="button" aria-expanded="false" aria-controls="mg-process-panel" hidden>Processos <span id="mg-process-count">0</span></button>
     <script src="/magalu/assets/js/magalu-loading.js?v=2026103001"></script>
     <script src="/magalu/assets/js/magalu-dashboard.js?v=2026092903"></script>
-        <script src="/magalu/assets/js/magalu-app.js?v=2026110504"></script>
-<script src="/magalu/assets/js/magalu-account.js?v=2026110503"></script>
+        <script src="/magalu/assets/js/magalu-app.js?v=2026110601"></script>
+<script src="/magalu/assets/js/magalu-account.js?v=2026110601"></script>
         <script src="/magalu/assets/js/magalu-sku-management.js?v=2026110501"></script>
     <script src="/magalu/assets/js/magalu-orders.js?v=2026110502"></script>
 <script src="/magalu/assets/js/magalu-stock-price.js?v=2026110503"></script>

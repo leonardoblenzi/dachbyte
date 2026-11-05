@@ -99,7 +99,9 @@ test("Botões de reconexão usam a conta selecionada e não o OAuth genérico", 
   const accountJs = fs.readFileSync(path.join(base, "public/js/magalu-account.js"), "utf8");
   const appJs = fs.readFileSync(path.join(base, "public/js/magalu-app.js"), "utf8");
   const ordersJs = fs.readFileSync(path.join(base, "public/js/magalu-orders.js"), "utf8");
-  assert.match(accountJs, /reconnect\.href\s*=\s*`\/magalu\/auth\/accounts\/\$\{id\}\/reconnect`/);
+  // O card de "Contas vinculadas" (renderAccounts) reconecta a propria conta.
+  assert.match(appJs, /href="\/magalu\/auth\/accounts\/\$\{id\}\/reconnect"/);
+  assert.doesNotMatch(accountJs, /auth\/start/, "a secao Conta nao usa o OAuth generico para reconectar");
   assert.match(appJs, /mg-reconnect-account[\s\S]*auth\/accounts/);
   assert.match(appJs, /A conta aparecerá após o Hub confirmar o acesso comercial/);
   assert.match(appJs, /magalu_reconnect_account_mismatch:/);

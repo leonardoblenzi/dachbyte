@@ -122,7 +122,14 @@ function pickIdentity(payload = {}, fallbackEmail = "") {
     (isPlatformIdentityPayload(payload) && userId ? `platform-${userId}` : "");
 
   if (!tenantId || !userId || !email) return null;
-  return { tenantId, userId, email, name };
+  return { tenantId, userId, email, name, companyRole: normalizeCompanyRole(payload.portal_role) };
+}
+
+// Papel do usuario na empresa (owner/admin/operator...), vindo do Hub. Os
+// modulos usam para saber quem administra usuarios e permissoes.
+function normalizeCompanyRole(value) {
+  const role = String(value || "").trim().toLowerCase();
+  return role || null;
 }
 
 function normalizeRenewableResources(value) {
@@ -214,6 +221,7 @@ function refreshSuiteAuthCookie(res, previousPayload, refreshed) {
       user_id: identity.userId,
       email: identity.email,
       name: identity.name,
+      company_role: identity.companyRole || previousPayload.company_role || null,
       allowed_modules: refreshed.allowedModules,
       visible_modules: refreshed.visibleModules,
       subscription: buildSessionSubscriptionCookiePayload(refreshed.subscription),
@@ -344,6 +352,7 @@ async function refreshSuiteSessionPayload(payload) {
         userId: String(portal.user?.user_id || userId).trim(),
         email: normalizeEmail(portal.user?.email || email),
         name: String(portal.user?.name || payload.name || email).trim(),
+        companyRole: normalizeCompanyRole(portal.user?.role),
       },
       visibleModules,
       allowedModules,
@@ -889,6 +898,7 @@ router.post("/login", express.json({ limit: "200kb" }), async (req, res) => {
         user_id: identity.userId,
         email: identity.email,
         name: identity.name,
+        company_role: identity.companyRole || null,
         allowed_modules: allowedModules,
         visible_modules: sessionVisibleModules,
         subscription: buildSessionSubscriptionCookiePayload(subscription),

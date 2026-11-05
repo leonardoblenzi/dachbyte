@@ -7,6 +7,7 @@ const { buildPreview, assertWriteReady } = require("../services/writePreviewServ
 const { checkAccountAccess } = require("../services/hubResourceAccessService");
 const { enqueueWriteOperation } = require("../queues/magaluQueue");
 const { PRICE_WRITE_SCOPE, STOCK_WRITE_SCOPE, hasScope } = require("../services/writePayload");
+const userAccess = require("../services/userAccessService");
 
 function int(value, fallback = 0) {
   const parsed = Number.parseInt(String(value == null ? "" : value), 10);
@@ -92,6 +93,11 @@ async function apply(req, res, next) {
 
     const previewRecord = await writeRepository.getPreviewForIdentity(previewId, req.magaluIdentity);
     if (!previewRecord) return res.status(404).json({ ok: false, error: "MAGALU_WRITE_PREVIEW_NOT_FOUND" });
+    // A previa diz se e preco ou estoque: exige "Editar" no modulo certo.
+    await userAccess.assertModuleEdit(
+      req,
+      previewRecord.resource_type === "stock" ? "magalu.operacoes.estoque" : "magalu.operacoes.precos",
+    );
     const account = await accountRepository.findAccountByIdForTenant(previewRecord.account_id, req.magaluIdentity.dachTenantId);
     if (!account) return res.status(404).json({ ok: false, error: "MAGALU_ACCOUNT_NOT_FOUND" });
     assertWriteReady(account, previewRecord.resource_type);

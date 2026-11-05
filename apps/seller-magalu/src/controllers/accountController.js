@@ -7,6 +7,9 @@ const { checkHubAccess, clearHubAccessCache } = require("../services/hubAccessSe
 const { checkAccountAccess } = require("../services/hubResourceAccessService");
 const { unlinkHubResource } = require("../services/hubAccountService");
 const { sendHelpContact, TOPICS } = require("../services/helpContactService");
+const userAccess = require("../services/userAccessService");
+const userAccessRepository = require("../repositories/userAccessRepository");
+const auditService = require("../services/auditService");
 
 function int(value) {
   const parsed = Number.parseInt(String(value == null ? "" : value), 10);
@@ -77,15 +80,60 @@ async function context(req, res, next) {
       } : null,
       users: {
         source: "hub",
-        local_replica: false,
-        current_user_only: true,
+        local_replica: true,
+        current_user_only: false,
       },
+      viewer: await userAccess.viewerPermissions(req),
       credits: {
         source: "hub_access_payload",
         balance: pickHubAccess(hub.payload || hub).credit_balance,
       },
     });
   } catch (error) { next(error); }
+}
+
+// Catalogo de modulos para o modal "Acessos do usuario".
+function usersMetadata(_req, res) {
+  return res.json({ ok: true, modules: userAccess.MODULES });
+}
+
+// Usuarios da empresa que ja entraram no modulo Magalu.
+async function listUsers(req, res, next) {
+  try {
+    const rows = await userAccessRepository.listTenantUsers(req.magaluIdentity.dachTenantId);
+    const users = rows.map(userAccess.serializeUser);
+    return res.json({ ok: true, users, modules: userAccess.MODULES });
+  } catch (error) { return next(error); }
+}
+
+async function updateUserAccess(req, res, next) {
+  try {
+    const identity = req.magaluIdentity;
+    const targetUserId = text(req.params.userId, 200);
+    const target = await userAccessRepository.findTenantUser(identity.dachTenantId, targetUserId);
+    if (!target) return res.status(404).json({ ok: false, error: "user_not_found", message: "Usuário não encontrado nesta empresa." });
+    if (userAccess.serializeUser(target).is_admin) {
+      return res.status(409).json({ ok: false, error: "admin_has_full_access", message: "Administradores da empresa têm acesso completo e não usam permissões por módulo." });
+    }
+    const fullAccess = req.body?.full_access === true;
+    const rows = fullAccess ? [] : userAccess.normalizeModulePayload(req.body?.modules);
+    await userAccessRepository.replaceModuleRows(identity.dachTenantId, targetUserId, rows, identity.dachUserId);
+    await auditService.recordBestEffort({
+      eventKey: "user_module_access_updated",
+      action: "USER_MODULE_ACCESS_UPDATED",
+      category: "account",
+      details: {
+        target_user_id: targetUserId,
+        target_email: target.email,
+        full_access: fullAccess,
+        modules: rows,
+      },
+    }, req);
+    const updated = (await userAccessRepository.listTenantUsers(identity.dachTenantId))
+      .map(userAccess.serializeUser)
+      .find((user) => user.user_id === targetUserId) || null;
+    return res.json({ ok: true, user: updated });
+  } catch (error) { return next(error); }
 }
 
 async function unlink(req, res, next) {
@@ -178,4 +226,4 @@ async function help(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { context, unlink, help, _test: { pickSubscription, pickHubAccess } };
+module.exports = { context, unlink, help, usersMetadata, listUsers, updateUserAccess, _test: { pickSubscription, pickHubAccess } };

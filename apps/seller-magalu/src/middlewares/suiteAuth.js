@@ -3,6 +3,7 @@
 const jwt = require("jsonwebtoken");
 const env = require("../config/env");
 const { checkHubAccess } = require("../services/hubAccessService");
+const { recordSeenUser } = require("../services/userAccessService");
 
 function parseCookies(header) {
   const output = {};
@@ -30,6 +31,8 @@ function identityFromPayload(payload = {}) {
     dachUserId: String(payload.user_id || "").trim(),
     email: String(payload.email || "").trim().toLowerCase(),
     name: String(payload.name || payload.nome || payload.email || "Usuário").trim(),
+    // Papel na empresa vindo do Hub (gravado pelo gateway no token da suite).
+    companyRole: String(payload.company_role || "").trim().toLowerCase() || null,
     modules: moduleSet(payload),
     subscription: payload.subscription || null,
     authSource: payload.auth_source || null,
@@ -77,6 +80,7 @@ async function suiteAuth(req, res, next) {
     req.magaluIdentity = session.identity;
     req.magaluHubAccess = hub.payload || null;
     res.locals.magaluIdentity = session.identity;
+    void recordSeenUser(session.identity);
     return next();
   } catch (error) { return next(error); }
 }

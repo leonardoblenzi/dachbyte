@@ -1,27 +1,121 @@
-.mg-account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.mg-info-callout,.mg-warning-callout{border:1px solid var(--mg-border,#dbe5f1);border-radius:16px;padding:16px;background:var(--mg-surface-soft,#f8fafc);margin:0 0 16px;line-height:1.55}
-.mg-info-callout strong,.mg-warning-callout strong{display:block;margin-bottom:6px;color:var(--mg-ink,#172033)}
-.mg-info-callout p,.mg-warning-callout p{margin:0;color:var(--mg-muted,#64748b)}
-.mg-warning-callout{border-color:#f3d18b;background:#fff8e7;color:#92400e}
-.mg-danger-btn{min-height:40px;border:1px solid #efb4b4;border-radius:14px;background:#fff4f4;color:#b42318;padding:0 14px;font:inherit;font-weight:800;cursor:pointer}
-.mg-danger-btn:hover{background:#ffebeb;border-color:#e58c8c}
-.mg-danger-btn--soft{min-height:38px}
-.mg-account-row__actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
-.mg-credit-balance{display:grid;gap:5px;padding:18px;border:1px solid var(--mg-border,#dbe5f1);border-radius:18px;background:var(--mg-surface-soft,#f8fafc);margin-bottom:14px}
-.mg-credit-balance span,.mg-credit-balance small{color:var(--mg-muted,#64748b)}
-.mg-credit-balance strong{font-size:1.7rem;color:var(--mg-ink,#172033)}
-.mg-help-form{display:grid;gap:16px}.mg-help-form>label{display:grid;gap:7px;font-weight:800;color:var(--mg-ink,#172033)}
-.mg-help-form input,.mg-help-form select,.mg-help-form textarea,.mg-unlink-dialog textarea{width:100%;border:1px solid var(--mg-border,#dbe5f1);border-radius:14px;background:var(--mg-surface,#fff);color:var(--mg-ink,#172033);padding:11px 13px;font:inherit;resize:vertical}
-.mg-help-form fieldset{border:1px solid var(--mg-border,#dbe5f1);border-radius:16px;padding:14px}.mg-help-form legend{padding:0 6px;font-weight:800}
-.mg-radio{display:inline-flex!important;align-items:center;gap:8px;margin-right:18px;font-weight:700!important}.mg-radio input{width:auto!important}
-.mg-help-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.mg-form-feedback{font-size:.86rem;color:var(--mg-muted,#64748b)}.mg-form-feedback[data-state="success"]{color:#15803d}.mg-form-feedback[data-state="error"]{color:#b42318}
-.mg-unlink-dialog{width:min(620px,calc(100vw - 32px));border:0;padding:0;background:transparent}.mg-unlink-dialog::backdrop{background:rgba(15,23,42,.38);backdrop-filter:blur(6px)}
-.mg-unlink-dialog__card{border:1px solid var(--mg-border,#dbe5f1);border-radius:22px;background:var(--mg-surface,#fff);color:var(--mg-text,#334155);padding:22px;box-shadow:0 28px 64px rgba(15,23,42,.18)}
-.mg-unlink-dialog__card>p{line-height:1.6;color:var(--mg-muted,#64748b)}.mg-unlink-dialog__card>label{display:grid;gap:7px;font-weight:800}.mg-confirm-unlink{grid-template-columns:auto 1fr!important;align-items:flex-start;margin-top:16px;font-weight:700!important}.mg-confirm-unlink input{margin-top:3px}
-.mg-dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}.mg-unlink-dialog__card .mg-section-head{margin-bottom:10px}
-[data-theme="dark"] .mg-info-callout,[data-theme="dark"] .mg-credit-balance{background:#122944;border-color:rgba(148,163,184,.18)}
-[data-theme="dark"] .mg-warning-callout{background:rgba(146,64,14,.18);border-color:rgba(251,191,36,.26);color:#fde68a}
-[data-theme="dark"] .mg-unlink-dialog__card{background:#0d1f35;border-color:rgba(148,163,184,.18);color:#dbeafe}
-[data-theme="dark"] .mg-help-form input,[data-theme="dark"] .mg-help-form select,[data-theme="dark"] .mg-help-form textarea,[data-theme="dark"] .mg-unlink-dialog textarea{background:#0b1c30;border-color:rgba(148,163,184,.22);color:#f1f5f9}
-[data-theme="dark"] .mg-danger-btn{background:rgba(127,29,29,.20);border-color:rgba(248,113,113,.24);color:#fecaca}
-@media(max-width:900px){.mg-account-grid{grid-template-columns:1fr}.mg-account-row__actions{justify-content:flex-start}}
+/* Secao Conta da Magalu no mesmo formato da secao Conta do Seller:
+   indicadores, barra de busca, tabela ou cards, pills e modal de acessos.
+   Usa os tokens canonicos --mg-ui-* (tema escuro herdado deles). */
+
+/* Indicadores */
+.mg-acct-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
+.mg-acct-stat { padding: 14px 16px; border: 1px solid var(--mg-ui-border); border-radius: 16px; background: var(--mg-ui-surface); box-shadow: var(--mg-ui-shadow); min-width: 0; }
+.mg-acct-stat span { display: block; color: var(--mg-ui-muted); font-size: 9px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.mg-acct-stat strong { display: block; margin-top: 8px; color: var(--mg-ui-title); font-size: 20px; font-weight: 800; line-height: 1.1; overflow-wrap: anywhere; }
+
+/* Barra de busca */
+.mg-acct-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 0 0 14px; flex-wrap: wrap; }
+.mg-acct-search { display: grid; gap: 6px; width: min(100%, 420px); }
+.mg-acct-search span { color: var(--mg-ui-muted); font-size: 9px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.mg-acct-search input { width: 100%; min-height: 38px; border: 1px solid var(--mg-ui-border); border-radius: 11px; background: var(--mg-ui-surface); color: var(--mg-ui-title); padding: 0 12px; font: inherit; font-size: 11px; outline: none; }
+.mg-acct-search input:focus { border-color: var(--mg-ui-primary); box-shadow: 0 0 0 3px var(--mg-ui-primary-soft); }
+.mg-acct-note { margin: 0; max-width: 560px; color: var(--mg-ui-muted); font-size: 10px; line-height: 1.5; }
+
+/* Pills */
+.mg-acct-pill { display: inline-flex; align-items: center; width: max-content; max-width: 100%; min-height: 22px; padding: 3px 9px; border: 1px solid var(--mg-ui-border); border-radius: 999px; background: var(--mg-ui-primary-soft); color: var(--mg-ui-primary-strong); font-size: 8px; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+.mg-acct-pill--primary { border-color: transparent; background: var(--mg-ui-primary); color: #fff; }
+.mg-acct-pill--ok { border-color: rgba(26,160,109,.24); background: rgba(26,160,109,.09); color: #13714d; }
+.mg-acct-pill--warn { border-color: rgba(215,138,24,.26); background: rgba(215,138,24,.09); color: #8e5a0b; }
+.mg-acct-pill--danger { border-color: rgba(214,69,69,.26); background: rgba(214,69,69,.08); color: #a83333; }
+.mg-acct-pill--muted { background: var(--mg-ui-surface-muted); color: var(--mg-ui-muted); }
+.mg-acct-pill--admin { border-color: rgba(124,58,237,.24); background: rgba(124,58,237,.09); color: #6d28d9; }
+.mg-acct-sub { display: block; margin-top: 4px; color: var(--mg-ui-muted); font-size: 9px; }
+.mg-acct-empty { padding: 26px 16px !important; color: var(--mg-ui-muted); font-size: 11px; text-align: center; }
+
+/* Contas vinculadas: grade de cards */
+.mg-acct-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.mg-acct-card { display: grid; gap: 12px; align-content: start; padding: 16px; border: 1px solid var(--mg-ui-border); border-radius: 16px; background: var(--mg-ui-surface); }
+.mg-acct-card[data-selected="true"] { border-color: var(--mg-ui-primary); box-shadow: 0 0 0 3px var(--mg-ui-primary-soft); }
+.mg-acct-card__head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.mg-acct-card__head strong { display: block; color: var(--mg-ui-title); font-size: 13px; overflow-wrap: anywhere; }
+.mg-acct-card__head small { display: block; margin-top: 2px; color: var(--mg-ui-muted); font: 10px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+.mg-acct-avatar { display: grid; place-items: center; flex: 0 0 auto; width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, var(--mg-ui-primary), var(--mg-ui-primary-strong)); color: #fff; font-size: 12px; font-weight: 850; }
+.mg-acct-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.mg-acct-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 12px; border-radius: 12px; background: var(--mg-ui-surface-muted); }
+.mg-acct-meta dt, .mg-acct-facts dt { color: var(--mg-ui-muted); font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.mg-acct-meta dd, .mg-acct-facts dd { margin: 3px 0 0; color: var(--mg-ui-title); font-size: 11px; font-weight: 700; overflow-wrap: anywhere; }
+.mg-acct-card__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Usuarios: tabela */
+.mg-acct-table-wrap { overflow: auto; border: 1px solid var(--mg-ui-border); border-radius: 14px; }
+.mg-acct-table { width: 100%; min-width: 760px; border-collapse: collapse; }
+.mg-acct-table th { padding: 11px 14px; border-bottom: 1px solid var(--mg-ui-border); background: var(--mg-ui-surface-muted); color: var(--mg-ui-muted); font-size: 9px; font-weight: 850; letter-spacing: .06em; text-align: left; text-transform: uppercase; }
+.mg-acct-table td { padding: 12px 14px; border-bottom: 1px solid var(--mg-ui-border); color: var(--mg-ui-title); font-size: 11px; vertical-align: middle; }
+.mg-acct-table tbody tr:last-child td { border-bottom: 0; }
+.mg-acct-user strong { display: block; color: var(--mg-ui-title); font-size: 12px; }
+.mg-acct-user span { color: var(--mg-ui-muted); font-size: 10px; }
+
+/* Plano e Ajuda: colunas de paineis */
+.mg-acct-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.mg-acct-columns--help { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: start; }
+.mg-acct-panel { display: grid; gap: 14px; align-content: start; }
+.mg-acct-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.mg-acct-facts--stacked { grid-template-columns: 1fr; }
+
+/* Modal "Acessos do usuario" */
+.mg-access-dialog__card { width: min(100%, 760px) !important; }
+.mg-access-subtitle { margin: 4px 0 0; color: var(--mg-ui-muted); font-size: 10px; }
+.mg-access-body { display: grid; gap: 12px; }
+.mg-access-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid var(--mg-ui-border); border-radius: 14px; background: var(--mg-ui-surface); }
+.mg-access-row strong { display: block; color: var(--mg-ui-title); font-size: 12px; }
+.mg-access-row p { margin: 3px 0 0; color: var(--mg-ui-muted); font-size: 10px; line-height: 1.45; }
+.mg-access-row--toggle { cursor: pointer; }
+.mg-access-row--toggle input { width: 18px; height: 18px; accent-color: var(--mg-ui-primary); }
+.mg-access-row--modules { grid-template-columns: 1fr; }
+.mg-access-modules { display: grid; gap: 12px; }
+.mg-access-group { display: grid; gap: 7px; }
+.mg-access-group h4 { margin: 0; color: var(--mg-ui-muted); font-size: 9px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.mg-access-module { display: grid; grid-template-columns: minmax(160px, 1fr) auto auto; align-items: center; gap: 14px; padding: 10px 12px; border: 1px solid var(--mg-ui-border); border-radius: 12px; background: var(--mg-ui-surface-muted); }
+.mg-access-module strong { display: block; color: var(--mg-ui-title); font-size: 11px; }
+.mg-access-module small { display: block; margin-top: 2px; color: var(--mg-ui-muted); font-size: 9px; }
+.mg-access-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--mg-ui-title); font-size: 10px; font-weight: 800; cursor: pointer; }
+.mg-access-toggle input { accent-color: var(--mg-ui-primary); }
+.mg-access-toggle:has(input:disabled) { opacity: .5; cursor: not-allowed; }
+
+/* Desvincular */
+.mg-unlink-body { display: grid; gap: 12px; }
+.mg-unlink-body p { margin: 0; }
+.mg-unlink-body > label { display: grid; gap: 6px; color: var(--mg-ui-title); font-weight: 800; }
+.mg-unlink-body textarea { width: 100%; border: 1px solid var(--mg-ui-border); border-radius: 11px; background: var(--mg-ui-surface); color: var(--mg-ui-title); padding: 10px 12px; font: inherit; resize: vertical; }
+.mg-confirm-unlink { grid-template-columns: auto 1fr !important; align-items: flex-start; font-weight: 700 !important; }
+.mg-confirm-unlink input { margin-top: 3px; }
+.mg-warning-callout { padding: 12px 14px; border: 1px solid rgba(215,138,24,.26); border-radius: 12px; background: rgba(215,138,24,.08); color: #8e5a0b; line-height: 1.5; }
+
+/* Botao de perigo (Desvincular) */
+.mg-danger-btn { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0 12px; border: 1px solid rgba(214,69,69,.32); border-radius: 9px; background: rgba(214,69,69,.06); color: #a83333; font: inherit; font-size: 9px; font-weight: 850; cursor: pointer; }
+.mg-danger-btn:hover { background: rgba(214,69,69,.12); }
+.mg-danger-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Formulario de ajuda */
+.mg-help-form { display: grid; gap: 14px; }
+.mg-help-form > label { display: grid; gap: 6px; color: var(--mg-ui-title); font-size: 11px; font-weight: 800; }
+.mg-help-form input, .mg-help-form select, .mg-help-form textarea { width: 100%; border: 1px solid var(--mg-ui-border); border-radius: 11px; background: var(--mg-ui-surface); color: var(--mg-ui-title); padding: 10px 12px; font: inherit; font-size: 11px; resize: vertical; }
+.mg-help-form fieldset { border: 1px solid var(--mg-ui-border); border-radius: 12px; padding: 12px; color: var(--mg-ui-title); font-size: 11px; }
+.mg-help-form legend { padding: 0 6px; font-weight: 800; }
+.mg-radio { display: inline-flex !important; align-items: center; gap: 8px; margin-right: 16px; font-weight: 700 !important; }
+.mg-radio input { width: auto !important; }
+.mg-help-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mg-form-feedback { color: var(--mg-ui-muted); font-size: 10px; }
+.mg-form-feedback[data-state="success"] { color: #15803d; }
+.mg-form-feedback[data-state="error"] { color: #b42318; }
+
+/* Tema escuro: so o que nao vem dos tokens */
+[data-theme="dark"] .mg-acct-pill--ok { color: #65d7a9; }
+[data-theme="dark"] .mg-acct-pill--warn, [data-theme="dark"] .mg-warning-callout { color: #fbd38d; }
+[data-theme="dark"] .mg-acct-pill--danger, [data-theme="dark"] .mg-danger-btn { color: #fca5a5; }
+[data-theme="dark"] .mg-acct-pill--admin { color: #c4b5fd; }
+
+@media (max-width: 1100px) {
+  .mg-acct-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mg-acct-columns, .mg-acct-columns--help { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .mg-acct-summary, .mg-acct-meta, .mg-acct-facts { grid-template-columns: 1fr; }
+  .mg-acct-grid { grid-template-columns: 1fr; }
+  .mg-access-module { grid-template-columns: 1fr auto auto; gap: 10px; }
+}
