@@ -201,7 +201,6 @@
 #mg-financial-margin-page .mg-cost-table-card .mg-table :is(th, td) { padding-inline: 10px; }
 #mg-financial-margin-page .mg-cost-table-card .mg-table td:nth-child(2) { min-width: 180px; }
 #mg-financial-margin-page .mg-cost-row-actions { display: flex; gap: 4px; flex-wrap: nowrap; }
-#mg-financial-margin-page .mg-cost-tax-note { display: block; margin-top: 3px; color: var(--mg-muted); font-size: 10px; white-space: nowrap; }
 #mg-financial-margin-page .mg-cost-row-actions button { padding: 0 8px !important; }
 #mg-financial-margin-page .mg-cost-status-pill { display: inline-flex; padding: 3px 9px; border-radius: 999px; background: var(--mg-surface-soft); color: var(--mg-muted); font-size: 10px; font-weight: 850; white-space: nowrap; }
 #mg-financial-margin-page .mg-cost-status-pill[data-tone="positive"] { background: color-mix(in srgb, var(--mg-success) 14%, transparent); color: var(--mg-success); }

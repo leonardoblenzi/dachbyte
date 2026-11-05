@@ -44,5 +44,6 @@ test("tela de custos oferece os status da Magalu e mantém a paginação dentro 
   assert.match(html, /id="mg-cost-clear"/);
   assert.match(css, /\.mg-cost-table-card \.mg-pagination \{\s*margin: 0 !important;\s*padding: 14px 20px !important;/);
   assert.match(js, /stock:\$\("mg-cost-stock-filter"\)\?\.value\|\|"",sales:\$\("mg-cost-sales-filter"\)\?\.value\|\|""/);
-  assert.match(js, /colspan="9"/);
+  assert.match(js, /colspan="10"/);
+  assert.doesNotMatch(js, /pct\(r\.tax_rate\)\}\$\{state\.accountTax>0/);
 });
