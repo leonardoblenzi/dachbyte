@@ -3881,12 +3881,15 @@ function ensureShopeeTrendsUi() {
 /* ---------------- Modal ---------------- */
 function openModal(title, html) {
   const modal = document.querySelector("#modal-overlay .modal");
+  const compact = String(html || "").includes("shopee-empty-state");
   if (modal) {
     modal.classList.toggle(
       "modal--wide",
       String(html || "").includes("promo-modal-shell"),
     );
+    modal.classList.toggle("modal--compact", compact);
   }
+  $("#modal-overlay").classList.toggle("modal-overlay--center", compact);
   $("#modal-title").textContent = title;
   $("#modal-body").innerHTML = html;
   $("#modal-overlay").style.display = "flex";
@@ -4891,6 +4894,37 @@ async function syncShopOrders() {
   if (!queued?.jobId) return queued || {};
   return waitForOrderSyncJob(queued.jobId);
 }
+// Conta sem loja: painel centralizado com o motivo e o caminho de volta.
+async function showNoShopState() {
+  let status = { paused: false, message: null };
+  try {
+    status = (await apiGet("/auth/connect-status")) || status;
+  } catch (_error) {}
+  const paused = status?.paused === true;
+  const message = paused
+    ? status.message
+    : "Conecte sua loja Shopee para acompanhar pedidos, produtos, anúncios e indicadores por aqui.";
+  openModal(
+    "Loja Shopee",
+    `<div class="shopee-empty-state">
+       <div class="shopee-empty-state__icon" aria-hidden="true">
+         <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1 13H7L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
+       </div>
+       <h3>Nenhuma loja Shopee conectada</h3>
+       <p>${escapeHtml(message)}</p>
+       <div class="shopee-empty-state__actions">
+         <a class="btn btn-ghost" href="/selecao-plataforma">Voltar aos módulos</a>
+         ${paused ? "" : '<button class="btn btn-primary" type="button" data-empty-connect>Conectar loja Shopee</button>'}
+       </div>
+     </div>`,
+  );
+  document.querySelector("[data-empty-connect]")?.addEventListener("click", async () => {
+    closeModal();
+    activateTab("auth");
+    document.getElementById("btn-auth-url")?.click();
+  });
+}
+
 async function ensureShopSelected() {
   if (!ME) {
     await loadMe();
@@ -4900,11 +4934,7 @@ async function ensureShopSelected() {
   const active = ME?.activeShopId ?? null;
 
   if (shops.length === 0) {
-    openModal(
-      "Conectar Shopee",
-      `<div class="muted">Nenhuma loja vinculada a esta conta ainda.</div>
-       <div class="muted" style="margin-top:10px;">Conecte sua Shopee na aba Autenticação.</div>`,
-    );
+    await showNoShopState();
     return;
   }
 

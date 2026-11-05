@@ -95,3 +95,26 @@ test("telas de conexao mostram a mensagem do servidor, nao o JSON cru", () => {
   assert.match(app, /preview\.textContent = apiErrorMessage\(e\)/);
   assert.match(app, /integracao de Ads: \$\{apiErrorMessage\(e\)\}/);
 });
+
+test("conta sem loja abre painel centralizado com o motivo e o botao Voltar", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "public", "app.js"), "utf8");
+  assert.match(app, /async function showNoShopState\(\)/);
+  assert.match(app, /apiGet\("\/auth\/connect-status"\)/);
+  assert.match(app, /href="\/selecao-plataforma">Voltar aos módulos/);
+  assert.match(app, /classList\.toggle\("modal-overlay--center", compact\)/);
+  const css = fs.readFileSync(path.join(__dirname, "..", "public", "styles.css"), "utf8");
+  assert.match(css, /\.modal-overlay\.modal-overlay--center\{align-items:center\}/);
+  const routes = fs.readFileSync(path.join(__dirname, "..", "src", "routes", "auth.routes.js"), "utf8");
+  assert.match(routes, /"\/auth\/connect-status"/);
+});
+
+test("status da conexao informa pausa e mensagem sem gerar link", async () => {
+  process.env.SHOPEE_SHOP_CONNECT_PAUSED = "true";
+  const { controller, issued } = loadController();
+  const res = response();
+  controller.connectStatus({}, res);
+  assert.equal(res.body.paused, true);
+  assert.match(res.body.message, /homologação/);
+  assert.equal(issued.length, 0);
+  delete process.env.SHOPEE_SHOP_CONNECT_PAUSED;
+});

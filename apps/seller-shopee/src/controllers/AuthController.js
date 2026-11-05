@@ -27,9 +27,18 @@ function shopConnectPaused() {
   return String(process.env.SHOPEE_SHOP_CONNECT_PAUSED || "").trim().toLowerCase() === "true";
 }
 
+function connectPausedMessage() {
+  return String(process.env.SHOPEE_SHOP_CONNECT_PAUSED_MESSAGE || "").trim() || DEFAULT_CONNECT_PAUSED_MESSAGE;
+}
+
 function sendConnectPaused(res) {
-  const message = String(process.env.SHOPEE_SHOP_CONNECT_PAUSED_MESSAGE || "").trim() || DEFAULT_CONNECT_PAUSED_MESSAGE;
-  return res.status(503).json({ error: "shopee_connect_paused", message });
+  return res.status(503).json({ error: "shopee_connect_paused", message: connectPausedMessage() });
+}
+
+// Estado da conexao de lojas para a interface (sem gerar link nem state).
+function connectStatus(_req, res) {
+  const paused = shopConnectPaused();
+  return res.json({ paused, message: paused ? connectPausedMessage() : null });
 }
 const ShopeeAuthService = require("../services/ShopeeAuthService");
 const ShopeeAdsAuthService = require("../services/ShopeeAdsAuthService");
@@ -412,6 +421,7 @@ async function refresh(req, res) {
 }
 
 module.exports = {
+  connectStatus,
   buildAuthUrl,
   getAuthUrl,
   getAdsAuthUrl,

@@ -18,6 +18,12 @@ router.get("/auth/trial/verify", asyncHandler(PublicTrialOAuthController.verify)
 router.post("/auth/trial/activate", asyncHandler(PublicTrialOAuthController.activate));
 
 router.get(
+  "/auth/connect-status",
+  sessionAuth,
+  requireAuth,
+  asyncHandler(AuthController.connectStatus)
+);
+router.get(
   "/auth/url",
   sessionAuth,
   requireAuth,
