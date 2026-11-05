@@ -1,4 +1,5 @@
 const express = require("express");
+const companyAccessGuards = require("../services/companyAccessService");
 const ValidarDimensoesController = require("../controllers/ValidarDimensoesController");
 const { createAuditAction } = require("../middleware/auditAction");
 const {
@@ -6,7 +7,23 @@ const {
   requireSingleMlb,
 } = require("../services/singleOperationGuardService");
 
+// Analise pura: nao preenche, nao sobrescreve e nao corrige automaticamente.
+// Qualquer sinal de escrita (ou modo desconhecido) exige "Editar".
+function isDimensionsAnalysisOnly(req) {
+  const body = req.body || {};
+  if (body.fill_dimensions || body.autofill_from_item || body.force_overwrite) return false;
+  const mode = String(body.mode ?? "analyze").trim().toLowerCase();
+  return mode === "" || mode === "analyze";
+}
+
 const router = express.Router();
+
+// Corrigir dimensoes no anuncio exige "Editar"; apenas analisar segue liberado.
+router.use(companyAccessGuards.requireEditForWrites("ml.operacao.validar_dimensoes", {
+  readOnlyPaths: ["/credits/quote", "/jobs/:job_id/cancel"],
+  isReadRequest: isDimensionsAnalysisOnly,
+}));
+
 
 router.post(
   "/analisar-item",

@@ -4,6 +4,7 @@ const router = express.Router();
 
 const RemoverPromocaoController = require("../controllers/RemoverPromocaoController");
 const { createAuditAction } = require("../middleware/auditAction");
+const companyAccess = require("../services/companyAccessService");
 const {
   guardSingleOperation,
   requireSingleMlb,
@@ -17,6 +18,7 @@ router.post(
       mlb_id: String(req.body?.mlb_id || "").trim().toUpperCase() || null,
     }),
   }),
+  companyAccess.requireEditForWrites("ml.promocoes.remover"),
   requireSingleMlb((req) => req.body?.mlb_id),
   guardSingleOperation("promotions.remove"),
   RemoverPromocaoController.removerPromocaoUnica,

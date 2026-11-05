@@ -10,10 +10,15 @@ test("calculator API routes use the same margem permission middleware as the pag
   const originalLoad = Module._load;
   Module._load = function mockCalculatorRouteDependencies(request, parent, isMain) {
     if (request === "express") return { Router: () => ({
+      use: (...args) => routes.push({ method: "use", args }),
       get: (...args) => routes.push({ method: "get", args }),
       post: (...args) => routes.push({ method: "post", args }),
     }) };
     if (request === "../services/companyAccessService") return {
+      requireEditForWrites(key) {
+        assert.equal(key, "ml.precificacao.margem");
+        return (_req, _res, next) => next?.();
+      },
       requireModuleAccess(key, options) {
         assert.equal(key, "ml.precificacao.margem");
         assert.deepEqual(options, { defaultAllowIfUnconfigured: true });

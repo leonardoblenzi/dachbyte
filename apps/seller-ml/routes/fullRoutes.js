@@ -1,10 +1,17 @@
 "use strict";
 
 const express = require("express");
+const companyAccessGuards = require("../services/companyAccessService");
 const FullService = require("../services/fullService");
 const { createAuditAction } = require("../middleware/auditAction");
 
 const router = express.Router();
+
+// Criar, editar e excluir planos do Full exige "Editar"; sincronizar e simular seguem liberados.
+router.use(companyAccessGuards.requireEditForWrites("ml.anuncios.full", {
+  readOnlyPaths: ["/sync", "/planner"],
+}));
+
 
 function sendError(res, error, fallback) {
   const status = Number(error?.statusCode || error?.status || 500);

@@ -1,6 +1,11 @@
 // routes/publicidadeRoutes.js
 const express = require("express");
+const companyAccessGuards = require("../services/companyAccessService");
 const router = express.Router();
+
+// Escritas em Product Ads exigem "Editar".
+router.use(companyAccessGuards.requireEditForWrites("ml.publicidade.product_ads"));
+
 
 const PublicidadeController = require("../controllers/PublicidadeController");
 

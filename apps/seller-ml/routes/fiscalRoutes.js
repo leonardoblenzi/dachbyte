@@ -1,9 +1,16 @@
 "use strict";
 
 const express = require("express");
+const companyAccessGuards = require("../services/companyAccessService");
 const FiscalController = require("../controllers/FiscalController");
 
 const router = express.Router();
+
+// Emitir nota fiscal exige "Editar" em Logistica de pedidos; relatorios seguem liberados.
+router.use(companyAccessGuards.requireEditForWrites("ml.pedidos.logistica", {
+  readOnlyPaths: ["/reports"],
+}));
+
 
 router.get("/dashboard", FiscalController.dashboard);
 router.get("/reconciliation", FiscalController.reconcilePeriod);

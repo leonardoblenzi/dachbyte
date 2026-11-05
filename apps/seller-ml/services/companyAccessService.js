@@ -257,6 +257,88 @@ function requireModuleAccess(moduleKey, options = {}) {
   };
 }
 
+const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Converte "/drafts/:id/credits/quote" em um teste exato do req.path.
+function compilePathPattern(pattern) {
+  const source = String(pattern || "/")
+    .split("/")
+    .map((segment) => (segment.startsWith(":") ? "[^/]+" : escapeRegExp(segment)))
+    .join("/");
+  const regex = new RegExp(`^${source}/?$`);
+  return (pathname) => regex.test(String(pathname || "/"));
+}
+
+// Exige "Editar" do modulo em toda chamada que altera dados (POST, PUT,
+// PATCH, DELETE). Consultas feitas via POST (cotacao, previa, analise,
+// calculo) ficam em readOnlyPaths ou isReadRequest e nao exigem edicao.
+// Usuarios sem nenhum modulo configurado seguem liberados, igual as paginas.
+function requireEditForWrites(moduleKey, options = {}) {
+  const readOnly = (options.readOnlyPaths || []).map(compilePathPattern);
+  const isReadRequest = typeof options.isReadRequest === "function" ? options.isReadRequest : null;
+  const overrides = (options.moduleByPath || []).map(([pattern, key]) => ({
+    matches: compilePathPattern(pattern),
+    key,
+  }));
+  const accessFactory = options.accessFactory || requireModuleAccess;
+  const defaultAllowIfUnconfigured = options.defaultAllowIfUnconfigured !== false;
+  const guards = new Map();
+  const guardFor = (key) => {
+    if (!guards.has(key)) {
+      guards.set(key, accessFactory(key, { edit: true, defaultAllowIfUnconfigured }));
+    }
+    return guards.get(key);
+  };
+
+  return (req, res, next) => {
+    if (!WRITE_METHODS.has(String(req.method || "").toUpperCase())) return next();
+    const pathname = String(req.path || "/");
+    if (readOnly.some((matches) => matches(pathname))) return next();
+    if (isReadRequest && isReadRequest(req) === true) return next();
+    const key = overrides.find((entry) => entry.matches(pathname))?.key || moduleKey;
+    return guardFor(key)(req, res, next);
+  };
+}
+
+// Usuario somente leitura: tem modulos configurados e nenhum com "Editar".
+async function isReadOnlyCompanyUser(userId, empresaId = null) {
+  if (!userId) return false;
+  const params = [userId];
+  let companyFilter = "";
+  if (Number.isFinite(Number(empresaId)) && Number(empresaId) > 0) {
+    params.push(Number(empresaId));
+    companyFilter = " and empresa_id = $2";
+  }
+  const { rows } = await db.query(
+    `select count(*)::int as total, coalesce(bool_or(pode_editar), false) as can_edit
+       from empresa_usuario_modulos
+      where usuario_id = $1${companyFilter}`,
+    params,
+  );
+  const row = rows[0] || {};
+  return Number(row.total) > 0 && row.can_edit !== true;
+}
+
+// Bloqueia operacoes fora do catalogo de modulos (ex.: vincular conta do
+// Mercado Livre) para usuarios somente leitura.
+function requireWriterUser(options = {}) {
+  const readOnlyCheck = options.isReadOnlyCompanyUser || isReadOnlyCompanyUser;
+  return async (req, res, next) => {
+    try {
+      if (await isAdminUserFresh(req)) return next();
+      const readOnly = await readOnlyCheck(getUserId(req), res.locals?.empresaId);
+      if (!readOnly) return next();
+      return deny(req, res, "Usuario somente leitura nao pode executar esta operacao.");
+    } catch (error) {
+      return next(error);
+    }
+  };
+}
+
 async function listCompanyUsers(empresaId) {
   const { rows } = await db.query(
     `select
@@ -464,6 +546,9 @@ module.exports = {
   isMasterUser,
   requireNivelAdmin,
   requireModuleAccess,
+  requireEditForWrites,
+  requireWriterUser,
+  isReadOnlyCompanyUser,
   currentDbUser,
   isAdminUserFresh,
   userCompanyContext,

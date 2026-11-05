@@ -1,9 +1,16 @@
 "use strict";
 
 const express = require("express");
+const companyAccessGuards = require("../services/companyAccessService");
 const ClonarAnuncioController = require("../controllers/ClonarAnuncioController");
 
 const router = express.Router();
+
+// Criar rascunho e publicar anuncio exige "Editar"; a previa segue liberada.
+router.use(companyAccessGuards.requireEditForWrites("ml.anuncios.clonar", {
+  readOnlyPaths: ["/preview", "/drafts/:id/credits/quote"],
+}));
+
 
 router.use((_req, res, next) => {
   res.set("Cache-Control", "no-store");

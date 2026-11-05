@@ -7,8 +7,21 @@ const {
   guardSingleOperation,
   requireSingleMlb,
 } = require("../services/singleOperationGuardService");
+const companyAccessGuards = require("../services/companyAccessService");
 
 const router = express.Router();
+
+// Este router fica na raiz, entao a trava vale so para os caminhos que
+// alteram o prazo. Consultar e cotar seguem liberados.
+router.use(
+  [
+    "/anuncio/prazo-producao",
+    "/anuncios/prazo-producao-lote",
+    "/anuncios/prazo-dias-lote",
+    "/anuncios/jobs-prazo",
+  ],
+  companyAccessGuards.requireEditForWrites("ml.operacao.prazo"),
+);
 
 router.post(
   "/anuncios/prazo-producao/consultar",

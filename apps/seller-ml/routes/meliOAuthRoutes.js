@@ -2,6 +2,7 @@
 "use strict";
 
 const express = require("express");
+const companyAccessGuards = require("../services/companyAccessService");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const db = require("../db/db");
@@ -1123,6 +1124,8 @@ async function handleTrialOAuthCallback(req, res, { code, state, redirectUri }) 
 router.post(
   "/oauth/start",
   oauthRateLimiter,
+  // Usuario somente leitura nao vincula novas contas a empresa.
+  companyAccessGuards.requireWriterUser(),
   createAuditAction({
     evento: "meli_oauth_started",
     metadata: (req) => ({

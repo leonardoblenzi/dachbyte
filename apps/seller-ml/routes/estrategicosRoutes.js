@@ -1,10 +1,22 @@
 "use strict";
 
 const express = require("express");
+const companyAccessGuards = require("../services/companyAccessService");
 const Controller = require("../controllers/EstrategicosController");
 const { createAuditAction } = require("../middleware/auditAction");
 
 const router = express.Router();
+
+// Escritas em estrategicos exigem "Editar"; consultas e atualizacao de status seguem liberadas.
+router.use(companyAccessGuards.requireEditForWrites("ml.anuncios.estrategicos", {
+  readOnlyPaths: [
+    "/lookup",
+    "/trello/cards-preview",
+    "/watchlist/refresh-listing-status",
+    "/tasks/refresh-listing-status",
+  ],
+}));
+
 
 router.get("/", Controller.list);
 router.get("/groups", Controller.listGroups);

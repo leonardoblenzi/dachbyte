@@ -1,12 +1,27 @@
 "use strict";
 
 const express = require("express");
+const companyAccessGuards = require("../services/companyAccessService");
 const Controller = require("../controllers/EstoqueAlertaController");
 const UpdatePreviewController = require("../controllers/EstoqueAtualizacaoPreviewController");
 const UpdateController = require("../controllers/EstoqueAtualizacaoController");
 const { createAuditAction } = require("../middleware/auditAction");
 
 const router = express.Router();
+
+// Atualizar estoque e marcar compras exige "Editar"; analises e previas seguem liberadas.
+router.use(companyAccessGuards.requireEditForWrites("ml.anuncios.estoque", {
+  readOnlyPaths: [
+    "/alerta/credits/quote",
+    "/alerta/analisar",
+    "/alerta/analisar-job",
+    "/alerta/jobs/:id/cancel",
+    "/atualizacao/carregar",
+    "/atualizacao/preview",
+    "/atualizacao/credits/quote",
+  ],
+}));
+
 
 router.get("/alerta", Controller.list);
 router.get("/alerta/risk-kpi", Controller.riskKpi);

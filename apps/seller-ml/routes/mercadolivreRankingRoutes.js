@@ -1,6 +1,7 @@
 "use strict";
 
 const express = require("express");
+const companyAccessGuards = require("../services/companyAccessService");
 const db = require("../db/db");
 const TokenService = require("../services/tokenService");
 const { decryptToken } = require("../services/tokenCrypto");
@@ -13,6 +14,10 @@ const {
 } = require("../services/companyAccessService");
 
 const router = express.Router();
+
+// Alterar a configuracao do ranking exige "Editar".
+router.use(companyAccessGuards.requireEditForWrites("ml.anuncios.ranking"));
+
 
 const ML_API = "https://api.mercadolibre.com";
 

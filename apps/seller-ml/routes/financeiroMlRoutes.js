@@ -1,11 +1,22 @@
 "use strict";
 
 const express = require("express");
+const companyAccessGuards = require("../services/companyAccessService");
 const FinanceiroMlController = require("../controllers/FinanceiroMlController");
 const FinanceiroMlCalculatorController = require("../controllers/FinanceiroMlCalculatorController");
 const companyAccess = require("../services/companyAccessService");
 
 const router = express.Router();
+
+// Salvar custos, impostos e importacoes exige "Editar"; calculadora e cotacao seguem liberadas.
+router.use(companyAccessGuards.requireEditForWrites("ml.precificacao.margem", {
+  readOnlyPaths: [
+    "/costs/sync/credits/quote",
+    "/calculator/calculate",
+    "/calculator/shipping-quote",
+  ],
+}));
+
 
 router.get("/costs", FinanceiroMlController.listCosts);
 router.get("/costs/export", FinanceiroMlController.exportCosts);

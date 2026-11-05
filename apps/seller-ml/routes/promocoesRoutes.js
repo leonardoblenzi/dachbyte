@@ -7,6 +7,20 @@ const { itemsBulkPath } = require("../services/meliBulk");
 const { getSharedRedis } = require("../lib/redisClient");
 const multer = require("multer");
 const { createAuditAction } = require("../middleware/auditAction");
+const companyAccess = require("../services/companyAccessService");
+
+// Caminhos relativos a /api/promocoes que usam POST apenas para consultar.
+const PROMOCOES_READ_ONLY_POSTS = [
+  "/promotions/:promotionId/export-ml-excel",
+  "/promotions/:promotionId/fill-ml-template",
+  "/bulk/prepare",
+  "/intelligence/smart/analyze",
+  "/intelligence/smart/credits/quote",
+  "/jobs/remove/credits/quote",
+  "/selection/list-validation-job",
+  "/selection/prepare",
+  "/credits/quote",
+];
 const {
   getRequestIp,
   getRequestUserAgent,
@@ -7194,6 +7208,16 @@ core.post(
 
 // ---- Montagem do router com aliases funcionais (shim)
 const router = express.Router();
+
+// Escritas em promocoes exigem "Editar" (criar ou remover). Consultas via
+// POST (cotacao, analise, preparacao de selecao, exportacao) seguem liberadas.
+router.use(
+  "/api/promocoes",
+  companyAccess.requireEditForWrites("ml.promocoes.criar", {
+    readOnlyPaths: PROMOCOES_READ_ONLY_POSTS,
+    moduleByPath: [["/jobs/remove", "ml.promocoes.remover"]],
+  }),
+);
 
 // Mantém as rotas com prefixo já definido dentro do "core"
 router.use(core);
