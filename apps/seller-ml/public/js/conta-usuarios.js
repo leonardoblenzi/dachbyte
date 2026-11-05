@@ -232,7 +232,9 @@
               ${
                 admin
                   ? '<span class="au-pill au-pill--admin">Acesso completo</span>'
-                  : `<span class="au-pill au-pill--muted">${moduleCount} modulo(s)</span>`
+                  : !(user.modulos || []).length
+                    ? '<span class="au-pill au-pill--ok">Acesso completo</span>'
+                    : `<span class="au-pill au-pill--muted">${moduleCount} modulo(s)</span>`
               }
             </td>
             <td>
@@ -274,9 +276,6 @@
 
   function renderEditorOptions(user) {
     const selectedSetores = new Set(user.setores || []);
-    const selectedModules = new Map(
-      (user.modulos || []).map((modulo) => [modulo.modulo_key, modulo]),
-    );
 
     els.sectorOptions.innerHTML = state.metadata.setores
       .map((setor) => `
@@ -287,6 +286,17 @@
       `)
       .join("");
 
+    els.fullAccess.checked = !(user.modulos || []).length;
+    renderModuleOptions(user, els.fullAccess.checked);
+  }
+
+  // fullAccess: todos marcados e travados. Ao restringir quem tinha acesso
+  // completo, comeca com tudo marcado (o acesso atual).
+  function renderModuleOptions(user, fullAccess) {
+    const selectedModules = new Map(
+      (user.modulos || []).map((modulo) => [modulo.modulo_key, modulo]),
+    );
+    const startFromAll = fullAccess || !(user.modulos || []).length;
     const groups = groupedModules();
     els.moduleOptions.innerHTML = Object.entries(groups)
       .map(([group, modules]) => `
@@ -295,8 +305,8 @@
           ${modules
             .map((modulo) => {
               const current = selectedModules.get(modulo.key) || {};
-              const access = current.pode_acessar === true;
-              const edit = current.pode_editar === true;
+              const access = startFromAll || current.pode_acessar === true;
+              const edit = startFromAll || current.pode_editar === true;
               return `
                 <div class="au-module-row" data-module-key="${escapeHtml(modulo.key)}">
                   <div>
@@ -304,11 +314,11 @@
                     <small>${escapeHtml(modulo.path || modulo.key)}</small>
                   </div>
                   <label class="au-module-toggle">
-                    <input type="checkbox" data-module-access value="${escapeHtml(modulo.key)}" ${access ? "checked" : ""} />
+                    <input type="checkbox" data-module-access value="${escapeHtml(modulo.key)}" ${access ? "checked" : ""} ${fullAccess ? "disabled" : ""} />
                     Acessar
                   </label>
                   <label class="au-module-toggle">
-                    <input type="checkbox" data-module-edit value="${escapeHtml(modulo.key)}" ${edit ? "checked" : ""} ${access ? "" : "disabled"} />
+                    <input type="checkbox" data-module-edit value="${escapeHtml(modulo.key)}" ${edit ? "checked" : ""} ${access && !fullAccess ? "" : "disabled"} />
                     Editar
                   </label>
                 </div>
@@ -349,11 +359,17 @@
         pode_acessar: access,
         pode_editar: access && edit,
       };
-    }).filter((modulo) => modulo.pode_acessar);
+    });
 
+    // Acesso completo apaga as permissoes; restrito envia todos os modulos,
+    // inclusive os desmarcados, para "nenhum modulo" valer como sem acesso.
+    if (els.fullAccess?.checked) {
+      return { papel: els.role.value || "operador", setores, acesso_completo: true, modulos: [] };
+    }
     return {
       papel: els.role.value || "operador",
       setores,
+      acesso_completo: false,
       modulos,
     };
   }
@@ -577,6 +593,9 @@
       editInput.disabled = !accessInput.checked;
       if (!accessInput.checked) editInput.checked = false;
     });
+    els.fullAccess?.addEventListener("change", () => {
+      if (state.editing) renderModuleOptions(state.editing, els.fullAccess.checked);
+    });
     els.save.addEventListener("click", saveEditor);
     els.createSector?.addEventListener("click", createSector);
     els.cancelSectorEdit?.addEventListener("click", resetSectorForm);
@@ -613,6 +632,7 @@
       role: $("edit-role"),
       sectorOptions: $("sector-options"),
       moduleOptions: $("module-options"),
+      fullAccess: $("module-full-access"),
       moduleHelp: $("module-help"),
       companySectorList: $("company-sector-list"),
       newSectorName: $("new-sector-name"),

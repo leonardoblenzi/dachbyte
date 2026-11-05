@@ -404,6 +404,7 @@ router.put("/:usuarioId/access", async (req, res, next) => {
       papel: req.body?.papel,
       setores: req.body?.setores,
       modulos: req.body?.modulos,
+      acessoCompleto: req.body?.acesso_completo === true,
     });
     res.json({ ok: true, ...result });
   } catch (error) {

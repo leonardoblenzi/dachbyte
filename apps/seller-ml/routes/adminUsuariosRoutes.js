@@ -445,6 +445,7 @@ router.put(
         papel: req.body?.papel,
         setores: req.body?.setores,
         modulos: req.body?.modulos,
+        acessoCompleto: req.body?.acesso_completo === true,
       });
 
       return res.json({ ok: true, ...result });

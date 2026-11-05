@@ -234,3 +234,36 @@ test("todo modulo com escrita via API instala a trava de edicao", () => {
     assert.ok(guardAt > 0 && guardAt < firstWrite, `${file}: trava antes da primeira rota de escrita`);
   }
 });
+
+test("salvar acessos restritos grava todo o catalogo; nenhum modulo marcado vira sem acesso", () => {
+  const { resolveModuleRows, MODULES } = loadAccessService(readOnlyState());
+  assert.deepEqual(resolveModuleRows([], true), [], "acesso completo apaga as permissoes");
+  assert.deepEqual(resolveModuleRows([], false), [], "lista vazia sem flag mantem o comportamento antigo");
+  assert.deepEqual(resolveModuleRows(undefined, false), []);
+
+  const partial = resolveModuleRows([{ modulo_key: "ml.promocoes.criar", pode_acessar: true, pode_editar: false }], false);
+  assert.equal(partial.length, MODULES.length);
+  assert.deepEqual(partial.find((row) => row.modulo_key === "ml.promocoes.criar"), { modulo_key: "ml.promocoes.criar", pode_acessar: true, pode_editar: false });
+  assert.ok(partial.filter((row) => row.modulo_key !== "ml.promocoes.criar").every((row) => !row.pode_acessar && !row.pode_editar));
+
+  const none = resolveModuleRows(MODULES.map((item) => ({ modulo_key: item.key, pode_acessar: false, pode_editar: false })), false);
+  assert.equal(none.length, MODULES.length);
+  assert.ok(none.every((row) => row.pode_acessar === false), "tudo desmarcado = sem acesso, nao acesso completo");
+});
+
+test("telas de usuarios enviam acesso completo explicito e todos os modulos quando restrito", () => {
+  const read = (...parts) => fs.readFileSync(path.join(__dirname, "..", ...parts), "utf8");
+  const conta = read("public", "js", "conta-usuarios.js");
+  assert.match(conta, /acesso_completo: true, modulos: \[\]/);
+  assert.match(conta, /acesso_completo: false,\s*modulos,/);
+  assert.doesNotMatch(conta, /\.filter\(\(modulo\) => modulo\.pode_acessar\);/, "restrito nao pode descartar os modulos desmarcados");
+  assert.match(read("views", "conta-usuarios.html"), /id="module-full-access"/);
+
+  const master = read("public", "js", "admin-usuarios.js");
+  assert.match(master, /moduleRows\(\)\.map\(\(module\) => \(\{ modulo_key: module\.key, pode_acessar: false, pode_editar: false \}\)\)/, "Remover acessos grava sem acesso");
+  assert.match(master, /acesso_completo: true/);
+
+  for (const route of ["accountUsersRoutes.js", "adminUsuariosRoutes.js"]) {
+    assert.match(read("routes", route), /acessoCompleto: req\.body\?\.acesso_completo === true/, route);
+  }
+});

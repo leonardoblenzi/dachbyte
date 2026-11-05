@@ -463,6 +463,7 @@ function withBase(path) {
       return {
         papel: accessRole.value || "operador",
         setores,
+        acesso_completo: true,
         modulos: [],
       };
     }
@@ -489,11 +490,19 @@ function withBase(path) {
         });
       });
 
-    const modulos = [...moduleMap.values()].filter((item) => item.pode_acessar);
+    const modulos = [...moduleMap.values()];
+    // Quem nao tinha permissoes (acesso completo) e continua sem nenhum
+    // modulo marcado segue com acesso completo. Nos demais casos o envio
+    // traz todos os modulos, e desmarcado passa a valer como sem acesso.
+    const hadRows = (currentVinculo()?.modulos || []).length > 0;
+    if (!hadRows && !modulos.some((item) => item.pode_acessar)) {
+      return { papel: accessRole.value || "operador", setores, acesso_completo: true, modulos: [] };
+    }
 
     return {
       papel: accessRole.value || "operador",
       setores,
+      acesso_completo: false,
       modulos,
     };
   }
@@ -508,8 +517,15 @@ function withBase(path) {
     }
 
     try {
+      // "Remover acessos" grava todos os modulos sem acesso (antes, a lista
+      // vazia liberava acesso completo, o contrario do botao).
       const payload = clear
-        ? { papel: accessRole.value || "operador", setores: [], modulos: [] }
+        ? {
+          papel: accessRole.value || "operador",
+          setores: [],
+          acesso_completo: false,
+          modulos: moduleRows().map((module) => ({ modulo_key: module.key, pode_acessar: false, pode_editar: false })),
+        }
         : collectAccessPayload();
       await api(`/api/admin/usuarios/${editingId}/access-controls/${selectedAccessEmpresaId}`, {
         method: "PUT",

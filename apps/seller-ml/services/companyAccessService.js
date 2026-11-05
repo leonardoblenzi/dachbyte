@@ -387,14 +387,34 @@ async function listCompanyUsers(empresaId) {
   return rows;
 }
 
-async function updateCompanyUserAccess({ empresaId, usuarioId, papel, setores = [], modulos = [] } = {}) {
+// Acesso restrito grava TODO o catalogo (ausente = sem acesso). Assim
+// desmarcar todos os modulos nunca vira acesso completo por engano.
+function completeModuleRows(values = []) {
+  const provided = new Map(normalizeModules(values).map((row) => [row.modulo_key, row]));
+  return MODULES.map((item) => provided.get(item.key) || {
+    modulo_key: item.key,
+    pode_acessar: false,
+    pode_editar: false,
+  });
+}
+
+// acessoCompleto=true apaga as permissoes (acesso completo). Lista com
+// modulos = acesso restrito. Lista vazia sem flag mantem o comportamento
+// antigo (acesso completo) para telas abertas com o JavaScript anterior.
+function resolveModuleRows(modulos, acessoCompleto) {
+  if (acessoCompleto === true) return [];
+  if (!Array.isArray(modulos) || modulos.length === 0) return [];
+  return completeModuleRows(modulos);
+}
+
+async function updateCompanyUserAccess({ empresaId, usuarioId, papel, setores = [], modulos = [], acessoCompleto = false } = {}) {
   const targetId = Number(usuarioId);
   if (!Number.isFinite(targetId) || targetId <= 0) throw Object.assign(new Error("Usuario invalido."), { status: 400 });
   const role = normalizeRole(papel);
   const companySectors = await listCompanySectors(empresaId);
   const allowedSectorKeys = new Set(companySectors.map((item) => item.key));
   const sectorRows = normalizeSectors(setores, allowedSectorKeys);
-  const moduleRows = normalizeModules(modulos);
+  const moduleRows = resolveModuleRows(modulos, acessoCompleto);
 
   return db.withClient(async (client) => {
     await client.query("begin");
@@ -555,4 +575,5 @@ module.exports = {
   userCompanyContext,
   listCompanyUsers,
   updateCompanyUserAccess,
+  resolveModuleRows,
 };

@@ -983,3 +983,14 @@ body.theme-dark.account-app .au-pill--muted{
   background:rgba(51,65,85,.72);
   color:#cbd5e1;
 }
+
+/* Acesso completo no modal de acessos (sem restricoes por modulo). */
+.au-full-access{
+  margin:0 0 12px;
+}
+.au-full-access strong{
+  color:#172033;
+}
+body.theme-dark.account-app .au-full-access strong{
+  color:#e2e8f0;
+}
