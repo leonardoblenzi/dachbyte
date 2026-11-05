@@ -36,19 +36,42 @@
     button,input,select{font:inherit}
     a{color:inherit;text-decoration:none}
     [hidden]{display:none!important}
-    .app{min-height:100vh;display:grid;grid-template-columns:238px minmax(0,1fr)}
-    .sidebar{position:sticky;top:0;height:100vh;border-right:1px solid var(--line);background:var(--sidebar);padding:22px 16px 18px;display:flex;flex-direction:column;z-index:20}
-    .brand{padding:3px 10px 24px}
-    .brand__name{display:block;font-size:1.18rem;font-weight:800;letter-spacing:.08em}
-    .brand__line{display:block;color:var(--orange);font-family:"Share Tech Mono",monospace;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;margin-top:3px}
-    .nav{display:grid;gap:5px}
-    .nav__item{appearance:none;border:1px solid transparent;background:transparent;color:#9ca5b2;padding:11px 12px;border-radius:9px;text-align:left;font-weight:700;cursor:pointer;transition:.18s ease;display:flex;align-items:center;gap:10px}
-    .nav__item:hover{background:#121720;color:var(--text)}
-    .nav__item.is-active{background:#181e27;border-color:#2b3441;color:#fff}
-    .nav__dot{width:7px;height:7px;border-radius:2px;border:1px solid #596474;background:#202733}
-    .nav__item.is-active .nav__dot{background:var(--orange);border-color:var(--orange)}
-    .sidebar__bottom{margin-top:auto;border-top:1px solid var(--line);padding:16px 10px 0;display:grid;gap:8px}
-    .side-link{appearance:none;border:0;background:transparent;color:var(--muted);text-align:left;padding:5px 0;cursor:pointer;font-size:.8rem}
+    .app{min-height:100vh;display:grid;grid-template-columns:262px minmax(0,1fr);transition:grid-template-columns .2s ease}
+    .sidebar{position:sticky;top:0;height:100vh;border-right:1px solid var(--line);background:var(--sidebar);padding:14px 12px 16px;display:flex;flex-direction:column;gap:12px;z-index:30;overflow-y:auto}
+    .sidebar__top{display:flex;justify-content:flex-end}
+    .sidebar-toggle,.menu-toggle{appearance:none;width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--muted);display:grid;place-items:center;cursor:pointer;transition:.18s ease}
+    .sidebar-toggle:hover,.menu-toggle:hover{color:var(--text);border-color:var(--line-strong)}
+    .sidebar-toggle svg{transition:transform .2s ease}
+    .brand{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+    .brand__mark{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:0 0 auto;background:linear-gradient(135deg,var(--orange),var(--orange-2));color:#16100a;font-weight:800;font-size:1.15rem}
+    .brand__copy{min-width:0}
+    .brand__name{display:block;font-size:1rem;font-weight:800;letter-spacing:.06em}
+    .brand__line{display:block;color:var(--orange);font-family:"Share Tech Mono",monospace;font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;margin-top:3px}
+    .nav-label{color:var(--muted-2);font:700 .64rem "Share Tech Mono",monospace;letter-spacing:.18em;text-transform:uppercase;padding:4px 4px 0}
+    .nav{display:grid;gap:8px}
+    .nav__item{appearance:none;width:100%;border:1px solid var(--line);background:var(--panel);color:var(--text);padding:9px 10px;border-radius:13px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:11px;transition:.18s ease}
+    .nav__item:hover{border-color:var(--line-strong);background:var(--panel-2)}
+    .nav__item.is-active{border-color:rgba(255,138,61,.55);background:linear-gradient(135deg,rgba(255,138,61,.14),rgba(255,138,61,.03));box-shadow:inset 3px 0 0 var(--orange)}
+    .nav__icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:0 0 auto;background:var(--panel-3);border:1px solid var(--line-strong);color:var(--muted)}
+    .nav__item:hover .nav__icon{color:var(--text)}
+    .nav__item.is-active .nav__icon{color:var(--orange);border-color:rgba(255,138,61,.5);background:rgba(255,138,61,.1)}
+    .nav__copy{display:grid;min-width:0}
+    .nav__copy strong{font-size:.86rem;font-weight:700}
+    .nav__copy small{color:var(--muted);font-size:.68rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sidebar__bottom{margin-top:auto;border-top:1px solid var(--line);padding-top:12px;display:grid;gap:4px}
+    .side-link{appearance:none;border:1px solid transparent;background:transparent;color:var(--muted);display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;cursor:pointer;font-size:.8rem;font-weight:700;text-align:left}
+    .side-link:hover{background:var(--panel);color:var(--text)}
+    .menu-toggle{display:none}
+    .sidebar-backdrop{display:none}
+    @media(min-width:761px){
+      .app.is-collapsed{grid-template-columns:86px minmax(0,1fr)}
+      .app.is-collapsed .sidebar__top{justify-content:center}
+      .app.is-collapsed .sidebar-toggle svg{transform:rotate(180deg)}
+      .app.is-collapsed .brand{justify-content:center;padding:10px}
+      .app.is-collapsed .brand__copy,.app.is-collapsed .nav-label,.app.is-collapsed .nav__copy,.app.is-collapsed .side-link span{display:none}
+      .app.is-collapsed .nav__item{justify-content:center;padding:9px 6px}
+      .app.is-collapsed .side-link{justify-content:center;padding:9px}
+    }
     .main{min-width:0}
     .topbar{height:72px;border-bottom:1px solid var(--line);background:rgba(9,11,16,.94);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 72px 0 28px;position:sticky;top:0;z-index:15}
     .tenant strong{font-size:.95rem}.tenant small{display:block;color:var(--muted);font-size:.7rem;margin-top:3px;font-family:"Share Tech Mono",monospace}
@@ -192,15 +215,17 @@
     .purchase-summary strong{display:block}.purchase-summary small{display:block;color:var(--muted);margin-top:5px;line-height:1.5}
     .purchase-price{font:700 1.45rem "Rajdhani",sans-serif;margin-top:8px}
     @media(max-width:1120px){
-      .app{grid-template-columns:82px minmax(0,1fr)}
-      .brand__name{font-size:0}.brand__name::after{content:"D";font-size:1.4rem}.brand__line{display:none}
-      .nav__item{flex-direction:column;justify-content:center;gap:5px;font-size:.6rem;letter-spacing:.01em;padding:9px 3px;text-align:center}.nav__dot{width:10px;height:10px}.sidebar__bottom{display:none}
       .modules-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .summary{grid-template-columns:repeat(3,minmax(0,1fr))}
     }
     @media(max-width:760px){
-      .app{display:block}.sidebar{position:sticky;top:0;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:7px;display:block}.brand,.sidebar__bottom{display:none}
-      .nav{grid-template-columns:repeat(5,1fr)}.nav__item{padding:10px 5px}.topbar{top:62px;height:62px;padding:0 60px 0 14px}.user-menu-btn strong,.user-menu-btn small{display:none!important}.content{padding:20px 13px 42px}
+      .app{display:block}
+      .sidebar{position:fixed;left:0;top:0;bottom:0;width:min(290px,86vw);height:100%;transform:translateX(-104%);transition:transform .22s ease;box-shadow:24px 0 60px rgba(0,0,0,.45);z-index:60}
+      .app.is-menu-open .sidebar{transform:none}
+      .sidebar-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(2px);z-index:55}
+      .app.is-menu-open .sidebar-backdrop{display:block}
+      .sidebar__top{display:none}.menu-toggle{display:grid;flex:0 0 auto}.topbar .tenant{flex:1;min-width:0}.topbar .tenant strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .topbar{top:0;height:62px;padding:0 60px 0 12px;gap:10px}.user-menu-btn strong,.user-menu-btn small{display:none!important}.content{padding:20px 13px 42px}
       .modules-grid,.alerts,.company-grid{grid-template-columns:1fr}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}
       .plan-row{grid-template-columns:28px 1fr 1fr}.plan-row>*:nth-child(n+4){grid-column:auto}.plan-row .plan-action{grid-column:2/-1}
       .form-grid{grid-template-columns:1fr}.field--wide{grid-column:auto}
@@ -210,26 +235,32 @@
 </head>
 <body>
   <div class="app">
-    <aside class="sidebar">
-      <a class="brand" href="/selecao-plataforma">
-        <span class="brand__name">DACHBYTE</span>
-        <span class="brand__line">Seller</span>
+    <aside class="sidebar" id="portal-sidebar" aria-label="Menu do portal">
+      <div class="sidebar__top">
+        <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Recolher menu" aria-expanded="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+      </div>
+      <a class="brand" href="/selecao-plataforma" title="DACHBYTE Seller">
+        <span class="brand__mark">D</span>
+        <span class="brand__copy"><span class="brand__name">DACHBYTE</span><span class="brand__line">Seller</span></span>
       </a>
+      <div class="nav-label">Navegação</div>
       <nav class="nav" aria-label="Navegação do portal">
-        <button class="nav__item is-active" type="button" data-view-target="home"><span class="nav__dot"></span>Início</button>
-        <button class="nav__item" type="button" data-view-target="modules"><span class="nav__dot"></span>Módulos</button>
-        <button class="nav__item" type="button" data-view-target="accounts"><span class="nav__dot"></span>Contas</button>
-        <button class="nav__item" type="button" data-view-target="plans"><span class="nav__dot"></span>Planos</button>
-        <button class="nav__item" type="button" data-view-target="company"><span class="nav__dot"></span>Empresa</button>
+        <button class="nav__item is-active" type="button" data-view-target="home" title="Início"><span class="nav__icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg></span><span class="nav__copy"><strong>Início</strong><small>Visão geral do workspace</small></span></button>
+        <button class="nav__item" type="button" data-view-target="modules" title="Módulos"><span class="nav__icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></span><span class="nav__copy"><strong>Módulos</strong><small>Produtos e contratações</small></span></button>
+        <button class="nav__item" type="button" data-view-target="accounts" title="Contas"><span class="nav__icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg></span><span class="nav__copy"><strong>Contas</strong><small>Contas vinculadas</small></span></button>
+        <button class="nav__item" type="button" data-view-target="plans" title="Planos"><span class="nav__icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span><span class="nav__copy"><strong>Planos</strong><small>Planos e cobrança</small></span></button>
+        <button class="nav__item" type="button" data-view-target="company" title="Empresa"><span class="nav__icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V6l7-2v16"/><path d="M11 9h7a2 2 0 0 1 2 2v9"/><path d="M7 9h1M7 13h1M7 17h1M14 13h2M14 17h2"/><path d="M2.5 20h19"/></svg></span><span class="nav__copy"><strong>Empresa</strong><small>Dados e faturas</small></span></button>
       </nav>
       <div class="sidebar__bottom">
-        <button class="side-link" id="support-button" type="button">Suporte</button>
-        <button class="side-link" id="logout-button" type="button">Sair</button>
+        <button class="side-link" id="support-button" type="button" title="Suporte"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2-2.4 3.5"/><path d="M12 17h.01"/></svg><span>Suporte</span></button>
+        <button class="side-link" id="logout-button" type="button" title="Sair"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 16l-4-4 4-4"/><path d="M5 12h10"/></svg><span>Sair</span></button>
       </div>
     </aside>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
     <main class="main">
       <header class="topbar">
+        <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Abrir menu" aria-controls="portal-sidebar" aria-expanded="false"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
         <div class="tenant">
           <strong id="tenant-name">DACHBYTE Seller</strong>
           <small>WORKSPACE DO CLIENTE</small>
@@ -1022,7 +1053,26 @@
         renderModules();
         bindDynamicActions();
       }));
-      document.querySelectorAll("[data-view-target]").forEach(btn=>btn.addEventListener("click",()=>setView(btn.dataset.viewTarget)));
+      document.querySelectorAll("[data-view-target]").forEach(btn=>btn.addEventListener("click",()=>{setView(btn.dataset.viewTarget);setMenuOpen(false)}));
+      // Menu lateral no padrao do Seller: recolher no desktop (lembrado no
+      // navegador) e gaveta com botao sanduiche no celular.
+      const SIDEBAR_KEY="dachbyte:portal:sidebar-collapsed";
+      function readCollapsed(){ try{ const v=localStorage.getItem(SIDEBAR_KEY); return v===null?null:v==="1"; }catch(_e){ return null; } }
+      function setCollapsed(collapsed,persist){
+        $(".app").classList.toggle("is-collapsed",collapsed);
+        $("#sidebar-toggle").setAttribute("aria-expanded",collapsed?"false":"true");
+        $("#sidebar-toggle").setAttribute("aria-label",collapsed?"Expandir menu":"Recolher menu");
+        if(persist){ try{ localStorage.setItem(SIDEBAR_KEY,collapsed?"1":"0"); }catch(_e){} }
+      }
+      function setMenuOpen(open){
+        $(".app").classList.toggle("is-menu-open",open);
+        $("#menu-toggle").setAttribute("aria-expanded",open?"true":"false");
+      }
+      setCollapsed(readCollapsed() ?? window.innerWidth<=1120,false);
+      $("#sidebar-toggle").addEventListener("click",()=>setCollapsed(!$(".app").classList.contains("is-collapsed"),true));
+      $("#menu-toggle").addEventListener("click",()=>setMenuOpen(!$(".app").classList.contains("is-menu-open")));
+      $("#sidebar-backdrop").addEventListener("click",()=>setMenuOpen(false));
+      document.addEventListener("keydown",(event)=>{ if(event.key==="Escape") setMenuOpen(false); });
       document.querySelectorAll("[data-close-drawer]").forEach(btn=>btn.addEventListener("click",closePurchase));
       document.querySelectorAll("[data-close-account-drawer]").forEach(btn=>btn.addEventListener("click",closeAccountDrawer));
       $("#unlink-start").addEventListener("click",()=>{$("#unlink-confirm").hidden=false});
