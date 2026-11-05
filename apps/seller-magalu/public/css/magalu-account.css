@@ -119,3 +119,10 @@
   .mg-acct-grid { grid-template-columns: 1fr; }
   .mg-access-module { grid-template-columns: 1fr auto auto; gap: 10px; }
 }
+
+/* Botoes com [hidden] nao podem aparecer (display:inline-flex anulava). */
+.mg-page-actions [hidden], .mg-primary-btn[hidden], .mg-secondary-btn[hidden] { display: none !important; }
+/* Acoes do topo da Conta em uma linha no desktop, como no Seller. */
+@media (min-width: 901px) {
+  #mg-accounts-page .mg-page-actions, #mg-users-page .mg-page-actions, #mg-plan-page .mg-page-actions { flex-wrap: nowrap !important; }
+}

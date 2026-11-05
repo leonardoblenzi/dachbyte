@@ -236,8 +236,9 @@
   function renderPlan(data) {
     const subscription = data.subscription || {};
     const access = data.access || {};
-    setText("mg-plan-status", subscription.active ? "Ativo" : (subscription.status || "Não informado"));
-    setText("mg-plan-name", subscription.plan_name || subscription.plan_code || "Não informado");
+    const hubActive = access.allow === true && String(access.status || "").toLowerCase() === "active";
+    setText("mg-plan-status", subscription.active || hubActive ? "Ativo" : (subscription.status || access.status || "Não informado"));
+    setText("mg-plan-name", subscription.plan_name || subscription.plan_code || access.plan_code || "Não informado pelo Hub");
     setText("mg-plan-code", subscription.plan_code || "—");
     setText("mg-plan-cycle", subscription.cycle || "—");
     setText("mg-plan-expiry", subscription.expires_at ? dateLabel(subscription.expires_at) : "—");
@@ -364,7 +365,11 @@
       if (edit) openAccess(edit.dataset.userEdit);
     });
     $("mg-access-full")?.addEventListener("change", (event) => {
-      if (state.editing) renderAccessModules({ ...state.editing, access_mode: event.target.checked ? "full" : "restricted" }, event.target.checked);
+      if (!state.editing) return;
+      // Ao restringir quem tinha acesso completo, comeca com tudo marcado
+      // (o acesso atual) e o admin so desmarca o que quer tirar.
+      const base = state.editing.access_mode === "restricted" ? state.editing : { ...state.editing, access_mode: "full" };
+      renderAccessModules(base, event.target.checked);
     });
     $("mg-access-modules")?.addEventListener("change", (event) => {
       if (!event.target.matches("[data-module-access]")) return;
