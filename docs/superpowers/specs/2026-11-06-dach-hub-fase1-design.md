@@ -35,29 +35,68 @@ Um lugar só onde o seller vê cada produto (SKU) e o estoque dele em todos os c
 | Até 10 contas por canal | Contas vêm dos módulos (já são multi-conta) |
 | Fraquezas: relatórios só operacionais; lojistas grandes ainda somam outros hubs e ERP por fora (na loja estudada: Hub2b, ANYMARKET e Bling) | Diferencial: estoque cruzado com vendas, cobertura e margem que a DACHBYTE já calcula |
 
-## 3. Arquitetura
+## 3. Arquitetura (conexão própria com os marketplaces)
 
 ```
-                ┌──────────── DACH Hub (novo) ────────────┐
- navegador ───▶ │ hub-web (Express + JS)   hub-worker (BullMQ)│
-                │      schema hub.* no Postgres              │
-                └───────┬──────────────────────┬────────────┘
-                        │ API interna (token)  │ eventos (venda, estoque)
-          ┌─────────────┼──────────────┬───────┴──────┐
-          ▼             ▼              ▼              ▼
-     seller-ml     seller-magalu   seller-shopee    Hub (cobrança/identidade)
-   (conector ML) (conector Magalu) (conector Shopee)
+                 ┌─────────────────────── DACH Hub ───────────────────────┐
+  navegador ───▶ │ hub-web (Express + JS)        hub-worker (BullMQ)       │
+                 │ conectores próprios: mercadolivre · magalu · shopee     │
+                 │ schema hub.* (contas, tokens cifrados, catálogo, estoque)│
+                 └──────┬──────────────────┬──────────────────┬───────────┘
+                        │ OAuth + API      │ OAuth + API      │ OAuth + API
+                        ▼                  ▼                  ▼
+                  Mercado Livre          Magalu             Shopee
+            (app "DACH Hub" próprio) (client próprio)  (app próprio, ERP System)
+
+  Hub de cobrança/identidade ◀── login da suíte, recurso por conta conectada, medição de vendas
+  DACH ML / DACH Magalu / DACH Shopee: independentes; não participam da Fase 1
 ```
 
 **Decisões**
-1. **App novo, `apps/seller-hub`**, no mesmo stack dos módulos Seller (Node/Express, imagem `dachbyte/seller`, Postgres e Redis existentes). Fica separado do Hub de cobrança: o Hub continua cuidando de identidade, cobrança e recursos; o DACH Hub vira mais um produto (`slug: "dach_hub"`) no catálogo do Hub.
-2. **Os módulos de canal são os conectores.** O DACH Hub nunca chama a API do ML, do Magalu ou da Shopee direto: tokens, limites de requisição e regras de cada canal continuam no módulo que já os domina. Cada módulo ganha uma pequena **API interna** (`/internal/hub/*`, token de serviço) com quatro funções:
-   - `GET listings`: anúncios/variações com SKU, EAN, título, status, estoque atual e se é Full/Fulfillment (paginado, incremental por `updated_since`).
-   - `POST stock-writes`: grava estoque de um lote de anúncios, com chave de idempotência; responde por item (aceito, falhou, ignorado).
-   - `GET stock-writes/:id`: verificação depois da escrita (o valor ficou no canal?).
-   - **Eventos de saída:** o módulo avisa o Hub (fila Redis compartilhada ou POST interno) quando chega venda nova, cancelamento ou mudança de estoque no canal.
-3. **Escrita protegida no padrão que o Magalu já usa** (`magalu.write_operations`): idempotência, uma operação ativa por SKU, verificação depois de enviar, estados `divergent/uncertain` e auditoria. O mesmo padrão vale para os três conectores.
-4. **Ledger de estoque:** o saldo é a soma dos movimentos, nunca um número sobrescrito. Todo número tem uma origem rastreável (venda X, ajuste do usuário Y, importação Z).
+1. **App novo, `apps/seller-hub`**, no mesmo stack dos módulos Seller (Node/Express, imagem `dachbyte/seller`, Postgres e Redis existentes). O Hub de cobrança continua cuidando de identidade, cobrança e recursos; o DACH Hub vira mais um produto (`slug: "dach_hub"`).
+2. **O DACH Hub conecta as contas dos clientes sozinho**, sem passar pelos módulos DACH ML, DACH Magalu e DACH Shopee. O cliente pode usar só o Hub, só um módulo, ou os dois.
+   - **Apps próprios em cada marketplace** (app "DACH Hub" no ML, client próprio no ID Magalu, app próprio na Shopee Open Platform), com tokens, webhooks e limites de requisição separados dos módulos.
+   - **Por que não reaproveitar os apps dos módulos:** no Mercado Livre o refresh token é de **uso único**; cada renovação invalida o anterior. Dois sistemas renovando o token da mesma conta no mesmo app derrubam um ao outro. Com apps separados, cada sistema tem o seu par de tokens. Os webhooks também são por app (pedidos chegam direto no Hub) e o limite de requisições do ML é por app (o Hub não consome a cota dos módulos).
+   - **Custo:** o seller que usar módulo e Hub autoriza duas vezes (uma por produto). Uma "conexão única" (um cofre de credenciais compartilhado entre Hub e módulos) fica para uma fase futura, se fizer sentido.
+3. **Código dos conectores:** fica dentro do `seller-hub` (`src/connectors/{mercadolivre,magalu,shopee}`), com uma interface comum: `authorizeUrl`, `exchangeCode`, `refresh`, `listListings`, `getListing`, `writeStock`, `verifyStock`, `listOrders`, `getOrder`, `parseWebhook`. As partes já testadas nos módulos são **copiadas e adaptadas como padrão**, sem dependência em tempo de execução:
+   - preflight e verificação da escrita de estoque do ML (`EstoqueAtualizacaoService`);
+   - escrita protegida do Magalu (`write_operations`);
+   - sincronização de produtos e pedidos da Shopee (`ProductSyncService`, `OrderSyncService`);
+   - normalização de SKU e EAN do SKU Tracker.
+
+   Se depois Hub e módulos quiserem compartilhar código, esses conectores viram uma biblioteca em `apps/shared/marketplaces`.
+4. **Escrita protegida** (padrão `write_operations` do Magalu): idempotência, uma operação ativa por anúncio, verificação depois de enviar, estados `divergente/incerto` e auditoria.
+5. **Ledger de estoque:** o saldo é a soma dos movimentos, nunca um número sobrescrito. Todo número tem origem rastreável (venda X, ajuste do usuário Y, importação Z).
+
+### 3.1 Conectar uma conta (fluxo do cliente)
+
+1. **Conta › Contas conectadas › "Conectar Mercado Livre / Magalu / Shopee"** (só administrador da empresa).
+2. O Hub gera um `state` assinado e de uso único (empresa, usuário, canal, expiração de 10 min) e redireciona para a autorização do marketplace:
+   - ML: `auth.mercadolivre.com.br/authorization`;
+   - Magalu: ID Magalu;
+   - Shopee: `auth_partner`.
+3. O retorno chega em `/hub/auth/{canal}/callback`. O Hub valida o `state`, troca o código por tokens e identifica a conta (seller id, apelido, loja):
+   - **conta já ligada a outra empresa** → bloqueia e avisa (o mesmo cuidado de posse que o Magalu tem hoje);
+   - **conta nova** → cria `hub.channel_accounts` e registra o recurso no Hub de cobrança (`/v1/internal/resources/sync`, `module_slug: "dach_hub"`).
+4. Grava os tokens **cifrados** (AES-256-GCM, chave própria do Hub, padrão `enc::v1::` do ML) em `hub.channel_tokens`.
+5. Renovação automática:
+   - antes de expirar;
+   - com **lock por conta** (Redis ou advisory lock), relendo o token salvo antes de renovar, por causa do refresh de uso único;
+   - em falha definitiva, a conta fica "Reconectar necessário", com aviso no painel e por e-mail.
+6. Assina os webhooks do app: ML `orders_v2` e `items`; Magalu `orders_*` e `portfolios_stock`; Shopee push de pedido e estoque.
+7. Dispara a primeira importação de anúncios, em modo observação.
+8. **Desconectar:** revoga quando a API permite, apaga os tokens, para as sincronizações e marca o recurso como desvinculado no Hub.
+
+Um painel "Saúde da conexão" por conta mostra: conectado, expira em, última sincronização, webhooks recebidos nas últimas 24h e erros.
+
+**Tabelas novas:**
+```text
+hub.channel_tokens   channel_account_id, access_token_enc, refresh_token_enc, expires_at,
+                     refresh_expires_at, scopes, atualizado_em, falhas_refresh, status
+hub.oauth_states     state (hash), tenant_id, user_id, canal, expires_at, used_at
+hub.webhook_events   id, canal, conta, topico, recurso, payload, recebido_em,
+                     processado_em, status   (idempotente por canal+tópico+recurso+data)
+```
 
 ## 4. Modelo de dados (schema `hub`)
 
@@ -150,9 +189,9 @@ O usuário escolhe por conta ou por item: importar uma planilha, adotar o estoqu
 
 | Etapa | Entrega | Escreve nos canais? |
 |---|---|---|
-| **E1 — Fundação e vínculos** | Pacote visual `apps/shared/seller-ui` extraído do ML; app `seller-hub`, schema `hub`, produto no Hub; `GET listings` nos 3 conectores; importação; vínculo automático; telas Catálogo e Pendências | Não |
+| **E1 — Fundação e vínculos** | Pacote visual `apps/shared/seller-ui` extraído do ML; app `seller-hub`, schema `hub`, produto no Hub; apps próprios nos 3 marketplaces e fluxo "Conectar conta"; leitura de anúncios pelos conectores do Hub; importação; vínculo automático; telas Catálogo e Pendências | Não |
 | **E2 — Estoque mestre** | Ledger, saldos, kits, planilha, estoque inicial, regras; cálculo e "o que mudaria" (modo observação) | Não |
-| **E3 — Vendas e envio** | Eventos de pedido dos conectores; baixa e devolução; `stock-writes` com verificação; ativação por conta; pausa geral | Sim, por conta ativada |
+| **E3 — Vendas e envio** | Webhooks próprios de pedidos; baixa e devolução; escrita de estoque com verificação; ativação por conta; pausa geral | Sim, por conta ativada |
 | **E4 — Reconciliação e piloto** | Divergências, alertas, painel; piloto com um cliente (ou conta de teste) em 1 conta por canal antes de abrir para todos | Sim |
 
 ## 8. Riscos e decisões em aberto
@@ -168,44 +207,92 @@ O usuário escolhe por conta ou por item: importar uma planilha, adotar o estoqu
 6. **Variações.** ML (família/user products, variações), Magalu (SKU por variação) e Shopee (item + model). O vínculo é sempre no nível da variação vendável.
 7. **Cobrança.** Definida como **% sobre vendas** (GMV dos canais), com faixas e mínimo mensal. Ver `2026-11-06-dach-hub-roadmap.md`, seção 2. O Hub já mede pedidos em `/v1/internal/resources/orders/measurement`; falta medir o GMV.
 
-## 9. Conectores por canal: o que existe e o que falta
+## 9. Conectores próprios por canal
 
-Nenhum módulo tem hoje uma API interna de catálogo ou estoque. A única rota interna é `POST /internal/hub/retirement`, com `SELLER_RETIREMENT_TOKEN`. Também não dá para contar com o mesmo banco: o ML usa `ML_DATABASE_URL` (schema `ml`), a Shopee usa `SHOPEE_DATABASE_URL` (schema `public`) e o Magalu tem o schema `magalu`. Por isso o Hub conversa só por API interna, nunca por join entre bancos.
+Como o Hub não depende dos módulos, cada conector é implementado no `seller-hub`, usando os módulos só como **referência do que já funciona** em produção.
 
-| | Mercado Livre (`seller-ml`) | Magalu (`seller-magalu`) | Shopee (`seller-shopee`) |
+| | Mercado Livre | Magalu | Shopee |
 |---|---|---|---|
-| **Espelho de anúncios** | Parcial. Lê a API ao vivo; o cache `ml.mercadolivre_sku_catalog_items` (conta, SKU, MLB, variação, estoque, EAN) é preenchido pela fila `financeiro-ml-sku-catalog-sync`, com disparo manual ou semanal | Completo: `magalu.skus`, `prices`, `stocks`, com sync por fila e webhook | Completo: `"Product"` e `"ProductModel"` (SKU, estoque, GTIN). Porém o estoque só é relido a cada 5 execuções e o sync é manual |
-| **SKU** | `seller_custom_field` / `SELLER_SKU` (por variação) + `ml.mercadolivre_sku_reference_overrides` (vínculo manual) | SKU do portfólio | `itemSku` / `modelSku` |
-| **Escrita de estoque** | **Robusta:** `EstoqueAtualizacaoService.processStockChanges` (fila Bull, preflight com estoque esperado, bloqueia Full e multi-origem, verificação com até 4 releituras, `applied/divergent`). O resultado fica só no Redis | **Robusta:** `magalu.write_operations` (idempotência, verificação, auditoria) + fila `stockUpdate` | **Fraca:** `ShopeeProductWriteService.updateStock`, síncrona, item a item, sem verificação, campo legado `normal_stock`, não atualiza o espelho |
-| **Pedidos** | **Não salva.** Polling ao vivo de `/orders/search`. O webhook aceita só `public_offers` e `public_candidates` (`orders_v2`, `items` e `stock` são ignorados) | Salva (`magalu.orders`, `order_items`, `deliveries`) e recebe webhook `orders_order` / `orders_delivery` | Salva (`"Order"`, `"OrderItem"` com SKU), mas por polling **só 2× por dia** (seg–sex, 6h e 18h). O push `order_status_update` e `reserved_stock_change` vira só aviso |
-| **Contas/tokens** | `meli_contas` + `meli_tokens` (criptografados), multi-conta | `magalu.accounts` + tokens cifrados | `"Shop"` + `"OAuthToken"` (**texto puro**) |
-| **Fila** | Bull v3, worker separado | BullMQ | BullMQ (workers no processo web) |
+| **App necessário** | Criar app "DACH Hub" no DevCenter do ML (redirect `/hub/auth/mercadolivre/callback`, URL de notificações `/hub/webhooks/mercadolivre`, tópicos `orders_v2`, `items`) | Criar client próprio no ID Magalu (CLI `idm client create`), com redirect e escopos de portfólio, preço, estoque e pedidos. A solicitação de escopo pede justificativa | Criar app na Shopee Open Platform, categoria **ERP System** (todas as APIs, exceto Chat), testar no sandbox e pedir o **Go Live** |
+| **Aprovação** | Não precisa de aprovação para começar; certificação de parceiro é opcional | Escopos podem passar por análise do Magalu | **Go Live obrigatório** (revisão). A DACHBYTE já teve o perfil de parceiro recusado por falta de integrações ativas; é o maior risco de prazo |
+| **Tokens** | access 6h; **refresh de uso único** → lock por conta obrigatório | OAuth do ID Magalu; renovação com lock, o mesmo padrão | access ~4h; refresh renovado a cada uso (validar na doc oficial) |
+| **Ler anúncios** | `/users/{id}/items/search` (scan) + `/items?ids=` (lotes de 20); SKU por `SELLER_SKU`/`seller_custom_field` na variação (lógica do `financeiroMlSkuCatalogSyncService`) | Portfólio de SKUs, preço e estoque (lógica do `catalogSyncService`); limite de paginação de 20 mil por status → descoberta por partes | `get_item_list` + `get_item_base_info` + `get_model_list` (lógica do `ProductSyncService`), lendo o estoque **sempre** |
+| **Gravar estoque** | `PUT /items/{id}` (com variações), preflight com estoque esperado, bloquear Full e multi-origem, verificar até 4 releituras (padrão do `EstoqueAtualizacaoService`) | API de estoque do portfólio com o padrão `write_operations` (idempotência, verificação) | `update_stock` com `seller_stock` em lote, verificação por `get_model_list` (o módulo atual usa o formato antigo `normal_stock`; **não copiar**) |
+| **Pedidos** | Webhook `orders_v2` → `GET /orders/{id}`; polling de segurança | Webhook `orders_order` / `orders_delivery` → reconciliação (padrão do `webhookProcess`) | Push de pedido → `get_order_detail`; polling curto (10 min) de segurança (o módulo atual faz só 2×/dia) |
+| **Full / Fulfillment** | Só leitura (`logistic_type=fulfillment`) | Só leitura (Magalu Fulfillment) | n/a |
 
-### Trabalho por conector
+**Ordem de ativação recomendada:**
+1. **Magalu:** client próprio rápido de criar; webhooks completos.
+2. **Mercado Livre:** app sem aprovação, mas exige o cuidado com o refresh de uso único.
+3. **Shopee:** depende do Go Live. Desenvolver e testar no **sandbox** (a instância de homologação já preparada pode ser reaproveitada como referência) enquanto a aprovação corre.
 
-**Mercado Livre**
-1. `GET /internal/hub/listings`: reaproveitar o scan do `financeiroMlSkuCatalogSyncService` (`extractCatalogRows`), incluindo inativos e Full (marcados), com paginação e `updated_since`.
-2. Webhook: passar a aceitar `orders_v2` (venda e cancelamento) e `items` / `stock` (mudança feita por fora), com fila e publicação de evento para o Hub. Sem isso, a baixa ficaria dependente de polling.
-3. `POST /internal/hub/stock-writes`: embrulhar `processStockChanges` (o preflight e a verificação já existem) e devolver o resultado por linha ao Hub, já que hoje ele fica só no Redis.
-4. Créditos: escritas do Hub não devem consumir os créditos de "atualização de estoque em massa" (`hubCreditsService`); a cobrança passa a ser do produto DACH Hub.
+**O que muda nas etapas:**
+- **E1:** criar os 3 apps; fluxo "Conectar conta" com tokens cifrados e renovação; leitura de anúncios pelos conectores do Hub.
+- **E3:** webhooks próprios de pedidos e a escrita de estoque pelos conectores do Hub.
 
-**Magalu**
-1. `GET /internal/hub/listings` lendo `skus` + `stocks` (o espelho já existe).
-2. Eventos: o `webhookProcess` já trata `orders_*` e `portfolios_stock`; é só publicar o evento para o Hub depois de reconciliar.
-3. `POST /internal/hub/stock-writes` criando `write_operations` com origem `dach_hub` (o caminho de escrita protegida já existe; falta só a entrada sem preview manual).
+**Convivência com os módulos DACH:** a mesma conta pode estar conectada ao Hub e ao DACH ML, DACH Magalu ou DACH Shopee (apps diferentes, tokens diferentes). Se o módulo também gravar estoque (ex.: "atualização de estoque em massa" do DACH ML), vale a mesma regra de conflito de qualquer outro sistema: o Hub detecta a divergência e avisa. Mais adiante, o módulo pode mostrar "estoque desta conta é gerenciado pelo DACH Hub".
 
-**Shopee**
-1. Estoque confiável: sincronizar o estoque a cada execução para os itens vinculados, ou por `reserved_stock_change`. Hoje o espelho fica defasado.
-2. Escrita: trocar para `seller_stock`, gravar em lote, verificar depois (`get_model_list`), atualizar o espelho e registrar operação idempotente (seguir o padrão do Magalu).
-3. Pedidos: sincronizar ao receber o push `order_status_update`, mais um polling curto (ex.: a cada 10 min) como rede de segurança, no lugar de 2× por dia.
-4. Segurança: cifrar `"OAuthToken"` (hoje em texto puro) antes de dar ao Hub poder de escrita.
-5. Lembrete: a conexão de lojas em produção está pausada (homologação); Shopee entra em **observação** até liberar.
+**Fontes:**
+- [ML: autenticação e autorização (refresh token de uso único)](https://developers.mercadolivre.com.br/pt_br/envio-de-produto/autenticacao-e-autorizacao)
+- [Relato sobre `invalid_grant` por reuso do refresh no ML](https://dev.to/javiersivack/el-refresh-token-de-mercado-libre-es-de-un-solo-uso-como-no-desconectar-a-tus-vendedores-137g)
+- [Magalu: criação de aplicação (CLI `idm`)](https://developers.magalu.com/docs/first_steps/create_an_application/create_application.en/)
+- [Shopee: categorias de app (cópia da doc, não oficial)](https://www.scribd.com/document/807484756/api-call-shopee)
+- [Shopee: guia Go Live (Qiscus)](https://documentation.qiscus.com/app-center/shopee)
 
-### Impacto nas etapas
+Validar na documentação oficial da Shopee as regras atuais de categoria e de token.
 
-- **E1 (vínculos):** listings dos 3 conectores. ML e Magalu são diretos; a Shopee exige o sync de estoque confiável.
-- **E3 (vendas e envio):**
-  - ML: webhook de pedidos e escrita interna.
-  - Magalu: só a ligação, porque o resto já existe.
-  - Shopee: reescrita da escrita de estoque e pedidos quase em tempo real.
-- **Ordem sugerida de ativação:** Magalu primeiro (menos trabalho e mais seguro), depois Mercado Livre, depois Shopee (quando homologar).
+## 10. Arquitetura técnica (decidida)
+
+**Estilo:** monólito modular por domínio, com dois processos (web e worker) num único app `apps/seller-hub`. Os marketplaces entram por **portas e adaptadores**. Internamente é orientado a eventos, com fila e **outbox transacional**. Microsserviços ficam fora: time pequeno, infraestrutura já existente e nenhum ganho agora.
+
+**Linguagem e stack**
+- **JavaScript (CommonJS) + JSDoc com `// @ts-check`**, igual aos módulos Seller: a mesma imagem Docker e o mesmo deploy, tipagem verificada no editor e no CI, sem passo de build.
+- Node + Express; Postgres com migrations SQL (schema `hub`), sem ORM; BullMQ/Redis para filas.
+- Front com views do servidor e JS sem framework, usando o pacote `apps/shared/seller-ui` (padrão ML, tema Violeta).
+- Testes com `node:test`.
+
+**Estrutura**
+```
+apps/seller-hub/
+  src/
+    modules/
+      accounts/   contas conectadas, OAuth, tokens cifrados, saúde da conexão
+      catalog/    itens (SKU DACH), kits, anúncios, vínculos, pendências
+      stock/      ledger, saldos, regras, cálculo do que enviar por anúncio
+      sync/       fila de envios, verificação, reconciliação, modo observação
+      orders/     pedidos recebidos, baixa e devolução
+      billing/    medição de vendas para o Hub de cobrança
+    connectors/   contract.js + mercadolivre/ magalu/ shopee/
+    platform/     db, filas, cifra, auth da suíte, logs, config
+    web/          rotas, controllers, views
+    jobs/         workers (importação, envios, webhooks, reconciliação)
+  db/migrations/
+  tests/
+```
+Cada módulo expõe uma interface pública (`index.js`). Outro módulo nunca lê as tabelas de um vizinho por fora dessa interface.
+
+**Paradigma por camada**
+
+| Camada | Estilo |
+|---|---|
+| Conectores | **Classes** que estendem `MarketplaceConnector`: `authorizeUrl`, `exchangeCode`, `refresh`, `listListings`, `getListing`, `writeStock`, `verifyStock`, `listOrders`, `getOrder`, `parseWebhook` |
+| Tokens e limite de requisições | **Classes** com estado (lock por conta, renovação, fila de chamadas) |
+| Regras de negócio | **Funções puras**: cálculo da quantidade por anúncio, kits, cascata de regras, casamento SKU/EAN, normalização |
+| Banco | **Repositórios** (funções com SQL explícito) |
+| Casos de uso | **Serviços** que orquestram repositório + regra pura + outbox numa transação |
+
+**Garantias**
+- **Idempotência:**
+  - baixa por pedido + item;
+  - envio por chave de idempotência;
+  - webhook por canal + tópico + recurso.
+- **Outbox:** movimento de estoque e evento de saída gravados na mesma transação; um worker publica na fila.
+- **Concorrência:** uma operação ativa por anúncio; lock por conta na renovação de token; lotes por conta respeitando o limite de cada canal.
+- **Segurança:** tokens cifrados (AES-256-GCM); `state` OAuth assinado e de uso único; permissões por papel (administrador da empresa conecta contas e ativa escrita).
+
+**Testes**
+1. Unitários em todas as funções puras.
+2. **Contrato dos conectores:** o mesmo conjunto de testes para ML, Magalu e Shopee, com respostas reais gravadas do sandbox.
+3. Integração dos repositórios e casos de uso contra um Postgres de teste (ex.: venda reprocessada não baixa duas vezes).
+4. Modo observação antes de qualquer escrita real.
+5. Validação das telas no navegador, em desktop e em 375 px.

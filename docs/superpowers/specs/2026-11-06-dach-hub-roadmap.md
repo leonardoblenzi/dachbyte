@@ -23,7 +23,7 @@
 - Emissor fiscal próprio. A NF vem de um ERP ou emissor parceiro integrado.
 - ERP financeiro.
 
-**Canais na largada:** Mercado Livre, Magalu e Shopee (os módulos atuais viram conectores). Os próximos estão na Fase 5.
+**Canais na largada:** Mercado Livre, Magalu e Shopee, conectados **pelo próprio Hub** (apps próprios em cada marketplace), sem depender dos módulos DACH ML, DACH Magalu e DACH Shopee. Os próximos estão na Fase 5.
 
 **Visual:** segue o padrão do módulo Mercado Livre, como todos os módulos Seller (ver seção 12).
 
@@ -78,7 +78,7 @@ Ordem recomendada: **1 → 3 → 2 → 4 → 5**.
 ## 4. Fase 1 — Catálogo mestre e estoque central (resumo)
 
 O detalhe está em `2026-11-06-dach-hub-fase1-design.md`.
-- **App e conectores:** app `apps/seller-hub` (schema `hub`). Os módulos ML, Magalu e Shopee viram conectores por uma API interna `/internal/hub/*`.
+- **App e conectores:** app `apps/seller-hub` (schema `hub`) com **conectores próprios** (apps próprios no ML, no ID Magalu e na Shopee; OAuth, tokens cifrados e webhooks no Hub). Os módulos DACH ML, Magalu e Shopee são só referência de código; não há dependência entre eles.
 - **Vínculo anúncio ↔ SKU:** automático por SKU e EAN, com filas de "anúncios sem vínculo" e "vendas sem vínculo".
 - **Estoque:** ledger com kits e regras por conta e por anúncio (igual, fixo, %, teto, trava mínima, reserva).
 - **Segurança:** modo observação, depois ativação por conta; reconciliação detecta quem escreve estoque por fora.
@@ -115,9 +115,9 @@ O detalhe está em `2026-11-06-dach-hub-fase1-design.md`.
 - `hub.channel_fee_tables`: canal, tipo de anúncio, categoria, comissão, tarifa fixa e regra de frete.
 - `hub.price_pushes`: o mesmo padrão de `stock_pushes`.
 
-**Conectores (escrita de preço)**
-- **Magalu:** a escrita protegida de preço já existe (`write_operations` com `resource_type=price`).
-- **ML:** existem fluxos de preço em promoções e preços; falta uma escrita de preço com verificação no padrão do estoque.
+**Conectores do Hub (escrita de preço)**
+- **Magalu:** API de preço do portfólio, no padrão `write_operations` (referência: escrita protegida de preço do DACH Magalu).
+- **ML:** `PUT /items/{id}` de preço com verificação, no padrão da escrita de estoque.
 - **Shopee:** `update_price` em lote, com verificação.
 
 **Telas:** regras de preço; simulador por SKU e canal (reaproveita as calculadoras de ML e Magalu); fila de mudanças e histórico; alertas de margem.
@@ -143,7 +143,7 @@ O detalhe está em `2026-11-06-dach-hub-fase1-design.md`.
   - ação: trocar status, avisar a equipe (e-mail ou notificação), marcar para separação, chamar um webhook.
 - **Fiscal:**
   - integração com ERP ou emissor (Bling, Tiny, Omie, e o Emissor de NF-e da Tray onde fizer sentido) para emitir NF a partir do pedido;
-  - envio da NF ao canal pelos conectores (Magalu já tem NF-e e finalização; ML e Shopee precisam do upload/envio fiscal).
+  - envio da NF ao canal pelos conectores do Hub (referência: NF-e e finalização do DACH Magalu; ML e Shopee precisam do upload/envio fiscal).
 - **Etiquetas:** baixar etiquetas em lote por canal (ML/Mercado Envios, Shopee logística, Magalu Entregas) e impressão agrupada.
 - **Expedição:**
   - lista de separação (picking) por SKU e local;
@@ -152,10 +152,10 @@ O detalhe está em `2026-11-06-dach-hub-fase1-design.md`.
   - rastreio em lote para canais com envio próprio (como "Pedidos a enviar" da Tray).
 - **Estoque e cobrança:** cada pedido gera os movimentos da Fase 1 e entra na medição de GMV (seção 2).
 
-**Conectores**
-- **ML:** passar a salvar pedidos (hoje é só polling ao vivo) usando o webhook `orders_v2` habilitado na Fase 1; ações de NF, etiqueta e envio.
-- **Magalu:** pedidos e entregas já salvos; reaproveitar NF-e e finalização.
-- **Shopee:** pedidos já salvos, mas a sincronização precisa ser quase em tempo real (Fase 1); `ship_order`, documento de envio e etiqueta.
+**Conectores do Hub**
+- **ML:** pedidos chegam pelo webhook `orders_v2` do app do Hub (Fase 1) e são salvos em `hub.orders`; ações de NF, etiqueta e envio.
+- **Magalu:** webhooks de pedido e entrega do client do Hub; NF-e e finalização (referência: DACH Magalu).
+- **Shopee:** push de pedido + polling curto; `ship_order`, documento de envio e etiqueta.
 
 **Telas:** Pedidos (lista e detalhe); Expedição (separação, etiquetas, atrasados); Automações; Integrações fiscais; Extrato de pedidos cobrados.
 
@@ -217,7 +217,7 @@ O detalhe está em `2026-11-06-dach-hub-fase1-design.md`.
   - `publish`
   - `inbox`
 - Cada conector usa sua própria fila e respeita o limite de requisições do canal.
-- Os módulos profundos (ML, Magalu, Shopee) continuam como estão e implementam a mesma interface por meio da API interna.
+- ML, Magalu e Shopee seguem a mesma interface, implementados como conectores do próprio Hub. Os módulos DACH continuam independentes, como produtos à parte.
 
 ---
 
@@ -231,7 +231,7 @@ O detalhe está em `2026-11-06-dach-hub-fase1-design.md`.
 - **Observabilidade:** painel interno de filas (atrasos, falhas, reprocessos por conector) e alertas para a equipe DACHBYTE.
 - **Segurança:**
   - tokens de canal cifrados em todos os módulos (a Shopee hoje grava em texto puro);
-  - token de serviço próprio para `/internal/hub/*`;
+  - tokens dos canais cifrados no Hub (AES-256-GCM) com renovação sob lock por conta (o refresh do ML é de uso único);
   - modo observação obrigatório antes de qualquer escrita nova.
 - **API pública e webhooks** (futuro): permitir que ERPs e parceiros leiam e escrevam no Hub.
 
