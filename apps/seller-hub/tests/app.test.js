@@ -33,7 +33,8 @@ async function withServer(options, run) {
   const sync = {
     onItemsChanged: async (...args) => { calls.push(["changed", ...args]); },
     activateAccount: async (input) => { calls.push(["activate", input.accountId, input.confirm]); return { activated: true, pushes: 3 }; },
-    skipPending: async () => 0, getSettings: async () => ({ paused: false }), setPaused: async ({ paused }) => ({ paused }),
+    skipPending: async () => 0, getSettings: async () => ({ paused: false }), setPaused: async ({ paused }) => { calls.push(["paused", paused]); return { paused }; },
+    setLowStockThreshold: async ({ threshold }) => { calls.push(["threshold", threshold]); return { lowStockThreshold: threshold }; },
     listPushes: async () => ({ pushes: [], summary: {} }), retryPush: async () => ({}),
   };
   const syncQueues = { enqueueWebhook: async (id) => { calls.push(["webhook", id]); }, enqueuePush: async () => {} };
@@ -152,5 +153,15 @@ test("ativar escrita exige administrador e repassa a confirmação", async () =>
     const res = await put(token({ company_role: "admin" }), { mode: "active", confirm: true });
     assert.equal((await res.json()).pushes, 3);
     assert.deepEqual(calls.at(-1), ["activate", 3, true]);
+  });
+});
+
+test("configurações: salvar só o limite de estoque baixo não mexe na pausa geral", async () => {
+  await withServer({}, async (base, calls) => {
+    const put = (body) => fetch(`${base}/api/stock/settings`, { method: "PUT", headers: { "content-type": "application/json", cookie: `suite_auth_token=${token({ company_role: "admin" })}` }, body: JSON.stringify(body) });
+    assert.equal((await (await put({ lowStockThreshold: 8 })).json()).settings.lowStockThreshold, 8);
+    assert.ok(!calls.some((c) => c[0] === "paused"), "não chamou a pausa");
+    await put({ paused: true });
+    assert.deepEqual(calls.filter((c) => c[0] !== "threshold").at(-1), ["paused", true]);
   });
 });

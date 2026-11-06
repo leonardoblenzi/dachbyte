@@ -177,7 +177,7 @@ async function createApp(deps = {}) {
     itemId: req.query.itemId ? int(req.query.itemId, 0) : null, limit: int(req.query.limit, 50), offset: int(req.query.offset, 0),
   }) })));
   api.get("/stock/plan", handle(async (req) => stock.plan(identity(req).tenantId, {
-    accountId: req.query.accountId ? int(req.query.accountId, 0) : null, onlyChanges: req.query.onlyChanges === "1",
+    accountId: req.query.accountId ? int(req.query.accountId, 0) : null, onlyChanges: req.query.onlyChanges === "1", zeroInChannel: req.query.zeroInChannel === "1",
     q: String(req.query.q || ""), limit: int(req.query.limit, 100), offset: int(req.query.offset, 0),
   })));
   api.get("/stock/rules", handle(async (req) => ({ accounts: await stock.listAccountRules(identity(req).tenantId) })));
@@ -208,13 +208,24 @@ async function createApp(deps = {}) {
   }));
   // Pausa geral e fila de envios.
   api.get("/stock/settings", handle(async (req) => ({ settings: await sync.getSettings(identity(req).tenantId) })));
-  api.put("/stock/settings", requireAdmin, handle(async (req) => ({ settings: await sync.setPaused({ identity: who(req), paused: req.body?.paused === true }) })));
+  // Só mexe no que veio no corpo: pausa geral e/ou limite de estoque baixo.
+  api.put("/stock/settings", requireAdmin, handle(async (req) => {
+    let settings = null;
+    if (req.body && "paused" in req.body) settings = await sync.setPaused({ identity: who(req), paused: req.body.paused === true });
+    if (req.body && "lowStockThreshold" in req.body) settings = await sync.setLowStockThreshold({ identity: who(req), threshold: Number(req.body.lowStockThreshold) });
+    return { settings: settings || await sync.getSettings(identity(req).tenantId) };
+  }));
+  api.get("/overview/attention", handle(async (req) => ({ attention: await stock.attention(identity(req).tenantId) })));
   api.get("/stock/pushes", handle(async (req) => sync.listPushes(identity(req).tenantId, {
     state: String(req.query.state || ""), accountId: req.query.accountId ? int(req.query.accountId, 0) : null, limit: int(req.query.limit, 50), offset: int(req.query.offset, 0),
   })));
   api.post("/stock/pushes/:pushId/retry", requireAdmin, handle(async (req) => ({ push: await sync.retryPush({ identity: who(req), pushId: int(req.params.pushId, 0) }) })));
   // Reconciliação e saúde (E4).
-  api.get("/health/accounts", handle(async (req) => ({ accounts: await reconcile.health(identity(req).tenantId), settings: await sync.getSettings(identity(req).tenantId) })));
+  api.get("/health/accounts", handle(async (req) => {
+    const tenantId = identity(req).tenantId;
+    const [accountsHealth, settings, attention] = await Promise.all([reconcile.health(tenantId), sync.getSettings(tenantId), stock.attention(tenantId)]);
+    return { accounts: accountsHealth, settings, attention };
+  }));
   api.post("/accounts/:accountId/reconcile", requireAdmin, async (req, res, next) => {
     try {
       const { run, created } = await reconcile.requestReconcile({ identity: who(req), accountId: int(req.params.accountId, 0) });

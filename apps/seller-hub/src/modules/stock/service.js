@@ -58,13 +58,14 @@ function createStockService({ repository, onItemsChanged = async () => {} }) {
      * @param {string} tenantId @param {{ q?: string, filter?: string, limit?: number, offset?: number }} [options]
      */
     async listStock(tenantId, options = {}) {
-      const [rows, availability] = await Promise.all([repository.listStock(tenantId, options), availabilityMap(tenantId)]);
+      const threshold = await repository.lowStockThreshold(tenantId);
+      const [rows, availability] = await Promise.all([repository.listStock(tenantId, { ...options, threshold }), availabilityMap(tenantId)]);
       let withStock = 0, missing = 0, zero = 0;
       for (const [, a] of availability) {
         if (a.hasStock) { withStock += 1; if (a.available <= 0) zero += 1; } else missing += 1;
       }
       return {
-        summary: { items: availability.size, withStock, missing, zero },
+        summary: { items: availability.size, withStock, missing, zero, threshold },
         total: rows[0]?.totalCount || 0,
         items: rows.map((/** @type {any} */ r) => {
           const a = availability.get(Number(r.id));
@@ -152,14 +153,20 @@ function createStockService({ repository, onItemsChanged = async () => {} }) {
       return { preview: false, count: rows.length, ...result };
     },
 
+    /** Números do painel "precisa de atenção" (cada um leva à tela filtrada). @param {string} tenantId */
+    async attention(tenantId) {
+      return repository.attention(tenantId, await repository.lowStockThreshold(tenantId));
+    },
+
     /** @param {string} tenantId @param {{ itemId?: number | null, limit?: number, offset?: number }} [options] */
     listMovements: (tenantId, options) => repository.listMovements(tenantId, options),
 
     /**
      * "O que mudaria" no modo observação.
-     * @param {string} tenantId @param {{ accountId?: number | null, onlyChanges?: boolean, q?: string, limit?: number, offset?: number }} [options]
+     * zeroInChannel: só anúncios com estoque 0 no canal (sem Full).
+     * @param {string} tenantId @param {{ accountId?: number | null, onlyChanges?: boolean, zeroInChannel?: boolean, q?: string, limit?: number, offset?: number }} [options]
      */
-    async plan(tenantId, { accountId = null, onlyChanges = false, q = "", limit = 100, offset = 0 } = {}) {
+    async plan(tenantId, { accountId = null, onlyChanges = false, zeroInChannel = false, q = "", limit = 100, offset = 0 } = {}) {
       const [listings, availability] = await Promise.all([repository.planListings(tenantId, { accountId }), availabilityMap(tenantId)]);
       const { rows, summary } = planListings({
         availability,
@@ -167,6 +174,7 @@ function createStockService({ repository, onItemsChanged = async () => {} }) {
       });
       const term = String(q || "").trim().toLowerCase();
       const filtered = rows.filter((r) => (!onlyChanges || r.state === "increase" || r.state === "decrease")
+        && (!zeroInChannel || (!r.fulfillment && r.channelStock != null && Number(r.channelStock) === 0))
         && (!term || r.sku.toLowerCase().includes(term) || String(r.title || "").toLowerCase().includes(term) || r.listingId.toLowerCase().includes(term)));
       const size = Math.min(500, Math.max(1, limit)), from = Math.max(0, offset);
       return { summary, total: filtered.length, rows: filtered.slice(from, from + size) };

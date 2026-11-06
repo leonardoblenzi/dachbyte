@@ -98,7 +98,8 @@
   /* ───────────── Saldos ───────────── */
   registry.stock = (kit) => {
     const { api, esc, int, root, isAdmin, empty } = kit;
-    const state = { q: "", filter: "all", offset: 0, panel: /** @type {"" | "sheet" | "initial"} */ (""), sheet: /** @type {any} */ (null), initial: /** @type {any} */ (null) };
+    const initialFilter = new URLSearchParams(location.search).get("filtro") || "all";
+    const state = { q: "", filter: ["all", "no_stock", "kits", "low", "zero"].includes(initialFilter) ? initialFilter : "all", offset: 0, panel: /** @type {"" | "sheet" | "initial"} */ (""), sheet: /** @type {any} */ (null), initial: /** @type {any} */ (null) };
     let bound = false;
 
     async function render() {
@@ -125,7 +126,7 @@
         <section class="seller-card">
           <form class="hub-toolbar" data-stock-search>
             <input type="search" name="q" placeholder="Buscar por SKU, nome ou EAN" value="${esc(state.q)}">
-            <select name="filter"><option value="all" ${state.filter === "all" ? "selected" : ""}>Todos</option><option value="no_stock" ${state.filter === "no_stock" ? "selected" : ""}>Sem estoque informado</option><option value="kits" ${state.filter === "kits" ? "selected" : ""}>Kits</option></select>
+            <select name="filter"><option value="all" ${state.filter === "all" ? "selected" : ""}>Todos</option><option value="low" ${state.filter === "low" ? "selected" : ""}>Estoque baixo (até ${int(summary.threshold ?? 5)})</option><option value="zero" ${state.filter === "zero" ? "selected" : ""}>Zerados</option><option value="no_stock" ${state.filter === "no_stock" ? "selected" : ""}>Sem estoque informado</option><option value="kits" ${state.filter === "kits" ? "selected" : ""}>Kits</option></select>
             <button class="seller-btn" type="submit">Filtrar</button>
             <span class="hub-toolbar__spacer"></span>
             <a class="seller-btn" href="/hub/api/stock/export.csv">Exportar planilha</a>
@@ -297,14 +298,15 @@
   /* ───────────── O que mudaria (modo observação) ───────────── */
   registry.plan = (kit) => {
     const { api, esc, int, root, isAdmin, empty, CHANNEL_LABELS } = kit;
-    const state = { accountId: "", q: "", onlyChanges: true, offset: 0 };
+    const zeroParam = new URLSearchParams(location.search).get("canal_zerado") === "1";
+    const state = { accountId: "", q: "", onlyChanges: !zeroParam, zeroInChannel: zeroParam, offset: 0 };
     const SIZE = 100;
     let bound = false;
     /** @type {Map<number, any>} */
     let rowsById = new Map();
 
     async function render() {
-      const params = new URLSearchParams({ q: state.q, onlyChanges: state.onlyChanges ? "1" : "0", limit: String(SIZE), offset: String(state.offset) });
+      const params = new URLSearchParams({ q: state.q, onlyChanges: state.onlyChanges ? "1" : "0", zeroInChannel: state.zeroInChannel ? "1" : "0", limit: String(SIZE), offset: String(state.offset) });
       if (state.accountId) params.set("accountId", state.accountId);
       const [{ summary, rows, total }, { accounts }] = await Promise.all([api(`/stock/plan?${params}`), api("/stock/rules")]);
       rowsById = new Map(rows.map((/** @type {any} */ r) => [Number(r.id), r]));
@@ -322,6 +324,7 @@
             <select name="accountId"><option value="">Todas as contas</option>${accounts.map((/** @type {any} */ a) => `<option value="${esc(a.id)}" ${String(a.id) === state.accountId ? "selected" : ""}>${esc(CHANNEL_LABELS[a.channel] || a.channel)} · ${esc(a.label)}</option>`).join("")}</select>
             <input type="search" name="q" placeholder="SKU, título ou código do anúncio" value="${esc(state.q)}">
             <label class="hub-check"><input type="checkbox" name="onlyChanges" ${state.onlyChanges ? "checked" : ""}> Só o que muda</label>
+            <label class="hub-check"><input type="checkbox" name="zeroInChannel" ${state.zeroInChannel ? "checked" : ""}> Zerados no canal</label>
             <button class="seller-btn" type="submit">Filtrar</button>
           </form>
           ${rows.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Canal</th><th>Anúncio</th><th>SKU</th><th class="hub-num">Disponível</th><th>Regra</th><th class="hub-num">No canal</th><th class="hub-num">Hub enviaria</th><th>Situação</th><th></th></tr></thead><tbody>
@@ -351,7 +354,7 @@
         if (form.matches("[data-plan-filter]")) {
           event.preventDefault();
           const data = new FormData(form);
-          Object.assign(state, { accountId: String(data.get("accountId") || ""), q: String(data.get("q") || ""), onlyChanges: data.get("onlyChanges") === "on", offset: 0 });
+          Object.assign(state, { accountId: String(data.get("accountId") || ""), q: String(data.get("q") || ""), onlyChanges: data.get("onlyChanges") === "on", zeroInChannel: data.get("zeroInChannel") === "on", offset: 0 });
           await render();
         } else if (form.matches("[data-listing-rule-form]")) {
           event.preventDefault();
@@ -446,6 +449,11 @@
             ${isAdmin ? (settings.paused ? '<button class="seller-btn seller-btn--primary" type="button" data-pause="0">Retomar envios</button>'
               : '<button class="seller-btn hub-btn-danger" type="button" data-pause="1">Pausar todos os envios</button>') : ""}
           </div></section>
+        <section class="seller-card"><h2>Alerta de estoque baixo</h2>
+          <form class="hub-toolbar" data-threshold-form><label>Avisar quando o disponível de um produto ficar entre 1 e
+            <input type="number" name="threshold" min="0" step="1" value="${esc(settings.lowStockThreshold ?? 5)}" ${isAdmin ? "" : "disabled"} class="hub-input-sm"> unidade(s)</label>
+            ${isAdmin ? '<button class="seller-btn" type="submit">Salvar</button>' : ""}<small data-form-error class="hub-error"></small></form>
+          <p>Aparece no painel, nos alertas da Saúde e no filtro "Estoque baixo" de Saldos. Zerar o estoque no Mercado Livre já pausa o anúncio sozinho e ele volta ao repor; por isso o Hub não pausa anúncios por conta própria.</p></section>
         <section class="seller-card"><h2>Como o Hub calcula</h2>
           <p>Para cada anúncio: regra (igual, % ou fixo) → tira a reserva de segurança → zera se o estoque estiver no limite → aplica o teto. Anúncio Full nunca recebe envio. A exceção do anúncio (na tela "O que mudaria") vence a regra da conta.</p></section>
         ${accounts.map((/** @type {any} */ a) => `<section class="seller-card">
@@ -501,6 +509,15 @@
       });
       root.addEventListener("submit", async (event) => {
         const form = /** @type {HTMLFormElement} */ (event.target);
+        if (form.matches("[data-threshold-form]")) {
+          event.preventDefault();
+          const error = /** @type {HTMLElement} */ (form.querySelector("[data-form-error]"));
+          try {
+            await api("/stock/settings", { method: "PUT", body: JSON.stringify({ lowStockThreshold: Number(new FormData(form).get("threshold")) }) });
+            error.textContent = "Salvo."; error.className = "hub-ok";
+          } catch (err) { error.textContent = /** @type {Error} */ (err).message; error.className = "hub-error"; }
+          return;
+        }
         if (form.matches("[data-activate-form]")) {
           event.preventDefault();
           const error = /** @type {HTMLElement} */ (form.querySelector("[data-form-error]"));

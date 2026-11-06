@@ -155,7 +155,7 @@ Legenda: ✅ já tem · 🟡 parcial · ⬜ não tem (fase prevista no roadmap)
 
 ### Agora (ajustes pequenos na Fase 1)
 1. **Painel com números clicáveis**, no estilo do Magis5: anúncios com estoque baixo, sem estoque informado, vendas sem vínculo, divergências e envios com falha. Cada número leva à tela filtrada (a Saúde das contas já tem os dados).
-2. **Encerrar ou pausar anúncio quando o estoque zerar** como opção de regra da conta (lição da Tray e do Base). Hoje o Hub envia 0, e alguns canais penalizam anúncio ativo zerado.
+2. ~~Pausar anúncio quando o estoque zerar~~ — **descartado após checagem:** no Mercado Livre, enviar estoque 0 já pausa o anúncio sozinho (subestado `out_of_stock`, para produto novo e anúncio não gratuito), e repor reativa. Pausar por conta própria viraria "pausado pelo vendedor" e o anúncio **não voltaria** ao repor ([documentação do ML](https://developers.mercadolivre.com.br/pt_br/produto-sincronizacao-de-publicacoes)). No lugar entrou o contador **"Anúncios zerados no canal"** no painel.
 3. **"Estoque baixo"** como alerta configurável por conta (hoje o limite é fixo em 10 no Magis5).
 
 ### Fase 2 (preço e margem)

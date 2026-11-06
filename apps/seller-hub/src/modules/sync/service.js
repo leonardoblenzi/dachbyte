@@ -131,6 +131,14 @@ function createSyncService({ repository, stockRepository, connectors, tokens, qu
       return repository.getSettings(identity.tenantId);
     },
 
+    /** Limite do alerta de estoque baixo. @param {{ identity: { tenantId: string, userId?: string | null }, threshold: number }} input */
+    async setLowStockThreshold({ identity, threshold }) {
+      if (!Number.isInteger(threshold) || threshold < 0 || threshold > 100000) throw fail("Informe um número inteiro de 0 a 100000.", 400, "invalid_threshold");
+      await repository.setLowStockThreshold(identity.tenantId, threshold);
+      await repository.audit({ tenantId: identity.tenantId, userId: identity.userId, action: "low_stock_threshold_changed", details: { threshold } });
+      return repository.getSettings(identity.tenantId);
+    },
+
     /** @param {string} tenantId @param {{ state?: string, accountId?: number | null, limit?: number, offset?: number }} [options] */
     listPushes: (tenantId, options) => repository.listPushes(tenantId, options),
 

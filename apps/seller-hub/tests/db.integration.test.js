@@ -155,3 +155,23 @@ test("planilha aplicada no banco: definir e somar (sem duplicar o mesmo arquivo)
   const bal = Object.fromEntries((await db.query("select item_id, on_hand::float from hub.stock_balances")).rows.map((r) => [Number(r.item_id), r.on_hand]));
   assert.deepEqual([bal[id["SOFA-1"]], bal[id.MESA]], [15, 3]);
 });
+
+test("painel de atenção: estoque baixo, zerados, sem estoque, zerados no canal e limite configurável", opts, async () => {
+  const { ml, id } = await seed();
+  const stock = createStockService({ repository: createStockRepository(db) });
+  const identity = { tenantId: T, userId: "u1" };
+  await db.query("insert into hub.items (tenant_id, sku, sku_key, name, origin) values ($1, 'POLTRONA', 'poltrona', 'Poltrona', 'manual')", [T]);
+  await stock.adjust({ identity, itemId: id["SOFA-1"], op: "set", quantity: 3, note: "contagem" });
+  await stock.adjust({ identity, itemId: id.MESA, op: "set", quantity: 0, note: "contagem" });
+  await db.query("update hub.listings set channel_stock = 0 where listing_id = 'MLB2'");
+  const a = await stock.attention(T);
+  assert.deepEqual([a.itemsLowStock, a.itemsZero, a.itemsNoStock, a.listingsZeroInChannel, a.threshold], [1, 1, 1, 1, 5]);
+  assert.deepEqual((await stock.listStock(T, { filter: "low" })).items.map((i) => i.sku), ["SOFA-1"]);
+  assert.deepEqual((await stock.listStock(T, { filter: "zero" })).items.map((i) => i.sku), ["MESA"]);
+  await db.query("insert into hub.tenant_settings (tenant_id, low_stock_threshold) values ($1, 2) on conflict (tenant_id) do update set low_stock_threshold = 2", [T]);
+  assert.equal((await stock.attention(T)).itemsLowStock, 0, "limite 2: 3 unidades não é baixo");
+  assert.equal((await stock.listStock(T, {})).summary.threshold, 2);
+  const zeroed = await stock.plan(T, { zeroInChannel: true });
+  assert.deepEqual(zeroed.rows.map((r) => r.listingId), ["MLB2"]);
+  assert.ok(ml);
+});

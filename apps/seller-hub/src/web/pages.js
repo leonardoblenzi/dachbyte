@@ -6,7 +6,7 @@ function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
 }
 
-const ASSET_VERSION = "20261108b";
+const ASSET_VERSION = "20261108c";
 
 /** Páginas do DACH Hub. Cada uma vira um item do menu lateral. */
 const PAGES = {

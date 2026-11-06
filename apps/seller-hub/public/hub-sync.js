@@ -140,9 +140,9 @@
   const HOUR = 3600e3;
   /**
    * Alertas a partir da saúde das contas. tone: danger (agir já) ou warning (olhar).
-   * @param {any[]} accounts @param {any} settings @param {Record<string, string>} labels
+   * @param {any[]} accounts @param {any} settings @param {Record<string, string>} labels @param {any} [attention]
    */
-  function computeAlerts(accounts, settings, labels) {
+  function computeAlerts(accounts, settings, labels, attention) {
     /** @type {Array<{ tone: string, text: string, href: string }>} */
     const alerts = [];
     if (settings?.paused) alerts.push({ tone: "danger", text: "Envios de estoque pausados: nada é enviado aos canais.", href: "/hub/estoque/regras" });
@@ -158,6 +158,8 @@
       if (a.lastRun?.status === "failed") alerts.push({ tone: "warning", text: `${name}: a última conferência falhou (${a.lastRun.error || "erro"}).`, href: "/hub/saude" });
       if (a.mode === "active" && a.lastReconciledAt && Date.now() - Date.parse(a.lastReconciledAt) > 12 * HOUR) alerts.push({ tone: "warning", text: `${name}: estoque não é conferido há mais de 12h.`, href: "/hub/saude" });
     }
+    if (attention?.itemsLowStock) alerts.push({ tone: "warning", text: `${attention.itemsLowStock} produto(s) com estoque baixo (disponível até ${attention.threshold}).`, href: "/hub/estoque?filtro=low" });
+    if (attention?.itemsZero) alerts.push({ tone: "warning", text: `${attention.itemsZero} produto(s) zerados no estoque do Hub.`, href: "/hub/estoque?filtro=zero" });
     return alerts;
   }
   /** @type {any} */ (window).DachHubAlerts = { computeAlerts };
@@ -175,9 +177,9 @@
     const metric = (label, value, tone = "") => `<div class="hub-metric" ${tone ? `data-tone="${tone}"` : ""}><span>${esc(label)}</span><strong>${value}</strong></div>`;
 
     async function render() {
-      const { accounts, settings } = await api("/health/accounts");
+      const { accounts, settings, attention } = await api("/health/accounts");
       if (!accounts.length) { root.innerHTML = empty("Nenhuma conta conectada", "Conecte uma conta para acompanhar a saúde da integração.", '<a class="seller-btn seller-btn--primary" href="/hub/contas">Ver contas</a>'); return; }
-      const alerts = computeAlerts(accounts, settings, CHANNEL_LABELS);
+      const alerts = computeAlerts(accounts, settings, CHANNEL_LABELS, attention);
       const running = accounts.some((/** @type {any} */ a) => a.lastRun && (a.lastRun.status === "queued" || a.lastRun.status === "running"));
       root.innerHTML = `
         <section class="seller-card"><h2>Alertas</h2>

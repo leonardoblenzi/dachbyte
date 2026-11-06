@@ -134,10 +134,10 @@ function createStockRepository(db) {
 
     /**
      * Itens com saldo e quantidade de anúncios (a tela soma o disponível dos kits).
-     * filter: "all" | "no_stock" (sem estoque informado) | "kits".
-     * @param {string} tenantId @param {{ q?: string, filter?: string, limit?: number, offset?: number }} [options]
+     * filter: "all" | "no_stock" (sem estoque informado) | "kits" | "low" (disponível de 1 até o limite) | "zero" (disponível ≤ 0).
+     * @param {string} tenantId @param {{ q?: string, filter?: string, threshold?: number, limit?: number, offset?: number }} [options]
      */
-    async listStock(tenantId, { q = "", filter = "all", limit = 50, offset = 0 } = {}) {
+    async listStock(tenantId, { q = "", filter = "all", threshold = 5, limit = 50, offset = 0 } = {}) {
       const { rows } = await db.query(
         `select i.id, i.sku, i.name, i.kind, i.ean,
                 coalesce(sum(b.on_hand), 0)::float as "onHand", coalesce(sum(b.reserved), 0)::float as reserved,
@@ -151,10 +151,44 @@ function createStockRepository(db) {
             and ($3 <> 'kits' or i.kind = 'kit')
           group by i.id
          having ($3 <> 'no_stock' or (i.kind = 'simple' and count(b.item_id) = 0))
+            and ($3 <> 'low' or (i.kind = 'simple' and count(b.item_id) > 0 and sum(b.on_hand - b.reserved) > 0 and sum(b.on_hand - b.reserved) <= $6))
+            and ($3 <> 'zero' or (i.kind = 'simple' and count(b.item_id) > 0 and sum(b.on_hand - b.reserved) <= 0))
           order by i.sku
           limit $4 offset $5`,
-        [tenantId, String(q || "").trim(), filter, Math.min(5000, Math.max(1, limit)), Math.max(0, offset)]);
+        [tenantId, String(q || "").trim(), filter, Math.min(5000, Math.max(1, limit)), Math.max(0, offset), Math.max(0, Number(threshold) || 0)]);
       return rows;
+    },
+
+    /** Limite de estoque baixo da empresa (padrão 5). @param {string} tenantId */
+    async lowStockThreshold(tenantId) {
+      const row = await db.queryOne("select low_stock_threshold as n from hub.tenant_settings where tenant_id = $1", [tenantId]);
+      return row ? Number(row.n) : 5;
+    },
+
+    /**
+     * Números do painel "precisa de atenção". Produtos: só simples (kit não tem estoque próprio).
+     * @param {string} tenantId @param {number} threshold
+     */
+    async attention(tenantId, threshold) {
+      return db.queryOne(
+        `with bal as (
+           select i.id, count(b.item_id) as rows, coalesce(sum(b.on_hand - b.reserved), 0) as available
+             from hub.items i left join hub.stock_balances b on b.item_id = i.id
+            where i.tenant_id = $1 and i.active and i.kind = 'simple' group by i.id)
+         select
+           (select count(*)::int from bal where rows = 0) as "itemsNoStock",
+           (select count(*)::int from bal where rows > 0 and available > 0 and available <= $2) as "itemsLowStock",
+           (select count(*)::int from bal where rows > 0 and available <= 0) as "itemsZero",
+           (select count(*)::int from hub.listings l join hub.channel_accounts a on a.id = l.channel_account_id
+             where a.tenant_id = $1 and a.status <> 'disconnected' and l.item_id is not null and not l.fulfillment and l.channel_stock = 0) as "listingsZeroInChannel",
+           (select count(*)::int from hub.listings l join hub.channel_accounts a on a.id = l.channel_account_id
+             where a.tenant_id = $1 and a.status <> 'disconnected' and l.item_id is null) as "listingsUnlinked",
+           (select count(*)::int from hub.order_lines ol join hub.channel_orders o on o.id = ol.order_id join hub.channel_accounts a on a.id = o.channel_account_id
+             where a.tenant_id = $1 and ol.pending_link) as "pendingSales",
+           (select count(*)::int from hub.stock_divergences d where d.tenant_id = $1 and d.status = 'open') as "divergencesOpen",
+           (select count(*)::int from hub.stock_pushes p where p.tenant_id = $1 and p.state in ('failed','divergent') and p.updated_at > now() - interval '24 hours') as "pushProblems24h",
+           $2::int as threshold`,
+        [tenantId, threshold]);
     },
 
     /** @param {string} tenantId @param {{ itemId?: number | null, limit?: number, offset?: number }} [options] */

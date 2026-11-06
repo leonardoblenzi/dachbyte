@@ -15,8 +15,16 @@ function createSyncRepository(db) {
     /** @param {string} tenantId */
     async getSettings(tenantId) {
       return (await db.queryOne(
-        `select stock_paused as "paused", paused_by as "pausedBy", paused_at as "pausedAt" from hub.tenant_settings where tenant_id = $1`, [tenantId]))
-        || { paused: false, pausedBy: null, pausedAt: null };
+        `select stock_paused as "paused", paused_by as "pausedBy", paused_at as "pausedAt", low_stock_threshold as "lowStockThreshold"
+           from hub.tenant_settings where tenant_id = $1`, [tenantId]))
+        || { paused: false, pausedBy: null, pausedAt: null, lowStockThreshold: 5 };
+    },
+
+    /** @param {string} tenantId @param {number} threshold */
+    async setLowStockThreshold(tenantId, threshold) {
+      await db.query(
+        `insert into hub.tenant_settings (tenant_id, low_stock_threshold) values ($1, $2)
+         on conflict (tenant_id) do update set low_stock_threshold = $2, updated_at = now()`, [tenantId, threshold]);
     },
 
     /** @param {string} tenantId @param {boolean} paused @param {string | null} userId */

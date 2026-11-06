@@ -64,8 +64,29 @@
   /** @param {string} title @param {string} text @param {string} [action] */
   const empty = (title, text, action = "") => `<div class="seller-card"><div class="seller-empty"><strong>${esc(title)}</strong><span>${esc(text)}</span>${action}</div></div>`;
 
+  /**
+   * "Precisa de atenção": cada número leva à tela já filtrada. Só aparece o que tem algo a fazer.
+   * @param {any} a
+   */
+  function attentionCards(a) {
+    const cards = /** @type {Array<[number, string, string, string, string]>} */ ([
+      [a.divergencesOpen, "Estoque mudado fora do Hub", "divergência(s) para decidir", "/hub/estoque/divergencias", "danger"],
+      [a.pushProblems24h, "Envios com problema (24h)", "falha ou valor diferente no canal", "/hub/estoque/envios?estado=failed", "danger"],
+      [a.pendingSales, "Vendas sem vínculo", "não baixaram estoque", "/hub/pedidos?pendentes=1", "danger"],
+      [a.itemsZero, "Produtos zerados", "disponível 0 ou negativo", "/hub/estoque?filtro=zero", "warning"],
+      [a.itemsLowStock, "Estoque baixo", `disponível de 1 a ${int(a.threshold)}`, "/hub/estoque?filtro=low", "warning"],
+      [a.listingsZeroInChannel, "Anúncios zerados no canal", "estoque 0 no marketplace", "/hub/estoque/observacao?canal_zerado=1", "warning"],
+      [a.itemsNoStock, "Sem estoque informado", "o Hub não calcula envio", "/hub/estoque?filtro=no_stock", "warning"],
+      [a.listingsUnlinked, "Anúncios sem vínculo", "ligue ao produto certo", "/hub/pendencias", "warning"],
+    ]).filter(([n]) => Number(n) > 0);
+    if (!cards.length) return '<section class="seller-card"><h2>Precisa de atenção</h2><p class="hub-ok">Nada pendente agora.</p></section>';
+    return `<section class="seller-card"><h2>Precisa de atenção</h2>
+      <div class="hub-attention">${cards.map(([n, title, hint, href, tone]) => `<a class="seller-kpi hub-attention__card" data-tone="${tone}" href="${esc(href)}"><span>${esc(title)}</span><strong>${int(n)}</strong><small>${esc(hint)}</small></a>`).join("")}</div>
+    </section>`;
+  }
+
   async function renderOverview() {
-    const { overview: o } = await api("/overview");
+    const [{ overview: o }, { attention }] = await Promise.all([api("/overview"), api("/overview/attention").catch(() => ({ attention: null }))]);
     root.innerHTML = `
       <section class="seller-grid">
         <article class="seller-kpi"><span>Produtos</span><strong>${int(o?.items)}</strong><small>SKUs DACH no catálogo</small></article>
@@ -73,6 +94,7 @@
         <article class="seller-kpi"><span>Vinculados</span><strong>${int(o?.linked)}</strong><small>ligados a um produto</small></article>
         <article class="seller-kpi"><span>Sem vínculo</span><strong>${int(o?.unlinked)}</strong><small>${int(o?.with_suggestion)} com sugestão</small></article>
       </section>
+      ${Number(o?.accounts) && attention ? attentionCards(attention) : ""}
       ${Number(o?.accounts) ? "" : empty("Nenhuma conta conectada ainda", "Conecte seus marketplaces e lojas virtuais para importar os anúncios.", '<a class="seller-btn seller-btn--primary" href="/hub/contas">Ver contas</a>')}`;
   }
 
@@ -240,8 +262,8 @@
     const chip = /** @type {HTMLElement | null} */ (document.querySelector('a.seller-shell__chip[href="/hub/saude"]'));
     const alertsApi = /** @type {any} */ (window).DachHubAlerts;
     if (!chip || !alertsApi) return;
-    const { accounts, settings } = await api("/health/accounts");
-    const alerts = alertsApi.computeAlerts(accounts, settings, CHANNEL_LABELS);
+    const { accounts, settings, attention } = await api("/health/accounts");
+    const alerts = alertsApi.computeAlerts(accounts, settings, CHANNEL_LABELS, attention);
     const danger = alerts.filter((/** @type {any} */ a) => a.tone === "danger").length;
     const [label, tone] = settings.paused ? ["Envios pausados", "danger"]
       : danger ? [`Atenção (${alerts.length})`, "danger"]
