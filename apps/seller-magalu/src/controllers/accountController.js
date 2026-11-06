@@ -5,7 +5,8 @@ const accountManagementRepository = require("../repositories/accountManagementRe
 const syncRunRepository = require("../repositories/syncRunRepository");
 const { checkHubAccess, clearHubAccessCache } = require("../services/hubAccessService");
 const { checkAccountAccess } = require("../services/hubResourceAccessService");
-const { unlinkHubResource } = require("../services/hubAccountService");
+const { unlinkHubResource, renameHubResource } = require("../services/hubAccountService");
+const dashboardCache = require("../services/dashboardCacheService");
 const { sendHelpContact, TOPICS } = require("../services/helpContactService");
 const userAccess = require("../services/userAccessService");
 const userAccessRepository = require("../repositories/userAccessRepository");
@@ -226,4 +227,40 @@ async function help(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { context, unlink, help, usersMetadata, listUsers, updateUserAccess, _test: { pickSubscription, pickHubAccess } };
+// Renomeia a conta (apelido) aqui e no Hub, para o portal mostrar o mesmo nome.
+async function renameAccount(req, res, next) {
+  try {
+    const accountId = int(req.params.accountId);
+    if (!accountId) return res.status(400).json({ ok: false, error: "invalid_account_id" });
+    const label = text(req.body?.label, 120).replace(/\s+/g, " ");
+    if (label.length < 2) {
+      return res.status(400).json({ ok: false, error: "invalid_label", message: "Informe um nome com pelo menos 2 caracteres." });
+    }
+    const identity = req.magaluIdentity;
+    const account = await accountRepository.findAccountByIdForTenant(accountId, identity.dachTenantId);
+    if (!account) return res.status(404).json({ ok: false, error: "account_not_found" });
+
+    let hubRename = { ok: true, error: null };
+    try {
+      await renameHubResource(account, { label, userId: identity.dachUserId });
+    } catch (error) {
+      if (Number(error?.status) === 403) {
+        return res.status(403).json({ ok: false, error: "hub_rename_forbidden", message: "Somente quem gerencia a empresa (proprietário ou administrador) pode renomear contas." });
+      }
+      hubRename = { ok: false, error: error?.code || "hub_rename_failed" };
+    }
+    const updated = await accountRepository.setAccountAlias(accountId, identity.dachTenantId, label);
+    dashboardCache.invalidateAccount(accountId);
+    await auditService.recordBestEffort({
+      eventKey: "account_renamed",
+      action: "ACCOUNT_RENAMED",
+      category: "account",
+      details: { account_id: accountId, previous_label: account.magalu_tenant_name || null, label, hub_synced: hubRename.ok },
+    }, req);
+    return res.json({ ok: true, account: updated, hub_rename: hubRename });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = { context, unlink, renameAccount, help, usersMetadata, listUsers, updateUserAccess, _test: { pickSubscription, pickHubAccess } };

@@ -29,7 +29,7 @@ test("dashboard UI follows the Meli decision hierarchy without invented Ads metr
   const dashboard = read("public/js/magalu-dashboard.js");
   assert.match(html, /id="mg-dashboard-period"/);
   assert.match(html, /id="mg-dashboard-priorities"/);
-  assert.match(html, /Comercial e prontidão financeira/);
+  assert.match(html, /Comercial e resultado/);
   assert.match(html, /Sinais operacionais/);
   assert.match(html, /id="mg-dashboard-orders-period"/);
   assert.match(html, /id="kpi-orders-period-label"/);

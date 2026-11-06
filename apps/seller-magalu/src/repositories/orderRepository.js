@@ -145,6 +145,31 @@ async function stats(accountId, days=30, offsetDays=0){
   const {rows}=await db.query(`select coalesce(nullif(status,''),'unknown') status,count(*)::int total from magalu.deliveries where account_id=$1 and is_present group by 1 order by total desc`,[Number(accountId)]);
   return{...(totals||{}),delivery_statuses:rows,days:safeDays};
 }
+// Pedidos cancelados na janela (mesmo recorte de dias do painel).
+async function cancelledCount(accountId, days=30, offsetDays=0){
+  const safeDays=Math.max(1,Math.min(60,Number(days)||30));
+  const safeOffset=Math.max(0,Math.min(60-safeDays,Number(offsetDays)||0));
+  const row=await db.queryOne(`select count(*)::int total,coalesce(sum(case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else 0 end),0)::numeric as value from magalu.orders where account_id=$1 and is_present and lower(coalesce(status,'')) in ('cancelled','canceled') and purchased_at>=now()-(($2::int + $3::int) * interval '1 day') and purchased_at<now()-($3::int * interval '1 day')`,[Number(accountId),safeDays,safeOffset]);
+  return {total:Number(row?.total||0),value:Number(row?.value||0)};
+}
+
+// Ritmo do mes no fuso de Sao Paulo: mes atual ate agora e mes anterior inteiro.
+async function monthPace(accountId){
+  const row=await db.queryOne(`with bounds as (select date_trunc('month',now() at time zone 'America/Sao_Paulo') as month_start),
+    rows as (select purchased_at at time zone 'America/Sao_Paulo' as local_at,
+      case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else 0 end as value
+      from magalu.orders where account_id=$1 and is_present and lower(coalesce(status,'')) not in ('cancelled','canceled')
+        and purchased_at>=now()-interval '75 days')
+    select coalesce(sum(r.value) filter(where r.local_at>=b.month_start),0)::numeric as current_gmv,
+      count(*) filter(where r.local_at>=b.month_start)::int as current_orders,
+      coalesce(sum(r.value) filter(where r.local_at>=b.month_start-interval '1 month' and r.local_at<b.month_start),0)::numeric as previous_gmv,
+      count(*) filter(where r.local_at>=b.month_start-interval '1 month' and r.local_at<b.month_start)::int as previous_orders,
+      extract(day from now() at time zone 'America/Sao_Paulo')::int as day_of_month,
+      extract(day from (b.month_start+interval '1 month'-interval '1 day'))::int as days_in_month
+    from bounds b left join rows r on true group by b.month_start`,[Number(accountId)]);
+  return row||{};
+}
+
 async function itemCoverage(accountId,{from=null,to=null}={}) {
   const params=[Number(accountId)];
   const where=["o.account_id=$1","o.is_present=true","lower(coalesce(o.status,'')) not in ('cancelled','canceled')"];
@@ -211,4 +236,4 @@ async function ownedCodes(accountId,codes){
 
 async function accountSyncState(accountId){return db.queryOne(`select orders_sync_status,orders_last_synced_at,orders_last_error from magalu.accounts where id=$1`,[Number(accountId)]);}
 async function runs(accountId,limit=12){const{rows}=await db.query(`select id,sync_type,status,scanned_count,created_count,updated_count,failed_count,result,error_message,started_at,finished_at from magalu.sync_runs where account_id=$1 and sync_type like 'orders_%' order by started_at desc limit $2`,[Number(accountId),int(limit,1,50,12)]);return rows;}
-module.exports={upsertOrder,upsertDelivery,setSyncState,accountSyncState,listOrders,orderDetail,stats,knownChannels,getDelivery,ownedCodes,runs,itemCoverage,codesWithIdentifiedItems,_test:{text,int,whereFor}};
+module.exports={upsertOrder,upsertDelivery,setSyncState,accountSyncState,listOrders,orderDetail,stats,cancelledCount,monthPace,knownChannels,getDelivery,ownedCodes,runs,itemCoverage,codesWithIdentifiedItems,_test:{text,int,whereFor}};

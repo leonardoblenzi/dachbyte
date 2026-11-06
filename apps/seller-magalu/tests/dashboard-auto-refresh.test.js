@@ -31,7 +31,11 @@ test("dashboard refresh waits for its own orders job before returning metrics", 
   assert.match(client, /\/magalu\/api\/dashboard\/refresh/);
   assert.match(client, /MagaluLoadingOverlay\?\.show/);
   assert.match(client, /state === "completed"/);
-  assert.match(client, /await fetchJson\(`\/magalu\/api\/dashboard\?/);
+  assert.match(client, /const dashboardUrl = \(fresh\) => `\/magalu\/api\/dashboard\?account_id=/);
+  // Botao atualizar sincroniza com a tela de carregamento; abrir normal usa cache e sincroniza em segundo plano.
+  assert.match(client, /if \(force\) \{\s*overlay\?\.show/);
+  assert.match(client, /Date\.now\(\) - syncedAt < DASHBOARD_ORDERS_STALE_MS/);
+  assert.match(client, /loadDashboard\(\{ force: true \}\)/);
 });
 
 test("dashboard GMV and order count exclude cancelled orders", () => {

@@ -129,7 +129,8 @@ async function updateAccountAfterRefresh(client, accountId, scopes = []) {
 async function updateSellerProfile(accountId, profile) {
   const name = text(profile?.name || profile?.trade_name || profile?.display_name || profile?.nickname || profile?.seller_name);
   const { rows } = await db.query(
-    `update magalu.accounts set magalu_tenant_name = coalesce(nullif($2, ''), magalu_tenant_name),
+    `update magalu.accounts set magalu_tenant_name = case when coalesce(metadata, '{}'::jsonb) ? 'customer_alias'
+              then magalu_tenant_name else coalesce(nullif($2, ''), magalu_tenant_name) end,
             metadata = jsonb_set(coalesce(metadata, '{}'::jsonb), '{seller_profile}', $3::jsonb, true), updated_at = now()
       where id = $1 returning id, magalu_tenant_name, metadata`, [Number(accountId), name || null, JSON.stringify(profile || {})]);
   return rows[0] || null;
@@ -200,10 +201,21 @@ async function claimHubResourceSync(accountId) {
   return rows[0] || null;
 }
 
+// Nome definido pelo cliente em Contas vinculadas; prevalece sobre o nome vindo do perfil Magalu.
+async function setAccountAlias(accountId, dachTenantId, label) {
+  const { rows } = await db.query(
+    `update magalu.accounts set magalu_tenant_name = $3,
+            metadata = jsonb_set(coalesce(metadata, '{}'::jsonb), '{customer_alias}', to_jsonb($3::text), true),
+            updated_at = now()
+      where id = $1 and dach_tenant_id = $2
+      returning id, magalu_tenant_id, magalu_tenant_name`, [Number(accountId), String(dachTenantId), String(label)]);
+  return rows[0] || null;
+}
+
 async function markAccountActive(accountId) { await db.query(`update magalu.accounts set status = 'active', updated_at = now() where id = $1`, [Number(accountId)]); }
 
 module.exports = {
   listAccountsForTenant, findAccountByTenantId, findAccountById, findAccountByIdForTenant,
-  upsertConnectedAccount, updateAccountAfterRefresh, updateSellerProfile, setCatalogSyncState, setHubResourceSyncState, listHubResourceSyncCandidates, markHubResourceSyncQueuedIfPending, markHubResourceSyncPendingIfFailed, claimHubResourceSync, markAccountActive,
+  upsertConnectedAccount, updateAccountAfterRefresh, updateSellerProfile, setCatalogSyncState, setHubResourceSyncState, listHubResourceSyncCandidates, markHubResourceSyncQueuedIfPending, markHubResourceSyncPendingIfFailed, claimHubResourceSync, markAccountActive, setAccountAlias,
   _test: { ownershipConflict, normalizeScopes },
 };

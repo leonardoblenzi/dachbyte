@@ -6,7 +6,7 @@
   const $ = (id) => document.getElementById(id);
   const ACCOUNT_KEY = "dachbyte_magalu_account_id";
   const ROLE_LABELS = { admin: "Administrador", administrador: "Administrador", owner: "Owner", operator: "Operador", operador: "Operador", member: "Membro" };
-  const state = { viewer: null, users: [], modules: [], editing: null, unlinkTarget: null };
+  const state = { viewer: null, users: [], modules: [], editing: null, unlinkTarget: null, renameTarget: null };
 
   async function fetchJson(url, options = {}) {
     const client = window.MagaluSellerShell;
@@ -292,6 +292,49 @@
     } finally { submit.disabled = false; }
   }
 
+  // ---------- Renomear ----------
+  function openRename(accountId, currentLabel) {
+    state.renameTarget = Number(accountId);
+    const input = $("mg-rename-input");
+    input.value = currentLabel || "";
+    $("mg-rename-error").hidden = true;
+    $("mg-rename-submit").disabled = false;
+    $("mg-rename-dialog").hidden = false;
+    input.focus();
+    input.select();
+  }
+
+  function closeRename() {
+    state.renameTarget = null;
+    $("mg-rename-dialog").hidden = true;
+  }
+
+  async function submitRename() {
+    if (!state.renameTarget) return;
+    const label = String($("mg-rename-input")?.value || "").trim().replace(/\s+/g, " ");
+    const error = $("mg-rename-error");
+    if (label.length < 2) {
+      error.textContent = "Informe um nome com pelo menos 2 caracteres.";
+      error.hidden = false;
+      return;
+    }
+    const button = $("mg-rename-submit");
+    button.disabled = true;
+    try {
+      const result = await fetchJson(accountApi(`/accounts/${state.renameTarget}/name`), {
+        method: "PUT",
+        body: JSON.stringify({ label }),
+      });
+      closeRename();
+      try { sessionStorage.removeItem("magalu:dashboard:cache:v1"); } catch (_error) {}
+      location.href = result.hub_rename?.ok === false ? "/magalu/contas?renamed=partial" : "/magalu/contas?renamed=1";
+    } catch (failure) {
+      error.textContent = failure.message || "Não foi possível renomear a conta.";
+      error.hidden = false;
+      button.disabled = false;
+    }
+  }
+
   // ---------- Desvincular ----------
   function openUnlink(accountId) {
     state.unlinkTarget = Number(accountId);
@@ -354,6 +397,8 @@
         location.href = "/magalu/integracoes?test=1";
         return;
       }
+      const rename = event.target.closest("[data-account-rename]");
+      if (rename) { openRename(rename.dataset.accountRename, rename.dataset.accountLabel); return; }
       const unlink = event.target.closest("[data-account-unlink]");
       if (unlink) openUnlink(unlink.dataset.accountUnlink);
     });
@@ -384,6 +429,9 @@
     $("mg-unlink-confirm")?.addEventListener("change", (event) => { $("mg-unlink-submit").disabled = !event.target.checked; });
     $("mg-unlink-submit")?.addEventListener("click", () => void submitUnlink());
     document.querySelectorAll("[data-unlink-close]").forEach((button) => button.addEventListener("click", closeUnlink));
+    $("mg-rename-submit")?.addEventListener("click", () => void submitRename());
+    $("mg-rename-input")?.addEventListener("keydown", (event) => { if (event.key === "Enter") void submitRename(); });
+    document.querySelectorAll("[data-rename-close]").forEach((button) => button.addEventListener("click", closeRename));
 
     $("mg-plan-refresh")?.addEventListener("click", () => void renderAccountPages());
     $("mg-help-form")?.addEventListener("submit", (event) => void submitHelp(event));
@@ -396,6 +444,7 @@
       if (event.key !== "Escape") return;
       if (!$("mg-user-access-modal")?.hidden) closeAccess();
       if (!$("mg-unlink-dialog")?.hidden) closeUnlink();
+      if (!$("mg-rename-dialog")?.hidden) closeRename();
     });
     if (location.pathname === "/magalu/integracoes" && new URLSearchParams(location.search).get("test") === "1") {
       setTimeout(() => $("mg-test-connection")?.click(), 500);
@@ -408,6 +457,8 @@
     void renderAccountPages();
     const params = new URLSearchParams(location.search);
     if (params.get("unlinked") === "1") notify("Conta Magalu desvinculada. Você já pode conectar a organização correta.");
+    if (params.get("renamed") === "1") notify("Nome da conta atualizado.");
+    if (params.get("renamed") === "partial") notify("Nome atualizado no módulo. O portal ainda não confirmou a mudança; tente renomear de novo mais tarde.", "warning");
     if (params.get("acesso") === "negado") notify("Você não tem permissão para abrir essa tela. Fale com o administrador da empresa.", "warning");
   });
 })();

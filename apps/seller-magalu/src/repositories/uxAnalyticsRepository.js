@@ -291,12 +291,7 @@ function marginFilters(options, start, end) {
   return {params,where};
 }
 
-async function marginOverview(accountId, options={}){
-  const to=isoDate(options.to,todayIso()), from=isoDate(options.from,daysAgoIso(6));
-  const start=from<=to?from:to,end=from<=to?to:from;
-  const filtered=marginFilters({...options,accountId},start,end);
-  const whereSql=filtered.where.length?`where ${filtered.where.join(" and ")}`:"";
-  const summary=await db.queryOne(`${marginOrderCte()}
+function marginSummarySql(whereSql){return `${marginOrderCte()}
     select count(*)::int orders,
       coalesce(sum(gmv),0)::numeric gmv,
       count(*) filter(where result_complete)::int complete_orders,
@@ -315,7 +310,44 @@ async function marginOverview(accountId, options={}){
       case when coalesce(sum(gmv) filter(where result_complete),0)>0
         then round((sum(known_result) filter(where result_complete)/sum(gmv) filter(where result_complete))*100,2)
         else null end as known_margin_pct
-    from base ${whereSql}`,filtered.params);
+    from base ${whereSql}`;}
+
+// Resumo de margem de um periodo (mesma regra da tela Margem de venda), sem listar pedidos.
+async function marginSummary(accountId, options={}){
+  const to=isoDate(options.to,todayIso()), from=isoDate(options.from,daysAgoIso(6));
+  const start=from<=to?from:to,end=from<=to?to:from;
+  const filtered=marginFilters({accountId},start,end);
+  return (await db.queryOne(marginSummarySql(""),filtered.params)) || {};
+}
+
+// SKUs vendidos no periodo (itens de pedido, entrega ou relatorio financeiro) com estoque atual.
+async function soldSkus(accountId, options={}){
+  const to=isoDate(options.to,todayIso()), from=isoDate(options.from,daysAgoIso(29));
+  const start=from<=to?from:to,end=from<=to?to:from;
+  const {rows}=await db.query(`${marginOrderCte()}, sold as (
+      select si.sku,max(si.name) as name,coalesce(sum(si.quantity),0)::numeric as units,
+        coalesce(sum(coalesce(si.amount_total::numeric,si.unit_price::numeric*coalesce(si.quantity,0))/nullif(si.amount_normalizer,0)),0)::numeric as revenue,
+        count(distinct si.order_id)::int as orders
+      from source_items si join magalu.orders o on o.id=si.order_id and o.account_id=si.account_id
+      where lower(coalesce(o.status,'')) not in ('cancelled','canceled') and nullif(si.sku,'') is not null
+      group by si.sku
+    )
+    select sold.sku,coalesce(s.title,sold.name) as title,sold.units,sold.revenue,sold.orders,
+      st.quantity as stock_quantity,(st.sku is not null) as stock_known
+    from sold
+    left join magalu.skus s on s.account_id=$1 and s.sku=sold.sku
+    left join magalu.stocks st on st.account_id=$1 and st.sku=sold.sku and st.is_present=true
+    order by sold.revenue desc nulls last,sold.units desc
+    limit 300`,[Number(accountId),start,end,null]);
+  return rows;
+}
+
+async function marginOverview(accountId, options={}){
+  const to=isoDate(options.to,todayIso()), from=isoDate(options.from,daysAgoIso(6));
+  const start=from<=to?from:to,end=from<=to?to:from;
+  const filtered=marginFilters({...options,accountId},start,end);
+  const whereSql=filtered.where.length?`where ${filtered.where.join(" and ")}`:"";
+  const summary=await db.queryOne(marginSummarySql(whereSql),filtered.params);
 
   const page=int(options.page,1,100000,1),limit=int(options.limit,1,100,40),offset=(page-1)*limit;
   const rowParams=[...filtered.params,limit,offset],li=rowParams.length-1,oi=rowParams.length;
@@ -412,4 +444,4 @@ async function equilibrium(accountId,options={}){
     limitations:{message:"Equilíbrio conhecido considera custo cadastrado, imposto informado e custos operacionais. Comissão, tarifa e frete Magalu não estão incluídos."}};
 }
 
-module.exports={stockAnalysis,costOverview,marginOverview,equilibrium,_test:{int,decimal,text,isoDate,marginFilters,marginOrderCte}};
+module.exports={stockAnalysis,costOverview,marginOverview,marginSummary,soldSkus,equilibrium,_test:{int,decimal,text,isoDate,marginFilters,marginOrderCte}};

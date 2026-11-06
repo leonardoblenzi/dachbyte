@@ -8,6 +8,7 @@ const router = express.Router();
 
 router.get("/context", accountController.context);
 router.post("/accounts/:accountId/unlink", userAccess.requireAdmin, accountController.unlink);
+router.put("/accounts/:accountId/name", userAccess.requireAdmin, accountController.renameAccount);
 router.post("/help", accountController.help);
 
 // Usuarios e permissoes por modulo: so administrador da empresa.

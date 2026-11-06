@@ -3,10 +3,11 @@
 const accountRepository = require("../repositories/accountRepository");
 const catalogRepository = require("../repositories/catalogRepository");
 const orderRepository = require("../repositories/orderRepository");
-const writeRepository = require("../repositories/writeRepository");
 const syncRunRepository = require("../repositories/syncRunRepository");
 const webhookRepository = require("../repositories/webhookRepository");
 const financialRepository = require("../repositories/financialRepository");
+const uxAnalyticsRepository = require("../repositories/uxAnalyticsRepository");
+const dashboardCache = require("../services/dashboardCacheService");
 const { checkAccountAccess } = require("../services/hubResourceAccessService");
 const { ORDER_SCOPE, hasScope } = require("../services/orderSyncService");
 const { enqueueDashboardOrdersSync, getQueue, queueNames } = require("../queues/magaluQueue");
@@ -48,7 +49,60 @@ async function refreshStatus(req,res){try{
   const state=await job.getState();
   return res.json({ok:true,state,progress:job.progress||null,result:state==="completed"?job.returnvalue||null:null,error:state==="failed"?String(job.failedReason||"Falha na sincronização.").slice(0,300):null});
 }catch(error){return refreshError(res,error);}}
+// Datas (AAAA-MM-DD) no fuso de Sao Paulo para as consultas de margem e vendas.
+function spDate(offsetDays=0, now=new Date()){
+  return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(now.getTime()-offsetDays*86400000));
+}
+function dateWindows(days, now=new Date()){
+  return {current:{from:spDate(days-1,now),to:spDate(0,now)},previous:{from:spDate(days*2-1,now),to:spDate(days,now)}};
+}
+const STOCK_RISK_DAYS=30, STOCK_RISK_COVERAGE=15;
+// Produtos vendidos com cobertura de estoque calculada pela media diaria de 30 dias.
+function withCoverage(rows, velocityRows){
+  const velocity=new Map((velocityRows||[]).map(row=>[row.sku,Number(row.units||0)/STOCK_RISK_DAYS]));
+  return (rows||[]).map(row=>{
+    const daily=velocity.has(row.sku)?velocity.get(row.sku):Number(row.units||0)/STOCK_RISK_DAYS;
+    const stock=row.stock_known?Number(row.stock_quantity||0):null;
+    const coverage=stock==null||daily<=0?null:Math.round((stock/daily)*10)/10;
+    return {sku:row.sku,title:row.title||row.sku,units:Number(row.units||0),revenue:Number(row.revenue||0),orders:Number(row.orders||0),stock,coverage_days:coverage};
+  });
+}
+function stockRiskFrom(rows){
+  const risky=rows.filter(row=>row.stock!=null&&(row.stock<=0||(row.coverage_days!=null&&row.coverage_days<=STOCK_RISK_COVERAGE)));
+  return {window_days:STOCK_RISK_DAYS,coverage_limit_days:STOCK_RISK_COVERAGE,sold_skus:rows.length,count:risky.length,
+    out_of_stock:risky.filter(row=>row.stock<=0).length,low_coverage:risky.filter(row=>row.stock>0).length,
+    revenue_at_risk:Math.round(risky.reduce((sum,row)=>sum+row.revenue,0)*100)/100,
+    items:risky.slice(0,5)};
+}
+async function settled(promise){try{return await promise;}catch(error){console.warn("[magalu] dashboard insight",error?.message||error);return null;}}
+async function insightsFor(accountId, days){
+  const windows=dateWindows(days);
+  const riskWindow={from:spDate(STOCK_RISK_DAYS-1),to:spDate(0)};
+  const [marginNow,marginPrevious,cancelledNow,cancelledPrevious,pace,soldPeriod,soldRisk]=await Promise.all([
+    settled(uxAnalyticsRepository.marginSummary(accountId,windows.current)),
+    settled(uxAnalyticsRepository.marginSummary(accountId,windows.previous)),
+    settled(orderRepository.cancelledCount(accountId,days)),
+    settled(orderRepository.cancelledCount(accountId,days,days)),
+    settled(orderRepository.monthPace(accountId)),
+    days===STOCK_RISK_DAYS?Promise.resolve(null):settled(uxAnalyticsRepository.soldSkus(accountId,windows.current)),
+    settled(uxAnalyticsRepository.soldSkus(accountId,riskWindow)),
+  ]);
+  const riskRows=soldRisk?withCoverage(soldRisk,soldRisk):null;
+  const periodRows=days===STOCK_RISK_DAYS?riskRows:(soldPeriod?withCoverage(soldPeriod,soldRisk):null);
+  return {
+    windows,
+    margin:{current:marginNow,previous:marginPrevious},
+    cancellations:{current:cancelledNow,previous:cancelledPrevious},
+    month_pace:pace,
+    top_products:periodRows?periodRows.slice(0,5):null,
+    sold_skus:periodRows?periodRows.length:null,
+    stock_risk:riskRows?stockRiskFrom(riskRows):null,
+  };
+}
+
 function prioritiesFor(catalog){const priorities=[];if(Number(catalog?.zero_stock_count||0)>0)priorities.push({tone:"warning",title:"Estoque zerado",count:Number(catalog.zero_stock_count),href:"/magalu/estoque"});if(Number(catalog?.published_count||0)===0)priorities.push({tone:"info",title:"Catálogo precisa de sincronização",count:0,href:"/magalu/integracoes"});return priorities;}
+
+// ?fresh=1 (depois de sincronizar pedidos) recalcula e substitui o cache do painel.
 
 async function status(req,res,next) {
   try {
@@ -60,12 +114,21 @@ async function status(req,res,next) {
     const access=await checkAccountAccess(identity,account,{action:"READ magalu"});
     if(!access.allow) return res.status(403).json({ok:false,error:"MAGALU_HUB_ACCESS_DENIED"});
     const period=periodFor(req.query?.period);
-    const [catalog,orders,previousOrders,marginCoverage,operations,latestRun,subscriptions]=await Promise.all([
-      catalogRepository.stats(account.id), orderRepository.stats(account.id,period.days), orderRepository.stats(account.id,period.days,period.days), financialRepository.coverage(account.id), writeRepository.listOperations(account.id,identity.dachTenantId,10), syncRunRepository.latestRun(account.id), webhookRepository.listSubscriptionsForAccount(account.id),
+    const periodKey=Object.keys(PERIODS).find(key=>PERIODS[key]===period)||"7d";
+    if(String(req.query?.fresh||"")!=="1"){
+      const cached=dashboardCache.get(account.id,periodKey);
+      if(cached)return res.json({...cached,meta:{...cached.meta,cached:true}});
+    }
+    const [catalog,orders,previousOrders,marginCoverage,latestRun,subscriptions,insights]=await Promise.all([
+      catalogRepository.stats(account.id), orderRepository.stats(account.id,period.days), orderRepository.stats(account.id,period.days,period.days), financialRepository.coverage(account.id), syncRunRepository.latestRun(account.id), webhookRepository.listSubscriptionsForAccount(account.id), insightsFor(account.id,period.days),
     ]);
+    const operations=[];
+    const ordersSync=await orderRepository.accountSyncState(account.id).catch(()=>null);
     const margin_coverage={priced_skus:Number(marginCoverage?.priced_skus||0),costed_skus:Number(marginCoverage?.costed_skus||0),percent:Number(marginCoverage?.priced_skus||0)?Math.round((Number(marginCoverage?.costed_skus||0)/Number(marginCoverage.priced_skus))*100):0};
-    return res.json({ok:true,period:{key:Object.keys(PERIODS).find(key=>PERIODS[key]===period)||"7d",label:period.label},account:{id:account.id,magalu_tenant_id:account.magalu_tenant_id,magalu_tenant_name:account.magalu_tenant_name,status:account.status,scopes:Array.isArray(account.scopes)?account.scopes:[],access_expires_at:account.access_expires_at||null,catalog_sync_status:account.catalog_sync_status,catalog_last_synced_at:account.catalog_last_synced_at,catalog_last_error:account.catalog_last_error},catalog,orders,comparison:{orders_delta:Number(orders?.total||0)-Number(previousOrders?.total||0)},margin_coverage,priorities:prioritiesFor(catalog),operations,latest_run:latestRun,webhooks:{active_count:subscriptions.filter(row=>row.status==="active").length},ads:{status:"pending",message:"Integração de Ads pendente"}});
+    const payload={ok:true,meta:{generated_at:new Date().toISOString(),cached:false,cache_ttl_sec:dashboardCache.TTL_SEC,orders_synced_at:ordersSync?.orders_last_synced_at||null,orders_sync_status:ordersSync?.orders_sync_status||null},period:{key:periodKey,label:period.label},account:{id:account.id,magalu_tenant_id:account.magalu_tenant_id,magalu_tenant_name:account.magalu_tenant_name,status:account.status,scopes:Array.isArray(account.scopes)?account.scopes:[],access_expires_at:account.access_expires_at||null,catalog_sync_status:account.catalog_sync_status,catalog_last_synced_at:account.catalog_last_synced_at,catalog_last_error:account.catalog_last_error},catalog,orders,comparison:{orders_delta:Number(orders?.total||0)-Number(previousOrders?.total||0)},previous_orders:previousOrders,insights,margin_coverage,priorities:prioritiesFor(catalog),operations,latest_run:latestRun,webhooks:{active_count:subscriptions.filter(row=>row.status==="active").length},ads:{status:"pending",message:"Integração de Ads pendente"}};
+    dashboardCache.set(account.id,periodKey,payload);
+    return res.json(payload);
   } catch(error) { return next(error); }
 }
 
-module.exports={status,refresh,refreshStatus,_test:{accountId,periodFor,prioritiesFor,syncRangeFor,PERIODS}};
+module.exports={status,refresh,refreshStatus,_test:{accountId,periodFor,prioritiesFor,syncRangeFor,PERIODS,spDate,dateWindows,withCoverage,stockRiskFrom}};

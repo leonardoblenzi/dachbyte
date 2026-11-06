@@ -75,4 +75,20 @@ async function unlinkHubResource(account, { reason, actor } = {}) {
   });
 }
 
-module.exports = { unlinkHubResource, _test: { requestHub } };
+// Apelido da conta no Hub (customer_alias), o mesmo que o portal usa ao renomear.
+async function renameHubResource(account, { label, userId } = {}) {
+  const tenantId = text(account?.dach_tenant_id);
+  const accountId = text(account?.magalu_tenant_id);
+  if (!tenantId || !accountId || !text(userId)) {
+    throw hubError("Conta Magalu sem identidade global para renomear no Hub.", {
+      status: 409,
+      code: "MAGALU_HUB_RESOURCE_IDENTITY_MISSING",
+    });
+  }
+  return requestHub("/v1/internal/portal/accounts/label", {
+    method: "POST",
+    body: { tenant_id: tenantId, user_id: text(userId), resource_key: `magalu:${accountId}`, label: text(label) },
+  });
+}
+
+module.exports = { unlinkHubResource, renameHubResource, _test: { requestHub } };
