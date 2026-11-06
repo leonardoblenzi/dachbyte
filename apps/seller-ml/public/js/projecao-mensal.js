@@ -1125,9 +1125,10 @@ function selectedProjectionStatuses() {
 function syncStatusPresets() {
   const all = projectionState.available.map((row) => row.status);
   const chosen = selectedProjectionStatuses();
+  // Destaca so o primeiro atalho que bate (varios podem dar o mesmo resultado no mes).
+  const active = ML_STATUS_PRESETS.find((item) => sameStatusSet(item.pick(all), chosen));
   document.querySelectorAll("#projection-status-presets [data-preset]").forEach((button) => {
-    const preset = ML_STATUS_PRESETS.find((item) => item.key === button.dataset.preset);
-    button.classList.toggle("is-active", Boolean(preset) && sameStatusSet(preset.pick(all), chosen));
+    button.classList.toggle("is-active", Boolean(active) && active.key === button.dataset.preset);
   });
 }
 

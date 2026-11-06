@@ -56,9 +56,9 @@
   function syncPresetButtons() {
     const all = (state.data?.filter?.available || []).map((row) => row.status);
     const chosen = selectedStatuses();
+    const active = PRESETS.find((item) => sameSet(item.pick(all), chosen));
     document.querySelectorAll("#mg-proj-status-presets [data-preset]").forEach((button) => {
-      const preset = PRESETS.find((item) => item.key === button.dataset.preset);
-      button.classList.toggle("is-active", Boolean(preset) && sameSet(preset.pick(all), chosen));
+      button.classList.toggle("is-active", Boolean(active) && active.key === button.dataset.preset);
     });
   }
 
