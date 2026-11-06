@@ -59,4 +59,23 @@ async function detailsPage(accountId,options={},after=null,limit=1000){
     where ${f.where.join(" and ")} order by s.sku limit $${f.params.length+1}`,[...f.params,size]);
   return rows;
 }
-module.exports={filters,list,count,pageSkus,detailsPage,MAX_REFRESH};
+// Exportacao do recorte filtrado inteiro (sem paginacao). Com revisao calculada,
+// traz tambem o resultado de cada SKU (sugerido, Pix e margens).
+const MAX_EXPORT=60000;
+async function exportRows(accountId,options={}){
+  const f=filters({...options,accountId});
+  const total=await db.queryOne(`select count(*)::int total from magalu.skus s where ${f.where.join(" and ")}`,f.params);
+  if(Number(total?.total||0)>MAX_EXPORT)throw invalid(`O recorte tem mais de ${MAX_EXPORT.toLocaleString("pt-BR")} SKUs. Filtre antes de exportar.`,413);
+  const previewId=options.preview_id||null,previewParam=f.params.length+1;
+  const {rows}=await db.query(`select s.sku,s.title,s.status,s.active,s.group_id,s.category_id,
+    (select i->>'value' from jsonb_array_elements(coalesce(s.payload->'identifiers','[]'::jsonb)) i where lower(i->>'type')='ean' limit 1) ean,
+    c.unit_cost,p.price,p.list_price,p.last_synced_at as price_synced_at,p.last_error as price_error,p.is_present as price_present,
+    t.aliquota as tax_rate,r.result as preview_result
+    from magalu.skus s left join magalu.prices p on p.account_id=s.account_id and p.sku=s.sku
+    left join magalu.sku_costs c on c.account_id=s.account_id and c.sku=s.sku
+    left join magalu.finance_settings t on t.account_id=s.account_id
+    left join magalu.promo_pricing_preview_rows r on r.preview_id=$${previewParam}::uuid and r.sku=s.sku
+    where ${f.where.join(" and ")} order by s.sku`,[...f.params,previewId]);
+  return rows;
+}
+module.exports={filters,list,count,pageSkus,detailsPage,exportRows,MAX_REFRESH,MAX_EXPORT};

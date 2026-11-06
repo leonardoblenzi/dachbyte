@@ -2,7 +2,7 @@
 const accounts=require("../repositories/accountRepository");
 const prices=require("../repositories/promoPriceRepository");
 const previews=require("../repositories/promoPricingPreviewRepository");
-const {buildPromotionWorkbook}=require("../services/promoWorkbookService");
+const {buildPromotionWorkbook,buildCatalogPriceWorkbook}=require("../services/promoWorkbookService");
 const {checkAccountAccess}=require("../services/hubResourceAccessService");
 const {enqueuePromoPriceRefresh,enqueuePromoPricingPreview,getQueue,queueNames}=require("../queues/magaluQueue");
 function error(message,status){const e=new Error(message);e.status=status;return e;}
@@ -27,4 +27,6 @@ async function previewPage(req,res){try{const account=await accountFor(req);retu
 async function updatePreviewRow(req,res){try{const account=await accountFor(req);return res.json({ok:true,...await previews.update(req.params.id,identity(req,account),req.params.sku,req.body||{})});}catch(e){return fail(res,e);}}
 async function exportCheck(req,res){try{const account=await accountFor(req),review=await previews.exportReview(req.params.id,identity(req,account),{allowPartial:true,allowEmpty:true});const offset=Math.max(0,Math.floor(Number(req.query.offset)||0));return res.json({ok:true,eligible:review.eligible,excluded_count:review.excluded_count,excluded:review.excluded.slice(offset,offset+50),offset});}catch(e){return fail(res,e);}}
 async function exportWorkbook(req,res){try{const account=await accountFor(req),review=await previews.exportReview(req.params.id,identity(req,account),{allowPartial:req.query.allow_partial==="true"});const buffer=await buildPromotionWorkbook(review.rows);res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");res.setHeader("Content-Disposition",'attachment; filename="promocoes-magalu.xlsx"');res.setHeader("Cache-Control","no-store");return res.send(buffer);}catch(e){return fail(res,e);}}
-module.exports={list,refresh,refreshStatus,createPreview,previewJobStatus,previewPage,updatePreviewRow,exportCheck,exportWorkbook};
+// Exporta o recorte filtrado de "Precos do catalogo" (todas as paginas).
+async function exportList(req,res){try{const account=await accountFor(req),options=req.body||{};let withPreview=false;if(options.preview_id){const preview=await previews.get(options.preview_id,identity(req,account));if(!preview)throw error("Prévia não encontrada ou expirada.",404);withPreview=true;}const rows=await prices.exportRows(account.id,options);if(!rows.length)throw error("Nenhum SKU no recorte.",409);const buffer=await buildCatalogPriceWorkbook(rows,{withPreview});const stamp=new Date().toISOString().slice(0,10);res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");res.setHeader("Content-Disposition",`attachment; filename="precos-catalogo-magalu-${stamp}.xlsx"`);res.setHeader("Cache-Control","no-store");return res.send(buffer);}catch(e){return fail(res,e);}}
+module.exports={exportList,list,refresh,refreshStatus,createPreview,previewJobStatus,previewPage,updatePreviewRow,exportCheck,exportWorkbook};

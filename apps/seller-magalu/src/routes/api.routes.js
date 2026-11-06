@@ -75,6 +75,7 @@ router.get("/processes", processPanelController.list);
 router.get("/processes/:kind/:id", processPanelController.detail);
 router.get("/promo-prices",promoPriceController.list);
 router.post("/promo-prices/search",promoPriceController.list);
+router.post("/promo-prices/export",promoPriceController.exportList);
 router.post("/promo-prices/refresh",promoPriceController.refresh);
 router.get("/promo-prices/refresh/:id",promoPriceController.refreshStatus);
 router.post("/promo-prices/previews",requireCampaignEdit,promoPriceController.createPreview);

@@ -16,3 +16,5 @@
   .mg-promo-prices__filters{grid-template-columns:118px minmax(300px,3fr) repeat(3,minmax(92px,1fr)) auto;align-items:start;column-gap:10px}
   .mg-promo-prices__filters>.mg-primary-btn{align-self:start;margin-top:22px}
 }
+/* Acoes da lista Precos do catalogo: Exportar XLSX ao lado de Atualizar. */
+.mg-promo-results-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
