@@ -74,3 +74,8 @@
   .mg-proj-status__menu{left:0;right:auto;width:min(300px,calc(100vw - 48px))}
   .mg-proj-axis{font-size:16px}
 }
+.mg-proj-status__presets{display:grid;gap:6px}
+.mg-proj-status__presets button{padding:8px 10px;border:1px solid var(--mg-border);border-radius:10px;background:var(--mg-surface);color:var(--mg-text);font:inherit;font-size:.76rem;font-weight:800;text-align:left;cursor:pointer}
+.mg-proj-status__presets button:hover{border-color:var(--mg-primary)}
+.mg-proj-status__presets button.is-active{border-color:var(--mg-primary);background:var(--mg-primary-soft);color:var(--mg-primary)}
+.mg-proj-status__menu{width:340px}

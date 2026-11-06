@@ -11,8 +11,20 @@
   const moneyShort = (value) => { const n = Number(value) || 0; return Math.abs(n) >= 1000 ? `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(n / 1000)}k` : new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(n); };
   const integer = (value) => new Intl.NumberFormat("pt-BR").format(Math.round(Number(value) || 0));
   const decimal = (value, digits = 2) => new Intl.NumberFormat("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(Number(value) || 0);
-  const STATUS_LABELS = { new: "Novo", approved: "Aprovado", finished: "Finalizado", cancelled: "Cancelado", canceled: "Cancelado", invoiced: "Faturado", shipped: "Enviado", delivered: "Entregue", frozen: "Congelado", "sem status": "Sem status" };
+  // Status do pedido na API do Magalu, em português. "new" = pedido criado com o
+  // pagamento ainda não aprovado (ex.: boleto em aberto) = aguardando pagamento.
+  const STATUS_LABELS = { new: "Aguardando pagamento", approved: "Aprovado", finished: "Finalizado", cancelled: "Cancelado", canceled: "Cancelado", invoiced: "Faturado", shipped: "Enviado", delivered: "Entregue", frozen: "Congelado", "sem status": "Sem status" };
+  const STATUS_HINTS = { new: "Pedido criado, pagamento ainda não aprovado (ex.: boleto)", approved: "Pagamento aprovado, pedido em andamento", finished: "Pedido concluído", cancelled: "Pedido cancelado", canceled: "Pedido cancelado" };
   const statusLabel = (status) => STATUS_LABELS[status] || String(status).charAt(0).toUpperCase() + String(status).slice(1);
+  const CANCELLED = new Set(["cancelled", "canceled"]);
+  const AWAITING_PAYMENT = new Set(["new"]);
+  // Atalhos do filtro (aplicados sobre os status que a API trouxe para a conta).
+  const PRESETS = [
+    { key: "no_cancelled", label: "Todos exceto cancelados", pick: (all) => all.filter((s) => !CANCELLED.has(s)) },
+    { key: "no_cancelled_no_awaiting", label: "Todos exceto cancelados e aguardando pagamento", pick: (all) => all.filter((s) => !CANCELLED.has(s) && !AWAITING_PAYMENT.has(s)) },
+    { key: "all", label: "Todos os status", pick: (all) => all.slice() },
+  ];
+  const sameSet = (a, b) => a.length === b.length && a.slice().sort().join() === b.slice().sort().join();
   const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
   const monthName = (key) => { const [y, m] = String(key || "").split("-").map(Number); return m ? `${MONTHS[m - 1]} de ${y}` : "—"; };
   const state = { requestId: 0, data: null, statuses: null, compare: true };
@@ -35,13 +47,30 @@
   }
 
   // ---------- Filtro de status ----------
+  function filterLabel(selected, all) {
+    const preset = PRESETS.find((item) => sameSet(item.pick(all), selected));
+    if (preset) return preset.label;
+    return selected.map(statusLabel).join(", ") || "Nenhum status";
+  }
+
+  function syncPresetButtons() {
+    const all = (state.data?.filter?.available || []).map((row) => row.status);
+    const chosen = selectedStatuses();
+    document.querySelectorAll("#mg-proj-status-presets [data-preset]").forEach((button) => {
+      const preset = PRESETS.find((item) => item.key === button.dataset.preset);
+      button.classList.toggle("is-active", Boolean(preset) && sameSet(preset.pick(all), chosen));
+    });
+  }
+
   function renderStatusFilter(filter) {
     const host = $("mg-proj-status-options"); if (!host) return;
     const selected = new Set(filter.statuses || []);
-    host.innerHTML = (filter.available || []).map((row) => `<label class="mg-proj-status__option"><input type="checkbox" value="${esc(row.status)}" ${selected.has(row.status) ? "checked" : ""}><span>${esc(statusLabel(row.status))}</span><small>${integer(row.orders)} pedido(s) · ${esc(row.status)}</small></label>`).join("") || "<p>Nenhum pedido sincronizado ainda.</p>";
     const all = (filter.available || []).map((row) => row.status);
-    const isDefault = all.filter((s) => s !== "cancelled" && s !== "canceled").sort().join() === [...selected].sort().join();
-    $("mg-proj-status-label").textContent = isDefault ? "Todos menos cancelado" : selected.size === all.length ? "Todos" : [...selected].map(statusLabel).join(", ") || "Nenhum";
+    const presets = $("mg-proj-status-presets");
+    if (presets) presets.innerHTML = PRESETS.map((preset) => `<button type="button" data-preset="${preset.key}">${esc(preset.label)}</button>`).join("");
+    host.innerHTML = (filter.available || []).map((row) => `<label class="mg-proj-status__option"><input type="checkbox" value="${esc(row.status)}" ${selected.has(row.status) ? "checked" : ""}><span>${esc(statusLabel(row.status))}</span><small>${integer(row.orders)} pedido(s)${STATUS_HINTS[row.status] ? ` · ${esc(STATUS_HINTS[row.status])}` : ""}</small></label>`).join("") || "<p>Nenhum pedido sincronizado ainda.</p>";
+    $("mg-proj-status-label").textContent = filterLabel([...selected], all);
+    syncPresetButtons();
   }
 
   function selectedStatuses() { return [...document.querySelectorAll("#mg-proj-status-options input:checked")].map((input) => input.value); }
@@ -138,6 +167,15 @@
     compare?.addEventListener("change", () => { state.compare = compare.checked; try { localStorage.setItem("magalu:projection:compare", state.compare ? "1" : "0"); } catch (_error) {} if (state.data) renderChart(state.data); });
     $("mg-proj-refresh")?.addEventListener("click", () => void load({ fresh: true }));
     $("mg-proj-month")?.addEventListener("change", () => void load());
+    $("mg-proj-status-presets")?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-preset]"); if (!button) return;
+      const preset = PRESETS.find((item) => item.key === button.dataset.preset); if (!preset) return;
+      const all = (state.data?.filter?.available || []).map((row) => row.status);
+      const chosen = new Set(preset.pick(all));
+      document.querySelectorAll("#mg-proj-status-options input").forEach((input) => { input.checked = chosen.has(input.value); });
+      syncPresetButtons();
+    });
+    $("mg-proj-status-options")?.addEventListener("change", syncPresetButtons);
     $("mg-proj-status-apply")?.addEventListener("click", () => {
       const chosen = selectedStatuses();
       if (!chosen.length) { shell()?.showAlert?.("Escolha pelo menos um status.", "warning"); return; }

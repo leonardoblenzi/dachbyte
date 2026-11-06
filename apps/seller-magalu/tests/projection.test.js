@@ -50,5 +50,9 @@ test("tela Projecao mensal em Visao geral com filtro pelos status que a API traz
   const controller = read("src/controllers/projectionController.js");
   assert.match(controller, /availableStatuses/);
   assert.match(controller, /filter\(\(status\) => !CANCELLED\.has\(status\)\)/, "padrao: todos menos cancelado");
-  assert.match(read("public/js/magalu-projection.js"), /finished: "Finalizado"/);
+  const js = read("public/js/magalu-projection.js");
+  assert.match(js, /finished: "Finalizado"/);
+  assert.match(js, /new: "Aguardando pagamento"/);
+  assert.match(js, /label: "Todos exceto cancelados e aguardando pagamento"/);
+  assert.match(read("views/app.html"), /id="mg-proj-status-presets"/);
 });
