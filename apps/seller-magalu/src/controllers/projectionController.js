@@ -49,7 +49,7 @@ function fillDays(rows, info) {
 
 function sum(rows, key, count = rows.length) { return rows.slice(0, count).reduce((total, row) => total + Number(row[key] || 0), 0); }
 
-function buildProjection({ info, previousInfo, currentRows, previousRows, units, statusRows, fulfillment, statuses, available }) {
+function buildProjection({ info, previousInfo, currentRows, previousRows, units, statusRows, fulfillment, statuses, available, cancelledRows = [], previousCancelledRows = [] }) {
   const daily = fillDays(currentRows, info);
   const previousDaily = fillDays(previousRows, previousInfo);
   const revenue = sum(daily, "revenue", info.dayOfMonth);
@@ -81,6 +81,22 @@ function buildProjection({ info, previousInfo, currentRows, previousRows, units,
       avg_orders: previousInfo.daysInMonth ? Math.round((previousOrders / previousInfo.daysInMonth) * 100) / 100 : 0,
     },
     series: { daily, previous_daily: previousDaily },
+    // Cancelados sempre a parte (independente do filtro), no dia da compra.
+    cancellations: (() => {
+      const cancelledDaily = fillDays(cancelledRows, info);
+      const previousCancelledDaily = fillDays(previousCancelledRows, previousInfo);
+      const allOrders = statusRows.reduce((total, row) => total + Number(row.orders || 0), 0);
+      const nowOrders = sum(cancelledDaily, "orders", info.dayOfMonth);
+      return {
+        daily: cancelledDaily,
+        previous_daily: previousCancelledDaily,
+        orders: nowOrders,
+        value: round(sum(cancelledDaily, "revenue", info.dayOfMonth)),
+        previous_comparable_orders: sum(previousCancelledDaily, "orders", comparableDays),
+        previous_comparable_value: round(sum(previousCancelledDaily, "revenue", comparableDays)),
+        share_of_orders: allOrders ? nowOrders / allOrders : 0,
+      };
+    })(),
     composition: {
       by_status: statusRows.map((row) => ({ ...row, revenue: round(row.revenue), counted: statuses.includes(row.status) })),
       by_delivery: { full: { ...fulfillment.full, revenue: round(fulfillment.full.revenue) }, other: { ...fulfillment.other, revenue: round(fulfillment.other.revenue) } },
@@ -111,14 +127,18 @@ async function projection(req, res) {
     if (cached && Date.now() < cached.expiresAt && String(req.query?.fresh || "") !== "1") return res.json({ ...cached.payload, meta: { ...cached.payload.meta, cached: true } });
 
     const currentTo = info.isCurrent ? info.today : info.end;
-    const [currentRows, previousRows, units, statusRows, fulfillment] = await Promise.all([
+    const cancelledStatuses = available.map((row) => row.status).filter((status) => CANCELLED.has(status));
+    const cancelledFilter = cancelledStatuses.length ? cancelledStatuses : ["cancelled"];
+    const [currentRows, previousRows, units, statusRows, fulfillment, cancelledRows, previousCancelledRows] = await Promise.all([
       info.isFuture ? [] : projectionRepository.dailySeries(account.id, { from: info.start, to: currentTo, statuses }),
       projectionRepository.dailySeries(account.id, { from: previousInfo.start, to: previousInfo.end, statuses }),
       info.isFuture ? 0 : projectionRepository.unitsSold(account.id, { from: info.start, to: currentTo, statuses }),
       info.isFuture ? [] : projectionRepository.statusBreakdown(account.id, { from: info.start, to: currentTo }),
       info.isFuture ? { full: { orders: 0, revenue: 0 }, other: { orders: 0, revenue: 0 } } : projectionRepository.fulfillmentBreakdown(account.id, { from: info.start, to: currentTo, statuses }),
+      info.isFuture ? [] : projectionRepository.dailySeries(account.id, { from: info.start, to: currentTo, statuses: cancelledFilter }),
+      projectionRepository.dailySeries(account.id, { from: previousInfo.start, to: previousInfo.end, statuses: cancelledFilter }),
     ]);
-    const payload = buildProjection({ info, previousInfo, currentRows, previousRows, units, statusRows, fulfillment, statuses, available });
+    const payload = buildProjection({ info, previousInfo, currentRows, previousRows, units, statusRows, fulfillment, statuses, available, cancelledRows, previousCancelledRows });
     payload.account = { name: account.magalu_tenant_name || null };
     payload.meta = { generated_at: new Date().toISOString(), cache_ttl_sec: CACHE_TTL_SEC, cached: false };
     cache.set(key, { payload, expiresAt: Date.now() + CACHE_TTL_SEC * 1000 });

@@ -6,8 +6,8 @@
   <title>Projeção Mensal | DACHBYTE Mercado Livre</title>
   <link rel="stylesheet" href="/ml/css/ml-app.css?v=9" />
   <link rel="stylesheet" href="/ml/css/visao-geral.css?v=1" />
-  <link rel="stylesheet" href="/ml/css/projecao-mensal.css?v=12" />
-  <script src="/ml/js/projecao-mensal.js?v=12" defer></script>
+  <link rel="stylesheet" href="/ml/css/projecao-mensal.css?v=13" />
+  <script src="/ml/js/projecao-mensal.js?v=13" defer></script>
   <script src="/ml/js/ml-base.js?v=9"></script>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
@@ -32,6 +32,16 @@
             <span>Mês</span>
             <input id="projection-month" type="month" aria-label="Selecionar mês da projeção" />
           </label>
+          <details class="projection-status" id="projection-status">
+            <summary><span>Status do pedido</span><strong id="projection-status-label">Somente pagos</strong></summary>
+            <div class="projection-status__menu">
+              <p>Atalhos</p>
+              <div id="projection-status-presets" class="projection-status__presets"></div>
+              <p>Ou marque um ou mais status (os que o Mercado Livre enviou neste mês):</p>
+              <div id="projection-status-options" class="projection-status__options"></div>
+              <div class="projection-status__actions"><button class="overview-ghost-btn" type="button" id="projection-status-default">Padrão</button><button class="overview-primary-btn" type="button" id="projection-status-apply">Aplicar</button></div>
+            </div>
+          </details>
           <button id="projection-refresh" class="overview-primary-btn" type="button">Atualizar</button>
         </div>
       </header>
@@ -61,7 +71,7 @@
         </article>
       </section>
 
-      <section class="overview-mini-grid overview-mini-grid--3">
+      <section class="overview-mini-grid overview-mini-grid--4">
         <article class="overview-mini-metric">
           <span>Média de pedidos</span>
           <strong id="projection-avg-orders-card">0</strong>
@@ -77,6 +87,11 @@
           <strong id="projection-units">0</strong>
           <small>Acumulado do período</small>
         </article>
+        <article class="overview-mini-metric projection-cancel-card">
+          <span>Cancelados</span>
+          <strong id="projection-cancelled">0</strong>
+          <small id="projection-cancelled-delta">vs mês anterior</small>
+        </article>
       </section>
 
       <section class="overview-surface projection-evolution">
@@ -86,10 +101,16 @@
             <h2>Ritmo do mês</h2>
             <p>Receita diária e comparação com o mesmo período do mês anterior.</p>
           </div>
-          <label class="overview-toggle projection-compare-toggle" for="projection-compare-prev-month-same-day">
-            <input id="projection-compare-prev-month-same-day" type="checkbox" checked />
-            <span>Comparar mês anterior</span>
-          </label>
+          <div class="projection-toggles">
+            <label class="overview-toggle projection-compare-toggle" for="projection-compare-prev-month-same-day">
+              <input id="projection-compare-prev-month-same-day" type="checkbox" checked />
+              <span>Comparar mês anterior</span>
+            </label>
+            <label class="overview-toggle projection-compare-toggle projection-cancel-toggle" for="projection-show-cancelled">
+              <input id="projection-show-cancelled" type="checkbox" />
+              <span>Mostrar cancelados</span>
+            </label>
+          </div>
         </div>
 
         <div class="projection-progress" aria-label="Progresso do mês">

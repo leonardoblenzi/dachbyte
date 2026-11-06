@@ -79,3 +79,15 @@
 .mg-proj-status__presets button:hover{border-color:var(--mg-primary)}
 .mg-proj-status__presets button.is-active{border-color:var(--mg-primary);background:var(--mg-primary-soft);color:var(--mg-primary)}
 .mg-proj-status__menu{width:340px}
+
+/* Cancelados: linha vermelha (mes atual) e tracejada (mes passado). */
+.mg-proj-mini{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+.mg-proj-toggles{display:flex;flex-wrap:wrap;gap:14px}
+.mg-proj-toggle--cancel{color:var(--mg-danger)}
+.mg-proj-toggle--cancel input{accent-color:var(--mg-danger)}
+.mg-proj-line--cancel{stroke:var(--mg-danger,#ef4444);stroke-width:2.4}
+.mg-proj-line--cancel-previous{stroke:var(--mg-danger,#ef4444);stroke-width:1.8;stroke-dasharray:5 5;opacity:.55}
+.mg-proj-legend span[data-series="cancelled"]::before{background:var(--mg-danger,#ef4444)}
+.mg-proj-legend span[data-series="cancelled-previous"]::before{background:var(--mg-danger,#ef4444);opacity:.5}
+@media(max-width:1100px){.mg-proj-mini{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:640px){.mg-proj-mini{grid-template-columns:1fr!important}}

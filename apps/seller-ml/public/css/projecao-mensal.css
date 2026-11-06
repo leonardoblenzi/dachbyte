@@ -100,3 +100,28 @@
 @keyframes projection-loading-spin { to { transform:rotate(360deg); } }
 body.theme-dark .projection-loading-fallback { background:rgba(2,6,23,.44); }
 body.theme-dark .projection-loading-fallback__card { background:#111d31; border-color:rgba(148,163,184,.18); box-shadow:0 26px 70px rgba(2,6,23,.48); }
+
+/* Filtro de status do pedido e cancelados (Projecao mensal). */
+.projection-header-actions{flex-wrap:wrap;align-items:flex-end}
+.projection-status{position:relative}
+.projection-status summary{display:grid;gap:6px;cursor:pointer;list-style:none}
+.projection-status summary::-webkit-details-marker{display:none}
+.projection-status summary>span{color:var(--overview-muted);font-size:.62rem;font-weight:850;letter-spacing:.06em;text-transform:uppercase}
+.projection-status summary strong{display:flex;align-items:center;gap:8px;min-height:38px;max-width:260px;padding:0 12px;overflow:hidden;border:1px solid var(--overview-border);border-radius:12px;background:var(--overview-surface);color:var(--overview-text);font-size:.74rem;text-overflow:ellipsis;white-space:nowrap}
+.projection-status summary strong::after{content:"\25BE";margin-left:auto;color:var(--overview-muted)}
+.projection-status[open] summary strong{border-color:var(--overview-primary)}
+.projection-status__menu{position:absolute;right:0;top:calc(100% + 6px);z-index:80;display:grid;gap:10px;width:340px;padding:12px;border:1px solid var(--overview-border);border-radius:14px;background:var(--overview-surface);box-shadow:var(--overview-shadow)}
+.projection-status__menu>p{margin:0;color:var(--overview-muted);font-size:.68rem}
+.projection-status__presets{display:grid;gap:6px}
+.projection-status__presets button{padding:8px 10px;border:1px solid var(--overview-border);border-radius:10px;background:var(--overview-surface);color:var(--overview-text);font:inherit;font-size:.72rem;font-weight:800;text-align:left;cursor:pointer}
+.projection-status__presets button.is-active{border-color:var(--overview-primary);color:var(--overview-primary)}
+.projection-status__options{display:grid;gap:2px;max-height:300px;overflow:auto}
+.projection-status__option{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:2px 10px;padding:7px;border-radius:9px;cursor:pointer}
+.projection-status__option input{grid-row:span 2;accent-color:var(--overview-primary)}
+.projection-status__option span{color:var(--overview-title);font-size:.76rem;font-weight:800}
+.projection-status__option small{color:var(--overview-muted);font-size:.64rem}
+.projection-status__actions{display:flex;justify-content:flex-end;gap:8px}
+.projection-toggles{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.projection-cancel-toggle span{color:#ef4444}
+@media (max-width:640px){.projection-status,.projection-status summary strong{width:100%;max-width:none}.projection-status__menu{left:0;right:auto;width:min(340px,calc(100vw - 40px))}}
+.projection-status__actions .overview-ghost-btn{min-height:36px;padding:0 12px;border:1px solid var(--overview-border);border-radius:10px;background:var(--overview-surface);color:var(--overview-text);font:inherit;font-size:.74rem;font-weight:800;cursor:pointer}

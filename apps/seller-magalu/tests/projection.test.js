@@ -56,3 +56,18 @@ test("tela Projecao mensal em Visao geral com filtro pelos status que a API traz
   assert.match(js, /label: "Todos exceto cancelados e aguardando pagamento"/);
   assert.match(read("views/app.html"), /id="mg-proj-status-presets"/);
 });
+
+test("cancelados a parte: ate o mesmo dia do mes anterior e % dos pedidos", () => {
+  const info = _test.monthInfo("", NOW), prev = _test.monthInfo("2026-10", NOW);
+  const p = _test.buildProjection({
+    info, previousInfo: prev, currentRows: [], previousRows: [], units: 0,
+    statusRows: [{ status: "finished", orders: 8, revenue: 1 }, { status: "cancelled", orders: 2, revenue: 1 }],
+    fulfillment: { full: { orders: 0, revenue: 0 }, other: { orders: 0, revenue: 0 } }, statuses: ["finished"], available: [],
+    cancelledRows: [{ day: "2026-11-02", orders: 2, revenue: 300 }],
+    previousCancelledRows: [{ day: "2026-10-03", orders: 1, revenue: 100 }, { day: "2026-10-25", orders: 4, revenue: 900 }],
+  });
+  assert.equal(p.cancellations.orders, 2);
+  assert.equal(p.cancellations.previous_comparable_orders, 1, "so ate o dia 6 do mes anterior");
+  assert.equal(p.cancellations.share_of_orders, 0.2);
+  assert.match(read("views/app.html"), /id="mg-proj-show-cancelled"/);
+});

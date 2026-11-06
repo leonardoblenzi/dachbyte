@@ -26,7 +26,7 @@
   <link rel="stylesheet" href="/magalu/assets/css/magalu-process-panel.css?v=2026110402">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-fixes-20261105.css?v=2026110502">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-ranking.css?v=2026110703">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-projection.css?v=2026110802">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-projection.css?v=2026110803">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-canonical-ui.css?v=2026110801">
 </head>
 <body>
@@ -203,12 +203,13 @@
           <article class="mg-dashboard-mini"><span>Média de pedidos</span><strong id="mg-proj-avg-orders">—</strong><small id="mg-proj-avg-orders-delta">por dia fechado</small></article>
           <article class="mg-dashboard-mini"><span>Ticket médio</span><strong id="mg-proj-ticket">—</strong><small id="mg-proj-ticket-delta">vs mês anterior</small></article>
           <article class="mg-dashboard-mini"><span>Unidades vendidas</span><strong id="mg-proj-units">—</strong><small>acumulado do período</small></article>
+          <article class="mg-dashboard-mini" id="mg-proj-cancel-card"><span>Cancelados</span><strong id="mg-proj-cancelled">—</strong><small id="mg-proj-cancelled-delta">vs mês anterior</small></article>
         </section>
         <section class="mg-dashboard-surface mg-proj-evolution">
-          <div class="mg-dashboard-surface__head"><div><span class="mg-dashboard-section-kicker">Evolução</span><h2>Ritmo do mês</h2><p>Receita diária e comparação com o mesmo dia do mês anterior.</p></div><label class="mg-proj-toggle"><input id="mg-proj-compare" type="checkbox" checked> Comparar mês anterior</label></div>
+          <div class="mg-dashboard-surface__head"><div><span class="mg-dashboard-section-kicker">Evolução</span><h2>Ritmo do mês</h2><p>Receita diária e comparação com o mesmo dia do mês anterior.</p></div><div class="mg-proj-toggles"><label class="mg-proj-toggle"><input id="mg-proj-compare" type="checkbox" checked> Comparar mês anterior</label><label class="mg-proj-toggle mg-proj-toggle--cancel"><input id="mg-proj-show-cancelled" type="checkbox"> Mostrar cancelados</label></div></div>
           <div class="mg-proj-progress" aria-label="Progresso do mês"><i id="mg-proj-progress-fill"></i></div>
           <div class="mg-proj-chart" id="mg-proj-chart"><div class="mg-proj-chart__empty">Carregando gráfico…</div></div>
-          <div class="mg-proj-legend"><span data-series="current">Receita diária</span><span data-series="previous" id="mg-proj-legend-previous">Mesmo dia do mês passado</span></div>
+          <div class="mg-proj-legend"><span data-series="current">Receita diária</span><span data-series="previous" id="mg-proj-legend-previous">Mesmo dia do mês passado</span><span data-series="cancelled" id="mg-proj-legend-cancelled" hidden>Cancelados</span><span data-series="cancelled-previous" id="mg-proj-legend-cancelled-previous" hidden>Cancelados mês passado</span></div>
           <details class="mg-proj-formula"><summary>Como calculamos a projeção</summary><p>Usamos a receita acumulada no mês dividida pelos dias corridos e projetamos esse ritmo para todos os dias do mês. O ritmo diário e a média de pedidos usam só os dias já fechados (hoje fica de fora). Entram só os pedidos com os status escolhidos no filtro.</p><small id="mg-proj-formula-hint"></small></details>
         </section>
         <section class="mg-dashboard-surface mg-proj-composition">
@@ -657,7 +658,7 @@
     <script src="/magalu/assets/js/magalu-loading.js?v=2026103001"></script>
     <script src="/magalu/assets/js/magalu-dashboard.js?v=2026110703"></script>
     <script src="/magalu/assets/js/magalu-ranking.js?v=2026110702"></script>
-    <script src="/magalu/assets/js/magalu-projection.js?v=2026110802"></script>
+    <script src="/magalu/assets/js/magalu-projection.js?v=2026110803"></script>
         <script src="/magalu/assets/js/magalu-app.js?v=2026110801"></script>
 <script src="/magalu/assets/js/magalu-account.js?v=2026110701"></script>
         <script src="/magalu/assets/js/magalu-sku-management.js?v=2026110501"></script>

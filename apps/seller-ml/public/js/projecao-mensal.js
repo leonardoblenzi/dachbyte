@@ -190,8 +190,49 @@ function renderPeriodComparison({
   }
 }
 
+// Status do pedido do Mercado Livre, em portugues, e atalhos do filtro.
+const ML_STATUS_LABELS = {
+  paid: "Pago",
+  confirmed: "Confirmado (não pago)",
+  payment_required: "Pagamento pendente",
+  payment_in_process: "Pagamento em processamento",
+  partially_paid: "Pago parcialmente",
+  partially_refunded: "Reembolsado parcialmente",
+  pending_cancel: "Cancelamento pendente",
+  cancelled: "Cancelado",
+  invalid: "Inválido",
+};
+const ML_STATUS_HINTS = {
+  paid: "Pagamento creditado",
+  confirmed: "Pedido criado, ainda sem pagamento",
+  payment_required: "Pagamento precisa ser confirmado",
+  payment_in_process: "Pagamento existe, ainda não creditado",
+  partially_paid: "Pagamento creditado não cobre o total",
+  partially_refunded: "Parte do valor foi devolvida",
+  pending_cancel: "Em processo de cancelamento",
+  cancelled: "Pedido cancelado",
+  invalid: "Pedido invalidado pelo Mercado Livre",
+};
+const ML_AWAITING = new Set(["confirmed", "payment_required", "payment_in_process", "partially_paid"]);
+const ML_EXCLUDED_DEFAULT = new Set(["cancelled", "invalid"]);
+const ML_STATUS_PRESETS = [
+  { key: "paid", label: "Somente pagos", pick: (all) => all.filter((s) => s === "paid") },
+  { key: "paid_awaiting", label: "Pagos e aguardando pagamento", pick: (all) => all.filter((s) => s === "paid" || ML_AWAITING.has(s)) },
+  { key: "no_cancelled", label: "Todos exceto cancelados e inválidos", pick: (all) => all.filter((s) => !ML_EXCLUDED_DEFAULT.has(s)) },
+  { key: "all", label: "Todos os status", pick: (all) => all.slice() },
+];
+const PROJECTION_STATUS_STORAGE_KEY = "ml.projecao_mensal.statuses";
+const PROJECTION_CANCEL_STORAGE_KEY = "ml.projecao_mensal.show_cancelled";
+const mlStatusLabel = (status) => ML_STATUS_LABELS[status] || String(status || "").replace(/_/g, " ");
+const sameStatusSet = (a, b) => a.length === b.length && a.slice().sort().join() === b.slice().sort().join();
+
 const projectionState = {
   chart: null,
+  statuses: null,
+  available: [],
+  showCancelled: false,
+  cancelledDaily: [],
+  previousCancelledDaily: [],
   selectedPeriod: "",
   compareSameDayPrevMonthEnabled: true,
   dailyOrders: [],
@@ -656,6 +697,37 @@ function renderSparkline(
     });
   }
 
+  if (projectionState.showCancelled) {
+    const cancelledRows = normalizeDailyOrders(projectionState.cancelledDaily, projectionState.dayOfMonth, projectionState.daysInMonth);
+    datasets.push({
+      label: "Cancelados",
+      data: rows.map((row) => (row.day <= projectionState.dayOfMonth ? toFiniteNumber(cancelledRows[row.day - 1]?.revenue) : null)),
+      borderColor: "#ef4444",
+      backgroundColor: "rgba(239,68,68,0.10)",
+      borderWidth: 2.2,
+      tension: 0.42,
+      fill: false,
+      pointRadius: 2.2,
+      pointHoverRadius: 5,
+      pointBackgroundColor: "#ef4444",
+    });
+    if (projectionState.compareSameDayPrevMonthEnabled) {
+      const prevCancelledRows = normalizeDailyOrders(projectionState.previousCancelledDaily, projectionState.dayOfMonth, Math.max(projectionState.previousDaysInMonth || 0, projectionState.daysInMonth));
+      datasets.push({
+        label: "Cancelados mês passado",
+        data: rows.map((row) => (row.day <= projectionState.dayOfMonth && (!projectionState.previousDaysInMonth || row.day <= projectionState.previousDaysInMonth) ? toFiniteNumber(prevCancelledRows[row.day - 1]?.revenue) : null)),
+        borderColor: "rgba(239,68,68,0.55)",
+        borderWidth: 1.8,
+        borderDash: [6, 6],
+        tension: 0.42,
+        fill: false,
+        pointRadius: 1.6,
+        pointHoverRadius: 4,
+        pointBackgroundColor: "rgba(239,68,68,0.55)",
+      });
+    }
+  }
+
   const options = {
     responsive: true,
     maintainAspectRatio: false,
@@ -768,7 +840,8 @@ function renderSparkline(
   });
 }
 
-async function carregarProjecaoMensal({ manageLoading = true } = {}) {
+// fresh=true (botao Atualizar): busca de novo na API; filtros reaproveitam o cache do servidor.
+async function carregarProjecaoMensal({ manageLoading = true, fresh = false } = {}) {
   hideProjectionAlert();
   if (manageLoading) showProjectionLoading("Lendo vendas e ritmo do mês...");
 
@@ -776,7 +849,10 @@ async function carregarProjecaoMensal({ manageLoading = true } = {}) {
     updateProjectionLoading("Consolidando vendas do período...", 24);
     const requestedPeriod = String($("projection-month")?.value || projectionState.selectedPeriod || "").trim();
     const params = new URLSearchParams({ tz: "America/Sao_Paulo" });
+    if (fresh) params.set("fresh", "1");
     if (/^\d{4}-\d{2}$/.test(requestedPeriod)) params.set("period", requestedPeriod);
+    const statusParam = (projectionState.statuses || []).join(",");
+    if (statusParam) params.set("statuses", statusParam);
     const response = await fetch(`/api/dashboard/summary?${params.toString()}`, {
       cache: "no-store",
     });
@@ -829,7 +905,7 @@ async function carregarProjecaoMensal({ manageLoading = true } = {}) {
     if (previousPeriod) {
       try {
         const previousResponse = await fetch(
-          `/api/dashboard/summary?tz=America%2FSao_Paulo&period=${encodeURIComponent(previousPeriod)}`,
+          `/api/dashboard/summary?tz=America%2FSao_Paulo&period=${encodeURIComponent(previousPeriod)}${statusParam ? `&statuses=${encodeURIComponent(statusParam)}` : ""}`,
           { cache: "no-store" },
         );
         const previousText = await previousResponse.text().catch(() => "");
@@ -939,6 +1015,32 @@ async function carregarProjecaoMensal({ manageLoading = true } = {}) {
       previousDays: previousClosed.days,
       format: (value) => fmtDecimal(value, 2),
     });
+    renderStatusFilter(data.filter || {});
+    projectionState.cancelledDaily = Array.isArray(series.cancelled_daily) ? series.cancelled_daily : [];
+    projectionState.previousCancelledDaily = Array.isArray(previousPeriodData?.series?.cancelled_daily) ? previousPeriodData.series.cancelled_daily : [];
+    const cancelledNow = projectionState.cancelledDaily.slice(0, Number(period.day_of_month || 0));
+    const cancelledPrev = projectionState.previousCancelledDaily.slice(0, comparableDays);
+    const cancelledNowOrders = cancelledNow.reduce((sum, row) => sum + Number(row?.orders || 0), 0);
+    const cancelledNowValue = cancelledNow.reduce((sum, row) => sum + Number(row?.revenue || 0), 0);
+    const cancelledPrevOrders = cancelledPrev.reduce((sum, row) => sum + Number(row?.orders || 0), 0);
+    const cancelledPrevValue = cancelledPrev.reduce((sum, row) => sum + Number(row?.revenue || 0), 0);
+    renderPeriodComparison({
+      valueId: "projection-cancelled",
+      deltaId: "projection-cancelled-delta",
+      label: "Cancelados",
+      current: cancelledNowOrders,
+      previous: cancelledPrevOrders,
+      currentLabel: `Cancelados até o dia ${period.day_of_month || "-"} (${fmtBRL(cancelledNowValue)})`,
+      previousLabel: `Mês anterior até o dia ${comparableDays || "-"} (${fmtBRL(cancelledPrevValue)})`,
+      format: fmtNum,
+    });
+    // Mais cancelamento e pior: inverte a cor da variacao (texto e balao).
+    [$("projection-cancelled-delta"), ...document.querySelectorAll("#projection-cancelled [data-tone]")].forEach((el) => {
+      if (el && el.dataset.tone && el.dataset.tone !== "neutral") el.dataset.tone = el.dataset.tone === "positive" ? "negative" : "positive";
+    });
+    const cancelShare = Number(data.cancellations?.share_of_orders || 0);
+    const cancelCard = $("projection-cancelled")?.closest(".overview-mini-metric");
+    if (cancelCard) cancelCard.title = `${fmtPct(cancelShare * 100, 1)} dos pedidos do mês foram cancelados (${fmtBRL(cancelledNowValue)}). O cancelamento conta no dia da compra; pedidos recentes ainda podem ser cancelados.`;
     renderSparkline(
       series.daily_orders || [],
       period.day_of_month || 1,
@@ -1006,7 +1108,83 @@ async function carregarProjecaoMensal({ manageLoading = true } = {}) {
   }
 }
 
+// ---------- Filtro de status do pedido ----------
+function readStatusPreference() {
+  try { const saved = JSON.parse(window.localStorage?.getItem(PROJECTION_STATUS_STORAGE_KEY) || "null"); return Array.isArray(saved) && saved.length ? saved : null; } catch (_error) { return null; }
+}
+
+function statusFilterLabel(selected, all) {
+  const preset = ML_STATUS_PRESETS.find((item) => sameStatusSet(item.pick(all), selected));
+  return preset ? preset.label : selected.map(mlStatusLabel).join(", ") || "Nenhum status";
+}
+
+function selectedProjectionStatuses() {
+  return Array.from(document.querySelectorAll("#projection-status-options input:checked")).map((input) => input.value);
+}
+
+function syncStatusPresets() {
+  const all = projectionState.available.map((row) => row.status);
+  const chosen = selectedProjectionStatuses();
+  document.querySelectorAll("#projection-status-presets [data-preset]").forEach((button) => {
+    const preset = ML_STATUS_PRESETS.find((item) => item.key === button.dataset.preset);
+    button.classList.toggle("is-active", Boolean(preset) && sameStatusSet(preset.pick(all), chosen));
+  });
+}
+
+function renderStatusFilter(filter) {
+  const host = $("projection-status-options");
+  if (!host) return;
+  const selected = new Set(filter.statuses || []);
+  // Mantem visiveis os status escolhidos mesmo que nao tenham pedidos neste mes.
+  const available = Array.isArray(filter.available) ? filter.available.slice() : [];
+  selected.forEach((status) => { if (!available.some((row) => row.status === status)) available.push({ status, orders: 0 }); });
+  projectionState.available = available;
+  const presets = $("projection-status-presets");
+  if (presets) presets.innerHTML = ML_STATUS_PRESETS.map((preset) => `<button type="button" data-preset="${preset.key}">${preset.label}</button>`).join("");
+  host.innerHTML = available.map((row) => `<label class="projection-status__option"><input type="checkbox" value="${row.status}" ${selected.has(row.status) ? "checked" : ""}><span>${mlStatusLabel(row.status)}</span><small>${fmtNum(row.orders)} pedido(s) no mês${ML_STATUS_HINTS[row.status] ? ` · ${ML_STATUS_HINTS[row.status]}` : ""}</small></label>`).join("") || "<p>Nenhum pedido no mês.</p>";
+  setText("projection-status-label", statusFilterLabel([...selected], available.map((row) => row.status)));
+  syncStatusPresets();
+}
+
+function bindStatusFilter() {
+  $("projection-status-presets")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-preset]");
+    const preset = ML_STATUS_PRESETS.find((item) => item.key === button?.dataset.preset);
+    if (!preset) return;
+    const chosen = new Set(preset.pick(projectionState.available.map((row) => row.status)));
+    document.querySelectorAll("#projection-status-options input").forEach((input) => { input.checked = chosen.has(input.value); });
+    syncStatusPresets();
+  });
+  $("projection-status-options")?.addEventListener("change", syncStatusPresets);
+  $("projection-status-apply")?.addEventListener("click", () => {
+    const chosen = selectedProjectionStatuses();
+    if (!chosen.length) { showProjectionAlert("info", "Escolha pelo menos um status."); return; }
+    projectionState.statuses = chosen;
+    try { window.localStorage?.setItem(PROJECTION_STATUS_STORAGE_KEY, JSON.stringify(chosen)); } catch (_error) {}
+    $("projection-status").open = false;
+    carregarProjecaoMensal();
+  });
+  $("projection-status-default")?.addEventListener("click", () => {
+    projectionState.statuses = ["paid"];
+    try { window.localStorage?.removeItem(PROJECTION_STATUS_STORAGE_KEY); } catch (_error) {}
+    $("projection-status").open = false;
+    carregarProjecaoMensal();
+  });
+  document.addEventListener("click", (event) => { const box = $("projection-status"); if (box?.open && !box.contains(event.target)) box.open = false; });
+  const cancelToggle = $("projection-show-cancelled");
+  if (cancelToggle) {
+    cancelToggle.checked = projectionState.showCancelled;
+    cancelToggle.addEventListener("change", () => {
+      projectionState.showCancelled = cancelToggle.checked;
+      try { window.localStorage?.setItem(PROJECTION_CANCEL_STORAGE_KEY, projectionState.showCancelled ? "1" : "0"); } catch (_error) {}
+      renderSparkline(projectionState.dailyOrders, projectionState.dayOfMonth, projectionState.daysInMonth, projectionState.previousDailyOrders, projectionState.previousDaysInMonth);
+    });
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
+  projectionState.statuses = readStatusPreference() || ["paid"];
+  try { projectionState.showCancelled = window.localStorage?.getItem(PROJECTION_CANCEL_STORAGE_KEY) === "1"; } catch (_error) {}
   projectionState.compareSameDayPrevMonthEnabled = readProjectionComparePreference();
   syncProjectionCompareToggle();
   showProjectionLoading("Preparando projeção mensal...");
@@ -1018,7 +1196,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.warn("Falha ao carregar conta atual na projeção:", accountError?.message || accountError);
   }
 
-  $("projection-refresh")?.addEventListener("click", () => carregarProjecaoMensal());
+  $("projection-refresh")?.addEventListener("click", () => carregarProjecaoMensal({ fresh: true }));
+  bindStatusFilter();
 
   const monthInput = $("projection-month");
   if (monthInput) {

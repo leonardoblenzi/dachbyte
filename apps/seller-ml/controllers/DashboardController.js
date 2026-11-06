@@ -94,6 +94,89 @@ async function getMe(accessToken) {
   return httpGetJson("https://api.mercadolibre.com/users/me", accessToken, 1);
 }
 
+// Cache dos pedidos do mes por seller (todos os status). Trocar o filtro de status
+// e montar o mes anterior reaproveitam o que ja veio da API; "Atualizar" (fresh=1) busca de novo.
+const ORDERS_CACHE = new Map();
+const ME_CACHE = new Map();
+const CURRENT_MONTH_TTL_MS = 5 * 60 * 1000;
+const CLOSED_MONTH_TTL_MS = 6 * 60 * 60 * 1000;
+
+function slimOrder(o) {
+  return {
+    status: o?.status || null,
+    date_created: o?.date_created || null,
+    date_closed: o?.date_closed || null,
+    paid_amount: o?.paid_amount ?? null,
+    total_amount: o?.total_amount ?? null,
+    payments: Array.isArray(o?.payments) && o.payments[0] ? [{ total_paid_amount: o.payments[0].total_paid_amount ?? null }] : [],
+    order_items: (Array.isArray(o?.order_items) ? o.order_items : []).map((it) => ({ quantity: Number(it?.quantity || 0) })),
+  };
+}
+
+async function getMeCached(accessToken) {
+  const key = String(accessToken || "").slice(-32);
+  const hit = ME_CACHE.get(key);
+  if (hit && Date.now() < hit.expiresAt) return hit.me;
+  const me = await getMe(accessToken);
+  ME_CACHE.set(key, { me: { id: me?.id, site_id: me?.site_id }, expiresAt: Date.now() + 10 * 60 * 1000 });
+  if (ME_CACHE.size > 500) ME_CACHE.delete(ME_CACHE.keys().next().value);
+  return me;
+}
+
+async function fetchMonthOrdersCached(accessToken, sellerId, from, to, { closedMonth = false, fresh = false } = {}) {
+  const key = `${sellerId}:${from}:${to}`;
+  const hit = ORDERS_CACHE.get(key);
+  if (!fresh && hit && Date.now() < hit.expiresAt) return { orders: hit.orders, cached: true, fetchedAt: hit.fetchedAt };
+  const orders = (await fetchAllOrders(accessToken, sellerId, from, to)).map(slimOrder);
+  const fetchedAt = new Date().toISOString();
+  ORDERS_CACHE.set(key, { orders, fetchedAt, expiresAt: Date.now() + (closedMonth ? CLOSED_MONTH_TTL_MS : CURRENT_MONTH_TTL_MS) });
+  if (ORDERS_CACHE.size > 300) ORDERS_CACHE.delete(ORDERS_CACHE.keys().next().value);
+  return { orders, cached: false, fetchedAt };
+}
+
+// Status do pedido aceitos no filtro da Projecao mensal (padrao: so pagos, como antes).
+const DEFAULT_PROJECTION_STATUSES = ["paid"];
+const CANCELLED_STATUSES = new Set(["cancelled"]);
+function parseStatuses(raw) {
+  const list = String(raw || "").split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
+  if (list.some((value) => !/^[a-z_]{2,40}$/.test(value))) {
+    const err = new Error("Status inválido no filtro.");
+    err.statusCode = 400;
+    throw err;
+  }
+  return list.length ? [...new Set(list)] : DEFAULT_PROJECTION_STATUSES.slice();
+}
+
+function orderAmount(order) {
+  return Number(order?.paid_amount) || Number(order?.total_amount) || Number(order?.payments?.[0]?.total_paid_amount) || 0;
+}
+
+// Todos os pedidos do periodo, de qualquer status (uma busca so; o filtro e local).
+async function fetchAllOrders(accessToken, sellerId, fromISO, toISO) {
+  const out = [];
+  const limit = 50;
+  let offset = 0;
+  let total = Infinity;
+  while (offset < total && offset < 9950) {
+    const url =
+      "https://api.mercadolibre.com/orders/search" +
+      `?seller=${encodeURIComponent(String(sellerId))}` +
+      `&order.date_created.from=${encodeURIComponent(fromISO)}` +
+      `&order.date_created.to=${encodeURIComponent(toISO)}` +
+      `&sort=date_desc` +
+      `&limit=${limit}` +
+      `&offset=${offset}`;
+    const data = await httpGetJson(url, accessToken, 1);
+    const results = Array.isArray(data?.results) ? data.results : [];
+    out.push(...results);
+    const pagingTotal = Number(data?.paging?.total ?? results.length);
+    total = isFinite(pagingTotal) ? pagingTotal : out.length;
+    if (results.length < limit) break;
+    offset += limit;
+  }
+  return out;
+}
+
 async function fetchAllPaidOrders(accessToken, sellerId, fromISO, toISO) {
   const out = [];
   const limit = 50;
@@ -171,7 +254,7 @@ class DashboardController {
       const from = isoStartOfDayBR(monthStartISO);
       const to = isoEndOfDayBR(isCurrentMonth ? todayISO : monthEndISO);
 
-      const me = await getMe(accessToken);
+      const me = await getMeCached(accessToken);
       const sellerId = me?.id;
 
       if (!sellerId) {
@@ -181,7 +264,36 @@ class DashboardController {
         });
       }
 
-      const orders = await fetchAllPaidOrders(accessToken, sellerId, from, to);
+      const statuses = parseStatuses(req.query.statuses);
+      const monthOrders = await fetchMonthOrdersCached(accessToken, sellerId, from, to, {
+        closedMonth: !isCurrentMonth,
+        fresh: String(req.query.fresh || "") === "1",
+      });
+      const allOrders = monthOrders.orders;
+      const statusSet = new Set(statuses);
+      const availableMap = new Map();
+      for (const o of allOrders) {
+        const status = String(o?.status || "sem_status").toLowerCase();
+        availableMap.set(status, (availableMap.get(status) || 0) + 1);
+      }
+      const orders = allOrders.filter((o) => statusSet.has(String(o?.status || "sem_status").toLowerCase()));
+
+      // Cancelados acompanhados a parte (sempre, independente do filtro), no dia da compra.
+      const cancelledDaily = buildDailySeries(yy, mm, dim);
+      const cancelledIndex = new Map(cancelledDaily.map((x, i) => [x.date, i]));
+      let cancelledOrders = 0;
+      let cancelledValue = 0;
+      for (const o of allOrders) {
+        if (!CANCELLED_STATUSES.has(String(o?.status || "").toLowerCase())) continue;
+        const value = Number(o?.total_amount) || orderAmount(o);
+        cancelledOrders += 1;
+        cancelledValue += value;
+        const idx = cancelledIndex.get(String(o?.date_created || "").slice(0, 10));
+        if (idx != null) {
+          cancelledDaily[idx].revenue += value;
+          cancelledDaily[idx].orders += 1;
+        }
+      }
 
       // daily series
       const daily = buildDailySeries(yy, mm, dim);
@@ -257,6 +369,19 @@ class DashboardController {
         },
         series: {
           daily_orders: daily,
+          cancelled_daily: cancelledDaily,
+        },
+        filter: {
+          statuses,
+          available: [...availableMap.entries()].sort((a, b) => b[1] - a[1]).map(([status, count]) => ({ status, orders: count })),
+          truncated: allOrders.length >= 9950,
+        },
+        cache: { cached: monthOrders.cached, fetched_at: monthOrders.fetchedAt },
+        cancellations: {
+          orders: cancelledOrders,
+          value: cancelledValue,
+          share_of_orders: allOrders.length ? cancelledOrders / allOrders.length : 0,
+          all_orders: allOrders.length,
         },
       });
     } catch (e) {
@@ -270,3 +395,4 @@ class DashboardController {
 }
 
 module.exports = DashboardController;
+module.exports._test = { parseStatuses, orderAmount, slimOrder, fetchMonthOrdersCached, ORDERS_CACHE };

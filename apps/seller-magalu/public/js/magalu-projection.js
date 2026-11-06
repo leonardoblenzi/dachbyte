@@ -27,10 +27,10 @@
   const sameSet = (a, b) => a.length === b.length && a.slice().sort().join() === b.slice().sort().join();
   const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
   const monthName = (key) => { const [y, m] = String(key || "").split("-").map(Number); return m ? `${MONTHS[m - 1]} de ${y}` : "—"; };
-  const state = { requestId: 0, data: null, statuses: null, compare: true };
+  const state = { requestId: 0, data: null, statuses: null, compare: true, showCancelled: false };
   const storageKey = (id) => `magalu:projection:statuses:${id}`;
 
-  try { state.compare = localStorage.getItem("magalu:projection:compare") !== "0"; } catch (_error) {}
+  try { state.compare = localStorage.getItem("magalu:projection:compare") !== "0"; state.showCancelled = localStorage.getItem("magalu:projection:cancelled") === "1"; } catch (_error) {}
 
   // ---------- Comparativos (hover igual ao do Painel) ----------
   function comparison(id, { label, current, previous, format, currentLabel, previousLabel, deltaId, suffix = "vs mês anterior", extra = [] }) {
@@ -82,9 +82,11 @@
     const day = Number(data.period?.day_of_month || 0), dim = Number(data.period?.days_in_month || daily.length || 30);
     const current = daily.slice(0, day);
     const prevVisible = state.compare ? previous.slice(0, dim) : [];
-    if (!current.some((row) => row.revenue > 0) && !prevVisible.some((row) => row.revenue > 0)) { host.innerHTML = '<div class="mg-proj-chart__empty">Sem vendas no período para desenhar o gráfico.</div>'; return; }
+    const cancelled = state.showCancelled ? (data.cancellations?.daily || []).slice(0, day) : [];
+    const cancelledPrev = state.showCancelled && state.compare ? (data.cancellations?.previous_daily || []).slice(0, Math.min(day, dim)) : [];
+    if (![...current, ...prevVisible, ...cancelled, ...cancelledPrev].some((row) => row.revenue > 0)) { host.innerHTML = '<div class="mg-proj-chart__empty">Sem vendas no período para desenhar o gráfico.</div>'; return; }
     const W = 1000, H = 280, L = 56, R = 14, T = 18, B = 30;
-    const maxValue = Math.max(1, ...current.map((r) => r.revenue), ...prevVisible.map((r) => r.revenue)) * 1.12;
+    const maxValue = Math.max(1, ...current.map((r) => r.revenue), ...prevVisible.map((r) => r.revenue), ...cancelled.map((r) => r.revenue), ...cancelledPrev.map((r) => r.revenue)) * 1.12;
     const x = (d) => L + ((d - 1) / Math.max(1, dim - 1)) * (W - L - R);
     const y = (v) => T + (1 - v / maxValue) * (H - T - B);
     const path = (rows) => rows.map((r, i) => `${i ? "L" : "M"}${x(r.day).toFixed(1)},${y(r.revenue).toFixed(1)}`).join(" ");
@@ -93,12 +95,12 @@
     const area = current.length ? `<path class="mg-proj-area" d="${path(current)} L${x(current[current.length - 1].day).toFixed(1)},${y(0).toFixed(1)} L${x(current[0].day).toFixed(1)},${y(0).toFixed(1)} Z"/>` : "";
     const today = data.period?.is_current_month && day ? `<line class="mg-proj-today" x1="${x(day).toFixed(1)}" x2="${x(day).toFixed(1)}" y1="${T}" y2="${H - B}"/><text class="mg-proj-today-label" x="${x(day).toFixed(1)}" y="${T - 4}" text-anchor="middle">Hoje</text>` : "";
     const hits = Array.from({ length: dim }, (_, i) => i + 1).map((d) => `<rect class="mg-proj-hit" data-day="${d}" x="${(x(d) - (W - L - R) / dim / 2).toFixed(1)}" y="${T}" width="${((W - L - R) / dim).toFixed(1)}" height="${H - T - B}"/>`).join("");
-    host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Receita diária do mês">${grid}${labels}${area}${prevVisible.length ? `<path class="mg-proj-line mg-proj-line--previous" d="${path(prevVisible)}"/>` : ""}${current.length ? `<path class="mg-proj-line" d="${path(current)}"/>` : ""}${today}${hits}</svg><div class="mg-proj-tip" id="mg-proj-tip" hidden></div>`;
+    host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Receita diária do mês">${grid}${labels}${area}${prevVisible.length ? `<path class="mg-proj-line mg-proj-line--previous" d="${path(prevVisible)}"/>` : ""}${current.length ? `<path class="mg-proj-line" d="${path(current)}"/>` : ""}${cancelledPrev.length ? `<path class="mg-proj-line mg-proj-line--cancel-previous" d="${path(cancelledPrev)}"/>` : ""}${cancelled.length ? `<path class="mg-proj-line mg-proj-line--cancel" d="${path(cancelled)}"/>` : ""}${today}${hits}</svg><div class="mg-proj-tip" id="mg-proj-tip" hidden></div>`;
     const tip = host.querySelector("#mg-proj-tip");
     host.querySelectorAll(".mg-proj-hit").forEach((rect) => {
       rect.addEventListener("mouseenter", () => {
         const d = Number(rect.dataset.day), cur = daily[d - 1], prev = previous[d - 1];
-        tip.innerHTML = `<strong>Dia ${String(d).padStart(2, "0")}</strong>${d <= day ? `<span>Receita: <b>${money(cur?.revenue)}</b> · ${integer(cur?.orders)} pedido(s)</span>` : "<span>Dia ainda não chegou</span>"}${state.compare && prev ? `<span>Mês passado: <b>${money(prev.revenue)}</b> · ${integer(prev.orders)} pedido(s)</span>` : ""}`;
+        tip.innerHTML = `<strong>Dia ${String(d).padStart(2, "0")}</strong>${d <= day ? `<span>Receita: <b>${money(cur?.revenue)}</b> · ${integer(cur?.orders)} pedido(s)</span>` : "<span>Dia ainda não chegou</span>"}${state.compare && prev ? `<span>Mês passado: <b>${money(prev.revenue)}</b> · ${integer(prev.orders)} pedido(s)</span>` : ""}${state.showCancelled ? `<span>Cancelados: <b>${money(data.cancellations?.daily?.[d - 1]?.revenue)}</b> · ${integer(data.cancellations?.daily?.[d - 1]?.orders)}${state.compare ? ` (mês passado ${integer(data.cancellations?.previous_daily?.[d - 1]?.orders)})` : ""}</span>` : ""}`;
         tip.hidden = false;
         const box = host.getBoundingClientRect(), r = rect.getBoundingClientRect();
         tip.style.left = `${Math.min(box.width - 220, Math.max(0, r.left - box.left + r.width / 2 - 110))}px`;
@@ -106,6 +108,8 @@
       rect.addEventListener("mouseleave", () => { tip.hidden = true; });
     });
     $("mg-proj-legend-previous").hidden = !state.compare;
+    $("mg-proj-legend-cancelled").hidden = !state.showCancelled;
+    $("mg-proj-legend-cancelled-previous").hidden = !(state.showCancelled && state.compare);
   }
 
   // ---------- Composição ----------
@@ -135,6 +139,11 @@
     comparison("mg-proj-avg-orders", { label: "Média de pedidos", current: t.avg_orders_closed, previous: prev.avg_orders, format: (v) => decimal(v, 2), currentLabel: `Por dia fechado (${t.closed_days || 0})`, previousLabel: "Por dia do mês anterior", deltaId: "mg-proj-avg-orders-delta" });
     comparison("mg-proj-ticket", { label: "Ticket médio", current: t.ticket, previous: prev.comparable_ticket, format: money, currentLabel: `Ticket ${until}`, previousLabel: `Ticket do mês anterior até o dia ${prev.comparable_days || 0}`, deltaId: "mg-proj-ticket-delta" });
     $("mg-proj-units").textContent = integer(t.units);
+    const c = data.cancellations || {};
+    comparison("mg-proj-cancelled", { label: "Cancelados", current: c.orders || 0, previous: c.previous_comparable_orders || 0, format: integer, currentLabel: `Cancelados ${until} (${money(c.value)})`, previousLabel: `${prevUntil} (${money(c.previous_comparable_value)})`, deltaId: "mg-proj-cancelled-delta",
+      extra: [["% dos pedidos do mês", `${decimal((c.share_of_orders || 0) * 100, 1)}%`]] });
+    [$("mg-proj-cancelled-delta"), ...document.querySelectorAll("#mg-proj-cancelled [data-tone]")].forEach((el) => { if (el && el.dataset.tone && el.dataset.tone !== "neutral") el.dataset.tone = el.dataset.tone === "positive" ? "negative" : "positive"; });
+    const cancelCard = $("mg-proj-cancel-card"); if (cancelCard) cancelCard.title = "O cancelamento conta no dia da compra; pedidos recentes ainda podem ser cancelados.";
     $("mg-proj-progress-fill").style.width = `${p.days_in_month ? Math.min(100, (p.day_of_month / p.days_in_month) * 100) : 0}%`;
     $("mg-proj-formula-hint").textContent = p.is_current_month ? `Ex.: (${money(t.revenue)} ÷ ${p.day_of_month}) × ${p.days_in_month} = ${money(t.projected)}` : "Mês fechado: a projeção é o próprio faturamento do mês.";
     renderStatusFilter(data.filter || {});
@@ -166,6 +175,8 @@
     const compare = $("mg-proj-compare"); if (compare) compare.checked = state.compare;
     compare?.addEventListener("change", () => { state.compare = compare.checked; try { localStorage.setItem("magalu:projection:compare", state.compare ? "1" : "0"); } catch (_error) {} if (state.data) renderChart(state.data); });
     $("mg-proj-refresh")?.addEventListener("click", () => void load({ fresh: true }));
+    const cancelToggle = $("mg-proj-show-cancelled");
+    if (cancelToggle) { cancelToggle.checked = state.showCancelled; cancelToggle.addEventListener("change", () => { state.showCancelled = cancelToggle.checked; try { localStorage.setItem("magalu:projection:cancelled", state.showCancelled ? "1" : "0"); } catch (_error) {} if (state.data) renderChart(state.data); }); }
     $("mg-proj-month")?.addEventListener("change", () => void load());
     $("mg-proj-status-presets")?.addEventListener("click", (event) => {
       const button = event.target.closest("[data-preset]"); if (!button) return;
