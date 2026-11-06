@@ -10,7 +10,10 @@ function sourceUnchanged(source,current){
   for(const key of ["status","active","price_present","price_error"]){if((source[key]??null)!==(current[key]??null))return false;}
   return new Date(source.price_synced_at||0).getTime()===new Date(current.price_synced_at||0).getTime();
 }
-function validateTerms(input){const fields=["target_margin","commission_rate","fixed_fee","shipping"],terms={};for(const field of fields){const value=input?.[field];if(value==null||String(value).trim()===""){terms[field]="";continue;}const n=Number(value);if(!Number.isFinite(n)||n<0||n>(field.includes("rate")||field==="target_margin"?100:10000000)||!/^(?:\d+)(?:\.\d{1,2})?$/.test(String(value)))throw invalid(`${field}: informe um valor válido com até duas casas decimais.`);terms[field]=String(value);}return terms;}
+// Percentuais (margens, comissao e Pix) vao ate 100; valores em reais ate 10 milhoes.
+const PERCENT_FIELDS=new Set(["target_margin","commission_rate","pix_discount","pix_seller_share","pix_margin"]);
+function validateTerms(input){const fields=["target_margin","commission_rate","fixed_fee","shipping","pix_discount","pix_seller_share","pix_margin"],terms={};for(const field of fields){const value=input?.[field];if(value==null||String(value).trim()===""){terms[field]="";continue;}const n=Number(value);if(!Number.isFinite(n)||n<0||n>(PERCENT_FIELDS.has(field)?100:10000000)||!/^(?:\d+)(?:\.\d{1,2})?$/.test(String(value)))throw invalid(`${field}: informe um valor válido com até duas casas decimais.`);terms[field]=String(value);}
+  const mode=String(input?.pix_mode??"").trim();if(mode&&!pricing.PIX_MODES.includes(mode))throw invalid("pix_mode: modo de preço Pix inválido.");terms.pix_mode=mode;return terms;}
 async function createBatched(identity,filters,termsInput,{onProgress=async()=>{}}={},deps={}){
   const terms=validateTerms(termsInput),count=deps.count||prices.count,page=deps.page||prices.detailsPage,query=deps.query||db.query;
   const total=await count(identity.accountId,filters),id=randomUUID();
