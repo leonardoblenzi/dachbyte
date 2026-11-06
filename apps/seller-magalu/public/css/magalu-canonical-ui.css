@@ -177,3 +177,10 @@
   #mg-process-toggle { right: 10px; bottom: 10px; min-height: 34px; padding: 6px 11px; font-size: .74rem; }
   .mg-content { padding-bottom: 72px!important; }
 }
+
+/* Menu de contas da barra lateral: cores do tema (o estilo antigo era da barra escura). */
+.mg-account-menu { background: var(--mg-surface)!important; }
+.mg-account-menu__item { color: var(--mg-text)!important; }
+.mg-account-menu__item:hover, .mg-account-menu__item.is-active { background: var(--mg-primary-soft)!important; }
+.mg-account-menu__item span strong { color: var(--mg-title)!important; font-size: .8rem!important; }
+.mg-account-menu__item span small { color: var(--mg-muted)!important; font-size: .66rem!important; }
