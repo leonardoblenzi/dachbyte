@@ -141,3 +141,39 @@
   .mg-ui-modal__head, .mg-ui-modal__body, .mg-ui-modal__actions { padding: 16px; }
   .mg-ui-modal__actions > * { flex: 1; }
 }
+
+/* ===== Mobile: telas cabem no celular ===== */
+@media (max-width: 900px) {
+  /* Grid da pagina limitado a largura da tela (a tabela de pedidos esticava para ~1170px). */
+  .mg-orders-page, .mg-product-page { grid-template-columns: minmax(0, 1fr)!important; }
+  .mg-orders-page > *, .mg-product-page > * { min-width: 0; }
+}
+
+@media (max-width: 640px) {
+  /* Seletor de periodo ganha a linha inteira; acoes vao para a linha de baixo. */
+  .mg-page-actions { flex-wrap: wrap!important; }
+  .mg-page-actions > .mg-period-selector { flex: 1 1 100%; max-width: 100%; }
+  .mg-page-actions > .mg-period-selector button { flex: 1 0 auto; }
+
+  /* Filtros em duas colunas para nao ocupar a tela inteira. */
+  .mg-margin-filters { grid-template-columns: repeat(2, minmax(0, 1fr))!important; }
+  .mg-margin-filters > .mg-margin-field { grid-column: auto!important; }
+  .mg-margin-filters > .mg-margin-field.mg-margin-field--search,
+  .mg-margin-filters > .mg-margin-filter-actions { grid-column: 1 / -1!important; }
+  .mg-margin-filters > .mg-margin-field--range { order: 1; }
+  .mg-margin-filters > .mg-margin-filter-actions { order: 2; }
+  .mg-orders-filters { grid-template-columns: repeat(2, minmax(0, 1fr))!important; }
+  .mg-orders-filters > :nth-child(1),
+  .mg-orders-filters > :nth-child(2),
+  .mg-orders-filters > :last-child { grid-column: 1 / -1; }
+  .mg-margin-filters > *, .mg-orders-filters > * { min-width: 0; }
+  .mg-orders-field, .mg-margin-field { grid-template-columns: minmax(0, 1fr)!important; min-width: 0; }
+  .mg-orders-field :is(input, select), .mg-margin-field :is(input, select) { min-width: 0!important; width: 100%!important; max-width: 100%!important; box-sizing: border-box; }
+
+  /* Campos com 16px evitam o zoom automatico do iPhone ao tocar. */
+  .mg-main :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) { font-size: 16px!important; }
+
+  /* Botao Processos menor e sem cobrir o fim da pagina. */
+  #mg-process-toggle { right: 10px; bottom: 10px; min-height: 34px; padding: 6px 11px; font-size: .74rem; }
+  .mg-content { padding-bottom: 72px!important; }
+}
