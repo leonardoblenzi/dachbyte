@@ -43,3 +43,7 @@
 @media (max-width: 1100px){ .hub-form-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); } .hub-form--inline{ grid-template-columns: 1fr 1fr; } }
 @media (max-width: 760px){ .hub-connect-grid, .hub-form-grid, .hub-form--inline{ grid-template-columns: 1fr; } .hub-toolbar > *{ flex: 1 1 100%; } .hub-toolbar__spacer{ display: none; } }
 .seller-btn[disabled]{ opacity: .5; cursor: not-allowed; }
+.hub-btn-danger{ color: var(--seller-danger); border-color: color-mix(in srgb, var(--seller-danger) 45%, var(--seller-border)); }
+.hub-pause-card[data-paused="1"]{ border-color: var(--seller-danger); }
+.hub-activate h3{ margin: 0; font-size: 1rem; }
+.hub-activate .hub-check{ align-items: flex-start; line-height: 1.45; }

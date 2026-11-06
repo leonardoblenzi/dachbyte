@@ -47,13 +47,16 @@ function jwtPayload(token) {
 
 /** Conector do Magalu com o client próprio do DACH Hub no ID Magalu. */
 class MagaluConnector extends ChannelConnector {
-  /** @param {{ clientId: string, clientSecret: string, scopes?: string[], fetchImpl?: typeof fetch }} options */
-  constructor({ clientId, clientSecret, scopes = DEFAULT_SCOPES, fetchImpl = fetch }) {
+  /** @param {{ clientId: string, clientSecret: string, scopes?: string[], webhookSecret?: string, fetchImpl?: typeof fetch, now?: () => number }} options */
+  constructor({ clientId, clientSecret, scopes = DEFAULT_SCOPES, webhookSecret = "", fetchImpl = fetch, now = () => Date.now() }) {
     super();
     this.clientId = String(clientId || "");
     this.clientSecret = String(clientSecret || "");
     this.scopes = scopes.length ? scopes : DEFAULT_SCOPES;
     this.fetchImpl = fetchImpl;
+    /** Segredo das assinaturas de webhook do app do Hub no Magalu. */
+    this.webhookSecret = String(webhookSecret || "");
+    this.now = now;
   }
 
   get channel() { return "magalu"; }
@@ -142,5 +145,8 @@ class MagaluConnector extends ChannelConnector {
     return { externalAccountId: subject, label: label ? String(label) : null };
   }
 }
+
+// Pedidos, notificações e escrita de estoque (E3).
+Object.assign(MagaluConnector.prototype, require("./orders").magaluOrders);
 
 module.exports = { MagaluConnector, DEFAULT_SCOPES, _test: { jwtPayload, mapWithConcurrency } };

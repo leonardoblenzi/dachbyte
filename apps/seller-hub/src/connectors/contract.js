@@ -42,6 +42,26 @@ class ChannelConnector {
    * @param {Record<string, string>} _fields @returns {Promise<any>}
    */
   async connectWithCredentials(_fields) { throw new Error("connectWithCredentials não implementado"); }
+  /**
+   * Valida e lê uma notificação do canal (assinatura/origem). Lança erro 401 se não for autêntica.
+   * @param {{ headers: Record<string, any>, rawBody: Buffer, url: string }} _input
+   * @returns {{ events: Array<{ externalAccountId: string, topic: string, resourceId: string, dedupeKey: string, payload?: any }> }}
+   */
+  parseWebhook(_input) { throw new Error("parseWebhook não implementado"); }
+  /** Pedido atualizado no canal (null se não existir). @param {ConnectedAccount} _account @param {string} _orderId @returns {Promise<any>} */
+  async getOrder(_account, _orderId) { throw new Error("getOrder não implementado"); }
+  /** Pedidos atualizados desde uma data, paginados. @param {ConnectedAccount} _account @param {{ updatedFrom: Date, cursor?: string | null }} _options
+   *  @returns {Promise<{ orders: any[], nextCursor: string | null }>} */
+  async listOrders(_account, _options) { throw new Error("listOrders não implementado"); }
+  /**
+   * Grava estoque. Para cada item: ok, retryable (não gravou; tentar depois), uncertain (pode ter gravado; conferir) ou erro.
+   * @param {ConnectedAccount} _account @param {Array<{ ref: number, listingId: string, variationId: string, quantity: number }>} _writes
+   * @returns {Promise<Array<{ ref: number, ok: boolean, retryable?: boolean, uncertain?: boolean, error?: string }>>}
+   */
+  async writeStock(_account, _writes) { throw new Error("writeStock não implementado"); }
+  /** Relê o estoque no canal (conferência). @param {ConnectedAccount} _account @param {Array<{ ref: number, listingId: string, variationId: string }>} _refs
+   *  @returns {Promise<Array<{ ref: number, stock: number | null }>>} */
+  async readStock(_account, _refs) { throw new Error("readStock não implementado"); }
   /** Página de anúncios da conta. @param {ConnectedAccount} _account @param {{ cursor?: string | null }} _options
    *  @returns {Promise<{ listings: ListingRecord[], nextCursor: string | null }>} */
   async listListings(_account, _options) { throw new Error("listListings não implementado"); }

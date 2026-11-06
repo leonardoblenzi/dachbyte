@@ -105,14 +105,22 @@ function createStockRepository(db) {
       });
     },
 
-    /** Dados para calcular o disponível de todos os itens (kits pelos componentes). @param {string} tenantId */
-    async availabilityInputs(tenantId) {
+    /**
+     * Dados para calcular o disponível (kits pelos componentes). Com itemIds, só esses itens e os
+     * componentes dos kits entre eles (usado a cada venda, sem carregar o catálogo inteiro).
+     * @param {string} tenantId @param {number[] | null} [itemIds]
+     */
+    async availabilityInputs(tenantId, itemIds = null) {
+      const scope = itemIds
+        ? `and (i.id = any($2::bigint[]) or i.id in (select component_item_id from hub.kit_components where kit_item_id = any($2::bigint[])))`
+        : "";
+      const params = itemIds ? [tenantId, itemIds] : [tenantId];
       const [items, balances, components] = await Promise.all([
-        db.query("select id, kind from hub.items where tenant_id = $1 and active", [tenantId]),
-        db.query(`select item_id as "itemId", on_hand as "onHand", reserved from hub.stock_balances where tenant_id = $1`, [tenantId]),
+        db.query(`select i.id, i.kind from hub.items i where i.tenant_id = $1 and i.active ${scope}`, params),
+        db.query(`select b.item_id as "itemId", b.on_hand as "onHand", b.reserved from hub.stock_balances b join hub.items i on i.id = b.item_id where b.tenant_id = $1 ${scope}`, params),
         db.query(
           `select k.kit_item_id as "kitItemId", k.component_item_id as "componentItemId", k.quantity
-             from hub.kit_components k join hub.items i on i.id = k.kit_item_id where i.tenant_id = $1`, [tenantId]),
+             from hub.kit_components k join hub.items i on i.id = k.kit_item_id where i.tenant_id = $1 ${itemIds ? "and k.kit_item_id = any($2::bigint[])" : ""}`, params),
       ]);
       return { items: items.rows, balances: balances.rows, components: components.rows };
     },
@@ -181,12 +189,15 @@ function createStockRepository(db) {
       return rows;
     },
 
-    /** Anúncios vinculados com regra da conta e do anúncio (para o plano). @param {string} tenantId @param {{ accountId?: number | null }} [options] */
-    async planListings(tenantId, { accountId = null } = {}) {
+    /**
+     * Anúncios vinculados com regra da conta e do anúncio (para o plano e para o envio).
+     * @param {string} tenantId @param {{ accountId?: number | null, itemIds?: number[] | null }} [options]
+     */
+    async planListings(tenantId, { accountId = null, itemIds = null } = {}) {
       const { rows } = await db.query(
         `select l.id, a.id as "accountId", a.channel, coalesce(a.label, a.external_account_id) as "accountLabel", a.stock_sync_mode as "accountMode",
                 l.listing_id as "listingId", l.variation_id as "variationId", l.title, l.fulfillment, l.channel_stock::float as "channelStock",
-                l.sync_enabled as "syncEnabled", i.id as "itemId", i.sku, i.name as "itemName",
+                l.sync_enabled as "syncEnabled", i.id as "itemId", i.sku, i.name as "itemName", l.last_pushed_stock::float as "lastPushedStock",
                 case when ar.id is null then null else json_build_object('mode', ar.mode, 'value', ar.value, 'cap', ar.cap, 'min_lock', ar.min_lock, 'safety_reserve', ar.safety_reserve) end as "accountRule",
                 case when lr.id is null then null else json_build_object('mode', lr.mode, 'value', lr.value, 'cap', lr.cap, 'min_lock', lr.min_lock, 'safety_reserve', lr.safety_reserve) end as "listingRule"
            from hub.listings l
@@ -194,9 +205,9 @@ function createStockRepository(db) {
            join hub.items i on i.id = l.item_id
            left join hub.stock_rules ar on ar.scope = 'account' and ar.channel_account_id = a.id
            left join hub.stock_rules lr on lr.scope = 'listing' and lr.listing_id = l.id
-          where ($2::bigint is null or a.id = $2)
+          where ($2::bigint is null or a.id = $2) and ($3::bigint[] is null or i.id = any($3::bigint[]))
           order by i.sku, a.channel, l.listing_id, l.variation_id`,
-        [tenantId, accountId]);
+        [tenantId, accountId, itemIds]);
       return rows;
     },
 
@@ -204,6 +215,7 @@ function createStockRepository(db) {
     async listAccountRules(tenantId) {
       const { rows } = await db.query(
         `select a.id, a.channel, coalesce(a.label, a.external_account_id) as label, a.status, a.stock_sync_mode as "mode",
+                a.activated_at as "activatedAt",
                 case when r.id is null then null else json_build_object('mode', r.mode, 'value', r.value, 'cap', r.cap, 'min_lock', r.min_lock, 'safety_reserve', r.safety_reserve) end as rule,
                 (select count(*)::int from hub.listings l where l.channel_account_id = a.id and l.item_id is not null) as linked
            from hub.channel_accounts a

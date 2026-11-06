@@ -13,18 +13,36 @@ loadRuntimeEnv({
 
 const { createContainer } = require("./src/container");
 const { startImportWorker } = require("./src/jobs/importQueue");
+const { startSyncWorkers } = require("./src/jobs/syncQueues");
 
-const { config, db, imports } = createContainer();
+const container = createContainer();
+const { config, db, imports, orders, sync } = container;
 if (!config.redisUrl) {
   console.error("[seller-hub:worker] HUB_REDIS_URL/REDIS_URL não configurado.");
   process.exit(1);
 }
 
 const handle = startImportWorker({ redisUrl: config.redisUrl, run: (job) => imports.runImport(job) });
-console.log("[seller-hub:worker] processando a fila de importação");
+/** @type {any} */
+let syncHandle = null;
+startSyncWorkers({
+  redisUrl: config.redisUrl,
+  handlers: {
+    push: (accountId) => sync.processAccount(accountId),
+    webhook: (eventId) => orders.processWebhook(eventId),
+    pollAll: async () => {
+      for (const account of await container.db.query("select id from hub.channel_accounts where status = 'connected' order by id").then((/** @type {any} */ r) => r.rows)) {
+        try { await orders.pollAccount(Number(account.id)); } catch (error) { console.error("[seller-hub:poll]", account.id, /** @type {any} */ (error)?.message); }
+      }
+    },
+  },
+}).then((h) => { syncHandle = h; console.log("[seller-hub:worker] processando importação, pedidos e envios de estoque"); })
+  .catch((error) => { console.error("[seller-hub:worker] filas da E3 não iniciaram", error); process.exit(1); });
 
 async function shutdown() {
   await handle.close().catch(() => {});
+  if (syncHandle) await syncHandle.close().catch(() => {});
+  await container.syncQueues.close().catch(() => {});
   await db.close().catch(() => {});
   process.exit(0);
 }

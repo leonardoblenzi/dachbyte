@@ -19,7 +19,7 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
  * @param {Parameters<typeof createContainer>[0]} [deps]
  */
 async function createApp(deps = {}) {
-  const { config, catalog, connectors, accounts, imports, stock } = createContainer(deps);
+  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues } = createContainer(deps);
 
   const app = express();
   app.set("trust proxy", 1);
@@ -30,6 +30,23 @@ async function createApp(deps = {}) {
     res.setHeader("Cache-Control", /^\/(assets|ui)\//.test(req.path) ? "public, max-age=3600" : "no-store");
     next();
   });
+  // Notificações dos canais: públicas (sem login), com corpo bruto para conferir a assinatura.
+  // Responde rápido; o processamento vai para a fila. Erro nosso devolve 5xx para o canal reenviar.
+  app.post("/webhooks/:channel", express.raw({ type: "*/*", limit: "1mb" }), async (req, res) => {
+    const channel = String(req.params.channel);
+    try {
+      if (!connectors.has(channel)) return res.status(404).json({ ok: false, error: "unknown_channel" });
+      const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from("");
+      const { received, ids } = await orders.receiveWebhook({ channel, headers: req.headers, rawBody, url: `${config.publicBaseUrl}/webhooks/${channel}` });
+      for (const id of ids) await syncQueues.enqueueWebhook(id);
+      res.status(200).json({ ok: true, received });
+    } catch (error) {
+      const status = Number(/** @type {any} */ (error)?.status) || 500;
+      if (status >= 500) console.error("[seller-hub] webhook", channel, /** @type {any} */ (error)?.message);
+      res.status(status === 401 ? 401 : status >= 500 ? 503 : status).json({ ok: false, error: /** @type {any} */ (error)?.code || "webhook_error" });
+    }
+  });
+
   // Planilha de estoque vem em base64 no corpo: limite maior só nessas rotas.
   const smallJson = express.json({ limit: "1mb" });
   const sheetJson = express.json({ limit: "15mb" });
@@ -103,7 +120,12 @@ async function createApp(deps = {}) {
     try {
       const listingId = int(req.params.listingId, 0), itemId = int(req.body?.itemId, 0);
       if (!listingId || !itemId) return res.status(400).json({ ok: false, error: "invalid_input", message: "Informe o anúncio e o produto." });
-      res.json({ ok: true, link: await catalog.linkListing(identity(req).tenantId, listingId, itemId) });
+      const tenantId = identity(req).tenantId;
+      const link = await catalog.linkListing(tenantId, listingId, itemId);
+      // Vendas que esperavam este vínculo baixam agora; contas ativas recalculam o envio do produto.
+      const pending = await orders.applyPendingForListing(tenantId, listingId);
+      await sync.onItemsChanged(tenantId, [itemId], "anúncio vinculado");
+      res.json({ ok: true, link, pendingSales: pending });
     } catch (error) { next(error); }
   });
   api.get("/channels", (_req, res) => {
@@ -176,8 +198,23 @@ async function createApp(deps = {}) {
     identity: who(req), source: req.body?.source, accountId: req.body?.accountId ? Number(req.body.accountId) : null,
     onlyMissing: req.body?.onlyMissing !== false, apply: req.body?.apply === true,
   })));
-  api.put("/stock/accounts/:accountId/mode", requireAdmin, handle(async (req) => ({ account: await stock.setAccountMode({
-    identity: who(req), accountId: int(req.params.accountId, 0), mode: String(req.body?.mode || ""),
+  api.put("/stock/accounts/:accountId/mode", requireAdmin, handle(async (req) => {
+    const accountId = int(req.params.accountId, 0), mode = String(req.body?.mode || "");
+    // Ativo = escrever nos canais (exige confirmação). Desligado/Observação cancelam envios pendentes.
+    if (mode === "active") return sync.activateAccount({ identity: who(req), accountId, confirm: req.body?.confirm === true });
+    const account = await stock.setAccountMode({ identity: who(req), accountId, mode });
+    const skipped = await sync.skipPending(accountId, "conta saiu do modo ativo");
+    return { account, skipped };
+  }));
+  // Pausa geral e fila de envios.
+  api.get("/stock/settings", handle(async (req) => ({ settings: await sync.getSettings(identity(req).tenantId) })));
+  api.put("/stock/settings", requireAdmin, handle(async (req) => ({ settings: await sync.setPaused({ identity: who(req), paused: req.body?.paused === true }) })));
+  api.get("/stock/pushes", handle(async (req) => sync.listPushes(identity(req).tenantId, {
+    state: String(req.query.state || ""), accountId: req.query.accountId ? int(req.query.accountId, 0) : null, limit: int(req.query.limit, 50), offset: int(req.query.offset, 0),
+  })));
+  api.post("/stock/pushes/:pushId/retry", requireAdmin, handle(async (req) => ({ push: await sync.retryPush({ identity: who(req), pushId: int(req.params.pushId, 0) }) })));
+  api.get("/orders", handle(async (req) => ({ orders: await orders.listOrders(identity(req).tenantId, {
+    pendingOnly: req.query.pending === "1", limit: int(req.query.limit, 50), offset: int(req.query.offset, 0),
   }) })));
   api.put("/stock/accounts/:accountId/rule", requireAdmin, handle(async (req) => stock.saveRule({
     identity: who(req), scope: "account", targetId: int(req.params.accountId, 0), rule: req.body?.rule ?? null,

@@ -334,3 +334,29 @@ O Hub nasce com 3 marketplaces, mas já está preparado para outros canais (ex.:
 - **Regras:** padrão da conta e exceção por anúncio (`hub.stock_rules`), pausa por anúncio (`sync_enabled`) e modo da conta (desligado/observação; "ativo" só na E3). Conta nova começa em observação.
 - **"O que mudaria":** calculado na hora (`modules/stock/plan.js`, função pura) a partir do disponível, da regra e do estoque no canal.
 - **Testes de integração:** `HUB_TEST_DATABASE_URL=postgres://... npm run test:db` (banco descartável com as migrations aplicadas).
+
+### 10.4 Vendas e envio de estoque (E3)
+
+**Pedidos**
+- Chegam por webhook (`POST /hub/webhooks/{canal}`, público, corpo bruto) e por uma leitura de segurança a cada 10 min (worker).
+- Venda baixa o estoque por item do pedido; kit baixa os componentes. A chave do movimento é por item, então repetir o pedido não baixa de novo. Cancelamento devolve uma vez.
+- Venda Full não mexe no estoque central (pelo pedido ou pelo cadastro do anúncio).
+- Venda de anúncio sem vínculo fica em **Vendas sem vínculo** e baixa na hora em que o anúncio é vinculado.
+- Devolução física (produto voltou) segue como ajuste manual: pode voltar avariado.
+- O que conta como venda: tudo menos cancelado (ML: `cancelled`/`invalid`; Magalu: `cancelled`; Shopee: só `CANCELLED`; `UNPAID` e `IN_CANCEL` ainda contam).
+
+**Envio de estoque**
+- Só contas em modo **ativo**. A ativação exige a confirmação de que outro sistema (Tray, ANYMARKET, Hub2b, Bling...) não escreve estoque na conta, e envia na hora o que difere.
+- Cada mudança de estoque recalcula os anúncios das contas ativas e abre um envio por anúncio (`hub.stock_pushes`). Envios em sequência são agrupados por conta (espera de 5 s). Valor novo que chega durante um envio vira o próximo envio.
+- Conferência relendo o canal: **conferido**, **divergente** (não reenvia sozinho; reenvio manual em Envios) ou **falhou**. Limite do canal (429) volta para a fila até 3 tentativas. Resposta incerta (5xx/sem resposta) é conferida relendo, nunca reenviada às cegas.
+- **Pausa geral** por empresa: nada sai até retomar; os envios ficam na fila. Sair do modo ativo cancela os pendentes da conta.
+- ML: `PUT /items/{id}` só com as variações que mudam; conta com estoque em vários depósitos (multi-origem) e anúncio Full ficam bloqueados.
+- Magalu: PATCH/POST `/seller/v1/portfolios/stocks/{sku}` com `X-Request-ID`; conferência pela soma dos `AVAILABLE`.
+- Shopee: `update_stock` com `seller_stock` (formato atual; o módulo DACH Shopee ainda usa o antigo `normal_stock`), `failure_list` por modelo, conferência pelo estoque do vendedor.
+
+**Configuração para produção**
+- Worker com Redis (`HUB_REDIS_URL`): filas `hub-import`, `hub-stock-push`, `hub-orders` e a leitura periódica.
+- Webhooks nos apps do Hub: ML (notificações `orders_v2` em `https://dachbyte.tech/hub/webhooks/mercadolivre`), Magalu (assinatura `orders_order` com segredo em `HUB_MAGALU_WEBHOOK_SECRET`), Shopee (push de pedido, código 3, em `https://dachbyte.tech/hub/webhooks/shopee`; assinatura com a partner key).
+- Migração `003_orders_sync.sql`.
+
+**Fica para a E4:** reconciliação periódica (comparar o canal com o último envio e tratar divergência recorrente), alertas e painel de saúde.

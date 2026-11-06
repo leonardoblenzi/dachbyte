@@ -25,7 +25,20 @@ async function withServer(options, run) {
     requestImport: async (input) => { calls.push(["import", input.accountId, input.trigger]); return { run: { id: 1, status: "queued" }, created: true }; },
     getRun: async () => ({ id: 1, status: "running" }),
   };
-  const app = await createApp({ config, db: {}, catalog, imports });
+  const orders = {
+    applyPendingForListing: async (...args) => { calls.push(["pending", ...args]); return { orders: 1, movements: 1 }; },
+    receiveWebhook: async ({ channel }) => { if (channel === "magalu") throw Object.assign(new Error("assinatura"), { status: 401, code: "invalid_webhook" }); return { received: 1, ids: [7] }; },
+    listOrders: async () => [],
+  };
+  const sync = {
+    onItemsChanged: async (...args) => { calls.push(["changed", ...args]); },
+    activateAccount: async (input) => { calls.push(["activate", input.accountId, input.confirm]); return { activated: true, pushes: 3 }; },
+    skipPending: async () => 0, getSettings: async () => ({ paused: false }), setPaused: async ({ paused }) => ({ paused }),
+    listPushes: async () => ({ pushes: [], summary: {} }), retryPush: async () => ({}),
+  };
+  const syncQueues = { enqueueWebhook: async (id) => { calls.push(["webhook", id]); }, enqueuePush: async () => {} };
+  const stock = { setAccountMode: async ({ mode }) => ({ mode }) };
+  const app = await createApp({ config, db: {}, catalog, imports, orders, sync, syncQueues, stock });
   const server = app.listen(0);
   const base = `http://127.0.0.1:${server.address().port}`;
   try { await run(base, calls); } finally { server.close(); }
@@ -78,6 +91,8 @@ test("API do catálogo responde e vínculo manual exige administrador", async ()
     const ok = await post(token({ company_role: "admin" }));
     assert.equal(ok.status, 200);
     assert.deepEqual(calls[0], ["t1", 9, 4]);
+    assert.deepEqual(calls[1], ["pending", "t1", 9], "vendas pendentes do anúncio são aplicadas ao vincular");
+    assert.deepEqual(calls[2], ["changed", "t1", [4], "anúncio vinculado"]);
   });
 });
 
@@ -117,5 +132,25 @@ test("lista de canais traz tipo, forma de conexão e capacidades", async () => {
   await withServer({}, async (base) => {
     const { channels } = await (await get(`${base}/api/channels`, token({}))).json();
     assert.ok(channels.every((c) => c.kind === "marketplace" && c.auth === "oauth" && c.capabilities.listings === true));
+  });
+});
+
+test("webhook: público, corpo bruto, assinatura inválida = 401 e evento vai para a fila", async () => {
+  await withServer({}, async (base, calls) => {
+    const ok = await fetch(`${base}/webhooks/mercadolivre`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ topic: "orders_v2" }) });
+    assert.equal(ok.status, 200);
+    assert.deepEqual(calls.at(-1), ["webhook", 7]);
+    assert.equal((await fetch(`${base}/webhooks/magalu`, { method: "POST", body: "{}" })).status, 401);
+    assert.equal((await fetch(`${base}/webhooks/amazon`, { method: "POST", body: "{}" })).status, 404);
+  });
+});
+
+test("ativar escrita exige administrador e repassa a confirmação", async () => {
+  await withServer({}, async (base, calls) => {
+    const put = (cookie, body) => fetch(`${base}/api/stock/accounts/3/mode`, { method: "PUT", headers: { "content-type": "application/json", cookie: `suite_auth_token=${cookie}` }, body: JSON.stringify(body) });
+    assert.equal((await put(token({ company_role: "operator" }), { mode: "active", confirm: true })).status, 403);
+    const res = await put(token({ company_role: "admin" }), { mode: "active", confirm: true });
+    assert.equal((await res.json()).pushes, 3);
+    assert.deepEqual(calls.at(-1), ["activate", 3, true]);
   });
 });

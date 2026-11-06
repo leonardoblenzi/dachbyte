@@ -66,8 +66,8 @@ const CHANNEL_DEFINITIONS = Object.freeze([
     kind: "marketplace",
     auth: "oauth",
     capabilities: { listings: true, stockWrite: true, priceWrite: true, orders: true, fulfillment: true },
-    settingsFromEnv: (env) => ({ clientId: str(env.HUB_MAGALU_CLIENT_ID), clientSecret: str(env.HUB_MAGALU_CLIENT_SECRET), scopes: list(env.HUB_MAGALU_SCOPES) }),
-    create: (settings, fetchImpl) => new MagaluConnector({ clientId: settings.clientId, clientSecret: settings.clientSecret, scopes: settings.scopes, fetchImpl }),
+    settingsFromEnv: (env) => ({ clientId: str(env.HUB_MAGALU_CLIENT_ID), clientSecret: str(env.HUB_MAGALU_CLIENT_SECRET), scopes: list(env.HUB_MAGALU_SCOPES), webhookSecret: str(env.HUB_MAGALU_WEBHOOK_SECRET) }),
+    create: (settings, fetchImpl) => new MagaluConnector({ clientId: settings.clientId, clientSecret: settings.clientSecret, scopes: settings.scopes, webhookSecret: settings.webhookSecret, fetchImpl }),
   },
   {
     id: "shopee",

@@ -18,7 +18,12 @@
         { label: "Saldos", path: "/hub/estoque" },
         { label: "O que mudaria", path: "/hub/estoque/observacao" },
         { label: "Movimentos", path: "/hub/estoque/movimentos" },
+        { label: "Envios", path: "/hub/estoque/envios" },
         { label: "Regras por conta", path: "/hub/estoque/regras" },
+      ] },
+      { id: "sales", label: "Vendas", hint: "Pedidos e baixas", icon: "receipt", items: [
+        { label: "Pedidos", path: "/hub/pedidos" },
+        { label: "Vendas sem vínculo", path: "/hub/pedidos?pendentes=1" },
       ] },
       { id: "account", label: "Conta", hint: "Acesso e integrações", icon: "user", items: [{ label: "Contas conectadas", path: "/hub/contas" }] },
     ],

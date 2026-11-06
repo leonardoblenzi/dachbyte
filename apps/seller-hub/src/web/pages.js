@@ -6,7 +6,7 @@ function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
 }
 
-const ASSET_VERSION = "20261107g";
+const ASSET_VERSION = "20261108a";
 
 /** Páginas do DACH Hub. Cada uma vira um item do menu lateral. */
 const PAGES = {
@@ -16,6 +16,8 @@ const PAGES = {
   "/estoque": { title: "Saldos", kicker: "Estoque", lead: "Estoque mestre de cada produto. Kits usam o menor componente.", view: "stock" },
   "/estoque/observacao": { title: "O que mudaria", kicker: "Estoque", lead: "Quanto o Hub enviaria para cada anúncio, comparado ao que está no canal. Nada é enviado nesta fase.", view: "plan" },
   "/estoque/movimentos": { title: "Movimentos", kicker: "Estoque", lead: "Histórico de cada alteração de estoque, com origem e motivo.", view: "movements" },
+  "/estoque/envios": { title: "Envios", kicker: "Estoque", lead: "Estoque enviado aos canais em modo ativo, conferido relendo o anúncio.", view: "pushes" },
+  "/pedidos": { title: "Pedidos", kicker: "Vendas", lead: "Pedidos recebidos dos canais e a baixa de estoque de cada item.", view: "orders" },
   "/estoque/regras": { title: "Regras por conta", kicker: "Estoque", lead: "Modo de estoque de cada conta e a regra padrão de envio.", view: "rules" },
   "/contas": { title: "Contas conectadas", kicker: "Conta", lead: "Marketplaces e lojas virtuais conectados diretamente ao DACH Hub.", view: "accounts" },
 };
@@ -48,6 +50,7 @@ function renderPage(path, viewer) {
   </main>
   <script src="/hub/ui/seller-shell.js?v=${ASSET_VERSION}"></script>
   <script src="/hub/assets/hub-stock.js?v=${ASSET_VERSION}"></script>
+  <script src="/hub/assets/hub-sync.js?v=${ASSET_VERSION}"></script>
   <script src="/hub/assets/hub-app.js?v=${ASSET_VERSION}"></script>
 </body>
 </html>`;

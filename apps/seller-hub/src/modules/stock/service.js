@@ -14,9 +14,16 @@ function fail(message, status, code, details) { return Object.assign(new Error(m
 
 /**
  * Casos de uso do estoque mestre (E2: calcula e mostra; não escreve nos canais).
- * @param {{ repository: ReturnType<typeof import("./repository").createStockRepository> }} deps
+ * @param {{ repository: ReturnType<typeof import("./repository").createStockRepository>,
+ *           onItemsChanged?: (tenantId: string, itemIds: number[], reason: string) => Promise<unknown> }} deps
  */
-function createStockService({ repository }) {
+function createStockService({ repository, onItemsChanged = async () => {} }) {
+  /** Depois de mexer no estoque: recalcula os envios das contas ativas (E3). @param {string} tenantId @param {any} result @param {string} reason */
+  async function changed(tenantId, result, reason) {
+    const ids = [...new Set((result?.changes || []).map((/** @type {any} */ c) => Number(c.itemId)))];
+    if (ids.length) await onItemsChanged(tenantId, ids, reason);
+  }
+
   /** @param {string} tenantId */
   async function availabilityMap(tenantId) {
     return computeAvailability(await repository.availabilityInputs(tenantId));
@@ -77,6 +84,7 @@ function createStockService({ repository }) {
       if (!String(note || "").trim()) throw fail("Informe o motivo do ajuste.", 400, "note_required");
       const result = await repository.applyEntries(identity.tenantId, [{ itemId, op, quantity, kind: op === "set" ? "inventory" : "adjustment", note, sourceType: "manual" }], { userId: identity.userId });
       await repository.audit({ tenantId: identity.tenantId, userId: identity.userId, action: "stock_adjusted", details: { item_id: itemId, op, quantity, note } });
+      await changed(identity.tenantId, result, "ajuste manual");
       return result;
     },
 
@@ -117,6 +125,7 @@ function createStockService({ repository }) {
         idempotencyKey: mode === "add" ? `sheet:${fileHash}:${r.itemId}` : null,
       })).filter((e) => e.op === "set" || e.quantity !== 0), { userId: identity.userId });
       await repository.audit({ tenantId: identity.tenantId, userId: identity.userId, action: "stock_spreadsheet_applied", details: { file: file.fileName, mode, applied: result.applied, duplicates: result.duplicates } });
+      await changed(identity.tenantId, result, "planilha");
       return result;
     },
 
@@ -139,6 +148,7 @@ function createStockService({ repository }) {
         channelAccountId: source === "account" ? accountId : null,
       })), { userId: identity.userId });
       await repository.audit({ tenantId: identity.tenantId, userId: identity.userId, action: "stock_initial_from_channels", details: { source, account_id: accountId, only_missing: onlyMissing, applied: result.applied, items: rows.length } });
+      await changed(identity.tenantId, result, "estoque inicial");
       return { preview: false, count: rows.length, ...result };
     },
 

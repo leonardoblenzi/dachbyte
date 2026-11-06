@@ -436,17 +436,27 @@
     let bound = false;
 
     async function render() {
-      const { accounts } = await api("/stock/rules");
+      const [{ accounts }, { settings }] = await Promise.all([api("/stock/rules"), api("/stock/settings")]);
       if (!accounts.length) { root.innerHTML = empty("Nenhuma conta conectada", "Conecte uma conta para definir as regras de estoque.", '<a class="seller-btn seller-btn--primary" href="/hub/contas">Ver contas</a>'); return; }
-      root.innerHTML = `<section class="seller-card"><h2>Como o Hub calcula</h2>
+      const activeCount = accounts.filter((/** @type {any} */ a) => a.mode === "active").length;
+      root.innerHTML = `<section class="seller-card hub-pause-card" data-paused="${settings.paused ? "1" : "0"}">
+          <div class="hub-account-head"><div><h2>Envio de estoque aos canais</h2>
+            <p>${settings.paused ? `<strong>Pausado</strong> desde ${esc(kit.dateTime(settings.pausedAt))}. Nada é enviado; os envios ficam guardados até retomar.`
+              : activeCount ? `${int(activeCount)} conta(s) em modo ativo recebem o estoque do Hub. A pausa para tudo na hora.` : "Nenhuma conta em modo ativo: o Hub só observa."}</p></div>
+            ${isAdmin ? (settings.paused ? '<button class="seller-btn seller-btn--primary" type="button" data-pause="0">Retomar envios</button>'
+              : '<button class="seller-btn hub-btn-danger" type="button" data-pause="1">Pausar todos os envios</button>') : ""}
+          </div></section>
+        <section class="seller-card"><h2>Como o Hub calcula</h2>
           <p>Para cada anúncio: regra (igual, % ou fixo) → tira a reserva de segurança → zera se o estoque estiver no limite → aplica o teto. Anúncio Full nunca recebe envio. A exceção do anúncio (na tela "O que mudaria") vence a regra da conta.</p></section>
         ${accounts.map((/** @type {any} */ a) => `<section class="seller-card">
           <div class="hub-account-head"><div><span class="seller-badge">${esc(CHANNEL_LABELS[a.channel] || a.channel)}</span> <strong>${esc(a.label)}</strong><br><small>${int(a.linked)} anúncio(s) vinculado(s)</small></div>
             <div class="hub-segment" role="group" aria-label="Modo de estoque">
               <button type="button" class="seller-btn ${a.mode === "off" ? "seller-btn--primary" : ""}" data-mode="off" data-account="${esc(a.id)}" ${isAdmin ? "" : "disabled"}>Desligado</button>
               <button type="button" class="seller-btn ${a.mode === "observe" ? "seller-btn--primary" : ""}" data-mode="observe" data-account="${esc(a.id)}" ${isAdmin ? "" : "disabled"}>Observação</button>
-              <button type="button" class="seller-btn" disabled title="A escrita nos canais chega na próxima etapa">Ativo · em breve</button>
+              <button type="button" class="seller-btn ${a.mode === "active" ? "seller-btn--primary" : ""}" data-activate="${esc(a.id)}" ${isAdmin && a.mode !== "active" ? "" : "disabled"}>Ativo</button>
             </div></div>
+          ${a.mode === "active" ? `<div class="hub-flash" data-tone="success">Escrevendo estoque neste canal desde ${esc(kit.dateTime(a.activatedAt))}. Envios em <a href="/hub/estoque/envios?account=${esc(a.id)}">Envios</a>.</div>` : ""}
+          <div data-activate-panel="${esc(a.id)}"></div>
           ${isAdmin ? `<form class="hub-form" data-account-rule="${esc(a.id)}">${ruleFields(kit, a.rule, `a${a.id}`)}
             <div class="hub-actions hub-actions--start"><button class="seller-btn seller-btn--primary" type="submit">Salvar regra da conta</button><small data-form-error class="hub-error"></small></div></form>`
             : `<p>Regra: ${esc(describeRule(a.rule))}</p>`}
@@ -458,13 +468,49 @@
       bound = true;
       root.addEventListener("change", onRuleModeChange);
       root.addEventListener("click", async (event) => {
-        const button = /** @type {HTMLElement} */ (event.target).closest("[data-mode]");
+        const target = /** @type {HTMLElement} */ (event.target);
+        const pause = target.closest("[data-pause]");
+        if (pause) {
+          const paused = pause.getAttribute("data-pause") === "1";
+          if (paused && !confirm("Pausar todos os envios de estoque desta empresa? Nada será enviado até retomar.")) return;
+          await api("/stock/settings", { method: "PUT", body: JSON.stringify({ paused }) });
+          await render();
+          return;
+        }
+        const activate = target.closest("[data-activate]");
+        if (activate) {
+          const id = activate.getAttribute("data-activate");
+          const panel = /** @type {HTMLElement} */ (root.querySelector(`[data-activate-panel="${id}"]`));
+          const { summary } = await api(`/stock/plan?accountId=${id}&onlyChanges=1&limit=1`);
+          panel.innerHTML = `<form class="hub-form hub-panel hub-activate" data-activate-form="${esc(id)}">
+            <h3>Ativar envio de estoque nesta conta</h3>
+            <p>Ao ativar, o Hub envia agora o estoque calculado: <strong>${int(summary.increase)}</strong> anúncio(s) sobem e <strong>${int(summary.decrease)}</strong> descem
+              (${int(summary.zeroed)} zerados). Depois disso, cada venda em qualquer canal atualiza esta conta. Anúncio Full nunca recebe envio.</p>
+            <label class="hub-check"><input type="checkbox" name="confirm" required> Confirmo que a sincronização de estoque desta conta está <strong>desligada</strong> na Tray, ANYMARKET, Hub2b, Bling ou qualquer outro sistema. Dois sistemas escrevendo estoque sobrescrevem um ao outro.</label>
+            <div class="hub-actions hub-actions--start"><button class="seller-btn seller-btn--primary" type="submit">Ativar envio</button><button class="seller-btn" type="button" data-activate-cancel>Cancelar</button><small data-form-error class="hub-error"></small></div>
+          </form>`;
+          return;
+        }
+        if (target.closest("[data-activate-cancel]")) { const form = target.closest("form"); if (form?.parentElement) form.parentElement.innerHTML = ""; return; }
+        const button = target.closest("[data-mode]");
         if (!button) return;
+        const card = button.closest(".seller-card");
+        if (card?.querySelector('[data-activate].seller-btn--primary') && !confirm("Sair do modo ativo? Os envios pendentes desta conta serão cancelados e o Hub para de escrever estoque nela.")) return;
         await api(`/stock/accounts/${button.getAttribute("data-account")}/mode`, { method: "PUT", body: JSON.stringify({ mode: button.getAttribute("data-mode") }) });
         await render();
       });
       root.addEventListener("submit", async (event) => {
         const form = /** @type {HTMLFormElement} */ (event.target);
+        if (form.matches("[data-activate-form]")) {
+          event.preventDefault();
+          const error = /** @type {HTMLElement} */ (form.querySelector("[data-form-error]"));
+          try {
+            const confirmed = /** @type {HTMLInputElement} */ (form.querySelector("[name=confirm]")).checked;
+            await api(`/stock/accounts/${form.dataset.activateForm}/mode`, { method: "PUT", body: JSON.stringify({ mode: "active", confirm: confirmed }) });
+            await render();
+          } catch (err) { error.textContent = /** @type {Error} */ (err).message; }
+          return;
+        }
         if (!form.matches("[data-account-rule]")) return;
         event.preventDefault();
         const error = /** @type {HTMLElement} */ (form.querySelector("[data-form-error]"));

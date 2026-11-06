@@ -14,6 +14,11 @@ const { createImportsService } = require("./modules/imports/service");
 const { createImportQueue } = require("./jobs/importQueue");
 const { createStockRepository } = require("./modules/stock/repository");
 const { createStockService } = require("./modules/stock/service");
+const { createOrdersRepository } = require("./modules/orders/repository");
+const { createOrdersService } = require("./modules/orders/service");
+const { createSyncRepository } = require("./modules/sync/repository");
+const { createSyncService } = require("./modules/sync/service");
+const { createSyncQueues } = require("./jobs/syncQueues");
 
 /** Cifra criada só quando usada: sem chave, conectar conta falha com 503 sem derrubar o app. @param {string} key */
 function lazyCipher(key) {
@@ -26,7 +31,7 @@ function lazyCipher(key) {
 /**
  * Raiz de composição: monta as peças do Hub uma vez, para o site (app.js) e para o worker.
  * Qualquer peça pode ser trocada (testes, prévia local).
- * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, imports?: any, queue?: any, stock?: any }} [overrides]
+ * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, imports?: any, queue?: any, stock?: any, orders?: any, sync?: any, syncQueues?: any, tokens?: any }} [overrides]
  */
 function createContainer(overrides = {}) {
   const config = overrides.config || loadConfig();
@@ -36,14 +41,36 @@ function createContainer(overrides = {}) {
   const catalog = overrides.catalog || createCatalogService({ repository: createCatalogRepository(db) });
   const accountsRepository = createAccountsRepository(db);
   const accounts = overrides.accounts || createAccountsService({ repository: accountsRepository, connectors, cipher, publicBaseUrl: config.publicBaseUrl });
-  const tokens = new TokenManager({ repository: accountsRepository, connectors, cipher });
+  const tokens = overrides.tokens || new TokenManager({ repository: accountsRepository, connectors, cipher });
   let imports = overrides.imports;
   if (!imports) {
     imports = createImportsService({ repository: createImportsRepository(db), catalog, connectors, tokens });
     imports.setQueue(overrides.queue || createImportQueue({ redisUrl: config.redisUrl, runInline: (job) => imports.runImport(job) }));
   }
-  const stock = overrides.stock || createStockService({ repository: createStockRepository(db) });
-  return { config, db, connectors, catalog, accounts, tokens, imports, stock };
+  const stockRepository = createStockRepository(db);
+  // Ligação tardia: as filas chamam o sync, o sync usa as filas.
+  /** @type {any} */
+  let sync = null;
+  /** @type {any} */
+  let orders = null;
+  const syncQueues = overrides.syncQueues || createSyncQueues({
+    redisUrl: config.redisUrl,
+    handlers: () => ({
+      push: (accountId) => sync.processAccount(accountId),
+      webhook: (eventId) => orders.processWebhook(eventId),
+      pollAll: async () => {
+        for (const account of await ordersRepository.pollableAccounts()) {
+          try { await orders.pollAccount(Number(account.id)); } catch (error) { console.error("[seller-hub:poll]", account.id, /** @type {any} */ (error)?.message); }
+        }
+      },
+    }),
+  });
+  const ordersRepository = createOrdersRepository(db);
+  sync = overrides.sync || createSyncService({ repository: createSyncRepository(db), stockRepository, connectors, tokens, queue: syncQueues });
+  const onItemsChanged = (/** @type {string} */ tenantId, /** @type {number[]} */ itemIds, /** @type {string} */ reason) => sync.onItemsChanged(tenantId, itemIds, reason);
+  orders = overrides.orders || createOrdersService({ repository: ordersRepository, stockRepository, connectors, tokens, onItemsChanged });
+  const stock = overrides.stock || createStockService({ repository: stockRepository, onItemsChanged });
+  return { config, db, connectors, catalog, accounts, tokens, imports, stock, orders, sync, syncQueues };
 }
 
 module.exports = { createContainer, lazyCipher };
