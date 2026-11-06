@@ -356,7 +356,7 @@ O Hub nasce com 3 marketplaces, mas já está preparado para outros canais (ex.:
 
 **Configuração para produção**
 - Worker com Redis (`HUB_REDIS_URL`): filas `hub-import`, `hub-stock-push`, `hub-orders` e a leitura periódica.
-- Webhooks nos apps do Hub: ML (notificações `orders_v2` em `https://dachbyte.tech/hub/webhooks/mercadolivre`), Magalu (assinatura `orders_order` com segredo em `HUB_MAGALU_WEBHOOK_SECRET`), Shopee (push de pedido, código 3, em `https://dachbyte.tech/hub/webhooks/shopee`; assinatura com a partner key).
+- Webhooks nos apps do Hub: ML (notificações `orders_v2` em `https://dachbyte.tech/hub/webhooks/mercadolivre`), Magalu (assinatura `orders_order` feita pelo Hub ao conectar cada conta, com o segredo da conta guardado cifrado no banco), Shopee (push de pedido, código 3, em `https://dachbyte.tech/hub/webhooks/shopee`; assinatura com a partner key).
 - Migração `003_orders_sync.sql`.
 
 **E4** (seção 10.5): reconciliação, alertas, saúde das contas e piloto.
@@ -388,7 +388,7 @@ O Hub nasce com 3 marketplaces, mas já está preparado para outros canais (ex.:
 
 **Roteiro do piloto**
 1. Criar os apps do DACH Hub no ML, no Magalu e na Shopee (endereços de retorno e de aviso nas seções 3.1 e 10.4).
-2. Subir o `seller-hub` (web e worker com Redis), rodar as migrations 001 a 004 e configurar: `HUB_ALLOWED_TENANTS` e `HUB_WRITE_TENANTS` com a empresa do piloto, `HUB_TOKEN_ENCRYPTION_KEY`, `HUB_REDIS_URL`, credenciais dos apps e `HUB_MAGALU_WEBHOOK_SECRET`.
+2. Subir o `seller-hub` (web e worker com Redis), rodar as migrations 001 a 010 e configurar: `HUB_ALLOWED_TENANTS` e `HUB_WRITE_TENANTS` com a empresa do piloto, `HUB_TOKEN_ENCRYPTION_KEY`, `HUB_REDIS_URL`, credenciais dos apps (passo a passo em `docs/guides/dach-hub-apps-dos-canais.md`).
 3. Conectar 1 conta por canal, importar, resolver pendências de vínculo e lançar o estoque inicial.
 4. Deixar em **observação por pelo menos 7 dias**: acompanhar "O que mudaria", Divergências e Saúde. Divergências frequentes = outro sistema escrevendo.
 5. Desligar a sincronização de estoque da conta no outro sistema, decidir as divergências e ativar **uma** conta com a política "Só avisar".

@@ -126,3 +126,5 @@ button.hub-attention__card{ text-align: left; font: inherit; cursor: pointer; }
 }
 .hub-label-batch{ display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--seller-border); }
 .hub-label-batch:last-child{ border-bottom: 0; }
+.hub-danger-text{ color: var(--seller-danger); font-size: 13px; }
+.hub-webhooks-btn{ margin-top: 6px; }

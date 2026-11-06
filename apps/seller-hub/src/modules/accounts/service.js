@@ -16,11 +16,36 @@ function fail(message, status, code) { return Object.assign(new Error(message), 
  *   connectors: ReturnType<typeof import("../../connectors/registry").createConnectors>,
  *   cipher: ReturnType<typeof import("../../platform/crypto").createCipher>,
  *   publicBaseUrl: string,
+ *   tokens?: { getAccessToken: (accountId: number) => Promise<{ accessToken: string, externalAccountId: string }> },
  * }} deps
  */
-function createAccountsService({ repository, connectors, cipher, publicBaseUrl }) {
+function createAccountsService({ repository, connectors, cipher, publicBaseUrl, tokens }) {
   /** @param {string} channel */
   const redirectUri = (channel) => `${publicBaseUrl}/auth/${channel}/callback`;
+  /** @param {string} channel */
+  const webhookUrl = (channel) => `${publicBaseUrl}/webhooks/${channel}`;
+  /** @param {string} channel */
+  const subscribes = (channel) => typeof (/** @type {any} */ (connectors.get(channel))?.subscribeWebhooks) === "function";
+
+  /**
+   * Assina os avisos da conta nos canais em que cada seller assina com o próprio token (Magalu).
+   * Nunca derruba a conexão: o erro fica na conta e a leitura periódica de pedidos continua cobrindo.
+   * @param {{ id: number, channel: string, externalAccountId: string }} account @param {string} accessToken
+   * @returns {Promise<{ ok: boolean, error?: string } | null>}
+   */
+  async function subscribeWebhooks(account, accessToken) {
+    if (!subscribes(account.channel)) return null;
+    try {
+      const { secrets } = await /** @type {any} */ (connectors.get(account.channel)).subscribeWebhooks(
+        { id: Number(account.id), accessToken, externalAccountId: account.externalAccountId }, { url: webhookUrl(account.channel) });
+      await repository.saveWebhookSubscription(Number(account.id), { secretsEnc: cipher.encrypt(JSON.stringify(secrets)), error: null });
+      return { ok: true };
+    } catch (error) {
+      const message = String(/** @type {any} */ (error)?.message || error || "erro").slice(0, 300);
+      await repository.saveWebhookSubscription(Number(account.id), { secretsEnc: null, error: message });
+      return { ok: false, error: message };
+    }
+  }
 
   /**
    * Grava a conta conectada (posse protegida) e os tokens cifrados. Igual para OAuth e formulário.
@@ -38,6 +63,7 @@ function createAccountsService({ repository, connectors, cipher, publicBaseUrl }
       scopes: tokens.scopes || [],
     });
     await repository.audit({ tenantId: identity.tenantId, userId: identity.userId, action: "account_connected", details: { channel, account_id: stored.id, external_account_id: account.externalAccountId } });
+    await subscribeWebhooks({ id: Number(stored.id), channel, externalAccountId: account.externalAccountId }, tokens.accessToken);
     return stored;
   }
 
@@ -97,8 +123,39 @@ function createAccountsService({ repository, connectors, cipher, publicBaseUrl }
       return saveConnection({ identity, channel, tokens, account });
     },
 
-    /** @param {string} tenantId */
-    listAccounts: (tenantId) => repository.listAccounts(tenantId),
+    /** Contas da empresa; `webhooks` só aparece nos canais com aviso assinado por conta. @param {string} tenantId */
+    async listAccounts(tenantId) {
+      const rows = await repository.listAccounts(tenantId);
+      return rows.map((/** @type {any} */ { webhooksAt, webhooksError, ...row }) => ({
+        ...row, webhooks: connectors.has(row.channel) && subscribes(row.channel) ? { subscribedAt: webhooksAt || null, error: webhooksError || null } : null,
+      }));
+    },
+
+    /** Assina de novo os avisos da conta (botão em Contas conectadas). @param {{ identity: any, accountId: number }} input */
+    async resubscribeWebhooks({ identity, accountId }) {
+      const account = await repository.findTenantAccount(identity.tenantId, accountId);
+      if (!account) throw fail("Conta não encontrada nesta empresa.", 404, "account_not_found");
+      if (!subscribes(account.channel)) throw fail("Este canal não usa assinatura de avisos por conta.", 400, "webhooks_not_supported");
+      if (!tokens) throw fail("Gerenciador de tokens indisponível.", 503, "tokens_unavailable");
+      const { accessToken } = await tokens.getAccessToken(Number(account.id));
+      const result = await subscribeWebhooks(account, accessToken);
+      await repository.audit({ tenantId: identity.tenantId, userId: identity.userId, action: "webhooks_subscribed", details: { account_id: accountId, ok: Boolean(result?.ok) } });
+      if (!result?.ok) throw fail(`Não foi possível assinar os avisos: ${result?.error || "erro"}`, 502, "webhooks_subscribe_failed");
+      return result;
+    },
+
+    /**
+     * Segredos dos avisos da conta, para conferir a assinatura do aviso recebido.
+     * @param {string} channel @param {string} externalAccountId @returns {Promise<string[]>}
+     */
+    async webhookSecrets(channel, externalAccountId) {
+      const sealed = await repository.webhookSecrets(channel, externalAccountId);
+      if (!sealed) return [];
+      try {
+        const list = JSON.parse(cipher.decrypt(sealed));
+        return Array.isArray(list) ? list.map(String).filter(Boolean) : [];
+      } catch (_error) { return []; }
+    },
 
     /** @param {{ identity: any, accountId: number }} input */
     async disconnect({ identity, accountId }) {

@@ -101,6 +101,13 @@ function fakeAccountsRepo({ owner = "t1" } = {}) {
     async upsertAccount(input) { return input.tenantId === owner ? { id: 42, ...input } : null; },
     async saveTokens(id, tokens) { state.tokens.set(id, tokens); },
     async audit(event) { state.audits.push(event); },
+    webhooks: new Map(),
+    async saveWebhookSubscription(id, { secretsEnc, error }) {
+      const prev = this.webhooks.get(id) || {};
+      this.webhooks.set(id, { secretsEnc: secretsEnc ?? prev.secretsEnc ?? null, error });
+    },
+    async webhookSecrets(_channel, externalAccountId) { return externalAccountId === "S1" ? this.webhooks.get(42)?.secretsEnc || null : null; },
+    async findTenantAccount(tenantId, id) { return tenantId === owner && id === 42 ? { id: 42, channel: "magalu", externalAccountId: "S1", tenantId } : null; },
   };
 }
 
@@ -128,6 +135,51 @@ test("conectar conta: state de uso único, posse protegida e tokens cifrados", a
   const other = await service.startConnect({ identity: { tenantId: "t1", userId: "u2" }, channel: "magalu" });
   await assert.rejects(() => service.finishConnect({ identity, channel: "magalu", query: { state: new URL(other).searchParams.get("state"), code: "c" } }), (e) => e.code === "invalid_state", "state de outro usuário");
   await assert.rejects(() => service.finishConnect({ identity, channel: "magalu", query: { error: "access_denied" } }), (e) => e.code === "authorization_denied");
+});
+
+test("Magalu: ao conectar, assina os avisos e guarda o segredo cifrado; falha não desfaz a conexão", async () => {
+  const cipher = createCipher("k");
+  let mode = "ok";
+  const subscribed = [];
+  const connector = {
+    configured: true, authorizeUrl: ({ state }) => `https://mk/auth?state=${state}`,
+    exchangeCode: async () => ({ tokens: { accessToken: "AT", refreshToken: "RT", expiresAt: null, scopes: [] }, account: { externalAccountId: "S1", label: "Loja" } }),
+    async subscribeWebhooks(account, { url }) {
+      subscribed.push([account.accessToken, url]);
+      if (mode === "fail") throw new Error("Forbidden");
+      return { secrets: [mode === "ok" ? "whsec_1" : "whsec_2"], topics: ["orders_order"] };
+    },
+  };
+  const connectors = { get: () => connector, has: () => true, definition: () => ({ auth: "oauth" }) };
+  const identity = { tenantId: "t1", userId: "u1" };
+  const repo = fakeAccountsRepo();
+  repo.listAccounts = async () => [{ id: 42, channel: "magalu", webhooksAt: new Date(), webhooksError: null }];
+  const tokens = { getAccessToken: async () => ({ accessToken: "AT2", externalAccountId: "S1" }) };
+  const service = createAccountsService({ repository: repo, connectors, cipher, publicBaseUrl: "https://dachbyte.tech/hub", tokens });
+  const connect = async () => {
+    const state = new URL(await service.startConnect({ identity, channel: "magalu" })).searchParams.get("state");
+    return service.finishConnect({ identity, channel: "magalu", query: { state, code: "c" } });
+  };
+  await connect();
+  assert.deepEqual(subscribed[0], ["AT", "https://dachbyte.tech/hub/webhooks/magalu"]);
+  assert.notEqual(repo.webhooks.get(42).secretsEnc, "whsec_1", "segredo guardado cifrado");
+  assert.deepEqual(await service.webhookSecrets("magalu", "S1"), ["whsec_1"]);
+  assert.deepEqual(await service.webhookSecrets("magalu", "outra"), []);
+  assert.ok((await service.listAccounts("t1"))[0].webhooks.subscribedAt, "situação dos avisos na lista de contas");
+
+  mode = "fail";
+  const account = await connect();
+  assert.equal(account.id, 42, "falha na assinatura não desfaz a conexão");
+  assert.equal(repo.webhooks.get(42).error, "Forbidden");
+  assert.deepEqual(await service.webhookSecrets("magalu", "S1"), ["whsec_1"], "mantém o segredo anterior");
+  await assert.rejects(() => service.resubscribeWebhooks({ identity, accountId: 42 }), (e) => e.code === "webhooks_subscribe_failed");
+
+  mode = "rotate";
+  assert.deepEqual(await service.resubscribeWebhooks({ identity, accountId: 42 }), { ok: true });
+  assert.equal(subscribed.at(-1)[0], "AT2", "assinar de novo usa o token atual da conta");
+  assert.deepEqual(await service.webhookSecrets("magalu", "S1"), ["whsec_2"]);
+  assert.equal(repo.webhooks.get(42).error, null);
+  await assert.rejects(() => service.resubscribeWebhooks({ identity: { tenantId: "outra", userId: "u" }, accountId: 42 }), (e) => e.status === 404);
 });
 
 test("conta já ligada a outra empresa é bloqueada", async () => {

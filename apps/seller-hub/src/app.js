@@ -144,6 +144,10 @@ async function createApp(deps = {}) {
   api.get("/accounts", async (req, res, next) => {
     try { res.json({ ok: true, accounts: await accounts.listAccounts(identity(req).tenantId) }); } catch (error) { next(error); }
   });
+  // Avisos assinados por conta (Magalu): assina de novo e troca o segredo guardado.
+  api.post("/accounts/:accountId/webhooks", requireAdmin, async (req, res, next) => {
+    try { res.json({ ok: true, ...(await accounts.resubscribeWebhooks({ identity: identity(req), accountId: int(req.params.accountId, 0) })) }); } catch (error) { next(error); }
+  });
   api.post("/accounts/:accountId/disconnect", requireAdmin, async (req, res, next) => {
     try { res.json({ ok: true, account: await accounts.disconnect({ identity: identity(req), accountId: int(req.params.accountId, 0) }) }); } catch (error) { next(error); }
   });

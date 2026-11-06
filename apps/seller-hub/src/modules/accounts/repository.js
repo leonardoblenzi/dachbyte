@@ -59,7 +59,7 @@ function createAccountsRepository(db) {
       const { rows } = await db.query(
         `select a.id, a.channel, a.external_account_id as "externalAccountId", a.label, a.status,
                 a.stock_sync_mode as "stockSyncMode", a.connected_at as "connectedAt", a.last_import_at as "lastImportAt",
-                t.expires_at as "tokenExpiresAt",
+                t.expires_at as "tokenExpiresAt", a.webhooks_subscribed_at as "webhooksAt", a.webhooks_error as "webhooksError",
                 (select count(*)::int from hub.listings l where l.channel_account_id = a.id) as listings,
                 case when r.id is null then null else jsonb_build_object(
                   'id', r.id, 'status', r.status, 'trigger', r.trigger, 'pages', r.pages, 'listingsSeen', r.listings_seen,
@@ -77,7 +77,8 @@ function createAccountsRepository(db) {
     async disconnect(tenantId, accountId) {
       return db.transaction(async (client) => {
         const { rows } = await client.query(
-          `update hub.channel_accounts set status = 'disconnected', stock_sync_mode = 'off', updated_at = now()
+          `update hub.channel_accounts set status = 'disconnected', stock_sync_mode = 'off',
+                  webhook_secrets_enc = null, webhooks_subscribed_at = null, webhooks_error = null, updated_at = now()
             where id = $1 and tenant_id = $2 returning id`, [accountId, tenantId]);
         if (!rows[0]) return null;
         await client.query("delete from hub.channel_tokens where channel_account_id = $1", [accountId]);
@@ -100,6 +101,34 @@ function createAccountsRepository(db) {
             where a.id = $1 for update of t`, [accountId]);
         return work({ client, row: rows[0] || null });
       });
+    },
+
+    /**
+     * Resultado da assinatura de avisos: segredos cifrados (sucesso) ou o erro (mantém os segredos anteriores).
+     * @param {number} accountId @param {{ secretsEnc: string | null, error: string | null }} input
+     */
+    async saveWebhookSubscription(accountId, { secretsEnc, error }) {
+      await db.query(
+        `update hub.channel_accounts set
+            webhook_secrets_enc = coalesce($2::text, webhook_secrets_enc),
+            webhooks_subscribed_at = case when $2::text is null then webhooks_subscribed_at else now() end,
+            webhooks_error = $3, updated_at = now()
+          where id = $1`, [accountId, secretsEnc, error]);
+    },
+
+    /** Segredos cifrados dos avisos da conta (só contas ativas). @param {string} channel @param {string} externalAccountId */
+    async webhookSecrets(channel, externalAccountId) {
+      const row = await db.queryOne(
+        `select webhook_secrets_enc as "secretsEnc" from hub.channel_accounts
+          where channel = $1 and external_account_id = $2 and status <> 'disconnected'`, [channel, String(externalAccountId)]);
+      return row?.secretsEnc || null;
+    },
+
+    /** @param {string} tenantId @param {number} accountId */
+    async findTenantAccount(tenantId, accountId) {
+      return db.queryOne(
+        `select id, tenant_id as "tenantId", channel, external_account_id as "externalAccountId", status
+           from hub.channel_accounts where id = $1 and tenant_id = $2 and status <> 'disconnected'`, [accountId, tenantId]);
     },
 
     /** @param {number} accountId @param {any} [client] */

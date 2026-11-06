@@ -177,7 +177,7 @@
         ? `${canImport ? `<button class="seller-btn seller-btn--primary" type="button" data-import="${esc(a.id)}" ${importing ? "disabled" : ""}>${importing ? "Importando…" : "Importar agora"}</button> ` : ""}${a.status === "reconnect_required" && byId[a.channel]?.auth === "oauth" ? `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(a.channel)}/start">Reconectar</a> ` : ""}<button class="seller-btn" type="button" data-disconnect="${esc(a.id)}">Desconectar</button>`
         : "";
       return `<tr><td><span class="seller-badge">${esc(CHANNEL_LABELS[a.channel] || a.channel)}</span></td><td><strong>${esc(a.label || a.externalAccountId)}</strong><br><small>${esc(a.externalAccountId)}</small></td>
-        <td><span class="seller-badge" data-tone="${tone}">${esc(label)}</span></td><td>${int(a.listings)}</td><td>${importCell(a.lastImport)}</td><td><div class="hub-actions">${actions}</div></td></tr>`;
+        <td><span class="seller-badge" data-tone="${tone}">${esc(label)}</span>${webhooksLine(a)}</td><td>${int(a.listings)}</td><td>${importCell(a.lastImport)}</td><td><div class="hub-actions">${actions}</div></td></tr>`;
     }).join("");
     root.innerHTML = `${flash}
       <section class="seller-card"><h2>Contas conectadas</h2><p>Contas ligadas direto ao DACH Hub. A mesma conta pode estar também num módulo DACH; são conexões separadas.</p>
@@ -189,6 +189,18 @@
         return group.length ? `<section class="seller-card"><h2>${esc(title)}</h2><p>${esc(text)}</p><div class="hub-connect-grid">${group.map(connectCard).join("")}</div></section>` : "";
       }).join("")}`;
     schedulePoll(accounts);
+  }
+
+  /**
+   * Avisos assinados por conta (Magalu): ativos, com falha ou pendentes. Sem avisos, os pedidos
+   * chegam pela leitura periódica (a cada 10 min). @param {any} a
+   */
+  function webhooksLine(a) {
+    if (!a.webhooks || a.status !== "connected") return "";
+    const retry = isAdmin ? `<br><button class="seller-btn hub-webhooks-btn" type="button" data-webhooks="${esc(a.id)}">${a.webhooks.subscribedAt ? "Assinar de novo" : "Assinar avisos"}</button>` : "";
+    if (a.webhooks.error) return `<br><small class="hub-danger-text" title="${esc(a.webhooks.error)}">Avisos de pedido com falha; pedidos chegam a cada 10 min.</small>${retry}`;
+    if (a.webhooks.subscribedAt) return `<br><small class="hub-muted">Avisos de pedido ativos desde ${esc(dateTime(a.webhooks.subscribedAt))}</small>`;
+    return `<br><small class="hub-muted">Avisos de pedido não assinados; pedidos chegam a cada 10 min.</small>${retry}`;
   }
 
   /** Cartão de conexão: botão de OAuth ou formulário de credenciais (lojas virtuais). @param {any} c */
@@ -230,6 +242,20 @@
     button.textContent = "Importando…";
     try {
       await api(`/accounts/${button.getAttribute("data-import")}/import`, { method: "POST" });
+      await renderAccounts();
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = /** @type {Error} */ (error).message;
+    }
+  });
+
+  root.addEventListener("click", async (event) => {
+    const button = /** @type {HTMLButtonElement | null} */ (/** @type {HTMLElement} */ (event.target).closest("[data-webhooks]"));
+    if (!button) return;
+    button.disabled = true;
+    button.textContent = "Assinando…";
+    try {
+      await api(`/accounts/${button.getAttribute("data-webhooks")}/webhooks`, { method: "POST" });
       await renderAccounts();
     } catch (error) {
       button.disabled = false;

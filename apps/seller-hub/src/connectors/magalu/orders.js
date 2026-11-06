@@ -12,6 +12,8 @@ const ORDER_PAGE = 100;
 /** A lista de pedidos do Magalu não filtra por atualização: relê os comprados nos últimos dias (pega cancelamentos recentes). */
 const ORDER_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_SKEW_SECONDS = 300;
+/** Tópicos assinados por seller ao conectar a conta. */
+const WEBHOOK_TOPICS = ["orders_order"];
 
 /** Valor em centavos com normalizer → reais. @param {any} money */
 function money(money) {
@@ -84,17 +86,51 @@ function rowsOf(payload) {
  */
 const magaluOrders = {
   /**
-   * Webhook do Magalu: X-Signature-256 = HMAC-SHA256(segredo, "<X-Timestamp>.<corpo bruto>"), com tolerância de 5 min.
-   * @this {any} @param {{ headers: Record<string, any>, rawBody: Buffer }} input
+   * Assina os avisos de pedido da conta (PUT /v1/onboarding/signup, com o token do seller).
+   * Cada assinatura tem o próprio segredo (whsec_*), devolvido só nesta resposta; chamar de novo gera outro
+   * (o anterior vale por mais 1 hora). @this {any} @param {{ accessToken: string }} account @param {{ url: string }} options
+   * @returns {Promise<{ secrets: string[], topics: string[] }>}
    */
-  parseWebhook({ headers, rawBody }) {
-    if (!this.webhookSecret) throw Object.assign(new Error("Webhook do Magalu não configurado no Hub."), { status: 503, code: "webhook_not_configured" });
+  async subscribeWebhooks(account, { url }) {
+    /** @type {string[]} */
+    const secrets = [];
+    for (const topic of WEBHOOK_TOPICS) {
+      const res = await requestJson(`${API_BASE}/v1/onboarding/signup`, {
+        method: "PUT", fetchImpl: this.fetchImpl,
+        headers: { authorization: `Bearer ${account.accessToken}`, "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ topic_id: topic, webhook: url, filter_by: {} }),
+      });
+      const subs = Array.isArray(res?.subscriptions) ? res.subscriptions : [];
+      const secret = subs.map((/** @type {any} */ s) => s?.parameters?.secret).find(Boolean);
+      if (!secret) {
+        const reason = subs.map((/** @type {any} */ s) => s?.message || s?.error || s?.reason).find(Boolean);
+        throw Object.assign(new Error(`O Magalu não confirmou a assinatura de avisos (${topic})${reason ? `: ${reason}` : "."}`), { status: 502 });
+      }
+      secrets.push(String(secret));
+    }
+    return { secrets, topics: WEBHOOK_TOPICS };
+  },
+
+  /** Conta (tenant do Magalu) a que o aviso se refere, para buscar o segredo dela. @param {Buffer} rawBody */
+  webhookAccountId(rawBody) {
+    try { return String(JSON.parse(rawBody.toString("utf8"))?.tenant_id || "") || null; } catch (_error) { return null; }
+  },
+
+  /**
+   * Webhook do Magalu: X-Signature-256 = HMAC-SHA256(segredo da conta, "<X-Timestamp>.<corpo bruto>"), com tolerância de 5 min.
+   * Na troca de segredo o Magalu manda duas assinaturas separadas por vírgula; basta uma bater.
+   * Conta sem segredo (desconhecida, desconectada ou sem assinatura): aviso ignorado; a leitura periódica cobre.
+   * @this {any} @param {{ headers: Record<string, any>, rawBody: Buffer, secrets?: string[] }} input
+   */
+  parseWebhook({ headers, rawBody, secrets = [] }) {
+    if (!secrets.length) return { events: [] };
     const timestamp = String(headers["x-timestamp"] || "");
     const signatures = String(headers["x-signature-256"] || "").split(",").map((s) => s.trim().replace(/^sha256=/i, "")).filter(Boolean);
     if (!/^\d+$/.test(timestamp) || !signatures.length) throw unauthorized("Assinatura ausente.");
     if (Math.abs(Math.floor(this.now() / 1000) - Number(timestamp)) > MAX_SKEW_SECONDS) throw unauthorized("Notificação expirada.");
-    const expected = hmacSha256Hex(this.webhookSecret, `${timestamp}.${rawBody.toString("utf8")}`);
-    if (!signatures.some((s) => safeEqualHex(expected, s))) throw unauthorized("Assinatura inválida.");
+    const signed = `${timestamp}.${rawBody.toString("utf8")}`;
+    const valid = secrets.some((secret) => { const expected = hmacSha256Hex(secret, signed); return signatures.some((s) => safeEqualHex(expected, s)); });
+    if (!valid) throw unauthorized("Assinatura inválida.");
     let body;
     try { body = JSON.parse(rawBody.toString("utf8")); } catch (_error) { throw unauthorized("Corpo inválido."); }
     if (String(body?.topic || "") !== "orders_order") return { events: [] };

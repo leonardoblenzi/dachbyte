@@ -49,8 +49,8 @@ function createContainer(overrides = {}) {
   const connectors = overrides.connectors || createConnectors(config.channels);
   const catalog = overrides.catalog || createCatalogService({ repository: createCatalogRepository(db) });
   const accountsRepository = createAccountsRepository(db);
-  const accounts = overrides.accounts || createAccountsService({ repository: accountsRepository, connectors, cipher, publicBaseUrl: config.publicBaseUrl });
   const tokens = overrides.tokens || new TokenManager({ repository: accountsRepository, connectors, cipher });
+  const accounts = overrides.accounts || createAccountsService({ repository: accountsRepository, connectors, cipher, publicBaseUrl: config.publicBaseUrl, tokens });
   let imports = overrides.imports;
   if (!imports) {
     imports = createImportsService({ repository: createImportsRepository(db), catalog, connectors, tokens });
@@ -98,6 +98,7 @@ function createContainer(overrides = {}) {
   orders = overrides.orders || createOrdersService({
     repository: ordersRepository, stockRepository, connectors, tokens, onItemsChanged,
     onOrderChanged: (change) => automations.orderChanged(change),
+    webhookSecrets: (channel, externalAccountId) => accounts.webhookSecrets(channel, externalAccountId),
   });
   const stock = overrides.stock || createStockService({ repository: stockRepository, onItemsChanged });
   reconcile = overrides.reconcile || createReconcileService({ repository: createReconcileRepository(db), connectors, tokens, orders, sync, queue: syncQueues });

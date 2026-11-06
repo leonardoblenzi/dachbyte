@@ -20,10 +20,11 @@ const errorText = (error) => String(/** @type {any} */ (error)?.message || error
  *   tokens?: { getAccessToken: (accountId: number) => Promise<{ accessToken: string, externalAccountId: string }> },
  *   onItemsChanged?: (tenantId: string, itemIds: number[], reason: string) => Promise<unknown>,
  *   onOrderChanged?: (change: { tenantId: string, orderId: number, created: boolean, stageChanged: boolean, stage: string }) => Promise<unknown>,
+ *   webhookSecrets?: (channel: string, externalAccountId: string) => Promise<string[]>,
  *   now?: () => Date,
  * }} deps
  */
-function createOrdersService({ repository, stockRepository, connectors, tokens, onItemsChanged = async () => {}, onOrderChanged = async () => {}, now = () => new Date() }) {
+function createOrdersService({ repository, stockRepository, connectors, tokens, onItemsChanged = async () => {}, onOrderChanged = async () => {}, webhookSecrets = async () => [], now = () => new Date() }) {
   /**
    * Aplica a baixa/devolução que falta no pedido. Idempotente: cada movimento tem chave por item do pedido.
    * @param {string} tenantId @param {number} accountId
@@ -119,7 +120,14 @@ function createOrdersService({ repository, stockRepository, connectors, tokens, 
      */
     async receiveWebhook({ channel, headers, rawBody, url }) {
       const connector = connectorFor(channel);
-      const { events } = connector.parseWebhook({ headers, rawBody, url });
+      // Canais com segredo por conta (Magalu): descobre a conta pelo corpo e confere com o segredo dela.
+      /** @type {string[] | undefined} */
+      let secrets;
+      if (typeof connector.webhookAccountId === "function") {
+        const externalAccountId = connector.webhookAccountId(rawBody);
+        secrets = externalAccountId ? await webhookSecrets(channel, externalAccountId) : [];
+      }
+      const { events } = connector.parseWebhook({ headers, rawBody, url, secrets });
       /** @type {number[]} */
       const ids = [];
       for (const event of events) {

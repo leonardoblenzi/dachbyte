@@ -90,17 +90,33 @@ test("ML releitura: estoque do anúncio ou da variação", async () => {
   assert.deepEqual(reads, [{ ref: 1, stock: 4 }, { ref: 2, stock: 9 }, { ref: 3, stock: null }]);
 });
 
-test("Magalu webhook: assinatura HMAC com timestamp, expiração e segredo obrigatório", () => {
+test("Magalu webhook: segredo da conta, duas assinaturas na troca, expiração; conta sem segredo é ignorada", () => {
   const now = 1_790_000_000_000;
-  const magalu = new MagaluConnector({ clientId: "c", clientSecret: "s", webhookSecret: "seg", now: () => now });
+  const magalu = new MagaluConnector({ clientId: "c", clientSecret: "s", now: () => now });
   const body = raw({ tenant_id: "ten-1", topic: "orders_order", data: { resource: "/seller/v1/orders/LU-1", params: { id: "LU-1" } } });
+  assert.equal(magalu.webhookAccountId(body), "ten-1");
+  assert.equal(magalu.webhookAccountId(Buffer.from("x")), null);
   const ts = String(Math.floor(now / 1000));
-  const sig = hmacSha256Hex("seg", `${ts}.${body.toString("utf8")}`);
-  const { events } = magalu.parseWebhook({ headers: { "x-timestamp": ts, "x-signature-256": `sha256=${sig}` }, rawBody: body });
+  const sig = (secret) => hmacSha256Hex(secret, `${ts}.${body.toString("utf8")}`);
+  const { events } = magalu.parseWebhook({ headers: { "x-timestamp": ts, "x-signature-256": `sha256=${sig("whsec_a")}` }, rawBody: body, secrets: ["whsec_a"] });
   assert.deepEqual(events.map((e) => [e.externalAccountId, e.resourceId]), [["ten-1", "LU-1"]]);
-  assert.throws(() => magalu.parseWebhook({ headers: { "x-timestamp": ts, "x-signature-256": "0".repeat(64) }, rawBody: body }), (e) => e.status === 401);
-  assert.throws(() => magalu.parseWebhook({ headers: { "x-timestamp": String(Number(ts) - 900), "x-signature-256": sig }, rawBody: body }), /expirada/);
-  assert.throws(() => new MagaluConnector({ clientId: "c", clientSecret: "s" }).parseWebhook({ headers: {}, rawBody: body }), (e) => e.status === 503);
+  const rotating = `sha256=${sig("whsec_novo")},sha256=${sig("whsec_a")}`;
+  assert.equal(magalu.parseWebhook({ headers: { "x-timestamp": ts, "x-signature-256": rotating }, rawBody: body, secrets: ["whsec_a"] }).events.length, 1, "período de troca: vale a assinatura do segredo antigo");
+  assert.throws(() => magalu.parseWebhook({ headers: { "x-timestamp": ts, "x-signature-256": `sha256=${sig("outro")}` }, rawBody: body, secrets: ["whsec_a"] }), (e) => e.status === 401, "segredo de outra conta não vale");
+  assert.throws(() => magalu.parseWebhook({ headers: { "x-timestamp": String(Number(ts) - 900), "x-signature-256": sig("whsec_a") }, rawBody: body, secrets: ["whsec_a"] }), /expirada/);
+  assert.deepEqual(magalu.parseWebhook({ headers: {}, rawBody: body, secrets: [] }).events, [], "conta desconhecida ou sem assinatura: ignora (a leitura periódica cobre)");
+});
+
+test("Magalu: assina os avisos de pedido com o token do seller e devolve o segredo", async () => {
+  const { impl, calls } = routeFetch((u, init) => (u.pathname === "/v1/onboarding/signup" && init.method === "PUT"
+    ? { status: 201, body: { subscriptions: [{ id: "sub-1", topic: "orders_order", parameters: { url: "https://dachbyte.tech/hub/webhooks/magalu", secret: "whsec_123" } }] } } : null));
+  const magalu = new MagaluConnector({ clientId: "c", clientSecret: "s", fetchImpl: impl });
+  const out = await magalu.subscribeWebhooks({ accessToken: "T" }, { url: "https://dachbyte.tech/hub/webhooks/magalu" });
+  assert.deepEqual(out, { secrets: ["whsec_123"], topics: ["orders_order"] });
+  assert.deepEqual(calls[0].body, { topic_id: "orders_order", webhook: "https://dachbyte.tech/hub/webhooks/magalu", filter_by: {} });
+  assert.equal(calls[0].init.headers.authorization, "Bearer T");
+  const { impl: failing } = routeFetch(() => ({ status: 201, body: { subscriptions: [{ topic: "orders_order", message: "topic not allowed" }] } }));
+  await assert.rejects(() => new MagaluConnector({ clientId: "c", clientSecret: "s", fetchImpl: failing }).subscribeWebhooks({ accessToken: "T" }, { url: "https://x" }), /topic not allowed/);
 });
 
 test("Magalu pedido e escrita: itens das entregas, valor com normalizer, PATCH ou POST conforme existe", async () => {

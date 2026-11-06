@@ -44,10 +44,16 @@ class ChannelConnector {
   async connectWithCredentials(_fields) { throw new Error("connectWithCredentials não implementado"); }
   /**
    * Valida e lê uma notificação do canal (assinatura/origem). Lança erro 401 se não for autêntica.
-   * @param {{ headers: Record<string, any>, rawBody: Buffer, url: string }} _input
+   * @param {{ headers: Record<string, any>, rawBody: Buffer, url: string, secrets?: string[] }} _input
    * @returns {{ events: Array<{ externalAccountId: string, topic: string, resourceId: string, dedupeKey: string, payload?: any }> }}
    */
   parseWebhook(_input) { throw new Error("parseWebhook não implementado"); }
+  /*
+   * Opcionais, para canais em que cada seller assina os avisos com o próprio token e recebe um segredo (Magalu):
+   *   subscribeWebhooks(account, { url }) → { secrets, topics }  (um segredo por tópico)   chamado ao conectar a conta (e pelo botão "Assinar avisos");
+   *   webhookAccountId(rawBody) → string | null                  conta do aviso, para o Hub buscar o segredo dela;
+   *   parseWebhook recebe então { ..., secrets: string[] }.
+   */
   /** Pedido atualizado no canal (null se não existir). @param {ConnectedAccount} _account @param {string} _orderId @returns {Promise<any>} */
   async getOrder(_account, _orderId) { throw new Error("getOrder não implementado"); }
   /** Pedidos atualizados desde uma data, paginados. @param {ConnectedAccount} _account @param {{ updatedFrom: Date, cursor?: string | null }} _options
