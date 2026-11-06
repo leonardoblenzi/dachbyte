@@ -67,6 +67,13 @@ function createSyncRepository(db) {
            from hub.channel_accounts a left join hub.tenant_settings s on s.tenant_id = a.tenant_id where a.id = $1`, [accountId]);
     },
 
+    /** Estoque mudado fora do Hub nos últimos dias, ainda sem decisão (trava da ativação). @param {number} accountId @param {number} days */
+    async openDivergences(accountId, days) {
+      return Number((await db.queryOne(
+        `select count(distinct listing_id)::int as n from hub.stock_divergences
+          where channel_account_id = $1 and status = 'open' and detected_at > now() - make_interval(days => $2)`, [accountId, days]))?.n || 0);
+    },
+
     /** @param {string} tenantId @param {number} accountId @param {string | null} userId */
     async activate(tenantId, accountId, userId) {
       return db.queryOne(
@@ -104,7 +111,8 @@ function createSyncRepository(db) {
         if (!push) return null;
         if (result.state === "verified" || result.state === "divergent") {
           await client.query(
-            `update hub.listings set channel_stock = coalesce($2, channel_stock), last_pushed_stock = $3, last_pushed_at = now(), updated_at = now() where id = $1`,
+            `update hub.listings set channel_stock = coalesce($2, channel_stock), last_pushed_stock = $3, last_pushed_at = now(),
+                    channel_checked_at = case when $2::numeric is null then channel_checked_at else now() end, updated_at = now() where id = $1`,
             [push.listing_id, result.observed ?? null, push.desired]);
         }
         if (push.followup != null && Number(push.followup) !== Number(push.desired) && result.state !== "skipped") {

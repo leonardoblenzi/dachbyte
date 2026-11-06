@@ -19,7 +19,7 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
  * @param {Parameters<typeof createContainer>[0]} [deps]
  */
 async function createApp(deps = {}) {
-  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues } = createContainer(deps);
+  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile } = createContainer(deps);
 
   const app = express();
   app.set("trust proxy", 1);
@@ -213,6 +213,25 @@ async function createApp(deps = {}) {
     state: String(req.query.state || ""), accountId: req.query.accountId ? int(req.query.accountId, 0) : null, limit: int(req.query.limit, 50), offset: int(req.query.offset, 0),
   })));
   api.post("/stock/pushes/:pushId/retry", requireAdmin, handle(async (req) => ({ push: await sync.retryPush({ identity: who(req), pushId: int(req.params.pushId, 0) }) })));
+  // Reconciliação e saúde (E4).
+  api.get("/health/accounts", handle(async (req) => ({ accounts: await reconcile.health(identity(req).tenantId), settings: await sync.getSettings(identity(req).tenantId) })));
+  api.post("/accounts/:accountId/reconcile", requireAdmin, async (req, res, next) => {
+    try {
+      const { run, created } = await reconcile.requestReconcile({ identity: who(req), accountId: int(req.params.accountId, 0) });
+      res.status(created ? 202 : 200).json({ ok: true, run, alreadyRunning: !created });
+    } catch (error) { next(error); }
+  });
+  api.put("/accounts/:accountId/divergence-policy", requireAdmin, handle(async (req) => ({ account: await reconcile.setPolicy({
+    identity: who(req), accountId: int(req.params.accountId, 0), policy: String(req.body?.policy || ""),
+  }) })));
+  api.get("/divergences", handle(async (req) => ({ divergences: await reconcile.listDivergences(identity(req).tenantId, {
+    status: req.query.status == null ? "open" : String(req.query.status), accountId: req.query.accountId ? int(req.query.accountId, 0) : null,
+    limit: int(req.query.limit, 50), offset: int(req.query.offset, 0),
+  }) })));
+  api.post("/divergences/:id/resolve", requireAdmin, handle(async (req) => ({ divergence: await reconcile.resolve({
+    identity: who(req), id: int(req.params.id, 0), action: /** @type {any} */ (String(req.body?.action || "")),
+  }) })));
+  api.post("/accounts/:accountId/divergences/ignore-all", requireAdmin, handle(async (req) => reconcile.ignoreAll({ identity: who(req), accountId: int(req.params.accountId, 0) })));
   api.get("/orders", handle(async (req) => ({ orders: await orders.listOrders(identity(req).tenantId, {
     pendingOnly: req.query.pending === "1", limit: int(req.query.limit, 50), offset: int(req.query.offset, 0),
   }) })));

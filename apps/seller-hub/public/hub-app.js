@@ -9,7 +9,7 @@
     basePath: "/hub",
     brand: { name: "DACHBYTE", sub: "Hub · Multicanal", logo: "/brand/dachbyte/hub/mark.svg", href: "/hub/" },
     navGroups: [
-      { id: "overview", label: "Visão geral", hint: "Painel e saúde", icon: "dashboard", items: [{ label: "Painel", path: "/hub/" }] },
+      { id: "overview", label: "Visão geral", hint: "Painel e saúde", icon: "dashboard", items: [{ label: "Painel", path: "/hub/" }, { label: "Saúde das contas", path: "/hub/saude" }] },
       { id: "catalog", label: "Catálogo", hint: "Produtos e vínculos", icon: "package", items: [
         { label: "Produtos", path: "/hub/catalogo" },
         { label: "Pendências", path: "/hub/pendencias" },
@@ -19,6 +19,7 @@
         { label: "O que mudaria", path: "/hub/estoque/observacao" },
         { label: "Movimentos", path: "/hub/estoque/movimentos" },
         { label: "Envios", path: "/hub/estoque/envios" },
+        { label: "Divergências", path: "/hub/estoque/divergencias" },
         { label: "Regras por conta", path: "/hub/estoque/regras" },
       ] },
       { id: "sales", label: "Vendas", hint: "Pedidos e baixas", icon: "receipt", items: [
@@ -28,7 +29,7 @@
       { id: "account", label: "Conta", hint: "Acesso e integrações", icon: "user", items: [{ label: "Contas conectadas", path: "/hub/contas" }] },
     ],
     footNote: "Catálogo, estoque, pedidos e preços de todos os canais em um só fluxo.",
-    status: { label: "Modo observação", tone: "success", href: "/hub/contas" },
+    status: { label: "Modo observação", tone: "success", href: "/hub/saude" },
     links: [{ label: "Módulos", href: "/selecao-plataforma", icon: "dashboard" }],
   });
 
@@ -234,8 +235,26 @@
   // Views de outros arquivos (hub-stock.js) recebem as mesmas ferramentas.
   const kit = { api, esc, int, dateTime, empty, root, main, isAdmin, loadChannels, CHANNEL_LABELS };
   for (const [name, factory] of Object.entries(/** @type {any} */ (window).DachHubViews || {})) views[name] = factory(kit);
+  // Status da barra superior: pausa, alertas, envio ativo ou observação.
+  async function refreshStatus() {
+    const chip = /** @type {HTMLElement | null} */ (document.querySelector('a.seller-shell__chip[href="/hub/saude"]'));
+    const alertsApi = /** @type {any} */ (window).DachHubAlerts;
+    if (!chip || !alertsApi) return;
+    const { accounts, settings } = await api("/health/accounts");
+    const alerts = alertsApi.computeAlerts(accounts, settings, CHANNEL_LABELS);
+    const danger = alerts.filter((/** @type {any} */ a) => a.tone === "danger").length;
+    const [label, tone] = settings.paused ? ["Envios pausados", "danger"]
+      : danger ? [`Atenção (${alerts.length})`, "danger"]
+        : alerts.length ? [`Alertas (${alerts.length})`, "warning"]
+          : accounts.some((/** @type {any} */ a) => a.mode === "active") ? ["Envio ativo", "success"] : ["Modo observação", "success"];
+    chip.setAttribute("data-tone", tone);
+    const dot = chip.querySelector(".seller-shell__dot");
+    chip.textContent = label;
+    if (dot) chip.prepend(dot);
+  }
+
   const view = views[main.dataset.view || "overview"] || renderOverview;
-  loadChannels().catch(() => []).then(view).catch((error) => {
+  loadChannels().catch(() => []).then(() => { refreshStatus().catch(() => {}); return view(); }).catch((error) => {
     root.innerHTML = empty("Não foi possível carregar", /** @type {Error} */ (error).message);
   });
 })();

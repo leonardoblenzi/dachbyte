@@ -19,6 +19,8 @@ const { createOrdersService } = require("./modules/orders/service");
 const { createSyncRepository } = require("./modules/sync/repository");
 const { createSyncService } = require("./modules/sync/service");
 const { createSyncQueues } = require("./jobs/syncQueues");
+const { createReconcileRepository } = require("./modules/reconcile/repository");
+const { createReconcileService } = require("./modules/reconcile/service");
 
 /** Cifra criada só quando usada: sem chave, conectar conta falha com 503 sem derrubar o app. @param {string} key */
 function lazyCipher(key) {
@@ -31,7 +33,7 @@ function lazyCipher(key) {
 /**
  * Raiz de composição: monta as peças do Hub uma vez, para o site (app.js) e para o worker.
  * Qualquer peça pode ser trocada (testes, prévia local).
- * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, imports?: any, queue?: any, stock?: any, orders?: any, sync?: any, syncQueues?: any, tokens?: any }} [overrides]
+ * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, imports?: any, queue?: any, stock?: any, orders?: any, sync?: any, syncQueues?: any, tokens?: any, reconcile?: any }} [overrides]
  */
 function createContainer(overrides = {}) {
   const config = overrides.config || loadConfig();
@@ -53,6 +55,8 @@ function createContainer(overrides = {}) {
   let sync = null;
   /** @type {any} */
   let orders = null;
+  /** @type {any} */
+  let reconcile = null;
   const syncQueues = overrides.syncQueues || createSyncQueues({
     redisUrl: config.redisUrl,
     handlers: () => ({
@@ -63,14 +67,20 @@ function createContainer(overrides = {}) {
           try { await orders.pollAccount(Number(account.id)); } catch (error) { console.error("[seller-hub:poll]", account.id, /** @type {any} */ (error)?.message); }
         }
       },
+      reconcile: (job) => reconcile.runReconcile(job),
+      reconcileAll: () => reconcile.scheduleAll(),
     }),
   });
   const ordersRepository = createOrdersRepository(db);
-  sync = overrides.sync || createSyncService({ repository: createSyncRepository(db), stockRepository, connectors, tokens, queue: syncQueues });
+  sync = overrides.sync || createSyncService({
+    repository: createSyncRepository(db), stockRepository, connectors, tokens, queue: syncQueues,
+    canWrite: (tenantId) => config.writeTenants.has(tenantId),
+  });
   const onItemsChanged = (/** @type {string} */ tenantId, /** @type {number[]} */ itemIds, /** @type {string} */ reason) => sync.onItemsChanged(tenantId, itemIds, reason);
   orders = overrides.orders || createOrdersService({ repository: ordersRepository, stockRepository, connectors, tokens, onItemsChanged });
   const stock = overrides.stock || createStockService({ repository: stockRepository, onItemsChanged });
-  return { config, db, connectors, catalog, accounts, tokens, imports, stock, orders, sync, syncQueues };
+  reconcile = overrides.reconcile || createReconcileService({ repository: createReconcileRepository(db), connectors, tokens, orders, sync, queue: syncQueues });
+  return { config, db, connectors, catalog, accounts, tokens, imports, stock, orders, sync, syncQueues, reconcile };
 }
 
 module.exports = { createContainer, lazyCipher };

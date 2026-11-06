@@ -16,7 +16,7 @@ const { startImportWorker } = require("./src/jobs/importQueue");
 const { startSyncWorkers } = require("./src/jobs/syncQueues");
 
 const container = createContainer();
-const { config, db, imports, orders, sync } = container;
+const { config, db, imports, orders, sync, reconcile } = container;
 if (!config.redisUrl) {
   console.error("[seller-hub:worker] HUB_REDIS_URL/REDIS_URL não configurado.");
   process.exit(1);
@@ -35,8 +35,10 @@ startSyncWorkers({
         try { await orders.pollAccount(Number(account.id)); } catch (error) { console.error("[seller-hub:poll]", account.id, /** @type {any} */ (error)?.message); }
       }
     },
+    reconcile: (job) => reconcile.runReconcile(job),
+    reconcileAll: () => reconcile.scheduleAll(),
   },
-}).then((h) => { syncHandle = h; console.log("[seller-hub:worker] processando importação, pedidos e envios de estoque"); })
+}).then((h) => { syncHandle = h; console.log("[seller-hub:worker] processando importação, pedidos, envios de estoque e conferências"); })
   .catch((error) => { console.error("[seller-hub:worker] filas da E3 não iniciaram", error); process.exit(1); });
 
 async function shutdown() {

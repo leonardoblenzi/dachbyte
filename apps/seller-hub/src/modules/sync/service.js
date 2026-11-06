@@ -15,6 +15,8 @@ const BATCH_SIZE = 50;
 const MAX_BATCHES_PER_RUN = 10;
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 30_000;
+/** Divergências abertas (anúncios distintos, 7 dias) que travam a ativação. */
+const RECURRING_BLOCK = 3;
 
 /**
  * @typedef {{ ref: number, listingId: string, variationId: string, quantity: number }} StockWrite
@@ -31,11 +33,12 @@ const RETRY_DELAY_MS = 30_000;
  *   connectors: ReturnType<typeof import("../../connectors/registry").createConnectors>,
  *   tokens: { getAccessToken: (accountId: number) => Promise<{ accessToken: string, externalAccountId: string }> },
  *   queue?: PushQueue | null,
+ *   canWrite?: (tenantId: string) => boolean,
  *   verifyDelaysMs?: number[],
  *   sleep?: (ms: number) => Promise<void>,
  * }} deps
  */
-function createSyncService({ repository, stockRepository, connectors, tokens, queue = null, verifyDelaysMs = VERIFY_DELAYS_MS, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
+function createSyncService({ repository, stockRepository, connectors, tokens, queue = null, canWrite = () => true, verifyDelaysMs = VERIFY_DELAYS_MS, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) }) {
   /** @param {number[]} accountIds @param {number} [delayMs] */
   async function enqueue(accountIds, delayMs) {
     if (!queue) return;
@@ -102,6 +105,12 @@ function createSyncService({ repository, stockRepository, connectors, tokens, qu
       const state = await repository.getAccountState(accountId);
       if (!state || state.tenantId !== identity.tenantId || state.status !== "connected") throw fail("Conta não encontrada ou desconectada.", 404, "account_not_found");
       if (!connectors.has(state.channel) || !connectors.definition(state.channel).capabilities.stockWrite) throw fail("Este canal ainda não permite gravar estoque.", 400, "stock_write_not_supported");
+      if (!canWrite(identity.tenantId)) throw fail("O envio de estoque aos canais está liberado só para as empresas do piloto.", 403, "write_not_enabled");
+      // Estoque mudando fora do Hub nesta conta = outro sistema provavelmente escrevendo. Ativar agora faria os dois brigarem.
+      const external = await repository.openDivergences(accountId, 7);
+      if (external >= RECURRING_BLOCK) {
+        throw fail(`${external} anúncio(s) desta conta tiveram o estoque mudado fora do Hub nos últimos 7 dias. Desligue a sincronização no outro sistema e decida as divergências antes de ativar.`, 409, "external_changes");
+      }
       await repository.activate(identity.tenantId, accountId, identity.userId || null);
       await repository.audit({ tenantId: identity.tenantId, userId: identity.userId, action: "stock_sync_activated", details: { account_id: accountId } });
       const result = await planPushes(identity.tenantId, { accountId }, "ativação da conta");
@@ -145,6 +154,7 @@ function createSyncService({ repository, stockRepository, connectors, tokens, qu
         return { skipped: "conta fora do modo ativo" };
       }
       if (state.paused) return { paused: true };
+      if (!canWrite(state.tenantId)) return { skipped: "empresa fora do piloto de escrita" };
       if (!connectors.has(state.channel) || !connectors.definition(state.channel).capabilities.stockWrite) {
         await repository.skipPending(accountId, "canal sem escrita de estoque");
         return { skipped: "canal sem escrita de estoque" };
@@ -211,4 +221,4 @@ function createSyncService({ repository, stockRepository, connectors, tokens, qu
   };
 }
 
-module.exports = { createSyncService, VERIFY_DELAYS_MS, MAX_ATTEMPTS };
+module.exports = { createSyncService, VERIFY_DELAYS_MS, MAX_ATTEMPTS, RECURRING_BLOCK };

@@ -19,6 +19,8 @@ function loadConfig(env = process.env) {
     schema: "hub",
     suiteJwtSecret: String(env.SUITE_JWT_SECRET || "").trim(),
     allowedTenants: new Set(list(env.HUB_ALLOWED_TENANTS)),
+    // Piloto: só estas empresas podem ativar a escrita de estoque nos canais. Vazio = ninguém escreve.
+    writeTenants: new Set(list(env.HUB_WRITE_TENANTS)),
     platformAdminEmails: new Set(list(env.HUB_PLATFORM_ADMIN_EMAILS).map((email) => email.toLowerCase())),
     // Fila em segundo plano (BullMQ). Vazio = importação roda no próprio processo (desenvolvimento).
     redisUrl: String(env.HUB_REDIS_URL || env.REDIS_URL || "").trim(),

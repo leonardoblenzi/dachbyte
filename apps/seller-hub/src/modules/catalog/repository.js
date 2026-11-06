@@ -40,16 +40,16 @@ function createCatalogRepository(db) {
       if (!rows.length) return 0;
       const { rowCount } = await db.query(
         `insert into hub.listings (channel_account_id, listing_id, variation_id, channel_sku, sku_key, ean, title, status,
-                                   fulfillment, channel_stock, price, item_id, link_method, link_suggestion_item_id, seen_at)
+                                   fulfillment, channel_stock, price, item_id, link_method, link_suggestion_item_id, seen_at, channel_checked_at)
          select $1, x.listing_id, coalesce(x.variation_id, ''), x.channel_sku, x.sku_key, x.ean, x.title, x.status,
-                coalesce(x.fulfillment, false), x.channel_stock, x.price, x.item_id, x.link_method, x.suggestion_item_id, now()
+                coalesce(x.fulfillment, false), x.channel_stock, x.price, x.item_id, x.link_method, x.suggestion_item_id, now(), now()
            from jsonb_to_recordset($2::jsonb) as x(listing_id text, variation_id text, channel_sku text, sku_key text, ean text,
                 title text, status text, fulfillment boolean, channel_stock numeric, price numeric, item_id bigint,
                 link_method text, suggestion_item_id bigint)
          on conflict (channel_account_id, listing_id, variation_id) do update set
            channel_sku = excluded.channel_sku, sku_key = excluded.sku_key, ean = excluded.ean, title = excluded.title,
            status = excluded.status, fulfillment = excluded.fulfillment, channel_stock = excluded.channel_stock,
-           price = excluded.price, seen_at = now(), updated_at = now(),
+           price = excluded.price, seen_at = now(), updated_at = now(), channel_checked_at = now(),
            item_id = case when hub.listings.link_method = 'manual' then hub.listings.item_id else excluded.item_id end,
            link_method = case when hub.listings.link_method = 'manual' then 'manual' else excluded.link_method end,
            link_suggestion_item_id = case when hub.listings.link_method = 'manual' then null else excluded.link_suggestion_item_id end`,

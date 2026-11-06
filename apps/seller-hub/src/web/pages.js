@@ -6,11 +6,12 @@ function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
 }
 
-const ASSET_VERSION = "20261108a";
+const ASSET_VERSION = "20261108b";
 
 /** Páginas do DACH Hub. Cada uma vira um item do menu lateral. */
 const PAGES = {
   "/": { title: "Painel", kicker: "Visão geral", lead: "Produtos, anúncios e vínculos de todos os canais conectados.", view: "overview" },
+  "/saude": { title: "Saúde das contas", kicker: "Visão geral", lead: "Conexões, pedidos, conferências de estoque, envios e divergências de cada conta.", view: "health" },
   "/catalogo": { title: "Produtos", kicker: "Catálogo", lead: "Cada produto (SKU DACH) com os anúncios ligados a ele em cada canal.", view: "items" },
   "/pendencias": { title: "Pendências", kicker: "Catálogo", lead: "Anúncios que ainda não estão ligados a um produto. Sem vínculo, a venda não baixa estoque.", view: "pending" },
   "/estoque": { title: "Saldos", kicker: "Estoque", lead: "Estoque mestre de cada produto. Kits usam o menor componente.", view: "stock" },
@@ -18,6 +19,7 @@ const PAGES = {
   "/estoque/movimentos": { title: "Movimentos", kicker: "Estoque", lead: "Histórico de cada alteração de estoque, com origem e motivo.", view: "movements" },
   "/estoque/envios": { title: "Envios", kicker: "Estoque", lead: "Estoque enviado aos canais em modo ativo, conferido relendo o anúncio.", view: "pushes" },
   "/pedidos": { title: "Pedidos", kicker: "Vendas", lead: "Pedidos recebidos dos canais e a baixa de estoque de cada item.", view: "orders" },
+  "/estoque/divergencias": { title: "Divergências", kicker: "Estoque", lead: "Estoque que mudou nos canais por fora do Hub, encontrado na conferência.", view: "divergences" },
   "/estoque/regras": { title: "Regras por conta", kicker: "Estoque", lead: "Modo de estoque de cada conta e a regra padrão de envio.", view: "rules" },
   "/contas": { title: "Contas conectadas", kicker: "Conta", lead: "Marketplaces e lojas virtuais conectados diretamente ao DACH Hub.", view: "accounts" },
 };

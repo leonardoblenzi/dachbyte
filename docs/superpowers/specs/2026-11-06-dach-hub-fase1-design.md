@@ -359,4 +359,38 @@ O Hub nasce com 3 marketplaces, mas já está preparado para outros canais (ex.:
 - Webhooks nos apps do Hub: ML (notificações `orders_v2` em `https://dachbyte.tech/hub/webhooks/mercadolivre`), Magalu (assinatura `orders_order` com segredo em `HUB_MAGALU_WEBHOOK_SECRET`), Shopee (push de pedido, código 3, em `https://dachbyte.tech/hub/webhooks/shopee`; assinatura com a partner key).
 - Migração `003_orders_sync.sql`.
 
-**Fica para a E4:** reconciliação periódica (comparar o canal com o último envio e tratar divergência recorrente), alertas e painel de saúde.
+**E4** (seção 10.5): reconciliação, alertas, saúde das contas e piloto.
+
+### 10.5 Reconciliação, saúde e piloto (E4)
+
+**Conferência do estoque nos canais**
+- A cada 3 horas (worker, fila `hub-reconcile`, uma conta por vez) e pelo botão **Conferir agora** em Saúde das contas.
+- Antes de comparar, lê os pedidos recentes da conta (venda ainda não recebida pareceria divergência).
+- Para cada anúncio vinculado (sem Full, com sincronização ligada e sem envio aberto):
+  `esperado = último valor visto − vendas recebidas depois + cancelamentos recebidos depois`.
+  Diferente disso = estoque mudado fora do Hub (Tray, ANYMARKET, Bling, painel do canal).
+- O "último valor visto" é atualizado na importação, no envio conferido e em cada conferência.
+
+**O que acontece com a divergência**
+- Conta em observação: só registra. É assim que o Hub descobre outro sistema escrevendo **antes** de ativar.
+- Conta ativa com política **Reenviar o valor do Hub** (padrão): abre um envio corrigindo.
+- Conta ativa com política **Só avisar**: registra para decisão (reenviar ou ignorar).
+- **Recorrente** (o mesmo anúncio pela 3ª vez em 24h): o Hub para de reenviar e só avisa, para não brigar com outro sistema.
+
+**Travas**
+- Ativação bloqueada com 3 ou mais anúncios com divergência aberta na conta nos últimos 7 dias.
+- **Piloto:** só empresas em `HUB_WRITE_TENANTS` podem ativar e enviar estoque. Vazio = ninguém escreve. O acesso ao produto continua em `HUB_ALLOWED_TENANTS`.
+
+**Saúde das contas e alertas**
+- Por conta: conexão, última importação, pedidos lidos, avisos recebidos (24h), última conferência, divergências, envios (24h) e vendas sem vínculo.
+- Alertas: envios pausados, reconectar, divergência recorrente, falhas de envio, vendas sem vínculo, conta ativa sem avisos de pedido em 24h, conferência falhou ou atrasada (mais de 12h).
+- O status na barra superior mostra "Envios pausados", "Atenção (n)", "Alertas (n)", "Envio ativo" ou "Modo observação".
+
+**Roteiro do piloto**
+1. Criar os apps do DACH Hub no ML, no Magalu e na Shopee (endereços de retorno e de aviso nas seções 3.1 e 10.4).
+2. Subir o `seller-hub` (web e worker com Redis), rodar as migrations 001 a 004 e configurar: `HUB_ALLOWED_TENANTS` e `HUB_WRITE_TENANTS` com a empresa do piloto, `HUB_TOKEN_ENCRYPTION_KEY`, `HUB_REDIS_URL`, credenciais dos apps e `HUB_MAGALU_WEBHOOK_SECRET`.
+3. Conectar 1 conta por canal, importar, resolver pendências de vínculo e lançar o estoque inicial.
+4. Deixar em **observação por pelo menos 7 dias**: acompanhar "O que mudaria", Divergências e Saúde. Divergências frequentes = outro sistema escrevendo.
+5. Desligar a sincronização de estoque da conta no outro sistema, decidir as divergências e ativar **uma** conta com a política "Só avisar".
+6. Acompanhar Envios e Saúde por 48h. Estando limpo, mudar para "Reenviar o valor do Hub" e ativar as demais contas.
+7. Só então abrir para outras empresas (incluir em `HUB_WRITE_TENANTS`).
