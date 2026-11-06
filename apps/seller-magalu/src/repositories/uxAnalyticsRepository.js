@@ -327,15 +327,19 @@ async function soldSkus(accountId, options={}){
   const {rows}=await db.query(`${marginOrderCte()}, sold as (
       select si.sku,max(si.name) as name,coalesce(sum(si.quantity),0)::numeric as units,
         coalesce(sum(coalesce(si.amount_total::numeric,si.unit_price::numeric*coalesce(si.quantity,0))/nullif(si.amount_normalizer,0)),0)::numeric as revenue,
-        count(distinct si.order_id)::int as orders
+        count(distinct si.order_id)::int as orders,
+        coalesce(bool_or(dl.full_delivery),false) as delivered_full
       from source_items si join magalu.orders o on o.id=si.order_id and o.account_id=si.account_id
+      -- Full = pedido enviado pelo fulfillment (Magalu Entregas); o cadastro do SKU nem sempre marca.
+      left join lateral (select bool_or(coalesce(d.is_fulfillment,false)) as full_delivery from magalu.deliveries d
+        where d.order_id=si.order_id and d.account_id=si.account_id and d.is_present=true) dl on true
       where lower(coalesce(o.status,'')) not in ('cancelled','canceled') and nullif(si.sku,'') is not null
       group by si.sku
     )
     select sold.sku,coalesce(s.title,sold.name) as title,sold.units,sold.revenue,sold.orders,
       st.quantity as stock_quantity,(st.sku is not null) as stock_known,
       s.payload->'images'->0->>'reference' as image_url,s.payload->>'url_marketplace' as marketplace_url,
-      s.fulfillment,s.brand
+      (coalesce(s.fulfillment,false) or sold.delivered_full) as fulfillment,s.brand
     from sold
     left join magalu.skus s on s.account_id=$1 and s.sku=sold.sku
     left join magalu.stocks st on st.account_id=$1 and st.sku=sold.sku and st.is_present=true

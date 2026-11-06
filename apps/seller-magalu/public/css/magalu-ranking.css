@@ -1,5 +1,6 @@
 /* Ranking de anuncios: segue o visual do Magalu (variaveis --mg-*), claro e escuro. */
-.mg-ranking-page{display:grid;gap:18px}
+.mg-ranking-page{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+.mg-ranking-page>*{min-width:0}
 .mg-ranking-filters{padding:16px 18px!important}
 .mg-ranking-filter-grid{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr)) auto minmax(110px,.6fr) auto;gap:12px;align-items:end}
 .mg-ranking-field{display:grid;gap:6px;min-width:0}
