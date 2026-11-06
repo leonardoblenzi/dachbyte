@@ -5,7 +5,11 @@ import { dbQuery } from '../lib/db';
 const JWT_SECRET =
   process.env.AVANTRACKING_JWT_SECRET ||
   process.env.JWT_SECRET ||
-  'your-secret-key-change-in-production';
+  (process.env.NODE_ENV === 'production'
+    ? ((): string => {
+        throw new Error('AVANTRACKING_JWT_SECRET ou JWT_SECRET nao definido.');
+      })()
+    : 'avantracking-dev-secret-change-me');
 const HUB_DISABLED_VALUES = new Set([
   '',
   '0',

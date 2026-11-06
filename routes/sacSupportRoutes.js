@@ -17,7 +17,15 @@ const SAC_JWT_SECRET =
   String(process.env.SAC_JWT_SECRET || "").trim() ||
   String(process.env.SUITE_JWT_SECRET || "").trim() ||
   String(process.env.JWT_SECRET || "").trim() ||
-  "davantti-sac-local-secret-change-me";
+  (String(process.env.NODE_ENV || "").trim().toLowerCase() === "production"
+    ? ""
+    : "davantti-sac-dev-secret-change-me");
+
+if (!SAC_JWT_SECRET) {
+  throw new Error(
+    "SAC_JWT_SECRET nao definido. Configure SAC_JWT_SECRET (ou fallback SUITE_JWT_SECRET/JWT_SECRET).",
+  );
+}
 
 let schemaReadyPromise = null;
 let maintenanceStarted = false;
@@ -244,11 +252,9 @@ router.post("/admin/login", async (req, res) => {
   const password = String(req.body?.password || req.body?.senha || "").trim();
   const admin = await service.verifySacSupportAdminLogin(email, password);
   if (!admin) {
-    const debug = await service.diagnoseSacSupportAdminLogin(email, password);
     return res.status(401).json({
       ok: false,
       error: "Credenciais SAC invalidas.",
-      debug,
     });
   }
   const token = jwt.sign(

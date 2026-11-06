@@ -1,13 +1,19 @@
 import { Pool } from 'pg';
 
+function requireDbUrl(name: string): string {
+  const value = String(process.env[name] || '').trim();
+  if (!value) {
+    throw new Error(`${name} nao definido. Configure a connection string via variavel de ambiente.`);
+  }
+  return value;
+}
+
 const mpozenatoPool = new Pool({
-  connectionString:
-    'postgresql://neondb_owner:npg_Z5IFBLUxfkm4@ep-gentle-cloud-acby0n39-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
+  connectionString: requireDbUrl('MPOZENATO_DATABASE_URL'),
 });
 
 const drossiPool = new Pool({
-  connectionString:
-    'postgresql://neondb_owner:npg_6ulkSDP5vIFy@ep-bold-leaf-ackbvmtw-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
+  connectionString: requireDbUrl('DROSSI_DATABASE_URL'),
 });
 
 async function syncCompanies() {

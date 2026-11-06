@@ -87,7 +87,11 @@ export class TrayAuthService {
     this.jwtSecret =
       process.env.AVANTRACKING_JWT_SECRET ||
       process.env.JWT_SECRET ||
-      'your-secret-key-change-in-production';
+      (process.env.NODE_ENV === 'production'
+        ? ((): string => {
+            throw new Error('AVANTRACKING_JWT_SECRET ou JWT_SECRET nao definido.');
+          })()
+        : 'avantracking-dev-secret-change-me');
   }
 
   normalizeStoreUrl(storeUrl: string): string {
