@@ -1390,6 +1390,22 @@ function withBase(path) {
       (job) => !job.completed && !queuedJobs.includes(job),
     );
     const completedJobs = visibleJobs.filter((job) => job.completed);
+    // Ordem fixa por grupo: em andamento pela ordem em que comecaram (um job novo nao
+    // desloca os ativos); na fila pela posicao (proximo a rodar em cima, novos no fim);
+    // concluidos com o mais recente primeiro.
+    const creationOrder = (job) => Number(job?.sortOrder || 0);
+    // startedAt = primeira vez que entrou em andamento; nao zera ao voltar para a fila
+    // (a trava de operacao pesada alterna os jobs por trecho e a ordem nao deve pular).
+    runningJobs.forEach((job) => { if (!job.startedAt) job.startedAt = Date.now(); });
+    runningJobs.sort((a, b) => (Number(a.startedAt || 0) - Number(b.startedAt || 0)) || (creationOrder(a) - creationOrder(b)));
+    queuedJobs.sort((a, b) => {
+      const pa = Number(a?.queuePosition), pb = Number(b?.queuePosition);
+      const ha = Number.isFinite(pa) && pa > 0, hb = Number.isFinite(pb) && pb > 0;
+      if (ha && hb && pa !== pb) return pa - pb;
+      if (ha !== hb) return ha ? -1 : 1;
+      return creationOrder(a) - creationOrder(b);
+    });
+    completedJobs.sort((a, b) => Number(b?.completedAt || b?.updated || 0) - Number(a?.completedAt || a?.updated || 0));
     const rows = [
       renderSection("EM ANDAMENTO", runningJobs),
       renderSection("NA FILA", queuedJobs),

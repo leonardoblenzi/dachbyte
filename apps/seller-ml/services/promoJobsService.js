@@ -127,6 +127,18 @@ const PROMO_THROUGHPUT_WINDOW = Math.max(
   Math.min(500, Number(process.env.PROMO_THROUGHPUT_WINDOW || 100)),
 );
 
+// Tolerancia (pontos percentuais) na conferencia do desconto confirmado pelo ML contra
+// o teto. A oferta continua sendo escolhida dentro do teto exato; esta folga so evita
+// reverter promocoes por diferenca de arredondamento/precificacao do ML (ex.: 23,01% com
+// teto de 23%). Acima de teto + tolerancia a promocao continua sendo revertida.
+const PROMO_DISCOUNT_CAP_TOLERANCE_PP = Math.max(
+  0,
+  Math.min(5, Number(process.env.PROMO_DISCOUNT_CAP_TOLERANCE_PP ?? 1)),
+);
+function isWithinDiscountCap(actual, cap) {
+  return cap != null && actual != null && actual <= cap + PROMO_DISCOUNT_CAP_TOLERANCE_PP + 0.0001;
+}
+
 // Orquestracao global: evita que um unico usuario/campanha monopolize a fila.
 const PROMO_MAX_ACTIVE_JOBS_PER_ACCOUNT = Math.max(
   1,
@@ -3035,7 +3047,7 @@ function evaluatePostApplySnapshot({
       rebateAuditedType
         ? smartContributionMatches(expectedContribution, confirmedContribution)
         : null;
-    const withinCap = cap != null && actual != null && actual <= cap + 0.0001;
+    const withinCap = isWithinDiscountCap(actual, cap);
     // A composicao meli/seller e informacao de auditoria/rebate. Ela pode propagar
     // depois do OFFER e, por si so, nao autoriza rollback. A trava comercial da
     // SMART continua sendo a identidade da oferta + desconto base dentro do teto.
@@ -3061,7 +3073,7 @@ function evaluatePostApplySnapshot({
         reason =
           t === 'PRE_NEGOTIATED'
             ? `desconto base PRE_NEGOTIATED confirmado ${round2(actual)}% acima do teto de ${round2(cap)}%`
-            : `desconto Smart confirmado ${round2(actual)}% acima do teto de ${round2(cap)}%`;
+            : `desconto Smart confirmado ${round2(actual)}% acima do teto de ${round2(cap)}% (tolerancia ${round2(PROMO_DISCOUNT_CAP_TOLERANCE_PP)} p.p.)`;
       }
     } else if ((t === "SMART" || t === 'PRE_NEGOTIATED') && contributionMatch === false) {
       warning =
@@ -3214,7 +3226,7 @@ function evaluateAcceptedApplyResponse({
       acceptedPrice != null &&
       cap != null &&
       actual != null &&
-      actual > cap + 0.0001
+      !isWithinDiscountCap(actual, cap)
     ) {
       return {
         ...evaluated,
@@ -9260,6 +9272,8 @@ module.exports = {
   },
 
   _test: {
+    isWithinDiscountCap,
+    PROMO_DISCOUNT_CAP_TOLERANCE_PP,
     computeDealDiscountRange,
     isDealPercentWithinRange,
     isManualPercentApplicable,
