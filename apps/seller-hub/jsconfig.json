@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "allowJs": true,
+    "noEmit": true,
+    "module": "commonjs",
+    "target": "es2022",
+    "moduleResolution": "node",
+    "strict": false,
+    "skipLibCheck": true,
+    "lib": ["es2022", "dom"]
+  },
+  "include": ["src/**/*.js", "public/**/*.js", "../shared/seller-ui/*.js"]
+}

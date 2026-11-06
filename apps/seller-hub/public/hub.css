@@ -1,0 +1,5 @@
+/* DACH Hub · ajustes de página sobre o seller-shell (tema Violeta). */
+.seller-table small{ color: var(--seller-muted); font-size: .7rem; }
+.seller-empty span{ max-width: 460px; font-size: .82rem; line-height: 1.5; }
+.seller-empty .seller-btn{ margin-top: 6px; }
+.seller-table .seller-badge + .seller-badge{ margin-left: 4px; }
