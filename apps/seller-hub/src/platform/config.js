@@ -20,6 +20,12 @@ function loadConfig(env = process.env) {
     platformAdminEmails: new Set(list(env.HUB_PLATFORM_ADMIN_EMAILS).map((email) => email.toLowerCase())),
     tokenEncryptionKey: String(env.HUB_TOKEN_ENCRYPTION_KEY || "").trim(),
     publicBaseUrl: String(env.HUB_PUBLIC_BASE_URL || "https://dachbyte.tech/hub").replace(/\/+$/, ""),
+    // Apps próprios do DACH Hub em cada marketplace (independentes dos módulos DACH).
+    channels: {
+      mercadolivre: { clientId: String(env.HUB_ML_APP_ID || "").trim(), clientSecret: String(env.HUB_ML_CLIENT_SECRET || "").trim() },
+      magalu: { clientId: String(env.HUB_MAGALU_CLIENT_ID || "").trim(), clientSecret: String(env.HUB_MAGALU_CLIENT_SECRET || "").trim(), scopes: list(env.HUB_MAGALU_SCOPES) },
+      shopee: { partnerId: String(env.HUB_SHOPEE_PARTNER_ID || "").trim(), partnerKey: String(env.HUB_SHOPEE_PARTNER_KEY || "").trim(), apiBase: String(env.HUB_SHOPEE_API_BASE || "https://partner.shopeemobile.com").trim() },
+    },
   };
 }
 

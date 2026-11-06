@@ -73,13 +73,59 @@
       </tbody></table></div></section>`;
   }
 
+  const CONNECT_ERRORS = /** @type {Record<string, string>} */ ({
+    admin_required: "Somente o administrador da empresa pode conectar contas.",
+    channel_not_configured: "Este marketplace ainda não tem o app do DACH Hub configurado.",
+    authorization_denied: "A autorização foi cancelada no marketplace.",
+    callback_incomplete: "O marketplace não devolveu os dados da conexão. Tente de novo.",
+    invalid_state: "O link de conexão expirou. Tente conectar de novo.",
+    account_owned_by_other_tenant: "Esta conta do marketplace já está conectada a outra empresa no DACH Hub.",
+  });
+  const STATUS = /** @type {Record<string, [string, string]>} */ ({
+    connected: ["Conectada", "success"],
+    reconnect_required: ["Reconectar", "danger"],
+  });
+  const dateTime = (/** @type {string} */ v) => v ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(v)) : "—";
+
   async function renderAccounts() {
-    const { channels } = await api("/channels");
-    root.innerHTML = `<section class="seller-card"><h2>Conectar marketplaces</h2><p>As contas são conectadas direto ao DACH Hub, sem depender dos módulos DACH ML, Magalu ou Shopee.</p>
-      <div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Canal</th><th>Situação</th><th></th></tr></thead><tbody>
-      ${channels.map((/** @type {any} */ c) => `<tr><td><strong>${esc(c.label)}</strong></td><td>${c.available ? '<span class="seller-badge" data-tone="success">Disponível</span>' : '<span class="seller-badge" data-tone="warning">Aguardando app do marketplace</span>'}</td><td>${c.available && isAdmin ? `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(c.id)}/start">Conectar</a>` : ""}</td></tr>`).join("")}
-      </tbody></table></div></section>`;
+    const [{ channels }, { accounts }] = await Promise.all([api("/channels"), api("/accounts")]);
+    const params = new URLSearchParams(location.search);
+    const connected = params.get("conectado"), error = params.get("erro");
+    const flash = connected
+      ? `<div class="hub-flash" data-tone="success">Conta ${esc(CHANNEL_LABELS[connected] || connected)} conectada. A importação dos anúncios começa em modo observação.</div>`
+      : error ? `<div class="hub-flash" data-tone="danger">${esc(CONNECT_ERRORS[error] || "Não foi possível conectar a conta. Tente de novo.")}</div>` : "";
+    const rows = accounts.map((/** @type {any} */ a) => {
+      const [label, tone] = STATUS[a.status] || [a.status, "warning"];
+      const actions = isAdmin
+        ? `${a.status === "reconnect_required" ? `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(a.channel)}/start">Reconectar</a> ` : ""}<button class="seller-btn" type="button" data-disconnect="${esc(a.id)}">Desconectar</button>`
+        : "";
+      return `<tr><td><span class="seller-badge">${esc(CHANNEL_LABELS[a.channel] || a.channel)}</span></td><td><strong>${esc(a.label || a.externalAccountId)}</strong><br><small>${esc(a.externalAccountId)}</small></td>
+        <td><span class="seller-badge" data-tone="${tone}">${esc(label)}</span></td><td>${int(a.listings)}</td><td>${esc(dateTime(a.connectedAt))}</td><td>${actions}</td></tr>`;
+    }).join("");
+    root.innerHTML = `${flash}
+      <section class="seller-card"><h2>Contas conectadas</h2><p>Contas ligadas direto ao DACH Hub. A mesma conta pode estar também num módulo DACH; são conexões separadas.</p>
+        ${accounts.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Canal</th><th>Conta</th><th>Situação</th><th>Anúncios</th><th>Conectada em</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+          : '<div class="seller-empty"><strong>Nenhuma conta conectada</strong><span>Conecte abaixo as contas do Mercado Livre, Magalu e Shopee.</span></div>'}
+      </section>
+      <section class="seller-card"><h2>Conectar marketplace</h2><p>Você será levado ao marketplace para autorizar o acesso do DACH Hub e voltará para cá.</p>
+        <div class="hub-connect-grid">${channels.map((/** @type {any} */ c) => `<article class="hub-connect"><strong>${esc(c.label)}</strong>
+          ${c.available ? (isAdmin ? `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(c.id)}/start">Conectar ${esc(c.label)}</a>` : '<span class="seller-badge">Só o administrador conecta</span>') : '<span class="seller-badge" data-tone="warning">Aguardando app do marketplace</span>'}
+        </article>`).join("")}</div>
+      </section>`;
   }
+
+  root.addEventListener("click", async (event) => {
+    const button = /** @type {HTMLElement} */ (event.target).closest("[data-disconnect]");
+    if (!button) return;
+    if (!confirm("Desconectar esta conta do DACH Hub? Os tokens serão apagados e a sincronização para.")) return;
+    try {
+      await api(`/accounts/${button.getAttribute("data-disconnect")}/disconnect`, { method: "POST" });
+      history.replaceState(null, "", "/hub/contas");
+      await renderAccounts();
+    } catch (error) {
+      button.textContent = /** @type {Error} */ (error).message;
+    }
+  });
 
   root.addEventListener("click", async (event) => {
     const button = /** @type {HTMLElement} */ (event.target).closest("[data-link]");

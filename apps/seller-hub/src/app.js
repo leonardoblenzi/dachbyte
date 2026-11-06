@@ -8,10 +8,19 @@ const { createDb } = require("./platform/db");
 const { createAuthMiddleware, requireAdmin } = require("./platform/auth");
 const { createCatalogRepository } = require("./modules/catalog/repository");
 const { createCatalogService } = require("./modules/catalog/service");
-const { CHANNELS } = require("./connectors/contract");
+const { createConnectors } = require("./connectors/registry");
+const { createAccountsRepository } = require("./modules/accounts/repository");
+const { createAccountsService } = require("./modules/accounts/service");
+const { createCipher } = require("./platform/crypto");
 const { PAGES, renderPage } = require("./web/pages");
 
-const CHANNEL_LABELS = { mercadolivre: "Mercado Livre", magalu: "Magalu", shopee: "Shopee" };
+/** Cifra criada só quando usada: sem chave, conectar conta falha com 503 sem derrubar o app. @param {string} key */
+function lazyCipher(key) {
+  /** @type {ReturnType<typeof createCipher> | null} */
+  let cipher = null;
+  const get = () => (cipher = cipher || createCipher(key));
+  return { encrypt: (/** @type {string} */ v) => get().encrypt(v), decrypt: (/** @type {string} */ v) => get().decrypt(v) };
+}
 
 /** @param {any} req */
 function identity(req) { return req.hubIdentity; }
@@ -22,12 +31,16 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
 /**
  * Cria o app do DACH Hub (montado em /hub pelo startExpressApp).
  * Dependências injetáveis para testes.
- * @param {{ config?: ReturnType<typeof loadConfig>, db?: ReturnType<typeof createDb>, catalog?: ReturnType<typeof createCatalogService> }} [deps]
+ * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any }} [deps]
  */
 async function createApp(deps = {}) {
   const config = deps.config || loadConfig();
   const db = deps.db || createDb(config);
   const catalog = deps.catalog || createCatalogService({ repository: createCatalogRepository(db) });
+  const connectors = deps.connectors || createConnectors(config.channels);
+  const accounts = deps.accounts || createAccountsService({
+    repository: createAccountsRepository(db), connectors, cipher: lazyCipher(config.tokenEncryptionKey), publicBaseUrl: config.publicBaseUrl,
+  });
 
   const app = express();
   app.set("trust proxy", 1);
@@ -50,6 +63,25 @@ async function createApp(deps = {}) {
       res.type("html").send(renderPage(pagePath, identity(req)));
     });
   }
+
+  // Conectar conta: só o administrador da empresa inicia; o retorno volta para Contas conectadas.
+  app.get("/auth/:channel/start", async (req, res) => {
+    if (!identity(req).isAdmin) return res.redirect(302, "/hub/contas?erro=admin_required");
+    try {
+      res.redirect(302, await accounts.startConnect({ identity: identity(req), channel: req.params.channel }));
+    } catch (error) {
+      res.redirect(302, `/hub/contas?erro=${encodeURIComponent(/** @type {any} */ (error).code || "connect_failed")}`);
+    }
+  });
+  app.get("/auth/:channel/callback", async (req, res) => {
+    try {
+      await accounts.finishConnect({ identity: identity(req), channel: req.params.channel, query: req.query });
+      res.redirect(302, `/hub/contas?conectado=${encodeURIComponent(req.params.channel)}`);
+    } catch (error) {
+      if (Number(/** @type {any} */ (error).status) >= 500) console.error("[seller-hub] callback", error);
+      res.redirect(302, `/hub/contas?erro=${encodeURIComponent(/** @type {any} */ (error).code || "connect_failed")}`);
+    }
+  });
 
   const api = express.Router();
   api.get("/session", (req, res) => {
@@ -79,8 +111,14 @@ async function createApp(deps = {}) {
     } catch (error) { next(error); }
   });
   api.get("/channels", (_req, res) => {
-    // Conexão por OAuth chega quando os apps de cada marketplace estiverem criados.
-    res.json({ ok: true, channels: CHANNELS.map((id) => ({ id, label: CHANNEL_LABELS[/** @type {keyof typeof CHANNEL_LABELS} */ (id)], available: false })) });
+    // "available" = app do DACH Hub configurado para aquele marketplace.
+    res.json({ ok: true, channels: connectors.list() });
+  });
+  api.get("/accounts", async (req, res, next) => {
+    try { res.json({ ok: true, accounts: await accounts.listAccounts(identity(req).tenantId) }); } catch (error) { next(error); }
+  });
+  api.post("/accounts/:accountId/disconnect", requireAdmin, async (req, res, next) => {
+    try { res.json({ ok: true, account: await accounts.disconnect({ identity: identity(req), accountId: int(req.params.accountId, 0) }) }); } catch (error) { next(error); }
   });
   app.use("/api", api);
 

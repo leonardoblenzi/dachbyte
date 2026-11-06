@@ -84,3 +84,15 @@ test("canais aparecem como aguardando app enquanto o OAuth não está pronto", a
     assert.ok(channels.every((c) => c.available === false));
   });
 });
+
+test("conectar conta: operador volta com aviso, app sem configuração volta com erro", async () => {
+  await withServer({}, async (base) => {
+    const operator = await get(`${base}/auth/mercadolivre/start`, token({ company_role: "operator" }), "text/html");
+    assert.equal(operator.status, 302);
+    assert.equal(operator.headers.get("location"), "/hub/contas?erro=admin_required");
+    const admin = await get(`${base}/auth/mercadolivre/start`, token({ company_role: "admin" }), "text/html");
+    assert.equal(admin.headers.get("location"), "/hub/contas?erro=channel_not_configured");
+    const callback = await get(`${base}/auth/magalu/callback?error=access_denied`, token({ company_role: "admin" }), "text/html");
+    assert.equal(callback.headers.get("location"), "/hub/contas?erro=authorization_denied");
+  });
+});

@@ -3,3 +3,10 @@
 .seller-empty span{ max-width: 460px; font-size: .82rem; line-height: 1.5; }
 .seller-empty .seller-btn{ margin-top: 6px; }
 .seller-table .seller-badge + .seller-badge{ margin-left: 4px; }
+.hub-flash{ margin-bottom: 14px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--seller-border); font-size: .84rem; font-weight: 700; }
+.hub-flash[data-tone="success"]{ background: var(--seller-success-soft); color: var(--seller-success); border-color: color-mix(in srgb, var(--seller-success) 30%, var(--seller-border)); }
+.hub-flash[data-tone="danger"]{ background: var(--seller-danger-soft); color: var(--seller-danger); border-color: color-mix(in srgb, var(--seller-danger) 30%, var(--seller-border)); }
+.hub-connect-grid{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.hub-connect{ display: grid; gap: 10px; align-content: start; padding: 16px; border: 1px solid var(--seller-border); border-radius: 16px; background: var(--seller-surface-soft); }
+.hub-connect .seller-btn, .hub-connect .seller-badge{ justify-self: start; }
+@media (max-width: 760px){ .hub-connect-grid{ grid-template-columns: 1fr; } }
