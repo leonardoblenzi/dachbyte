@@ -333,12 +333,14 @@ async function soldSkus(accountId, options={}){
       group by si.sku
     )
     select sold.sku,coalesce(s.title,sold.name) as title,sold.units,sold.revenue,sold.orders,
-      st.quantity as stock_quantity,(st.sku is not null) as stock_known
+      st.quantity as stock_quantity,(st.sku is not null) as stock_known,
+      s.payload->'images'->0->>'reference' as image_url,s.payload->>'url_marketplace' as marketplace_url,
+      s.fulfillment,s.brand
     from sold
     left join magalu.skus s on s.account_id=$1 and s.sku=sold.sku
     left join magalu.stocks st on st.account_id=$1 and st.sku=sold.sku and st.is_present=true
     order by sold.revenue desc nulls last,sold.units desc
-    limit 300`,[Number(accountId),start,end,null]);
+    limit $5`,[Number(accountId),start,end,null,int(options.limit,1,5000,300)]);
   return rows;
 }
 
