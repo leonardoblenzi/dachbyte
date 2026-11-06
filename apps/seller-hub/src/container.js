@@ -24,6 +24,8 @@ const { createReconcileService } = require("./modules/reconcile/service");
 const { createBillingService } = require("./modules/billing/service");
 const { createAutomationsRepository } = require("./modules/automations/repository");
 const { createAutomationsService } = require("./modules/automations/service");
+const { createExpeditionRepository } = require("./modules/expedition/repository");
+const { createExpeditionService } = require("./modules/expedition/service");
 
 /** Cifra criada só quando usada: sem chave, conectar conta falha com 503 sem derrubar o app. @param {string} key */
 function lazyCipher(key) {
@@ -36,7 +38,7 @@ function lazyCipher(key) {
 /**
  * Raiz de composição: monta as peças do Hub uma vez, para o site (app.js) e para o worker.
  * Qualquer peça pode ser trocada (testes, prévia local).
- * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, imports?: any, queue?: any, stock?: any, orders?: any, sync?: any, syncQueues?: any, tokens?: any, reconcile?: any, billing?: any, automations?: any }} [overrides]
+ * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, imports?: any, queue?: any, stock?: any, orders?: any, sync?: any, syncQueues?: any, tokens?: any, reconcile?: any, billing?: any, automations?: any, expedition?: any }} [overrides]
  */
 function createContainer(overrides = {}) {
   const config = overrides.config || loadConfig();
@@ -95,7 +97,10 @@ function createContainer(overrides = {}) {
   const stock = overrides.stock || createStockService({ repository: stockRepository, onItemsChanged });
   reconcile = overrides.reconcile || createReconcileService({ repository: createReconcileRepository(db), connectors, tokens, orders, sync, queue: syncQueues });
   billing = overrides.billing || createBillingService({ repository: ordersRepository });
-  return { config, db, connectors, catalog, accounts, tokens, imports, stock, orders, sync, syncQueues, reconcile, billing, automations };
+  const expedition = overrides.expedition || createExpeditionService({
+    repository: createExpeditionRepository(db), onOrderPacked: (event) => automations.orderPacked(event),
+  });
+  return { config, db, connectors, catalog, accounts, tokens, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition };
 }
 
 module.exports = { createContainer, lazyCipher };

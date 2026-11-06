@@ -19,7 +19,7 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
  * @param {Parameters<typeof createContainer>[0]} [deps]
  */
 async function createApp(deps = {}) {
-  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing, automations } = createContainer(deps);
+  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition } = createContainer(deps);
 
   const app = express();
   app.set("trust proxy", 1);
@@ -50,7 +50,8 @@ async function createApp(deps = {}) {
   // Planilha de estoque vem em base64 no corpo: limite maior só nessas rotas.
   const smallJson = express.json({ limit: "1mb" });
   const sheetJson = express.json({ limit: "15mb" });
-  app.use((req, res, next) => (req.path.startsWith("/api/stock/spreadsheet/") ? sheetJson : smallJson)(req, res, next));
+  // Planilha e foto do pacote vêm em base64: limite maior só nessas rotas.
+  app.use((req, res, next) => ((req.path.startsWith("/api/stock/spreadsheet/") || /^\/api\/expedition\/orders\/\d+\/pack$/.test(req.path)) ? sheetJson : smallJson)(req, res, next));
   app.use("/assets", express.static(path.resolve(__dirname, "../public"), { maxAge: "1h" }));
   app.use("/ui", express.static(path.resolve(__dirname, "../../shared/seller-ui"), { maxAge: "1h" }));
 
@@ -293,6 +294,38 @@ async function createApp(deps = {}) {
     unread: await automations.unreadCount(identity(req).tenantId),
   })));
   api.post("/notifications/read", handle(async (req) => ({ marked: await automations.markRead(identity(req).tenantId, req.body?.id ? Number(req.body.id) : null) })));
+  // Expedição (Fase 3 / P3): quem opera o depósito usa sem ser administrador; desfazer conferência exige administrador.
+  api.get("/expedition/summary", handle(async (req) => ({ summary: await expedition.summary(identity(req).tenantId) })));
+  api.get("/expedition/queue", handle(async (req) => ({ orders: await expedition.queue(identity(req).tenantId, {
+    accountId: req.query.accountId ? int(req.query.accountId, 0) : null, due: ["late", "today"].includes(String(req.query.due)) ? String(req.query.due) : "",
+  }) })));
+  api.get("/expedition/batches", handle(async (req) => ({ batches: await expedition.listBatches(identity(req).tenantId) })));
+  api.post("/expedition/batches", handle(async (req) => ({ batch: await expedition.createBatch({ identity: who(req), orderIds: idList(req.body) }) })));
+  api.get("/expedition/batches/:id", handle(async (req) => ({ batch: await expedition.getBatch(identity(req).tenantId, int(req.params.id, 0)) })));
+  api.post("/expedition/batches/:id/close", handle(async (req) => ({ batch: await expedition.closeBatch(identity(req).tenantId, int(req.params.id, 0)) })));
+  api.get("/expedition/lookup", handle(async (req) => expedition.lookup(identity(req).tenantId, String(req.query.code || ""))));
+  api.get("/expedition/product", handle(async (req) => expedition.nextForProduct(identity(req).tenantId, String(req.query.code || ""), req.query.batchId ? int(req.query.batchId, 0) : null)));
+  api.get("/expedition/orders/:id", handle(async (req) => expedition.checkout(identity(req).tenantId, int(req.params.id, 0))));
+  api.post("/expedition/orders/:id/match", handle(async (req) => ({ unit: await expedition.matchUnit(identity(req).tenantId, int(req.params.id, 0), String(req.body?.code || "")) })));
+  api.post("/expedition/orders/:id/pack", handle(async (req) => ({ packed: await expedition.pack({
+    identity: who(req), orderId: int(req.params.id, 0), checks: Array.isArray(req.body?.checks) ? req.body.checks : [], photoBase64: req.body?.photoBase64 || null,
+  }) })));
+  api.post("/expedition/orders/:id/issue", handle(async (req) => ({ order: await expedition.reportIssue({ identity: who(req), orderId: int(req.params.id, 0), note: String(req.body?.note || "") }) })));
+  api.post("/expedition/orders/:id/unpack", requireAdmin, handle(async (req) => ({ order: await expedition.unpack({ identity: who(req), orderId: int(req.params.id, 0) }) })));
+  api.get("/expedition/photos/:photoId", async (req, res, next) => {
+    try {
+      const photo = await expedition.photo(identity(req).tenantId, int(req.params.photoId, 0));
+      res.setHeader("Content-Type", photo.mime);
+      res.setHeader("Cache-Control", "private, max-age=86400");
+      res.send(photo.content);
+    } catch (error) { next(error); }
+  });
+  api.get("/expedition/pickups", handle(async (req) => ({ pickups: await expedition.listPickups(identity(req).tenantId) })));
+  api.post("/expedition/pickups", handle(async (req) => ({ pickup: await expedition.createPickup({ identity: who(req), carrier: req.body?.carrier, scheduledFor: req.body?.scheduledFor }) })));
+  api.get("/expedition/pickups/:id", handle(async (req) => ({ pickup: await expedition.getPickup(identity(req).tenantId, int(req.params.id, 0)) })));
+  api.post("/expedition/pickups/:id/scan", handle(async (req) => expedition.scanToPickup({ identity: who(req), pickupId: int(req.params.id, 0), code: String(req.body?.code || "") })));
+  api.delete("/expedition/pickups/:id/orders/:orderId", handle(async (req) => ({ order: await expedition.removeFromPickup({ identity: who(req), pickupId: int(req.params.id, 0), orderId: int(req.params.orderId, 0) }) })));
+  api.post("/expedition/pickups/:id/close", handle(async (req) => ({ pickup: await expedition.closePickup({ identity: who(req), pickupId: int(req.params.id, 0) }) })));
   // Vendas medidas para a cobrança (% sobre vendas) e extrato pedido a pedido.
   api.get("/billing/month", handle(async (req) => ({ month: await billing.month(identity(req).tenantId, req.query.month ? String(req.query.month) : undefined) })));
   api.get("/billing/statement", handle(async (req) => ({ statement: await billing.statement(identity(req).tenantId, String(req.query.month || billing.currentMonth()), {

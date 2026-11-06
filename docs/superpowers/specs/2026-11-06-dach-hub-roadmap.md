@@ -175,7 +175,13 @@ O detalhe está em `2026-11-06-dach-hub-fase1-design.md`.
     - então: mudar status interno, pôr/tirar etiqueta, avisar a equipe (página Avisos e alertas), chamar webhook https assinado (`X-DachHub-Signature`, sem endereços internos);
   - cada regra roda uma vez por ocorrência; encadeamento limitado a 3; histórico por regra e na linha do tempo do pedido; modelos prontos;
   - varredura de prazo a cada 10 min no worker.
-- **P3 — Expedição:** separação (picking), conferência com bipagem e foto do pacote, coletas.
+- **P3 — Expedição (feito, migração 008):**
+  - **Separação:** fila de pedidos pagos ainda não conferidos (prazo mais curto primeiro; Full fica fora); lote de separação com lista somada por produto, kits abertos nos componentes, imprimível; fechar o lote devolve à fila o que não foi conferido.
+  - **Conferência com leitor de código de barras:** por pedido (bipa número, rastreio ou NF e depois os itens por EAN/SKU) ou por produto (bipa o item e o Hub acha o pedido de 1 unidade mais urgente); "sem código +1" para item sem etiqueta; aviso para item a mais, item de fora, pedido cancelado, Full ou já enviado; bipes de acerto/erro; problema na conferência ("falta no estoque") fica no pedido.
+  - **Foto do pacote** (celular ou webcam), reduzida no navegador e guardada no pedido (prova em reclamação).
+  - **Coletas:** embarque por bipagem (só pedido conferido, sem repetir), romaneio imprimível com assinaturas, fechar coleta = entregue à transportadora.
+  - Novo gatilho de automação **"pedido conferido"**; tudo registrado na linha do tempo do pedido.
+  - Quem opera o depósito usa a expedição sem ser administrador; desfazer conferência exige administrador.
 - **P4 — Etiquetas por canal** e impressão agrupada.
 - **P5 — Fiscal:** NF via ERP (Bling primeiro) e envio da NF ao canal.
 

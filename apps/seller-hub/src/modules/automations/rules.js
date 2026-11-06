@@ -15,6 +15,7 @@ const EVENTS = Object.freeze({
   ship_by_soon: "Prazo de envio vencendo",
   order_late: "Prazo de envio vencido",
   manual: "Execução manual",
+  order_packed: "Pedido conferido (expedição)",
 });
 
 const STAGES = ["new", "paid", "invoiced", "ready_to_ship", "shipped", "delivered", "cancelled", "returned"];

@@ -22,6 +22,11 @@
         { label: "Divergências", path: "/hub/estoque/divergencias" },
         { label: "Regras por conta", path: "/hub/estoque/regras" },
       ] },
+      { id: "expedition", label: "Expedição", hint: "Separar, conferir e coletar", icon: "package", items: [
+        { label: "Separação", path: "/hub/expedicao" },
+        { label: "Conferência", path: "/hub/expedicao/conferencia" },
+        { label: "Coletas", path: "/hub/expedicao/coletas" },
+      ] },
       { id: "sales", label: "Vendas", hint: "Pedidos e baixas", icon: "receipt", items: [
         { label: "Pedidos", path: "/hub/pedidos" },
         { label: "Atrasados", path: "/hub/pedidos?prazo=late" },

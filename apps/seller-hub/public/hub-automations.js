@@ -8,6 +8,7 @@
   const EVENTS = /** @type {Record<string, string>} */ ({
     order_received: "Pedido recebido", stage_changed: "Situação do pedido mudou", custom_status_changed: "Status interno mudou",
     ship_by_soon: "Prazo de envio vencendo", order_late: "Prazo de envio vencido", manual: "Execução manual (botão)",
+    order_packed: "Pedido conferido (expedição)",
   });
   const STAGES = /** @type {Record<string, string>} */ ({
     new: "Novo", paid: "Pago", invoiced: "Faturado", ready_to_ship: "Pronto para envio", shipped: "Enviado", delivered: "Entregue", cancelled: "Cancelado", returned: "Devolvido",

@@ -146,6 +146,12 @@ function createAutomationsService({ repository, fetchImpl = fetch, queue = null 
       return { events: events.length };
     },
 
+    /** Pedido conferido na expedição. @param {{ tenantId: string, orderId: number, packedAt: string }} event */
+    async orderPacked(event) {
+      const occ = { tenantId: event.tenantId, orderId: event.orderId, event: "order_packed", eventKey: `packed:${event.packedAt}` };
+      if (queue) await queue.enqueueAutomation(occ); else await onOrderEvent(occ);
+    },
+
     /** Varredura de prazo (a cada 10 min): vencendo em N horas e vencidos. */
     async scanDue() {
       let fired = 0;

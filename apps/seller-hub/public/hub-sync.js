@@ -205,8 +205,10 @@
     const render = async () => {
       const id = new URLSearchParams(location.search).get("id");
       if (!id) { root.innerHTML = empty("Pedido não informado", "Abra um pedido pela lista.", '<a class="seller-btn" href="/hub/pedidos">Ver pedidos</a>'); return; }
-      const [{ order: o }, { statuses }, { rules }] = await Promise.all([api(`/orders/${encodeURIComponent(id)}`),
-        api("/automations/statuses").catch(() => ({ statuses: [] })), api("/automations/rules").catch(() => ({ rules: [] }))]);
+      const [{ order: o }, { statuses }, { rules }, exp] = await Promise.all([api(`/orders/${encodeURIComponent(id)}`),
+        api("/automations/statuses").catch(() => ({ statuses: [] })), api("/automations/rules").catch(() => ({ rules: [] })),
+        api(`/expedition/orders/${encodeURIComponent(id)}`).catch(() => null)]);
+      const ex = exp?.order || {};
       const manualRules = rules.filter((/** @type {any} */ r) => r.event === "manual" && r.active);
       const EVENT_LABELS = /** @type {Record<string, string>} */ ({ received: "Pedido recebido", stage: "Situação mudou", stock: "Estoque", custom_status: "Status interno", tags: "Etiquetas", automation: "Automação" });
       /** @param {string} label @param {string} value */
@@ -241,6 +243,13 @@
             ${row("Comprador", esc(o.buyerName || "—"))}${row("Cidade / UF", esc([o.buyerCity, o.buyerState].filter(Boolean).join(" / ") || "—"))}
           </div></article>
         </section>
+        <section class="seller-card"><h2>Expedição</h2><div class="hub-metrics">
+            <div class="hub-metric"><span>Lote de separação</span><strong>${ex.batchId ? `<a href="/hub/expedicao/lote?id=${esc(ex.batchId)}">#${esc(ex.batchId)}</a>` : "—"}</strong></div>
+            <div class="hub-metric"><span>Conferido</span><strong>${ex.packedAt ? `${esc(dateTime(ex.packedAt))}<br><small>${esc(ex.packedBy || "")}</small>` : ex.packIssue ? `<span class="hub-error">${esc(ex.packIssue)}</span>` : "Ainda não"}</strong></div>
+            <div class="hub-metric"><span>Coleta</span><strong>${ex.pickupId ? `<a href="/hub/expedicao/coleta?id=${esc(ex.pickupId)}">#${esc(ex.pickupId)}</a>` : "—"}</strong></div>
+            <div class="hub-metric"><span>Entregue à transportadora</span><strong>${esc(dateTime(ex.handedOverAt))}</strong></div></div>
+          ${(exp?.photos || []).length ? `<div class="hub-photos">${exp.photos.map((/** @type {any} */ p) => `<a href="/hub/api/expedition/photos/${esc(p.id)}" target="_blank" rel="noopener"><img class="hub-photo" src="/hub/api/expedition/photos/${esc(p.id)}" alt="Foto do pacote"></a>`).join("")}</div>` : ""}
+          ${ex.packedAt ? "" : `<a class="seller-btn" href="/hub/expedicao/conferencia">Conferir na expedição</a>`}</section>
         <section class="seller-card"><h2>Itens</h2>
           <div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Produto</th><th>Anúncio</th><th class="hub-num">Qtd</th><th class="hub-num">Preço</th><th class="hub-num">Tarifa</th><th>Estoque</th></tr></thead><tbody>
           ${(o.lines || []).map((/** @type {any} */ l) => `<tr><td>${l.sku ? `<a href="/hub/estoque/movimentos?item=${esc(l.itemId)}"><strong>${esc(l.sku)}</strong></a><br><small>${esc(l.itemName || "")}</small>` : '<span class="seller-badge" data-tone="danger">Sem vínculo</span>'}</td>

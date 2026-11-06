@@ -6,7 +6,7 @@ function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
 }
 
-const ASSET_VERSION = "20261108e";
+const ASSET_VERSION = "20261108g";
 
 /** Páginas do DACH Hub. Cada uma vira um item do menu lateral. */
 const PAGES = {
@@ -20,6 +20,11 @@ const PAGES = {
   "/estoque/envios": { title: "Envios", kicker: "Estoque", lead: "Estoque enviado aos canais em modo ativo, conferido relendo o anúncio.", view: "pushes" },
   "/pedidos": { title: "Pedidos", kicker: "Vendas", lead: "Todos os pedidos dos canais: situação, prazo de envio, valores e a baixa de estoque de cada item.", view: "orders" },
   "/pedidos/detalhe": { title: "Pedido", kicker: "Vendas", lead: "Valores, envio, itens e linha do tempo do pedido.", view: "orderDetail" },
+  "/expedicao": { title: "Separação", kicker: "Expedição", lead: "Fila de pedidos a separar e lotes com a lista de separação somada por produto.", view: "expedition" },
+  "/expedicao/lote": { title: "Lote de separação", kicker: "Expedição", lead: "Lista de separação do lote (kits abertos nos componentes) e o andamento da conferência.", view: "pickingBatch" },
+  "/expedicao/conferencia": { title: "Conferência", kicker: "Expedição", lead: "Bipe o pedido e os itens com o leitor de código de barras. A foto do pacote fica guardada no pedido.", view: "checkout" },
+  "/expedicao/coletas": { title: "Coletas", kicker: "Expedição", lead: "Coletas das transportadoras e marketplaces: embarque por bipagem e romaneio para assinatura.", view: "pickups" },
+  "/expedicao/coleta": { title: "Coleta", kicker: "Expedição", lead: "Bipe os pacotes que vão nesta coleta.", view: "pickup" },
   "/automacoes": { title: "Automações", kicker: "Vendas", lead: "Status internos dos pedidos e regras automáticas: quando algo acontece, se as condições batem, o Hub age.", view: "automations" },
   "/avisos": { title: "Avisos", kicker: "Visão geral", lead: "Avisos para a equipe criados pelas automações.", view: "notifications" },
   "/cobranca/vendas": { title: "Vendas do mês", kicker: "Conta", lead: "Vendas medidas para a cobrança do DACH Hub (% sobre vendas), com o extrato pedido a pedido.", view: "billing" },
@@ -58,6 +63,7 @@ function renderPage(path, viewer) {
   <script src="/hub/assets/hub-stock.js?v=${ASSET_VERSION}"></script>
   <script src="/hub/assets/hub-sync.js?v=${ASSET_VERSION}"></script>
   <script src="/hub/assets/hub-automations.js?v=${ASSET_VERSION}"></script>
+  <script src="/hub/assets/hub-expedition.js?v=${ASSET_VERSION}"></script>
   <script src="/hub/assets/hub-app.js?v=${ASSET_VERSION}"></script>
 </body>
 </html>`;
