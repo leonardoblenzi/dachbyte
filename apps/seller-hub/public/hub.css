@@ -124,3 +124,5 @@ button.hub-attention__card{ text-align: left; font: inherit; cursor: pointer; }
   [data-print-area]{ position: absolute; left: 0; top: 0; width: 100%; border: 0 !important; box-shadow: none !important; }
   .hub-no-print{ display: none !important; }
 }
+.hub-label-batch{ display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--seller-border); }
+.hub-label-batch:last-child{ border-bottom: 0; }

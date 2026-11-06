@@ -19,7 +19,7 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
  * @param {Parameters<typeof createContainer>[0]} [deps]
  */
 async function createApp(deps = {}) {
-  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition } = createContainer(deps);
+  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition, labels } = createContainer(deps);
 
   const app = express();
   app.set("trust proxy", 1);
@@ -326,6 +326,19 @@ async function createApp(deps = {}) {
   api.post("/expedition/pickups/:id/scan", handle(async (req) => expedition.scanToPickup({ identity: who(req), pickupId: int(req.params.id, 0), code: String(req.body?.code || "") })));
   api.delete("/expedition/pickups/:id/orders/:orderId", handle(async (req) => ({ order: await expedition.removeFromPickup({ identity: who(req), pickupId: int(req.params.id, 0), orderId: int(req.params.orderId, 0) }) })));
   api.post("/expedition/pickups/:id/close", handle(async (req) => ({ pickup: await expedition.closePickup({ identity: who(req), pickupId: int(req.params.id, 0) }) })));
+  // Etiquetas de envio (Fase 3 / P4): um arquivo por conta; PDF abre no navegador para imprimir.
+  api.get("/expedition/labels", handle(async (req) => ({ batches: await labels.listBatches(identity(req).tenantId) })));
+  api.post("/expedition/labels", handle(async (req) => ({ batch: await labels.print({ identity: who(req), orderIds: idList(req.body), format: String(req.body?.format || "pdf") }) })));
+  api.get("/expedition/label-files/:id", async (req, res, next) => {
+    try {
+      const f = await labels.file(identity(req).tenantId, int(req.params.id, 0));
+      const inline = /pdf/i.test(f.contentType);
+      res.setHeader("Content-Type", f.contentType);
+      res.setHeader("Content-Disposition", `${inline ? "inline" : "attachment"}; filename="${String(f.filename).replace(/[^A-Za-z0-9._-]/g, "_")}"`);
+      res.setHeader("Cache-Control", "private, max-age=3600");
+      res.send(f.content);
+    } catch (error) { next(error); }
+  });
   // Vendas medidas para a cobrança (% sobre vendas) e extrato pedido a pedido.
   api.get("/billing/month", handle(async (req) => ({ month: await billing.month(identity(req).tenantId, req.query.month ? String(req.query.month) : undefined) })));
   api.get("/billing/statement", handle(async (req) => ({ statement: await billing.statement(identity(req).tenantId, String(req.query.month || billing.currentMonth()), {

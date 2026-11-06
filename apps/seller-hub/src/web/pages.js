@@ -6,7 +6,7 @@ function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
 }
 
-const ASSET_VERSION = "20261108g";
+const ASSET_VERSION = "20261108h";
 
 /** Páginas do DACH Hub. Cada uma vira um item do menu lateral. */
 const PAGES = {
@@ -23,6 +23,7 @@ const PAGES = {
   "/expedicao": { title: "Separação", kicker: "Expedição", lead: "Fila de pedidos a separar e lotes com a lista de separação somada por produto.", view: "expedition" },
   "/expedicao/lote": { title: "Lote de separação", kicker: "Expedição", lead: "Lista de separação do lote (kits abertos nos componentes) e o andamento da conferência.", view: "pickingBatch" },
   "/expedicao/conferencia": { title: "Conferência", kicker: "Expedição", lead: "Bipe o pedido e os itens com o leitor de código de barras. A foto do pacote fica guardada no pedido.", view: "checkout" },
+  "/expedicao/etiquetas": { title: "Etiquetas", kicker: "Expedição", lead: "Etiquetas de envio geradas nos canais (Mercado Livre, Magalu e Shopee), um arquivo por conta.", view: "labels" },
   "/expedicao/coletas": { title: "Coletas", kicker: "Expedição", lead: "Coletas das transportadoras e marketplaces: embarque por bipagem e romaneio para assinatura.", view: "pickups" },
   "/expedicao/coleta": { title: "Coleta", kicker: "Expedição", lead: "Bipe os pacotes que vão nesta coleta.", view: "pickup" },
   "/automacoes": { title: "Automações", kicker: "Vendas", lead: "Status internos dos pedidos e regras automáticas: quando algo acontece, se as condições batem, o Hub age.", view: "automations" },

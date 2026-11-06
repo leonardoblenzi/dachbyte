@@ -33,6 +33,30 @@
     });
   }
 
+
+  const CHANNEL_NAMES = /** @type {Record<string, string>} */ ({ mercadolivre: "Mercado Livre", magalu: "Magalu", shopee: "Shopee" });
+
+  /** Pede as etiquetas ao Hub (um arquivo por conta). @param {any} kit @param {number[]} orderIds @param {string} format */
+  async function requestLabels(kit, orderIds, format) {
+    return (await kit.api("/expedition/labels", { method: "POST", body: JSON.stringify({ orderIds, format }) })).batch;
+  }
+
+  /** Resultado de um lote de etiquetas: arquivos para abrir/baixar e pedidos com problema. @param {any} kit @param {any} b */
+  function labelBatchHtml(kit, b) {
+    const { esc, int, dateTime } = kit;
+    const files = b.files || [];
+    const failures = b.failures || [];
+    return `<div class="hub-label-batch">
+      <div><strong>Etiquetas #${esc(b.id)}</strong> <small class="hub-muted">${esc(dateTime(b.createdAt))} · ${b.format === "zpl" ? "térmica" : "PDF"} · ${int(b.orders)} pedido(s)</small></div>
+      <div class="hub-actions hub-actions--start">${files.map((/** @type {any} */ f) => `<a class="seller-btn seller-btn--primary" href="/hub/api/expedition/label-files/${esc(f.id)}" target="_blank" rel="noopener">
+        ${/\.pdf$/i.test(f.filename) ? "Abrir" : "Baixar"} ${esc(CHANNEL_NAMES[f.channel] || f.channel)} · ${esc(f.account || "")} (${int(f.orders)})</a>`).join("") || '<span class="hub-muted">Nenhum arquivo gerado.</span>'}</div>
+      ${failures.length ? `<ul class="hub-errors">${failures.map((/** @type {any} */ f) => `<li><a href="/hub/pedidos/detalhe?id=${esc(f.id)}">${esc(f.orderId)}</a>: ${esc(f.error)}</li>`).join("")}</ul>` : ""}
+    </div>`;
+  }
+
+  /** Seletor de formato (PDF comum ou térmica). */
+  const formatSelect = () => `<select data-label-format aria-label="Formato da etiqueta"><option value="pdf">Etiqueta PDF</option><option value="zpl">Térmica (ZPL; Shopee em PDF A6)</option></select>`;
+
   /** @param {any} kit @param {any} o */
   function due(kit, o) {
     if (!o.shipBy) return '<span class="hub-muted">—</span>';
@@ -44,7 +68,7 @@
   /* ───────────── Separação (fila + lotes) ───────────── */
   registry.expedition = (kit) => {
     const { api, esc, int, root, dateTime, CHANNEL_LABELS } = kit;
-    const state = { due: "", selected: /** @type {Set<string>} */ (new Set()), message: "", tone: "success" };
+    const state = { due: "", selected: /** @type {Set<string>} */ (new Set()), message: "", tone: "success", labelBatch: /** @type {any} */ (null) };
     let bound = false;
 
     async function render() {
@@ -52,6 +76,7 @@
       for (const id of [...state.selected]) if (!orders.some((/** @type {any} */ o) => String(o.id) === id)) state.selected.delete(id);
       root.innerHTML = `
         ${state.message ? `<div class="hub-flash" data-tone="${state.tone}">${esc(state.message)}</div>` : ""}
+        ${state.labelBatch ? `<section class="seller-card">${labelBatchHtml(kit, state.labelBatch)}</section>` : ""}
         <section class="hub-attention hub-attention--orders">
           <a class="seller-kpi hub-attention__card" href="/hub/expedicao"><span>A separar</span><strong>${int(s.toPick)}</strong><small>sem lote</small></a>
           <a class="seller-kpi hub-attention__card" href="/hub/expedicao/conferencia"><span>Em lote</span><strong>${int(s.inBatch)}</strong><small>aguardando conferência</small></a>
@@ -63,6 +88,7 @@
         <section class="seller-card">
           <div class="hub-account-head"><div><h2>Fila de separação</h2><p>Pedidos pagos que ainda não saíram, do prazo mais curto ao mais longo. Escolha e crie um lote: a lista de separação soma tudo por produto.</p></div>
             <div class="hub-actions"><select data-due-select><option value="">Todos</option><option value="today" ${state.due === "today" ? "selected" : ""}>Vencem em 24h</option><option value="late" ${state.due === "late" ? "selected" : ""}>Atrasados</option></select>
+              ${formatSelect()}<button class="seller-btn" type="button" data-print-labels ${state.selected.size ? "" : "disabled"}>Imprimir etiquetas (${int(state.selected.size)})</button>
               <button class="seller-btn seller-btn--primary" type="button" data-create-batch ${state.selected.size ? "" : "disabled"}>Criar lote (${int(state.selected.size)})</button></div></div>
           ${orders.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr><th><input type="checkbox" data-select-all aria-label="Selecionar todos" ${state.selected.size && state.selected.size === orders.length ? "checked" : ""}></th><th>Enviar até</th><th>Pedido</th><th>Itens</th><th>Logística</th></tr></thead><tbody>
             ${orders.map((/** @type {any} */ o) => `<tr><td><input type="checkbox" data-select="${esc(o.id)}" ${state.selected.has(String(o.id)) ? "checked" : ""} aria-label="Selecionar"></td>
@@ -93,6 +119,16 @@
         const t = /** @type {HTMLElement} */ (event.target);
         const d = t.closest("[data-due]");
         if (d) { state.due = state.due === d.getAttribute("data-due") ? "" : String(d.getAttribute("data-due")); await render(); return; }
+        if (t.closest("[data-print-labels]")) {
+          const button = /** @type {HTMLButtonElement} */ (t.closest("[data-print-labels]"));
+          button.disabled = true; button.textContent = "Gerando etiquetas…";
+          try {
+            const format = /** @type {HTMLSelectElement} */ (root.querySelector("[data-label-format]")).value;
+            state.labelBatch = await requestLabels(kit, [...state.selected].map(Number), format);
+            state.message = "";
+          } catch (error) { Object.assign(state, { message: /** @type {Error} */ (error).message, tone: "danger" }); }
+          await render(); return;
+        }
         if (t.closest("[data-create-batch]")) {
           try {
             const { batch } = await api("/expedition/batches", { method: "POST", body: JSON.stringify({ orderIds: [...state.selected].map(Number) }) });
@@ -109,15 +145,21 @@
   registry.pickingBatch = (kit) => {
     const { api, esc, int, root, empty, dateTime, CHANNEL_LABELS } = kit;
     let bound = false;
+    /** @type {any} */
+    let labelBatch = null;
+    /** @type {any} */
+    let current = null;
     const id = new URLSearchParams(location.search).get("id");
     async function render() {
       if (!id) { root.innerHTML = empty("Lote não informado", "Abra um lote pela Separação.", '<a class="seller-btn" href="/hub/expedicao">Separação</a>'); return; }
       const { batch: b } = await api(`/expedition/batches/${encodeURIComponent(id)}`);
+      current = b;
       const total = b.picking.reduce((/** @type {number} */ s, /** @type {any} */ r) => s + r.quantity, 0);
       root.innerHTML = `
         <section class="seller-card hub-no-print"><div class="hub-account-head"><div><h2>Lote #${esc(b.id)}</h2><small>${esc(dateTime(b.createdAt))} · ${int(b.orders.length)} pedido(s) · ${b.status === "open" ? "aberto" : "concluído"}</small></div>
-          <div class="hub-actions"><button class="seller-btn" type="button" data-print>Imprimir lista</button>
+          <div class="hub-actions"><button class="seller-btn" type="button" data-print>Imprimir lista</button>${formatSelect()}<button class="seller-btn" type="button" data-batch-labels>Imprimir etiquetas</button>
             ${b.status === "open" ? `<a class="seller-btn seller-btn--primary" href="/hub/expedicao/conferencia?lote=${esc(b.id)}">Conferir este lote</a><button class="seller-btn" type="button" data-close-batch>Fechar lote</button>` : ""}</div></div></section>
+        ${labelBatch ? `<section class="seller-card hub-no-print">${labelBatchHtml(kit, labelBatch)}</section>` : ""}
         <section class="seller-card" data-print-area>
           <h2>Lista de separação · lote #${esc(b.id)}</h2><p>${int(total)} unidade(s) de ${int(b.picking.length)} produto(s) para ${int(b.orders.filter((/** @type {any} */ o) => !o.packedAt).length)} pedido(s) a conferir. Kits já aparecem abertos nos componentes.</p>
           ${b.picking.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>✓</th><th>SKU</th><th>Produto</th><th>EAN</th><th class="hub-num">Qtd</th><th class="hub-num">Pedidos</th></tr></thead><tbody>
@@ -137,6 +179,14 @@
       root.addEventListener("click", async (event) => {
         const t = /** @type {HTMLElement} */ (event.target);
         if (t.closest("[data-print]")) { window.print(); return; }
+        if (t.closest("[data-batch-labels]")) {
+          const button = /** @type {HTMLButtonElement} */ (t.closest("[data-batch-labels]"));
+          button.disabled = true; button.textContent = "Gerando etiquetas…";
+          const format = /** @type {HTMLSelectElement} */ (root.querySelector("[data-label-format]")).value;
+          try { labelBatch = await requestLabels(kit, current.orders.map((/** @type {any} */ o) => Number(o.id)), format); }
+          catch (error) { labelBatch = { id: "—", files: [], failures: [{ id: "", orderId: "lote", error: /** @type {Error} */ (error).message }], orders: 0 }; }
+          await render(); return;
+        }
         if (t.closest("[data-close-batch]")) {
           if (!confirm("Fechar o lote? Pedidos ainda não conferidos voltam para a fila de separação.")) return;
           await api(`/expedition/batches/${encodeURIComponent(String(id))}/close`, { method: "POST" });
@@ -280,6 +330,26 @@
       });
     }
     return async () => { bind(); await render(); };
+  };
+
+  /* ───────────── Etiquetas (últimos 7 dias) ───────────── */
+  registry.labels = (kit) => {
+    const { api, root, empty } = kit;
+    const orderId = new URLSearchParams(location.search).get("pedido");
+    /** @type {string} */
+    let message = "";
+    return async () => {
+      if (orderId) {
+        root.innerHTML = '<div class="seller-card"><div class="seller-empty"><strong>Gerando a etiqueta…</strong></div></div>';
+        try { await requestLabels(kit, [Number(orderId)], "pdf"); } catch (error) { message = /** @type {Error} */ (error).message; }
+        history.replaceState(null, "", "/hub/expedicao/etiquetas");
+      }
+      const { batches } = await api("/expedition/labels");
+      if (!batches.length && !message) { root.innerHTML = empty("Nenhuma etiqueta nos últimos 7 dias", "Imprima pela Separação, pelo lote ou pelo pedido.", '<a class="seller-btn seller-btn--primary" href="/hub/expedicao">Separação</a>'); return; }
+      root.innerHTML = `${message ? `<div class="hub-flash" data-tone="danger">${kit.esc(message)}</div>` : ""}
+        <section class="seller-card"><p>Cada canal devolve o próprio arquivo: um por conta. PDF abre no navegador para imprimir; a térmica (ZPL) baixa para a impressora térmica. Os arquivos ficam aqui por 7 dias.</p>
+        ${batches.map((/** @type {any} */ b) => labelBatchHtml(kit, b)).join("")}</section>`;
+    };
   };
 
   /* ───────────── Coletas ───────────── */

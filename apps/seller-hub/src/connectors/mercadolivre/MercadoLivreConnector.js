@@ -96,6 +96,6 @@ class MercadoLivreConnector extends ChannelConnector {
 }
 
 // Pedidos, notificações e escrita de estoque (E3).
-Object.assign(MercadoLivreConnector.prototype, require("./orders").mercadoLivreOrders);
+Object.assign(MercadoLivreConnector.prototype, require("./orders").mercadoLivreOrders, require("../labels").mercadoLivreLabels);
 
 module.exports = { MercadoLivreConnector };

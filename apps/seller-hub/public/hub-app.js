@@ -25,6 +25,7 @@
       { id: "expedition", label: "Expedição", hint: "Separar, conferir e coletar", icon: "package", items: [
         { label: "Separação", path: "/hub/expedicao" },
         { label: "Conferência", path: "/hub/expedicao/conferencia" },
+        { label: "Etiquetas", path: "/hub/expedicao/etiquetas" },
         { label: "Coletas", path: "/hub/expedicao/coletas" },
       ] },
       { id: "sales", label: "Vendas", hint: "Pedidos e baixas", icon: "receipt", items: [

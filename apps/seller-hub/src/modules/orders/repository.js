@@ -21,6 +21,7 @@ const STAGES = Object.freeze(["new", "paid", "invoiced", "ready_to_ship", "shipp
  *   logisticType?: string | null, carrier?: string | null, trackingCode?: string | null, shipmentId?: string | null,
  *   invoiceNumber?: string | null, invoiceKey?: string | null,
  *   buyer?: { name?: string | null, city?: string | null, state?: string | null } | null,
+ *   channelRefs?: Record<string, any> | null,
  *   lines: Array<{ lineKey: string, listingId: string, variationId?: string, channelSku?: string | null, title?: string | null,
  *                  quantity: number, unitPrice?: number | null, saleFee?: number | null }>,
  * }} ChannelOrder
@@ -96,11 +97,11 @@ function createOrdersRepository(db) {
           `insert into hub.channel_orders (channel_account_id, external_order_id, status, channel_status, fulfillment, total, ordered_at, channel_updated_at,
                                            stage, stage_updated_at, products_total, shipping_paid, fees_total, discount_total, net_total, ship_by,
                                            shipped_at, delivered_at, cancelled_at, logistic_type, carrier, tracking_code, shipment_id,
-                                           invoice_number, invoice_key, buyer_name, buyer_city, buyer_state)
+                                           invoice_number, invoice_key, buyer_name, buyer_city, buyer_state, channel_refs)
            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), $10, $11, $12, $13, $14, $15,
                    coalesce($16::timestamptz, case when $9 in ('shipped','delivered') then now() end),
                    coalesce($17::timestamptz, case when $9 = 'delivered' then now() end),
-                   case when $3 = 'cancelled' then now() end, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+                   case when $3 = 'cancelled' then now() end, $18, $19, $20, $21, $22, $23, $24, $25, $26, coalesce($27::jsonb, '{}'::jsonb))
            on conflict (channel_account_id, external_order_id) do update set
              status = excluded.status, channel_status = excluded.channel_status, fulfillment = excluded.fulfillment,
              total = excluded.total, ordered_at = coalesce(hub.channel_orders.ordered_at, excluded.ordered_at),
@@ -124,12 +125,14 @@ function createOrdersRepository(db) {
              invoice_key = coalesce(excluded.invoice_key, hub.channel_orders.invoice_key),
              buyer_name = coalesce(excluded.buyer_name, hub.channel_orders.buyer_name),
              buyer_city = coalesce(excluded.buyer_city, hub.channel_orders.buyer_city),
-             buyer_state = coalesce(excluded.buyer_state, hub.channel_orders.buyer_state)
+             buyer_state = coalesce(excluded.buyer_state, hub.channel_orders.buyer_state),
+             channel_refs = hub.channel_orders.channel_refs || excluded.channel_refs
            returning id`,
           [accountId, String(order.orderId), order.status, order.channelStatus || null, Boolean(order.fulfillment), order.total ?? null, order.orderedAt || null, order.updatedAt || null,
             stage, productsTotal, order.shippingPaid ?? null, feesTotal, order.discountTotal ?? null, netTotal, order.shipBy || null,
             order.shippedAt || null, order.deliveredAt || null, order.logisticType || null, order.carrier || null, order.trackingCode || null, order.shipmentId || null,
-            order.invoiceNumber || null, order.invoiceKey || null, order.buyer?.name || null, order.buyer?.city || null, order.buyer?.state || null]);
+            order.invoiceNumber || null, order.invoiceKey || null, order.buyer?.name || null, order.buyer?.city || null, order.buyer?.state || null,
+            order.channelRefs ? JSON.stringify(order.channelRefs) : null]);
         // Linha do tempo: recebido e cada mudança de situação.
         if (!previous) await client.query("insert into hub.order_events (order_id, kind, stage, channel_status) values ($1, 'received', $2, $3)", [saved.id, stage, order.channelStatus || null]);
         else if (previous.stage !== stage) await client.query("insert into hub.order_events (order_id, kind, stage, channel_status) values ($1, 'stage', $2, $3)", [saved.id, stage, order.channelStatus || null]);

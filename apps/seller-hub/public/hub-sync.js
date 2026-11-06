@@ -249,7 +249,8 @@
             <div class="hub-metric"><span>Coleta</span><strong>${ex.pickupId ? `<a href="/hub/expedicao/coleta?id=${esc(ex.pickupId)}">#${esc(ex.pickupId)}</a>` : "—"}</strong></div>
             <div class="hub-metric"><span>Entregue à transportadora</span><strong>${esc(dateTime(ex.handedOverAt))}</strong></div></div>
           ${(exp?.photos || []).length ? `<div class="hub-photos">${exp.photos.map((/** @type {any} */ p) => `<a href="/hub/api/expedition/photos/${esc(p.id)}" target="_blank" rel="noopener"><img class="hub-photo" src="/hub/api/expedition/photos/${esc(p.id)}" alt="Foto do pacote"></a>`).join("")}</div>` : ""}
-          ${ex.packedAt ? "" : `<a class="seller-btn" href="/hub/expedicao/conferencia">Conferir na expedição</a>`}</section>
+          <div class="hub-actions hub-actions--start">${ex.packedAt ? "" : `<a class="seller-btn" href="/hub/expedicao/conferencia">Conferir na expedição</a>`}
+            ${["shipped", "delivered", "returned", "cancelled"].includes(o.stage) || o.fulfillment ? "" : `<a class="seller-btn" href="/hub/expedicao/etiquetas?pedido=${esc(o.id)}">Imprimir etiqueta</a>`}</div></section>
         <section class="seller-card"><h2>Itens</h2>
           <div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Produto</th><th>Anúncio</th><th class="hub-num">Qtd</th><th class="hub-num">Preço</th><th class="hub-num">Tarifa</th><th>Estoque</th></tr></thead><tbody>
           ${(o.lines || []).map((/** @type {any} */ l) => `<tr><td>${l.sku ? `<a href="/hub/estoque/movimentos?item=${esc(l.itemId)}"><strong>${esc(l.sku)}</strong></a><br><small>${esc(l.itemName || "")}</small>` : '<span class="seller-badge" data-tone="danger">Sem vínculo</span>'}</td>

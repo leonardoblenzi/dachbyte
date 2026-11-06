@@ -61,6 +61,7 @@ function mapOrder(order) {
     carrier: first.shipping?.provider?.name || first.shipping?.provider?.description || null,
     trackingCode: first.shipping?.tracking?.code || null,
     shipmentId: first.id != null ? String(first.id) : null,
+    channelRefs: { channelId: order.channel?.id != null ? String(order.channel.id) : null, deliveryIds: deliveries.map((/** @type {any} */ d) => d?.id).filter((/** @type {any} */ v) => v != null).map(String) },
     logisticType: first.shipping?.provider?.extras?.shipping_type || null,
     lines: mergeLines(rawItems.map((/** @type {any} */ item) => {
       const sku = String(item?.sku ?? item?.info?.sku ?? "").trim();

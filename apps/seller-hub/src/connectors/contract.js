@@ -59,6 +59,13 @@ class ChannelConnector {
    * @returns {Promise<Array<{ ref: number, ok: boolean, retryable?: boolean, uncertain?: boolean, error?: string }>>}
    */
   async writeStock(_account, _writes) { throw new Error("writeStock não implementado"); }
+  /**
+   * Etiquetas de envio (PDF ou ZPL) dos pedidos. Devolve os arquivos do canal e o resultado por pedido.
+   * @param {ConnectedAccount} _account @param {Array<{ ref: number, orderId: string, shipmentId?: string | null, trackingCode?: string | null, refs?: any }>} _refs
+   * @param {{ format: "pdf" | "zpl" }} _options
+   * @returns {Promise<{ files: Array<{ contentType: string, buffer: Buffer, extension: string, orders: number }>, results: Array<{ ref: number, ok: boolean, error?: string, trackingCode?: string | null }> }>}
+   */
+  async fetchLabels(_account, _refs, _options) { throw new Error("fetchLabels não implementado"); }
   /** Relê o estoque no canal (conferência). @param {ConnectedAccount} _account @param {Array<{ ref: number, listingId: string, variationId: string }>} _refs
    *  @returns {Promise<Array<{ ref: number, stock: number | null }>>} */
   async readStock(_account, _refs) { throw new Error("readStock não implementado"); }

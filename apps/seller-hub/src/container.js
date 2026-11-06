@@ -26,6 +26,8 @@ const { createAutomationsRepository } = require("./modules/automations/repositor
 const { createAutomationsService } = require("./modules/automations/service");
 const { createExpeditionRepository } = require("./modules/expedition/repository");
 const { createExpeditionService } = require("./modules/expedition/service");
+const { createLabelsRepository } = require("./modules/labels/repository");
+const { createLabelsService } = require("./modules/labels/service");
 
 /** Cifra criada só quando usada: sem chave, conectar conta falha com 503 sem derrubar o app. @param {string} key */
 function lazyCipher(key) {
@@ -38,7 +40,7 @@ function lazyCipher(key) {
 /**
  * Raiz de composição: monta as peças do Hub uma vez, para o site (app.js) e para o worker.
  * Qualquer peça pode ser trocada (testes, prévia local).
- * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, imports?: any, queue?: any, stock?: any, orders?: any, sync?: any, syncQueues?: any, tokens?: any, reconcile?: any, billing?: any, automations?: any, expedition?: any }} [overrides]
+ * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, imports?: any, queue?: any, stock?: any, orders?: any, sync?: any, syncQueues?: any, tokens?: any, reconcile?: any, billing?: any, automations?: any, expedition?: any, labels?: any }} [overrides]
  */
 function createContainer(overrides = {}) {
   const config = overrides.config || loadConfig();
@@ -66,6 +68,8 @@ function createContainer(overrides = {}) {
   let billing = null;
   /** @type {any} */
   let automations = null;
+  /** @type {any} */
+  let labels = null;
   const syncQueues = overrides.syncQueues || createSyncQueues({
     redisUrl: config.redisUrl,
     handlers: () => ({
@@ -78,7 +82,8 @@ function createContainer(overrides = {}) {
       },
       reconcile: (job) => reconcile.runReconcile(job),
       reconcileAll: () => reconcile.scheduleAll(),
-      closeMonths: () => billing.closePastMonths(),
+      // Rotina diária: fecha os meses passados e apaga arquivos de etiqueta com mais de 7 dias.
+      closeMonths: async () => ({ ...(await billing.closePastMonths()), labelsRemoved: await labels.cleanup() }),
       automation: (job) => automations.onOrderEvent(job),
       automationsScan: () => automations.scanDue(),
     }),
@@ -100,7 +105,8 @@ function createContainer(overrides = {}) {
   const expedition = overrides.expedition || createExpeditionService({
     repository: createExpeditionRepository(db), onOrderPacked: (event) => automations.orderPacked(event),
   });
-  return { config, db, connectors, catalog, accounts, tokens, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition };
+  labels = overrides.labels || createLabelsService({ repository: createLabelsRepository(db), connectors, tokens });
+  return { config, db, connectors, catalog, accounts, tokens, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition, labels };
 }
 
 module.exports = { createContainer, lazyCipher };

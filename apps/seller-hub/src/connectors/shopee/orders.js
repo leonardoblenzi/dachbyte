@@ -1,7 +1,7 @@
 // @ts-check
 "use strict";
 
-const { requestJson } = require("../../platform/http");
+const { requestJson, requestBinary } = require("../../platform/http");
 const { hmacSha256Hex } = require("../../platform/crypto");
 const { classifyWriteError, safeEqualHex, unauthorized, mergeLines } = require("../writeResult");
 
@@ -49,6 +49,7 @@ function mapOrder(order) {
     carrier: order.shipping_carrier || null,
     trackingCode: tracking && tracking !== "-" ? tracking : null,
     shipmentId: pack.package_number || null,
+    channelRefs: { packageNumbers: (Array.isArray(order.package_list) ? order.package_list : []).map((/** @type {any} */ p) => p?.package_number).filter(Boolean).map(String) },
     buyer: { name: null, city: unmasked(order.recipient_address?.city), state: unmasked(order.recipient_address?.state) },
     orderedAt: order.create_time ? new Date(Number(order.create_time) * 1000).toISOString() : null,
     updatedAt: order.update_time ? new Date(Number(order.update_time) * 1000).toISOString() : null,
@@ -188,5 +189,14 @@ const shopeePost = {
     return payload?.response || {};
   },
 };
+
+/** POST assinado que devolve arquivo (ex.: download_shipping_document). */
+shopeePost.shopPostBinary = /** @this {any} @param {{ accessToken: string, externalAccountId: string }} account @param {string} path @param {any} body */
+  async function shopPostBinary(account, path, body) {
+    const timestamp = this.now();
+    const sign = hmacSha256Hex(this.partnerKey, `${this.partnerId}${path}${timestamp}${account.accessToken}${account.externalAccountId}`);
+    const params = new URLSearchParams({ partner_id: this.partnerId, timestamp: String(timestamp), access_token: account.accessToken, shop_id: String(account.externalAccountId), sign });
+    return requestBinary(`${this.apiBase}${path}?${params}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), fetchImpl: this.fetchImpl });
+  };
 
 module.exports = { shopeeOrders, shopeePost, mapOrder, sellerStock };

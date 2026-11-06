@@ -16,7 +16,7 @@ const { startImportWorker } = require("./src/jobs/importQueue");
 const { startSyncWorkers } = require("./src/jobs/syncQueues");
 
 const container = createContainer();
-const { config, db, imports, orders, sync, reconcile, billing, automations } = container;
+const { config, db, imports, orders, sync, reconcile, billing, automations, labels } = container;
 if (!config.redisUrl) {
   console.error("[seller-hub:worker] HUB_REDIS_URL/REDIS_URL não configurado.");
   process.exit(1);
@@ -37,7 +37,7 @@ startSyncWorkers({
     },
     reconcile: (job) => reconcile.runReconcile(job),
     reconcileAll: () => reconcile.scheduleAll(),
-    closeMonths: () => billing.closePastMonths(),
+    closeMonths: async () => ({ ...(await billing.closePastMonths()), labelsRemoved: await labels.cleanup() }),
     automation: (job) => automations.onOrderEvent(job),
     automationsScan: () => automations.scanDue(),
   },

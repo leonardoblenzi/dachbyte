@@ -36,6 +36,9 @@ const DEFAULT_SCOPES = [
   "open:order-delivery-seller:read",
   "open:portfolio-stocks-seller:write",
   "open:portfolio-prices-seller:write",
+  // Etiquetas do Magalu Entregas (Fase 3 / P4). Contas conectadas antes precisam reconectar para ganhar o escopo.
+  "open:order-logistics-seller:read",
+  "open:order-logistics-seller:write",
 ];
 
 /** Lê o payload de um JWT sem validar assinatura (só para identificar o tenant). @param {string} token */
@@ -147,6 +150,6 @@ class MagaluConnector extends ChannelConnector {
 }
 
 // Pedidos, notificações e escrita de estoque (E3).
-Object.assign(MagaluConnector.prototype, require("./orders").magaluOrders);
+Object.assign(MagaluConnector.prototype, require("./orders").magaluOrders, require("../labels").magaluLabels);
 
 module.exports = { MagaluConnector, DEFAULT_SCOPES, _test: { jwtPayload, mapWithConcurrency } };

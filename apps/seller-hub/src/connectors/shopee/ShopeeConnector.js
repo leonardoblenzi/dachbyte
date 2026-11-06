@@ -129,6 +129,6 @@ class ShopeeConnector extends ChannelConnector {
 
 // Pedidos, notificações e escrita de estoque (E3).
 const { shopeeOrders, shopeePost } = require("./orders");
-Object.assign(ShopeeConnector.prototype, shopeeOrders, shopeePost);
+Object.assign(ShopeeConnector.prototype, shopeeOrders, shopeePost, require("../labels").shopeeLabels);
 
 module.exports = { ShopeeConnector, DEFAULT_API_BASE };

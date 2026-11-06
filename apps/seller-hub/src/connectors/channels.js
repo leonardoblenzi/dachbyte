@@ -25,7 +25,8 @@ const { ShopeeConnector } = require("./shopee/ShopeeConnector");
 /**
  * O que o canal sabe fazer. O núcleo consulta isto antes de agendar trabalho
  * (ex.: não envia estoque para canal sem `stockWrite`).
- * @typedef {{ listings: boolean, stockWrite: boolean, priceWrite: boolean, orders: boolean, fulfillment: boolean }} ChannelCapabilities
+ * labels: o Hub baixa a etiqueta de envio do canal.
+ * @typedef {{ listings: boolean, stockWrite: boolean, priceWrite: boolean, orders: boolean, fulfillment: boolean, labels?: boolean }} ChannelCapabilities
  */
 /** @typedef {{ name: string, label: string, type?: "text" | "password" | "url", placeholder?: string }} CredentialField */
 /**
@@ -56,7 +57,7 @@ const CHANNEL_DEFINITIONS = Object.freeze([
     label: "Mercado Livre",
     kind: "marketplace",
     auth: "oauth",
-    capabilities: { listings: true, stockWrite: true, priceWrite: true, orders: true, fulfillment: true },
+    capabilities: { listings: true, stockWrite: true, priceWrite: true, orders: true, fulfillment: true, labels: true },
     settingsFromEnv: (env) => ({ clientId: str(env.HUB_ML_APP_ID), clientSecret: str(env.HUB_ML_CLIENT_SECRET) }),
     create: (settings, fetchImpl) => new MercadoLivreConnector({ clientId: settings.clientId, clientSecret: settings.clientSecret, fetchImpl }),
   },
@@ -65,7 +66,7 @@ const CHANNEL_DEFINITIONS = Object.freeze([
     label: "Magalu",
     kind: "marketplace",
     auth: "oauth",
-    capabilities: { listings: true, stockWrite: true, priceWrite: true, orders: true, fulfillment: true },
+    capabilities: { listings: true, stockWrite: true, priceWrite: true, orders: true, fulfillment: true, labels: true },
     settingsFromEnv: (env) => ({ clientId: str(env.HUB_MAGALU_CLIENT_ID), clientSecret: str(env.HUB_MAGALU_CLIENT_SECRET), scopes: list(env.HUB_MAGALU_SCOPES), webhookSecret: str(env.HUB_MAGALU_WEBHOOK_SECRET) }),
     create: (settings, fetchImpl) => new MagaluConnector({ clientId: settings.clientId, clientSecret: settings.clientSecret, scopes: settings.scopes, webhookSecret: settings.webhookSecret, fetchImpl }),
   },
@@ -74,7 +75,7 @@ const CHANNEL_DEFINITIONS = Object.freeze([
     label: "Shopee",
     kind: "marketplace",
     auth: "oauth",
-    capabilities: { listings: true, stockWrite: true, priceWrite: true, orders: true, fulfillment: false },
+    capabilities: { listings: true, stockWrite: true, priceWrite: true, orders: true, fulfillment: false, labels: true },
     settingsFromEnv: (env) => ({ partnerId: str(env.HUB_SHOPEE_PARTNER_ID), partnerKey: str(env.HUB_SHOPEE_PARTNER_KEY), apiBase: str(env.HUB_SHOPEE_API_BASE) || "https://partner.shopeemobile.com" }),
     create: (settings, fetchImpl) => new ShopeeConnector({ partnerId: settings.partnerId, partnerKey: settings.partnerKey, apiBase: settings.apiBase, fetchImpl }),
   },

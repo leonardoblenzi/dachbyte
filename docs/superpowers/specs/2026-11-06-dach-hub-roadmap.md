@@ -182,7 +182,14 @@ O detalhe está em `2026-11-06-dach-hub-fase1-design.md`.
   - **Coletas:** embarque por bipagem (só pedido conferido, sem repetir), romaneio imprimível com assinaturas, fechar coleta = entregue à transportadora.
   - Novo gatilho de automação **"pedido conferido"**; tudo registrado na linha do tempo do pedido.
   - Quem opera o depósito usa a expedição sem ser administrador; desfazer conferência exige administrador.
-- **P4 — Etiquetas por canal** e impressão agrupada.
+- **P4 — Etiquetas por canal (feito, migração 009):** documentação oficial conferida em 06/11/2026.
+  - **ML:** `GET /shipment_labels?shipment_ids=…&response_type=pdf|zpl2` (até 50; envio `ready_to_ship`/`ready_to_print`; "buffered" só libera na data indicada).
+  - **Magalu:** `POST /seller/v1/logistics/shipping-labels` (canal + entregas, PDF ou ZPL) → link temporário do arquivo + rastreio; exige o escopo `open:order-logistics-seller` (contas conectadas antes precisam **reconectar**).
+  - **Shopee:** rastreio (envio já programado) → `create_shipping_document` → `get_shipping_document_result` (READY) → `download_shipping_document`; PDF A4 ou térmica A6 (Shopee não tem ZPL).
+  - Um arquivo por conta (o canal devolve o próprio PDF/ZPL); lote recusado é refeito pedido a pedido; falha explicada por pedido; Full, cancelado e já enviado não pedem etiqueta.
+  - O rastreio devolvido pelo canal é gravado no pedido; impressão registrada na linha do tempo; arquivos guardados por 7 dias para reimprimir (limpeza diária no worker).
+  - Telas: imprimir na Separação (selecionados), no lote e no pedido; página Etiquetas com os lotes recentes.
+  - Pendente: programar o envio da Shopee (`ship_order`: coleta ou postagem) pelo Hub; hoje o envio precisa estar programado no painel da Shopee.
 - **P5 — Fiscal:** NF via ERP (Bling primeiro) e envio da NF ao canal.
 
 ---
