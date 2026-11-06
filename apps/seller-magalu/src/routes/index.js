@@ -44,7 +44,7 @@ router.get("/catalogo", (_req, res) => res.redirect(302, "/magalu/gestao-skus"))
 router.get("/custos", (_req, res) => res.redirect(302, "/magalu/margem?aba=costs"));
 router.get("/promocoes-em-massa", (_req, res) => res.redirect(302, "/magalu/promocoes?aba=precificacao"));
 router.get("/precificacao-promocional", (_req, res) => res.redirect(302, "/magalu/promocoes?aba=precificacao"));
-for (const route of ["/", "/pedidos", "/gestao-skus", "/estoque", "/precos", "/promocoes", "/margem", "/calculadora", "/integracoes", "/contas", "/usuarios", "/plano", "/ajuda", "/ranking"]) {
+for (const route of ["/", "/pedidos", "/gestao-skus", "/estoque", "/precos", "/promocoes", "/margem", "/calculadora", "/integracoes", "/contas", "/usuarios", "/plano", "/ajuda", "/ranking", "/projecao"]) {
   const returnPath = route === "/" ? "/magalu/" : `/magalu${route}`;
   router.get(route, async (req, res, next) => {
     try {

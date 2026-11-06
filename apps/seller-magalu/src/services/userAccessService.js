@@ -6,6 +6,7 @@ const userAccessRepository = require("../repositories/userAccessRepository");
 // operacao tem uma chave; Visao geral e Conta ficam fora (Conta e de admin).
 const MODULES = Object.freeze([
   { key: "magalu.visao.ranking", label: "Ranking de anúncios", group: "Visão geral", path: "/ranking" },
+  { key: "magalu.visao.projecao", label: "Projeção mensal", group: "Visão geral", path: "/projecao" },
   { key: "magalu.pedidos", label: "Pedidos Magalu", group: "Pedidos", path: "/pedidos" },
   { key: "magalu.operacoes.catalogo", label: "Gestão de catálogo", group: "Operações", path: "/gestao-skus" },
   { key: "magalu.operacoes.estoque", label: "Estoque", group: "Operações", path: "/estoque" },

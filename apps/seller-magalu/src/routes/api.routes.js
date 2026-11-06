@@ -10,6 +10,7 @@ const skuManagementRoutes = require("./skuManagement.routes");
 const orderRoutes = require("./order.routes");
 const dashboardController = require("../controllers/dashboardController");
 const rankingController = require("../controllers/rankingController");
+const projectionController = require("../controllers/projectionController");
 const financialRoutes = require("./financial.routes");
 const uxAnalyticsRoutes = require("./uxAnalytics.routes");
 const promotionRoutes = require("./promotion.routes");
@@ -50,6 +51,7 @@ router.use("/financial", userAccess.requireEditForWrites("magalu.precificacao.ma
 router.get("/session", (req, res) => { const identity=req.magaluIdentity; return res.json({ok:true,module:"magalu",user:{email:identity.email,name:identity.name},subscription:identity.subscription||null}); });
 router.get("/dashboard",dashboardController.status);
 router.get("/ranking",rankingController.ranking);
+router.get("/projection",projectionController.projection);
 router.get("/ranking/config",rankingController.getConfig);
 router.put("/ranking/config",userAccess.requireAdmin,rankingController.saveConfig);
 router.post("/dashboard/refresh",dashboardController.refresh);

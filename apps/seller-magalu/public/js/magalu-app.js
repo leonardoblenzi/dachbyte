@@ -31,6 +31,7 @@
   const routes = {
     "/": { title: "Painel", page: "mg-dashboard", group: "overview" },
     "/ranking": { title: "Ranking de anúncios", page: "mg-ranking-page", group: "overview" },
+    "/projecao": { title: "Projeção mensal", page: "mg-projection-page", group: "overview" },
     "/catalogo": { title: "Consulta de catálogo", page: "mg-catalog-page", group: "products" },
     "/pedidos": { title: "Pedidos", page: "mg-orders-page", group: "orders" },
     "/gestao-skus": { title: "Gestão de catálogo", page: "mg-sku-management-page", group: "operations" },

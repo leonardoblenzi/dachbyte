@@ -26,6 +26,7 @@
   <link rel="stylesheet" href="/magalu/assets/css/magalu-process-panel.css?v=2026110402">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-fixes-20261105.css?v=2026110502">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-ranking.css?v=2026110703">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-projection.css?v=2026110801">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-canonical-ui.css?v=2026110801">
 </head>
 <body>
@@ -64,6 +65,7 @@
         </button>
         <div class="mg-nav__children">
           <a href="/magalu/" data-nav-path="/" class="mg-nav__item">Painel</a>
+          <a href="/magalu/projecao" data-nav-path="/projecao" class="mg-nav__item">Projeção mensal</a>
           <a href="/magalu/ranking" data-nav-path="/ranking" class="mg-nav__item">Ranking de anúncios</a>
         </div>
       </section>
@@ -177,6 +179,42 @@
         </div></section>
         <section class="mg-dashboard-surface" id="mg-dashboard-pace"><div class="mg-dashboard-surface__head"><div><span class="mg-dashboard-section-kicker">Ritmo do mês</span><h2>Mês atual contra o mês passado</h2><p id="mg-dashboard-pace-caption">Calculando ritmo...</p></div></div><div class="mg-dashboard-pace-grid"><div class="mg-dashboard-pace" id="mg-dashboard-pace-gmv" data-status="no_base"></div><div class="mg-dashboard-pace" id="mg-dashboard-pace-orders" data-status="no_base"></div></div></section>
         <section class="mg-dashboard-surface"><div class="mg-dashboard-surface__head"><div><span class="mg-dashboard-section-kicker">Produtos</span><h2>Mais vendidos no período</h2><p>Faturamento, estoque atual e quantos dias o estoque dura no ritmo de venda dos últimos 30 dias.</p></div><a class="mg-dashboard-risk-link" href="/magalu/estoque">Abrir estoque →</a></div><div class="mg-table-wrap"><table class="mg-table mg-dashboard-top-table"><thead><tr><th>Produto</th><th>Unidades</th><th>Faturamento</th><th>Estoque</th><th>Cobertura</th></tr></thead><tbody id="mg-dashboard-top-products"><tr><td colspan="5">Carregando produtos…</td></tr></tbody></table></div></section>
+      </section>
+
+      <section id="mg-projection-page" class="mg-product-page mg-dashboard-page mg-projection-page" data-page="/projecao" hidden>
+        <header class="mg-page-head mg-ui-hero">
+          <div>
+            <span class="mg-kicker">Visão geral · Magalu</span><h1>Projeção mensal</h1><p>Acompanhe o ritmo do mês, o fechamento estimado e a composição da receita.</p>
+            <div class="mg-dashboard-meta"><strong id="mg-proj-account">Conta Magalu</strong><i class="mg-dashboard-meta__dot"></i><span id="mg-proj-period">—</span><i class="mg-dashboard-meta__dot"></i><span>Dia <strong id="mg-proj-day">—</strong></span><i class="mg-dashboard-meta__dot"></i><span id="mg-proj-updated">Carregando…</span></div>
+          </div>
+          <div class="mg-proj-actions">
+            <label class="mg-proj-field"><span>Mês</span><input id="mg-proj-month" type="month" aria-label="Mês da projeção"></label>
+            <details class="mg-proj-status" id="mg-proj-status"><summary><span>Status do pedido</span><strong id="mg-proj-status-label">Todos menos cancelado</strong></summary><div class="mg-proj-status__menu"><p>Status que a API do Magalu trouxe para esta conta.</p><div id="mg-proj-status-options" class="mg-proj-status__options"></div><div class="mg-proj-status__actions"><button class="mg-secondary-btn" type="button" id="mg-proj-status-default">Padrão</button><button class="mg-primary-btn" type="button" id="mg-proj-status-apply">Aplicar</button></div></div></details>
+            <button class="mg-primary-btn" id="mg-proj-refresh" type="button">Atualizar</button>
+          </div>
+        </header>
+        <section class="mg-dashboard-primary-kpis" aria-label="Indicadores do mês">
+          <article class="mg-dashboard-kpi"><span class="mg-dashboard-kpi__label">Faturamento atual</span><strong class="mg-dashboard-kpi__value" id="mg-proj-revenue">—</strong><small class="mg-dashboard-kpi__delta" id="mg-proj-revenue-delta">vs mês anterior</small></article>
+          <article class="mg-dashboard-kpi"><span class="mg-dashboard-kpi__label">Projeção do mês</span><strong class="mg-dashboard-kpi__value" id="mg-proj-projected">—</strong><small class="mg-dashboard-kpi__delta" id="mg-proj-projected-delta">vs fechamento anterior</small></article>
+          <article class="mg-dashboard-kpi"><span class="mg-dashboard-kpi__label">Ritmo diário</span><strong class="mg-dashboard-kpi__value" id="mg-proj-avg-revenue">—</strong><small class="mg-dashboard-kpi__delta" id="mg-proj-avg-revenue-delta">vs mês anterior</small></article>
+          <article class="mg-dashboard-kpi"><span class="mg-dashboard-kpi__label">Pedidos</span><strong class="mg-dashboard-kpi__value" id="mg-proj-orders">—</strong><small class="mg-dashboard-kpi__delta" id="mg-proj-orders-delta">vs mês anterior</small></article>
+        </section>
+        <section class="mg-dashboard-mini-grid mg-proj-mini" aria-label="Indicadores complementares">
+          <article class="mg-dashboard-mini"><span>Média de pedidos</span><strong id="mg-proj-avg-orders">—</strong><small id="mg-proj-avg-orders-delta">por dia fechado</small></article>
+          <article class="mg-dashboard-mini"><span>Ticket médio</span><strong id="mg-proj-ticket">—</strong><small id="mg-proj-ticket-delta">vs mês anterior</small></article>
+          <article class="mg-dashboard-mini"><span>Unidades vendidas</span><strong id="mg-proj-units">—</strong><small>acumulado do período</small></article>
+        </section>
+        <section class="mg-dashboard-surface mg-proj-evolution">
+          <div class="mg-dashboard-surface__head"><div><span class="mg-dashboard-section-kicker">Evolução</span><h2>Ritmo do mês</h2><p>Receita diária e comparação com o mesmo dia do mês anterior.</p></div><label class="mg-proj-toggle"><input id="mg-proj-compare" type="checkbox" checked> Comparar mês anterior</label></div>
+          <div class="mg-proj-progress" aria-label="Progresso do mês"><i id="mg-proj-progress-fill"></i></div>
+          <div class="mg-proj-chart" id="mg-proj-chart"><div class="mg-proj-chart__empty">Carregando gráfico…</div></div>
+          <div class="mg-proj-legend"><span data-series="current">Receita diária</span><span data-series="previous" id="mg-proj-legend-previous">Mesmo dia do mês passado</span></div>
+          <details class="mg-proj-formula"><summary>Como calculamos a projeção</summary><p>Usamos a receita acumulada no mês dividida pelos dias corridos e projetamos esse ritmo para todos os dias do mês. O ritmo diário e a média de pedidos usam só os dias já fechados (hoje fica de fora). Entram só os pedidos com os status escolhidos no filtro.</p><small id="mg-proj-formula-hint"></small></details>
+        </section>
+        <section class="mg-dashboard-surface mg-proj-composition">
+          <div class="mg-dashboard-surface__head"><div><span class="mg-dashboard-section-kicker">Composição</span><h2>Receita por status e por entrega</h2><p>Todos os pedidos do período por status do pedido e a receita considerada dividida entre Full (Magalu Entregas) e as demais entregas.</p></div><a class="mg-dashboard-risk-link" href="/magalu/pedidos">Ver pedidos →</a></div>
+          <div class="mg-proj-composition-grid"><div class="mg-proj-status-bars" id="mg-proj-status-bars"></div><div class="mg-proj-delivery" id="mg-proj-delivery"></div></div>
+        </section>
       </section>
 
       <section id="mg-ranking-page" class="mg-product-page mg-ranking-page" data-page="/ranking" hidden>
@@ -619,7 +657,8 @@
     <script src="/magalu/assets/js/magalu-loading.js?v=2026103001"></script>
     <script src="/magalu/assets/js/magalu-dashboard.js?v=2026110703"></script>
     <script src="/magalu/assets/js/magalu-ranking.js?v=2026110702"></script>
-        <script src="/magalu/assets/js/magalu-app.js?v=2026110702"></script>
+    <script src="/magalu/assets/js/magalu-projection.js?v=2026110801"></script>
+        <script src="/magalu/assets/js/magalu-app.js?v=2026110801"></script>
 <script src="/magalu/assets/js/magalu-account.js?v=2026110701"></script>
         <script src="/magalu/assets/js/magalu-sku-management.js?v=2026110501"></script>
     <script src="/magalu/assets/js/magalu-orders.js?v=2026110502"></script>
