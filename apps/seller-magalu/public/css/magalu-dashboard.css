@@ -82,3 +82,12 @@
 .mg-dashboard-page .mg-cmp__box .mg-cmp__row b[data-tone="positive"]{color:var(--mg-success)}
 .mg-dashboard-page .mg-cmp__box .mg-cmp__row b[data-tone="negative"]{color:var(--mg-danger)}
 .mg-dashboard-page .mg-cmp__value{display:inline;margin:0;font:inherit;color:inherit;text-transform:none;letter-spacing:inherit}
+
+/* Balao do hover comparativo sempre na frente: a fileira e o card com o mouse em cima
+   sobem de camada (antes a fileira de baixo cobria o balao). Vale para Painel e Projecao. */
+.mg-dashboard-page :is(.mg-dashboard-primary-kpis,.mg-dashboard-mini-grid,.mg-dashboard-performance-grid,.mg-dashboard-surface){position:relative}
+.mg-dashboard-page :is(.mg-dashboard-kpi,.mg-dashboard-mini,.mg-dashboard-metric-card){position:relative}
+.mg-dashboard-page :is(.mg-dashboard-primary-kpis,.mg-dashboard-mini-grid,.mg-dashboard-performance-grid,.mg-dashboard-surface):has(.mg-cmp:hover,.mg-cmp:focus-visible){z-index:60}
+.mg-dashboard-page :is(.mg-dashboard-kpi,.mg-dashboard-mini,.mg-dashboard-metric-card):has(.mg-cmp:hover,.mg-cmp:focus-visible){z-index:61}
+.mg-dashboard-page .mg-dashboard-mini{overflow:visible}
+.mg-projection-page>.mg-page-head{position:relative;z-index:40;overflow:visible}

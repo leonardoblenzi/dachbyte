@@ -106,3 +106,6 @@
 .mg-ranking-config__toggle small{color:var(--mg-muted);font-size:.72rem;line-height:1.4}
 .mg-ranking-config__note{margin:0;color:var(--mg-muted);font-size:.72rem}
 .mg-ranking-config__note[data-tone="warning"]{padding:8px 10px;border-radius:10px;background:var(--mg-warning-soft);color:var(--mg-warning)}
+
+/* Ultimas linhas da tabela abrem o balao para cima (para baixo ele era cortado pela rolagem). */
+.mg-ranking-table tbody tr:nth-last-child(-n+4):not(:nth-child(-n+3)) .mg-cmp>.mg-cmp__box{top:auto;bottom:calc(100% + 6px)}
