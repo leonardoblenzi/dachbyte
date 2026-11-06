@@ -30,7 +30,7 @@ test("dashboard UI follows the Meli decision hierarchy without invented Ads metr
   assert.match(html, /id="mg-dashboard-period"/);
   assert.match(html, /id="mg-dashboard-priorities"/);
   assert.match(html, /Comercial e resultado/);
-  assert.match(html, /Sinais operacionais/);
+  assert.match(html, /Mais vendidos no período/);
   assert.match(html, /id="mg-dashboard-orders-period"/);
   assert.match(html, /id="kpi-orders-period-label"/);
   assert.match(html, /id="kpi-gmv-period-label"/);

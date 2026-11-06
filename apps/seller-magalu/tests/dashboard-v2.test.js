@@ -48,8 +48,8 @@ test("cache do painel expira, separa periodos e e limpo ao renomear a conta", ()
 test("painel nao mostra mais sincronizacao nem ultimas alteracoes; mostra margem, ritmo e produtos", () => {
   const html = read("views/app.html");
   const dashboard = html.slice(html.indexOf('id="mg-dashboard"'), html.indexOf('id="mg-catalog-page"'));
-  assert.doesNotMatch(dashboard, /Últimas alterações|mg-dashboard-sync-card|Sincronização/);
-  for (const id of ["mg-dashboard-margin-pct", "mg-dashboard-pace-gmv", "mg-dashboard-pace-orders", "mg-dashboard-top-products", "mg-dashboard-stock-items", "mg-dashboard-cancel"]) {
+  assert.doesNotMatch(dashboard, /Últimas alterações|mg-dashboard-sync-card|Sincronização|Sinais operacionais|mg-dashboard-delivery-statuses/);
+  for (const id of ["mg-dashboard-margin-pct", "mg-dashboard-pace-gmv", "mg-dashboard-pace-orders", "mg-dashboard-top-products", "mg-dashboard-stock-risk-count", "mg-dashboard-cancel"]) {
     assert.match(dashboard, new RegExp(`id="${id}"`), id);
   }
   assert.doesNotMatch(dashboard, /50c38028|magalu_tenant_id/);

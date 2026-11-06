@@ -13,7 +13,6 @@
   const shortDate = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || "")); return m ? `${m[3]}/${m[2]}` : ""; };
   const setText = (id, value) => { const el = $(id); if (el) el.textContent = value; };
 
-  const DELIVERY_LABELS = { new:"Novos", approved:"Aprovados", invoiced:"Faturados", shipped:"Enviados", delivered:"Entregues", cancelled:"Cancelados", canceled:"Cancelados", frozen:"Congelados", unknown:"Sem situação" };
   const PREVIOUS_LABELS = { today:"Ontem", "7d":"7 dias anteriores", "14d":"14 dias anteriores", "30d":"30 dias anteriores" };
 
   // ---------- Comparativo com o periodo anterior (valor + hover) ----------
@@ -155,15 +154,6 @@
     const mini = $("mg-dashboard-stock-card"); if (mini) mini.dataset.tone = tone === "success" ? "" : tone;
   }
 
-  function renderDeliveryStatuses(rows) {
-    const values = Array.isArray(rows) ? rows : [];
-    const total = values.reduce((sum, row) => sum + num(row.total), 0);
-    setText("mg-dashboard-delivery-main", total ? integer(total) : "—");
-    const badge = $("mg-dashboard-delivery-badge"); if (badge) { badge.textContent = total ? "Atualizadas" : "Sem entregas"; badge.dataset.tone = total ? "success" : "warning"; }
-    const host = $("mg-dashboard-delivery-statuses"); if (!host) return;
-    host.innerHTML = values.length ? values.slice(0, 6).map((row) => `<div><span>${esc(DELIVERY_LABELS[String(row.status || "unknown").toLowerCase()] || row.status)}</span><strong>${integer(row.total)}</strong></div>`).join("") : '<div><span>Sem entregas sincronizadas</span><strong>—</strong></div>';
-  }
-
   function renderError() {
     ["kpi-gmv-30d","kpi-orders-30d","kpi-ticket-30d","mg-dashboard-margin-pct","mg-dashboard-orders-today","mg-dashboard-orders-period","mg-dashboard-commercial-gmv","mg-dashboard-commercial-ticket","mg-dashboard-cost-coverage","mg-dashboard-updated"].forEach((id) => setText(id, "—"));
     const priority = $("mg-dashboard-priorities");
@@ -252,7 +242,6 @@
 
     renderTopProducts(insights.top_products);
     renderStockRisk(insights.stock_risk || null);
-    renderDeliveryStatuses(orders.delivery_statuses);
     renderPriorities(buildPriorities(data, { paceGmv, risk: insights.stock_risk, marginNow, cancelNow, cancelPrev }));
   }
 
