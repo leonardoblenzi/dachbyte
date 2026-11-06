@@ -9,3 +9,10 @@
 #mg-promo-prices-page [data-pix-field][hidden]{display:none!important}
 .mg-promo-prices__terms > small[data-pix-field]{display:block;margin-top:6px}
 .mg-promo-prices__terms-grid select{min-height:36px;border:1px solid var(--mg-border);border-radius:9px;padding:6px 9px;background:var(--mg-surface);color:var(--mg-text);font:inherit;font-size:.82rem;font-weight:700}
+
+/* Filtros da Precificacao: Buscar mais largo para a dica caber em uma linha;
+   campos alinhados pelo topo (a dica fica embaixo sem empurrar o campo). */
+@media(min-width:1101px){
+  .mg-promo-prices__filters{grid-template-columns:118px minmax(300px,3fr) repeat(3,minmax(92px,1fr)) auto;align-items:start;column-gap:10px}
+  .mg-promo-prices__filters>.mg-primary-btn{align-self:start;margin-top:22px}
+}
