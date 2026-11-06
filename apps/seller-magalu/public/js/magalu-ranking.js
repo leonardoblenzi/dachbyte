@@ -117,7 +117,8 @@
     state.data = data;
     const meta = data.meta || {};
     $("mg-ranking-label").textContent = `Top ${meta.limit || 10} · ordenado por ${meta.order_by === "quantidade" ? "quantidade" : "faturamento"}`;
-    $("mg-ranking-range").textContent = `${shortDate(meta.main_range?.from)} a ${shortDate(meta.main_range?.to)} comparado com ${shortDate(meta.compare_range?.from)} a ${shortDate(meta.compare_range?.to)} · ${integer(meta.products_sold)} anúncio(s) com venda`;
+    const fromHistory = [meta.sources?.main === "snapshot" ? "período" : "", meta.sources?.compare === "snapshot" ? "comparação" : ""].filter(Boolean);
+    $("mg-ranking-range").textContent = `${shortDate(meta.main_range?.from)} a ${shortDate(meta.main_range?.to)} comparado com ${shortDate(meta.compare_range?.from)} a ${shortDate(meta.compare_range?.to)} · ${integer(meta.products_sold)} anúncio(s) com venda${fromHistory.length ? ` · ${fromHistory.join(" e ")} do histórico mensal` : ""}`;
     renderKpis(data); renderTable(data); renderMovement(data); renderInsights(data);
   }
 
@@ -156,7 +157,73 @@
     setTimeout(() => URL.revokeObjectURL(link.href), 2000);
   }
 
+  // ---------- Engrenagem: modo performance e histórico mensal (como no ML) ----------
+  const MODE_LABELS = { 30: "Leve (30)", 50: "Balanceado (50)", 100: "Detalhado (100)" };
+  const config = { data: null, canManage: false, preset: 30 };
+
+  function renderConfig() {
+    const data = config.data || { persist_enabled: false, snapshot_limit: 30 };
+    const status = $("mg-ranking-persist-status");
+    if (status) {
+      status.textContent = data.persist_enabled ? `Histórico mensal ativo · ${MODE_LABELS[data.snapshot_limit] || MODE_LABELS[30]}` : "Histórico mensal inativo";
+      status.dataset.state = data.persist_enabled ? "on" : "off";
+    }
+    document.querySelectorAll("[data-ranking-preset]").forEach((button) => {
+      button.classList.toggle("is-active", Number(button.dataset.rankingPreset) === config.preset);
+      button.disabled = !config.canManage;
+    });
+    const persist = $("mg-ranking-persist");
+    if (persist) { persist.checked = data.persist_enabled === true; persist.disabled = !config.canManage; }
+    const save = $("mg-ranking-config-save"); if (save) save.hidden = !config.canManage;
+    const readonly = $("mg-ranking-config-readonly"); if (readonly) readonly.hidden = config.canManage;
+    const months = $("mg-ranking-config-months");
+    if (months) {
+      const list = Array.isArray(config.months) ? config.months : [];
+      months.textContent = list.length ? `Meses guardados: ${list.map((row) => { const [y, m] = String(row.month).split("-"); return `${m}/${y}`; }).join(", ")}.` : "Nenhum mês guardado ainda.";
+    }
+  }
+
+  async function loadConfig() {
+    if (!account()) return;
+    try {
+      const data = await shell().fetchJson(`/magalu/api/ranking/config?account_id=${account()}`, { loading: "none" });
+      config.data = data.config;
+      config.canManage = data.permissions?.can_manage === true;
+      config.preset = Number(data.config?.snapshot_limit) || 30;
+      config.months = data.snapshots || [];
+      renderConfig();
+    } catch (error) {
+      console.warn("[magalu] ranking config", error);
+    }
+  }
+
+  function openConfig() { config.preset = Number(config.data?.snapshot_limit) || 30; renderConfig(); $("mg-ranking-config-modal").hidden = false; }
+  function closeConfig() { $("mg-ranking-config-modal").hidden = true; }
+
+  async function saveConfig() {
+    if (!config.canManage) return;
+    const button = $("mg-ranking-config-save");
+    button.disabled = true;
+    try {
+      const data = await shell().fetchJson("/magalu/api/ranking/config", { method: "PUT", body: JSON.stringify({ account_id: account(), persist_enabled: $("mg-ranking-persist")?.checked === true, snapshot_limit: config.preset }) });
+      config.data = data.config;
+      renderConfig();
+      closeConfig();
+      shell()?.showAlert?.(data.config?.persist_enabled ? "Histórico mensal ativo. Os meses fechados que faltam estão sendo guardados em segundo plano." : "Configuração do ranking salva.", "success");
+      setTimeout(() => void loadConfig(), 8000);
+    } catch (error) {
+      shell()?.showAlert?.(error.message || "Não foi possível salvar a configuração.", "danger");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   function bind() {
+    $("mg-ranking-config-btn")?.addEventListener("click", openConfig);
+    document.querySelectorAll("[data-ranking-config-close]").forEach((button) => button.addEventListener("click", closeConfig));
+    document.querySelectorAll("[data-ranking-preset]").forEach((button) => button.addEventListener("click", () => { config.preset = Number(button.dataset.rankingPreset) || 30; renderConfig(); }));
+    $("mg-ranking-config-save")?.addEventListener("click", () => void saveConfig());
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !$("mg-ranking-config-modal")?.hidden) closeConfig(); });
     $("mg-ranking-form")?.addEventListener("submit", (event) => { event.preventDefault(); void load(); });
     document.querySelectorAll("#mg-ranking-order [data-order]").forEach((button) => button.addEventListener("click", () => {
       state.order = button.dataset.order === "quantidade" ? "quantidade" : "faturamento";
@@ -167,9 +234,9 @@
     ["mg-ranking-limit", "mg-ranking-fulfillment"].forEach((id) => $(id)?.addEventListener("change", () => void load()));
     $("mg-ranking-export")?.addEventListener("click", exportCsv);
     updateCustomVisibility();
-    window.addEventListener("magalu:routechange", (event) => { if (event.detail?.path === "/ranking") void load(); });
-    window.addEventListener("magalu:accountchange", () => { if (route() === "/ranking") void load(); });
-    window.addEventListener("magalu:shellready", () => { if (route() === "/ranking") void load(); });
+    window.addEventListener("magalu:routechange", (event) => { if (event.detail?.path === "/ranking") { void load(); void loadConfig(); } });
+    window.addEventListener("magalu:accountchange", () => { if (route() === "/ranking") { void load(); void loadConfig(); } });
+    window.addEventListener("magalu:shellready", () => { if (route() === "/ranking") { void load(); void loadConfig(); } });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind); else bind();

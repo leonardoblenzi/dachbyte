@@ -82,3 +82,26 @@
   .mg-ranking-movement__row code,.mg-ranking-movement__row>.mg-ranking-move{display:none}
   .mg-ranking-product__copy strong{max-width:200px}
 }
+
+/* Engrenagem: modo performance e historico mensal. */
+.mg-ranking-head-actions{display:flex;align-items:center;gap:8px}
+.mg-ranking-config-btn{font-size:1rem}
+.mg-ranking-persist{display:inline-flex;margin-top:6px;padding:2px 8px;border-radius:999px;background:var(--mg-surface-soft);color:var(--mg-muted);font-size:.66rem;font-weight:800}
+.mg-ranking-persist[data-state="on"]{background:var(--mg-success-soft);color:var(--mg-success)}
+.mg-ranking-config{max-width:520px}
+.mg-ranking-config__body{display:grid;gap:14px}
+.mg-ranking-config__body>p{margin:0;color:var(--mg-muted);font-size:.78rem;line-height:1.45}
+.mg-ranking-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.mg-ranking-presets button{display:grid;gap:2px;padding:11px 8px;border:1px solid var(--mg-border);border-radius:12px;background:var(--mg-surface);color:var(--mg-text);font:inherit;cursor:pointer;text-align:center}
+.mg-ranking-presets button strong{color:var(--mg-title);font-size:.82rem}
+.mg-ranking-presets button small{color:var(--mg-muted);font-size:.68rem}
+.mg-ranking-presets button.is-active{border-color:var(--mg-primary);background:var(--mg-primary-soft);box-shadow:0 0 0 2px var(--mg-primary-soft)}
+.mg-ranking-presets button.is-active strong{color:var(--mg-primary)}
+.mg-ranking-presets button:disabled{cursor:not-allowed;opacity:.7}
+.mg-ranking-config__toggle{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--mg-border);border-radius:12px;background:var(--mg-surface-soft);cursor:pointer}
+.mg-ranking-config__toggle input{margin-top:3px;width:16px;height:16px;accent-color:var(--mg-primary)}
+.mg-ranking-config__toggle span{display:grid;gap:3px}
+.mg-ranking-config__toggle strong{color:var(--mg-title);font-size:.8rem}
+.mg-ranking-config__toggle small{color:var(--mg-muted);font-size:.72rem;line-height:1.4}
+.mg-ranking-config__note{margin:0;color:var(--mg-muted);font-size:.72rem}
+.mg-ranking-config__note[data-tone="warning"]{padding:8px 10px;border-radius:10px;background:var(--mg-warning-soft);color:var(--mg-warning)}
