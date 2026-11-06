@@ -134,7 +134,7 @@
     if (!Array.isArray(rows)) { body.innerHTML = '<tr><td colspan="5">Não foi possível carregar os produtos agora.</td></tr>'; return; }
     if (!rows.length) { body.innerHTML = '<tr><td colspan="5">Nenhuma venda com itens identificados no período.</td></tr>'; return; }
     body.innerHTML = rows.map((row) => {
-      const coverage = row.coverage_days == null ? "—" : row.stock <= 0 ? "Sem estoque" : `${decimal(row.coverage_days, 0)} dias`;
+      const coverage = row.coverage_days == null ? "—" : row.stock <= 0 ? "Sem estoque" : row.coverage_days > 365 ? "Mais de 1 ano" : `${decimal(row.coverage_days, 0)} dias`;
       const tone = row.stock == null ? "neutral" : row.stock <= 0 || (row.coverage_days != null && row.coverage_days <= 7) ? "danger" : row.coverage_days != null && row.coverage_days <= 15 ? "warning" : "success";
       return `<tr><td><strong class="mg-dashboard-top-title">${esc(row.title)}</strong><small>${esc(row.sku)}</small></td><td>${integer(row.units)}</td><td>${money(row.revenue)}</td><td>${row.stock == null ? "—" : integer(row.stock)}</td><td><span class="mg-dashboard-status" data-tone="${tone}">${esc(coverage)}</span></td></tr>`;
     }).join("");

@@ -72,3 +72,13 @@
   .mg-cmp__box{width:min(260px,calc(100vw - 48px))}
   .mg-dashboard-top-title{max-width:200px}
 }
+/* Hover dentro dos cards pequenos: os estilos de span/strong do card nao valem para o balao. */
+.mg-dashboard-page .mg-cmp>.mg-cmp__box{display:none!important}
+.mg-dashboard-page .mg-cmp:hover>.mg-cmp__box,.mg-dashboard-page .mg-cmp:focus-visible>.mg-cmp__box{display:grid!important}
+.mg-dashboard-page .mg-cmp__box span,.mg-dashboard-page .mg-cmp__box b{margin:0;font-size:.7rem;text-transform:none;letter-spacing:0;font-weight:600}
+.mg-dashboard-page .mg-cmp__box .mg-cmp__row{display:flex!important}
+.mg-dashboard-page .mg-cmp__box .mg-cmp__title{display:block;color:var(--mg-title);font-weight:850}
+.mg-dashboard-page .mg-cmp__box .mg-cmp__row b{color:var(--mg-title);font-weight:800}
+.mg-dashboard-page .mg-cmp__box .mg-cmp__row b[data-tone="positive"]{color:var(--mg-success)}
+.mg-dashboard-page .mg-cmp__box .mg-cmp__row b[data-tone="negative"]{color:var(--mg-danger)}
+.mg-dashboard-page .mg-cmp__value{display:inline;margin:0;font:inherit;color:inherit;text-transform:none;letter-spacing:inherit}
