@@ -256,6 +256,7 @@ O detalhe está em `2026-11-06-dach-hub-fase1-design.md`.
 4. **Nome comercial** e posição no portal: DACH Hub como produto próprio, ou "camada" que vem junto com os módulos Seller.
 5. **Clientes que usam outros hubs:** o onboarding exige escolher um único sistema para estoque e preço por conta (ver Fase 1, riscos).
 6. **Estoque físico:** quando integrar ERP e/ou VoltStock como fonte do saldo físico.
+7. **Modo agência / multi-CNPJ** (inspirado no Magis5): um login operando várias empresas, cada cliente vendo só o que é dele, com estoque centralizado ou independente. Qual fase e se entra na cobrança por %.
 
 ---
 
@@ -431,3 +432,16 @@ O menu lateral é **o mesmo do Mercado Livre**, peça por peça. Só as cores se
 | `user` | Conta | Acesso e integrações | Contas conectadas · Usuários · Plano e extrato · Integrações · Ajuda |
 
 Categorias de fases ainda não entregues não aparecem no menu.
+
+## 13. Inspirações de mercado: Magis5 e Base
+
+Estudo completo em `docs/research/2026-11-06-magis5-e-base.md`, feito só com fontes públicas.
+
+- **Onde o DACH Hub já é melhor:** observação antes de escrever, conferência de cada envio, detecção de outro sistema escrevendo estoque e pausa geral. Nenhum dos dois mostra isso em público.
+- **Onde eles são mais fortes:** operação de pedido (checkout com bipagem, coletas, etiqueta unificada, NF-e) e automações evento → condição → ação (Base).
+- **Entradas no roadmap:**
+  - Fase 1+: painel com números clicáveis; pausar ou encerrar o anúncio que zera; alerta de estoque baixo.
+  - Fase 2: relatório de prejuízo por pedido e precificação por margem, aproveitando o cálculo de margem dos módulos DACH.
+  - Fase 3: pipeline de status do pedido, automações, checkout com bipagem e foto do pacote, coletas, etiqueta unificada.
+  - Fase 4/5: clonar e replicar anúncios entre canais; reclamações e devoluções do ML.
+  - Comercial: teste de 14 dias sem cartão e "auditoria" da conta a partir do modo observação.
