@@ -125,3 +125,13 @@ body.theme-dark .projection-loading-fallback__card { background:#111d31; border-
 .projection-cancel-toggle span{color:#ef4444}
 @media (max-width:640px){.projection-status,.projection-status summary strong{width:100%;max-width:none}.projection-status__menu{left:0;right:auto;width:min(340px,calc(100vw - 40px))}}
 .projection-status__actions .overview-ghost-btn{min-height:36px;padding:0 12px;border:1px solid var(--overview-border);border-radius:10px;background:var(--overview-surface);color:var(--overview-text);font:inherit;font-size:.74rem;font-weight:800;cursor:pointer}
+
+/* Cabecalho: menu de status na frente dos cards; Mes, Status e Atualizar alinhados. */
+.projection-page .overview-header{overflow:visible!important;position:relative;z-index:30}
+.projection-header-actions{align-items:flex-end!important;gap:10px}
+.projection-header-actions>*{margin:0!important}
+.projection-header-actions .overview-field{gap:5px}
+.projection-status summary{gap:5px}
+.projection-status summary>span{font-size:.7rem;font-weight:800;letter-spacing:.06em;color:var(--overview-muted)}
+.projection-status summary strong{min-height:40px;height:40px;box-sizing:border-box;font-size:.85rem}
+.projection-header-actions .overview-primary-btn{min-height:40px;height:40px}

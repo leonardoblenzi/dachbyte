@@ -3259,3 +3259,8 @@ body.theme-dark.ml-shell-ready :is(
 
 body.theme-dark .ml-shell__topbar-more{background:#0f1b2e;border-color:rgba(148,163,184,.24)}
 body.theme-dark .ml-shell__more-label{color:#e2e8f0}
+
+/* Topo (desktop): sino e ajuda com a mesma altura das pilulas (Tokens, tema, status, Sair). */
+@media (min-width: 761px){
+  body.ml-shell-ready .ml-shell__topbar-right .ml-shell__icon-btn{width:42px!important;height:42px!important;min-height:42px!important}
+}

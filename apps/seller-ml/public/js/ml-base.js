@@ -211,7 +211,7 @@
   if (!shellDisabled) {
     injectAsset("link", {
       rel: "stylesheet",
-      href: withBase("/css/ml-shell.css?v=30"),
+      href: withBase("/css/ml-shell.css?v=31"),
     });
 
     injectAsset("script", {

@@ -646,37 +646,23 @@ function renderSparkline(
     return toFiniteNumber(prev.revenue);
   });
 
+  // Visual no padrao do grafico do Magalu: fundo neutro, laranja solido com area
+  // suave, mes passado tracejado, sem pontos fixos e sem ondulacao que passa do valor real.
   const datasets = [
     {
       label: "Receita diaria",
       data: currentData,
-      borderColor(context) {
-        const { chart } = context;
-        if (!chart.chartArea) return primaryStart;
-        const gradient = chart.ctx.createLinearGradient(0, chart.chartArea.top, chart.chartArea.right, 0);
-        gradient.addColorStop(0, primaryStart);
-        gradient.addColorStop(1, primaryEnd);
-        return gradient;
-      },
-      borderWidth: 2.8,
-      tension: 0.42,
+      borderColor: "#f97316",
+      borderWidth: 3,
+      tension: 0.3,
+      cubicInterpolationMode: "monotone",
       fill: "origin",
-      pointRadius: 2.8,
-      pointHoverRadius: 6,
-      pointBackgroundColor: primaryPoint,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      pointBackgroundColor: "#f97316",
       pointBorderColor: primaryPointBorder,
-      pointBorderWidth: 1.5,
-      pointHoverBorderWidth: 2,
-      backgroundColor(context) {
-        const { chart } = context;
-        const { ctx: chartCtx, chartArea } = chart;
-        if (!chartArea) return isLight ? "rgba(249,115,22,0.20)" : "rgba(96,165,250,0.20)";
-        const gradient = chartCtx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-        gradient.addColorStop(0, isLight ? "rgba(249,115,22,0.24)" : "rgba(96,165,250,0.24)");
-        gradient.addColorStop(0.55, isLight ? "rgba(249,115,22,0.10)" : "rgba(96,165,250,0.10)");
-        gradient.addColorStop(1, isLight ? "rgba(249,115,22,0.02)" : "rgba(96,165,250,0.02)");
-        return gradient;
-      },
+      pointBorderWidth: 2,
+      backgroundColor: isLight ? "rgba(249,115,22,0.14)" : "rgba(249,115,22,0.18)",
     },
   ];
 
@@ -684,12 +670,13 @@ function renderSparkline(
     datasets.push({
       label: "Mesmo dia mes passado",
       data: previousMonthData,
-      borderColor: compareLine,
+      borderColor: isLight ? "rgba(37,99,235,0.55)" : "rgba(96,165,250,0.65)",
       borderWidth: 2,
-      borderDash: [7, 6],
-      tension: 0.42,
+      borderDash: [6, 6],
+      tension: 0.3,
+      cubicInterpolationMode: "monotone",
       fill: false,
-      pointRadius: 2,
+      pointRadius: 0,
       pointHoverRadius: 4,
       pointBackgroundColor: comparePoint,
       pointBorderColor: comparePointBorder,
@@ -705,9 +692,10 @@ function renderSparkline(
       borderColor: "#ef4444",
       backgroundColor: "rgba(239,68,68,0.10)",
       borderWidth: 2.2,
-      tension: 0.42,
+      tension: 0.3,
+      cubicInterpolationMode: "monotone",
       fill: false,
-      pointRadius: 2.2,
+      pointRadius: 0,
       pointHoverRadius: 5,
       pointBackgroundColor: "#ef4444",
     });
@@ -719,9 +707,10 @@ function renderSparkline(
         borderColor: "rgba(239,68,68,0.55)",
         borderWidth: 1.8,
         borderDash: [6, 6],
-        tension: 0.42,
+        tension: 0.3,
+        cubicInterpolationMode: "monotone",
         fill: false,
-        pointRadius: 1.6,
+        pointRadius: 0,
         pointHoverRadius: 4,
         pointBackgroundColor: "rgba(239,68,68,0.55)",
       });
@@ -809,15 +798,17 @@ function renderSparkline(
         beginAtZero: true,
         title: { display: false },
         grid: {
-          color: gridColor,
+          color: isLight ? "rgba(148,163,184,0.24)" : "rgba(148,163,184,0.14)",
           drawBorder: false,
-          borderDash: [4, 4],
         },
+        border: { display: false },
         ticks: {
           color: tickColor,
-          font: { size: 10, weight: "600" },
+          font: { size: 10, weight: "700" },
+          maxTicksLimit: 6,
           callback(value) {
-            return Number(value).toLocaleString("pt-BR");
+            const n = Number(value);
+            return Math.abs(n) >= 1000 ? `${(n / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k` : n.toLocaleString("pt-BR");
           },
         },
       },
@@ -836,7 +827,7 @@ function renderSparkline(
     type: "line",
     data: { labels, datasets },
     options,
-    plugins: [projectionBackdropPlugin, projectionTodayMarkerPlugin],
+    plugins: [projectionTodayMarkerPlugin],
   });
 }
 
