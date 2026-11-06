@@ -26,7 +26,7 @@ function createOrdersService({ repository, stockRepository, connectors, tokens, 
   /**
    * Aplica a baixa/devolução que falta no pedido. Idempotente: cada movimento tem chave por item do pedido.
    * @param {string} tenantId @param {number} accountId
-   * @param {{ orderId: string, status: "open" | "cancelled", fulfillment?: boolean, lines: any[] }} order
+   * @param {{ id?: number, orderId: string, status: "open" | "cancelled", fulfillment?: boolean, lines: any[] }} order
    */
   async function applyOrder(tenantId, accountId, order) {
     const itemIds = [...new Set(order.lines.map((l) => Number(l.itemId)).filter(Boolean))];
@@ -64,6 +64,12 @@ function createOrdersService({ repository, stockRepository, connectors, tokens, 
     }
     // Venda pode deixar o estoque negativo (vendeu o que não tinha): o número fica visível para correção.
     if (entries.length) await stockRepository.applyEntries(tenantId, entries, { allowNegative: true });
+    // Linha do tempo do pedido.
+    if (order.id) {
+      if (sold.length) await repository.addStockEvent(order.id, `Baixa de estoque de ${sold.length} item(ns) do pedido.`);
+      if (returned.length) await repository.addStockEvent(order.id, `Estoque devolvido de ${returned.length} item(ns) (cancelamento).`);
+      if (pending.length) await repository.addStockEvent(order.id, `${pending.length} item(ns) sem vínculo: a baixa acontece quando o anúncio for vinculado.`);
+    }
     await repository.markLines(sold, { saleApplied: true, pendingLink: false });
     await repository.markLines(returned, { cancelApplied: true });
     await repository.markLines(pending, { pendingLink: true });
@@ -76,7 +82,7 @@ function createOrdersService({ repository, stockRepository, connectors, tokens, 
   /** @param {{ id: number, tenantId: string }} account @param {import("./repository").ChannelOrder} order */
   async function ingest(account, order) {
     const saved = await repository.upsertOrder(Number(account.id), order);
-    return applyOrder(account.tenantId, Number(account.id), { orderId: order.orderId, status: order.status, fulfillment: order.fulfillment, lines: saved.lines });
+    return applyOrder(account.tenantId, Number(account.id), { id: saved.id, orderId: order.orderId, status: order.status, fulfillment: order.fulfillment, lines: saved.lines });
   }
 
   /** @param {string} channel */
@@ -163,6 +169,31 @@ function createOrdersService({ repository, stockRepository, connectors, tokens, 
 
     /** @param {string} tenantId @param {{ pendingOnly?: boolean, limit?: number, offset?: number }} [options] */
     listOrders: (tenantId, options) => repository.listOrders(tenantId, options),
+
+    /** Central de pedidos: lista filtrada + resumo por situação. @param {string} tenantId @param {any} [filters] */
+    async search(tenantId, filters = {}) {
+      const [rows, summary] = await Promise.all([repository.searchOrders(tenantId, filters), repository.ordersSummary(tenantId)]);
+      return { total: rows[0]?.totalCount || 0, orders: rows.map(({ totalCount: _t, ...r }) => r), summary };
+    },
+
+    /** @param {string} tenantId @param {number} id */
+    async detail(tenantId, id) {
+      const order = await repository.getOrderDetail(tenantId, id);
+      if (!order) throw Object.assign(new Error("Pedido não encontrado."), { status: 404, code: "order_not_found" });
+      return order;
+    },
+
+    /** Exportação CSV (Excel em português) da lista filtrada. @param {string} tenantId @param {any} [filters] */
+    async exportCsv(tenantId, filters = {}) {
+      const { toCsv } = require("../stock/spreadsheet");
+      const rows = await repository.searchOrders(tenantId, { ...filters, limit: 5000, offset: 0 });
+      return toCsv(["data", "canal", "conta", "pedido", "situacao", "situacao_no_canal", "itens", "produtos", "frete", "tarifas", "liquido", "enviar_ate", "rastreio", "nf", "comprador"],
+        rows.map((/** @type {any} */ o) => [
+          o.orderedAt ? new Date(o.orderedAt).toISOString() : "", o.channel, o.account, o.orderId, o.stage, o.channelStatus || "",
+          (o.lines || []).map((/** @type {any} */ l) => `${l.quantity}x ${l.sku || l.title || l.listingId}`).join(" | "),
+          o.productsTotal, o.shippingPaid, o.feesTotal, o.netTotal, o.shipBy ? new Date(o.shipBy).toISOString() : "", o.trackingCode || "", o.invoiceNumber || "", o.buyerName || "",
+        ]));
+    },
   };
 }
 

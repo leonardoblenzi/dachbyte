@@ -159,6 +159,19 @@ O detalhe está em `2026-11-06-dach-hub-fase1-design.md`.
 
 **Telas:** Pedidos (lista e detalhe); Expedição (separação, etiquetas, atrasados); Automações; Integrações fiscais; Extrato de pedidos cobrados.
 
+**Etapas e andamento**
+- **P1 — Base da central (feito, migração 006):**
+  - situação padronizada nos três canais (novo, pago, faturado, pronto para envio, enviado, entregue, cancelado, devolvido) com a situação original guardada;
+  - valores (produtos, frete, descontos, tarifas, líquido estimado), prazo de envio, transportadora, rastreio e comprador (nome, cidade/UF);
+  - linha do tempo do pedido (recebido, mudanças de situação, baixa e devolução de estoque);
+  - lista com filtros (situação, conta, período, busca por pedido/SKU/comprador/rastreio/NF, atrasados, vence em 24h, sem vínculo), contadores clicáveis e exportação CSV; detalhe do pedido;
+  - **Vendas do mês:** base da cobrança (produtos sem frete, fuso de São Paulo), fechamento diário dos meses passados (`hub.gmv_closings`, 03:00) e crédito de cancelamento feito depois do fechamento; extrato pedido a pedido.
+  - Pendente para cobrar de fato: o Hub de cobrança aceitar `gmv` na medição e o preço em faixas (seção 2).
+- **P2 — Status personalizados e automações** (evento → condição → ação, com histórico no pedido).
+- **P3 — Expedição:** separação (picking), conferência com bipagem e foto do pacote, coletas.
+- **P4 — Etiquetas por canal** e impressão agrupada.
+- **P5 — Fiscal:** NF via ERP (Bling primeiro) e envio da NF ao canal.
+
 ---
 
 ## 7. Fase 4 — Publicação multicanal

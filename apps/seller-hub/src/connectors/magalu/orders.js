@@ -22,8 +22,15 @@ function money(money) {
   return Number.isFinite(normalizer) && normalizer > 0 ? value / normalizer : value;
 }
 
+/** Situação do Magalu (pedido/entrega) → situação padronizada. */
+const MAGALU_STAGES = /** @type {Record<string, import("../../modules/orders/repository").OrderStage>} */ ({
+  new: "new", approved: "paid", frozen: "paid", invoiced: "invoiced", shipped: "shipped", delivered: "delivered", finished: "delivered",
+  cancelled: "cancelled", canceled: "cancelled",
+});
+
 /**
  * Pedido do Magalu → formato comum. Os itens vêm por entrega (deliveries[].items); o código do anúncio no Hub é o SKU.
+ * Prazo de envio, transportadora e rastreio vêm da primeira entrega (mesmos campos do DACH Magalu).
  * @param {any} order @returns {import("../../modules/orders/repository").ChannelOrder | null}
  */
 function mapOrder(order) {
@@ -31,15 +38,30 @@ function mapOrder(order) {
   if (code == null) return null;
   const status = String(order.status || "").toLowerCase();
   const deliveries = Array.isArray(order.deliveries) ? order.deliveries : [];
+  const first = deliveries[0] || {};
+  const deliveryStatus = String(first.status || "").toLowerCase();
+  const sumMoney = (/** @type {(d: any) => any} */ pick) => {
+    const values = deliveries.map((d) => money(pick(d))).filter((v) => v != null);
+    return values.length ? Math.round(values.reduce((s, v) => s + Number(v), 0) * 100) / 100 : null;
+  };
   const rawItems = deliveries.length ? deliveries.flatMap((/** @type {any} */ d) => (Array.isArray(d?.items) ? d.items : [])) : (Array.isArray(order.items) ? order.items : []);
   return {
     orderId: String(code),
     status: CANCELLED.has(status) ? "cancelled" : "open",
-    channelStatus: status || null,
+    stage: CANCELLED.has(status) ? "cancelled" : (MAGALU_STAGES[deliveryStatus] || MAGALU_STAGES[status] || "paid"),
+    channelStatus: [status, deliveryStatus && deliveryStatus !== status ? deliveryStatus : ""].filter(Boolean).join(" / ") || null,
     fulfillment: deliveries.some((/** @type {any} */ d) => d?.shipping?.provider?.extras?.is_fulfillment === true),
     total: money(order.amounts?.total),
+    shippingPaid: sumMoney((d) => d?.amounts?.freight?.total),
+    discountTotal: sumMoney((d) => d?.amounts?.discount?.total),
     orderedAt: order.purchased_at || order.created_at || null,
     updatedAt: order.updated_at || null,
+    shipBy: first.handling_time?.limit_date || first.shipping?.handling_time?.limit_date || null,
+    shippedAt: first.posting_at || first.posting_date || first.shipping?.posting_date || null,
+    carrier: first.shipping?.provider?.name || first.shipping?.provider?.description || null,
+    trackingCode: first.shipping?.tracking?.code || null,
+    shipmentId: first.id != null ? String(first.id) : null,
+    logisticType: first.shipping?.provider?.extras?.shipping_type || null,
     lines: mergeLines(rawItems.map((/** @type {any} */ item) => {
       const sku = String(item?.sku ?? item?.info?.sku ?? "").trim();
       return { lineKey: sku, listingId: sku, variationId: "", channelSku: sku || null, title: item?.name || item?.info?.name || null, quantity: Number(item?.quantity) || 0, unitPrice: money(item?.unit_price) };

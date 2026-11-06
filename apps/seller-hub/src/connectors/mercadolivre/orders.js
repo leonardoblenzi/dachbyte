@@ -11,23 +11,66 @@ const ORDER_PAGE = 50;
 /** O ML não deixa paginar a busca de pedidos além de 10 mil. */
 const MAX_OFFSET = 10_000;
 
+/** Pedido ainda não pago no ML. */
+const UNPAID = new Set(["confirmed", "payment_required", "payment_in_process", "partially_paid"]);
+/** Devolução: o pedido continua como venda no estoque (devolução física é ajuste manual), mas sai da base de cobrança. */
+const RETURNED = new Set(["refunded", "partially_refunded", "returned"]);
+const SHIPMENT_RETURNED = new Set(["returned", "returned_to_sender", "returning", "return_in_progress"]);
+
+/** @param {unknown} v */
+const num = (v) => (v == null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+
 /**
- * Pedido do ML → formato comum. Venda Full pelo logistic_type quando vier no pedido
- * (o Hub também considera Full pelo cadastro do anúncio).
- * @param {any} order @returns {import("../../modules/orders/repository").ChannelOrder | null}
+ * Situação padronizada a partir do pedido e do envio (status do envio no padrão do DACH ML).
+ * @param {string} status @param {any} shipment @param {any} order
+ * @returns {import("../../modules/orders/repository").OrderStage}
  */
-function mapOrder(order) {
+function mlStage(status, shipment, order) {
+  if (CANCELLED.has(status)) return "cancelled";
+  const ship = String(shipment?.status || "").toLowerCase();
+  const tags = [...(order?.tags || []), ...(shipment?.tags || [])].map(String);
+  if (RETURNED.has(status) || SHIPMENT_RETURNED.has(ship) || tags.includes("has_return")) return "returned";
+  if (UNPAID.has(status)) return "new";
+  if (ship === "delivered") return "delivered";
+  if (["shipped", "out_for_delivery", "in_transit", "not_delivered"].includes(ship)) return "shipped";
+  if (ship === "ready_to_ship") return "ready_to_ship";
+  return "paid";
+}
+
+/**
+ * Pedido do ML (+ envio, quando lido) → formato comum. Venda Full pelo logistic_type
+ * (o Hub também considera Full pelo cadastro do anúncio).
+ * sale_fee do item é por unidade (mesma leitura do Financeiro do DACH ML: × quantidade).
+ * @param {any} order @param {any} [shipment] @param {any} [sla]
+ * @returns {import("../../modules/orders/repository").ChannelOrder | null}
+ */
+function mapOrder(order, shipment = null, sla = null) {
   if (!order || order.id == null) return null;
   const status = String(order.status || "").toLowerCase();
-  const logistic = String(order.shipping?.logistic_type || order.logistic_type || "").toLowerCase();
+  const logistic = String(shipment?.logistic?.type || shipment?.logistic_type || order.shipping?.logistic_type || order.logistic_type || "").toLowerCase();
+  const total = num(order.total_amount);
+  const paid = num(order.paid_amount);
+  const history = shipment?.status_history || {};
+  const buyerName = [order.buyer?.first_name, order.buyer?.last_name].filter(Boolean).join(" ") || order.buyer?.nickname || null;
   return {
     orderId: String(order.id),
     status: CANCELLED.has(status) ? "cancelled" : "open",
-    channelStatus: status || null,
+    stage: mlStage(status, shipment, order),
+    channelStatus: [status, shipment?.status].filter(Boolean).join(" / ") || null,
     fulfillment: logistic === "fulfillment",
-    total: order.total_amount == null ? null : Number(order.total_amount),
+    total,
+    productsTotal: total,
+    shippingPaid: paid != null && total != null && paid > total ? Math.round((paid - total) * 100) / 100 : null,
     orderedAt: order.date_created || null,
     updatedAt: order.date_last_updated || null,
+    shipBy: sla?.expected_date || shipment?.lead_time?.estimated_handling_limit?.date || shipment?.shipping_option?.estimated_handling_limit?.date || order.manufacturing_ending_date || null,
+    shippedAt: history.date_shipped || null,
+    deliveredAt: history.date_delivered || null,
+    logisticType: logistic || null,
+    carrier: shipment?.tracking_method || shipment?.shipping_option?.name || null,
+    trackingCode: shipment?.tracking_number || null,
+    shipmentId: order.shipping?.id != null ? String(order.shipping.id) : null,
+    buyer: { name: buyerName, city: null, state: null },
     lines: mergeLines((Array.isArray(order.order_items) ? order.order_items : []).map((/** @type {any} */ row) => {
       const item = row?.item || {};
       const variation = item.variation_id == null ? "" : String(item.variation_id);
@@ -39,6 +82,7 @@ function mapOrder(order) {
         title: item.title || null,
         quantity: Number(row?.quantity) || 0,
         unitPrice: row?.unit_price == null ? null : Number(row.unit_price),
+        saleFee: num(row?.sale_fee) == null ? null : Math.round(Number(row.sale_fee) * (Number(row?.quantity) || 1) * 100) / 100,
       };
     }).filter((l) => l.listingId)),
   };
@@ -70,10 +114,31 @@ const mercadoLivreOrders = {
     };
   },
 
+  /**
+   * Envio do pedido (situação, rastreio, prazo). Falha aqui não impede gravar o pedido.
+   * O prazo (SLA) só é buscado enquanto o pedido ainda não foi enviado.
+   * @this {any} @param {{ accessToken: string }} account @param {any} order
+   */
+  async shipmentOf(account, order) {
+    const id = order?.shipping?.id;
+    if (!id) return { shipment: null, sla: null };
+    const headers = { authorization: `Bearer ${account.accessToken}`, "x-format-new": "true" };
+    try {
+      const shipment = await requestJson(`${API}/shipments/${encodeURIComponent(id)}`, { headers, fetchImpl: this.fetchImpl });
+      const open = !["shipped", "delivered", "cancelled", "not_delivered"].includes(String(shipment?.status || "")) && String(shipment?.logistic?.type || shipment?.logistic_type || "") !== "fulfillment";
+      const sla = open ? await requestJson(`${API}/shipments/${encodeURIComponent(id)}/sla`, { headers, fetchImpl: this.fetchImpl }).catch(() => null) : null;
+      return { shipment, sla };
+    } catch (_error) {
+      return { shipment: null, sla: null };
+    }
+  },
+
   /** @this {any} @param {{ accessToken: string }} account @param {string} orderId */
   async getOrder(account, orderId) {
     try {
-      return mapOrder(await requestJson(`${API}/orders/${encodeURIComponent(orderId)}`, { headers: { authorization: `Bearer ${account.accessToken}` }, fetchImpl: this.fetchImpl }));
+      const order = await requestJson(`${API}/orders/${encodeURIComponent(orderId)}`, { headers: { authorization: `Bearer ${account.accessToken}` }, fetchImpl: this.fetchImpl });
+      const { shipment, sla } = await this.shipmentOf(account, order);
+      return mapOrder(order, shipment, sla);
     } catch (error) {
       if (Number(/** @type {any} */ (error)?.status) === 404) return null;
       throw error;
@@ -96,7 +161,14 @@ const mercadoLivreOrders = {
     const results = Array.isArray(page?.results) ? page.results : [];
     const next = offset + ORDER_PAGE;
     const total = Number(page?.paging?.total) || 0;
-    return { orders: results.map(mapOrder).filter(Boolean), nextCursor: results.length && next < total && next < MAX_OFFSET ? String(next) : null };
+    /** @type {any[]} */
+    const orders = [];
+    for (const raw of results) {
+      const { shipment, sla } = await this.shipmentOf(account, raw);
+      const mapped = mapOrder(raw, shipment, sla);
+      if (mapped) orders.push(mapped);
+    }
+    return { orders, nextCursor: results.length && next < total && next < MAX_OFFSET ? String(next) : null };
   },
 
   /**
@@ -159,4 +231,4 @@ const mercadoLivreOrders = {
   },
 };
 
-module.exports = { mercadoLivreOrders, mapOrder, CANCELLED };
+module.exports = { mercadoLivreOrders, mapOrder, mlStage, CANCELLED };

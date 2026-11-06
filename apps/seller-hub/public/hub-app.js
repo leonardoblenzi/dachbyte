@@ -24,9 +24,10 @@
       ] },
       { id: "sales", label: "Vendas", hint: "Pedidos e baixas", icon: "receipt", items: [
         { label: "Pedidos", path: "/hub/pedidos" },
+        { label: "Atrasados", path: "/hub/pedidos?prazo=late" },
         { label: "Vendas sem vínculo", path: "/hub/pedidos?pendentes=1" },
       ] },
-      { id: "account", label: "Conta", hint: "Acesso e integrações", icon: "user", items: [{ label: "Contas conectadas", path: "/hub/contas" }] },
+      { id: "account", label: "Conta", hint: "Acesso e integrações", icon: "user", items: [{ label: "Contas conectadas", path: "/hub/contas" }, { label: "Vendas do mês", path: "/hub/cobranca/vendas" }] },
     ],
     footNote: "Catálogo, estoque, pedidos e preços de todos os canais em um só fluxo.",
     status: { label: "Modo observação", tone: "success", href: "/hub/saude" },

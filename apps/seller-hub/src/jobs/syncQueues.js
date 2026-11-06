@@ -18,6 +18,7 @@ const POLL_EVERY_MS = 10 * 60 * 1000;
  *   pollAll: () => Promise<unknown>,
  *   reconcile: (job: { runId: number, tenantId: string, accountId: number }) => Promise<unknown>,
  *   reconcileAll: () => Promise<unknown>,
+ *   closeMonths: () => Promise<unknown>,
  * }} SyncHandlers
  */
 
@@ -82,7 +83,10 @@ async function startSyncWorkers({ redisUrl, handlers, pollEveryMs = POLL_EVERY_M
   const { Worker, Queue } = require("bullmq");
   const connection = redisConnection(redisUrl);
   const push = new Worker(PUSH_QUEUE, async (job) => handlers.push(Number(job.data.accountId)), { connection, concurrency: 4 });
-  const orders = new Worker(ORDERS_QUEUE, async (job) => (job.name === "poll-all" ? handlers.pollAll() : handlers.webhook(Number(job.data.eventId))), { connection, concurrency: 3 });
+  const orders = new Worker(ORDERS_QUEUE, async (job) => (
+    job.name === "poll-all" ? handlers.pollAll()
+      : job.name === "close-months" ? handlers.closeMonths()
+        : handlers.webhook(Number(job.data.eventId))), { connection, concurrency: 3 });
   // Conferência: uma conta por vez (lê o canal inteiro; respeita o limite de requisições).
   const reconcile = new Worker(RECONCILE_QUEUE, async (job) => (job.name === "reconcile-all" ? handlers.reconcileAll() : handlers.reconcile(/** @type {any} */ (job.data))), { connection, concurrency: 1 });
   for (const [name, worker] of /** @type {Array<[string, any]>} */ ([["push", push], ["orders", orders], ["reconcile", reconcile]])) {
@@ -90,6 +94,8 @@ async function startSyncWorkers({ redisUrl, handlers, pollEveryMs = POLL_EVERY_M
   }
   const scheduler = new Queue(ORDERS_QUEUE, { connection });
   await scheduler.add("poll-all", {}, { repeat: { every: pollEveryMs }, jobId: "poll-all", removeOnComplete: 50, removeOnFail: 50 });
+  // Fechamento mensal das vendas (cobrança): todo dia às 03:00 de São Paulo fecha os meses passados ainda abertos.
+  await scheduler.add("close-months", {}, { repeat: { pattern: "0 3 * * *", tz: "America/Sao_Paulo" }, jobId: "close-months", removeOnComplete: 30, removeOnFail: 30 });
   const reconcileScheduler = new Queue(RECONCILE_QUEUE, { connection });
   await reconcileScheduler.add("reconcile-all", {}, { repeat: { every: reconcileEveryMs }, jobId: "reconcile-all", removeOnComplete: 50, removeOnFail: 50 });
   return {

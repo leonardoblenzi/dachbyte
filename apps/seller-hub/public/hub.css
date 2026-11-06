@@ -70,3 +70,15 @@
 .hub-input-sm{ width: 90px; margin: 0 6px; padding: 7px 9px; border: 1px solid var(--seller-border); border-radius: 10px; background: var(--seller-surface); color: var(--seller-text); font: inherit; }
 @media (max-width: 1100px){ .hub-attention{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px){ .hub-attention{ grid-template-columns: 1fr; } }
+.hub-attention--orders{ grid-template-columns: repeat(6, minmax(0, 1fr)); margin-bottom: 14px; }
+button.hub-attention__card{ text-align: left; font: inherit; cursor: pointer; }
+.hub-attention__card.is-active{ border-color: var(--seller-brand-500); box-shadow: 0 0 0 2px color-mix(in srgb, var(--seller-brand-500) 30%, transparent); }
+.hub-row-link{ cursor: pointer; }
+.hub-row-link:hover td{ background: var(--seller-surface-soft); }
+.hub-order-title{ margin: 6px 0; font-size: 1.15rem; }
+.hub-two-col{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.hub-metrics--2{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hub-timeline{ margin: 0; padding-left: 18px; display: grid; gap: 10px; font-size: .84rem; }
+.hub-timeline time{ display: block; color: var(--seller-text-soft); font-size: .74rem; }
+@media (max-width: 1100px){ .hub-attention--orders{ grid-template-columns: repeat(3, minmax(0, 1fr)); } .hub-two-col{ grid-template-columns: 1fr; } }
+@media (max-width: 520px){ .hub-attention--orders, .hub-metrics--2{ grid-template-columns: 1fr 1fr; } }

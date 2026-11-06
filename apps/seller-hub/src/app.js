@@ -19,7 +19,7 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
  * @param {Parameters<typeof createContainer>[0]} [deps]
  */
 async function createApp(deps = {}) {
-  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile } = createContainer(deps);
+  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing } = createContainer(deps);
 
   const app = express();
   app.set("trust proxy", 1);
@@ -243,8 +243,28 @@ async function createApp(deps = {}) {
     identity: who(req), id: int(req.params.id, 0), action: /** @type {any} */ (String(req.body?.action || "")),
   }) })));
   api.post("/accounts/:accountId/divergences/ignore-all", requireAdmin, handle(async (req) => reconcile.ignoreAll({ identity: who(req), accountId: int(req.params.accountId, 0) })));
-  api.get("/orders", handle(async (req) => ({ orders: await orders.listOrders(identity(req).tenantId, {
-    pendingOnly: req.query.pending === "1", limit: int(req.query.limit, 50), offset: int(req.query.offset, 0),
+  // Central de pedidos (Fase 3): lista com filtros, detalhe, exportação.
+  /** @param {any} query */
+  const orderFilters = (query) => ({
+    stage: String(query.stage || ""), accountId: query.accountId ? int(query.accountId, 0) : null,
+    from: query.from ? String(query.from) : null, to: query.to ? String(query.to) : null, q: String(query.q || ""),
+    due: /** @type {any} */ (["late", "today"].includes(String(query.due)) ? String(query.due) : ""), pendingOnly: query.pending === "1",
+    limit: int(query.limit, 50), offset: int(query.offset, 0),
+  });
+  api.get("/orders", handle(async (req) => orders.search(identity(req).tenantId, orderFilters(req.query))));
+  api.get("/orders/export.csv", async (req, res, next) => {
+    try {
+      const csv = await orders.exportCsv(identity(req).tenantId, orderFilters(req.query));
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="pedidos-dach-hub-${new Date().toISOString().slice(0, 10)}.csv"`);
+      res.send(csv);
+    } catch (error) { next(error); }
+  });
+  api.get("/orders/:orderId", handle(async (req) => ({ order: await orders.detail(identity(req).tenantId, int(req.params.orderId, 0)) })));
+  // Vendas medidas para a cobrança (% sobre vendas) e extrato pedido a pedido.
+  api.get("/billing/month", handle(async (req) => ({ month: await billing.month(identity(req).tenantId, req.query.month ? String(req.query.month) : undefined) })));
+  api.get("/billing/statement", handle(async (req) => ({ statement: await billing.statement(identity(req).tenantId, String(req.query.month || billing.currentMonth()), {
+    limit: int(req.query.limit, 100), offset: int(req.query.offset, 0),
   }) })));
   api.put("/stock/accounts/:accountId/rule", requireAdmin, handle(async (req) => stock.saveRule({
     identity: who(req), scope: "account", targetId: int(req.params.accountId, 0), rule: req.body?.rule ?? null,

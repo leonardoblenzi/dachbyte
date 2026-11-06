@@ -14,16 +14,42 @@ const MAX_WINDOW_S = 14 * 24 * 60 * 60;
 const RETRYABLE_CODES = new Set(["error_busy", "error_rate_limit", "error_server", "error_inner"]);
 const ORDER_PUSH_CODE = 3;
 
+/** Situação da Shopee → situação padronizada (devolução continua como venda no estoque; sai da cobrança). */
+const SHOPEE_STAGES = /** @type {Record<string, import("../../modules/orders/repository").OrderStage>} */ ({
+  UNPAID: "new", READY_TO_SHIP: "paid", IN_CANCEL: "paid", PROCESSED: "ready_to_ship", RETRY_SHIP: "ready_to_ship",
+  SHIPPED: "shipped", TO_CONFIRM_RECEIVE: "shipped", COMPLETED: "delivered", CANCELLED: "cancelled",
+  TO_RETURN: "returned", REQUESTED_RETURN: "returned", RETURNED: "returned",
+});
+
+/** Texto mascarado pela Shopee ("***") não serve. @param {unknown} v */
+const unmasked = (v) => { const t = String(v ?? "").trim(); return t && !t.includes("*") ? t : null; };
+/** Unix (s) → ISO. @param {unknown} v */
+const unix = (v) => (Number(v) > 0 ? new Date(Number(v) * 1000).toISOString() : null);
+
 /** @param {any} order @returns {import("../../modules/orders/repository").ChannelOrder | null} */
 function mapOrder(order) {
   if (!order?.order_sn) return null;
   const status = String(order.order_status || "").toUpperCase();
+  const items = Array.isArray(order.item_list) ? order.item_list : [];
+  const subtotal = items.reduce((/** @type {number} */ s, /** @type {any} */ i) => s + (Number(i?.model_discounted_price ?? i?.item_price ?? 0) * (Number(i?.model_quantity_purchased ?? i?.quantity) || 0)), 0);
+  const total = order.total_amount == null ? null : Number(order.total_amount);
+  const pack = (Array.isArray(order.package_list) ? order.package_list : [])[0] || {};
+  const tracking = String(pack.tracking_number || "").trim();
   return {
     orderId: String(order.order_sn),
     status: CANCELLED.has(status) ? "cancelled" : "open",
+    stage: SHOPEE_STAGES[status] || "paid",
     channelStatus: status || null,
     fulfillment: false,
-    total: order.total_amount == null ? null : Number(order.total_amount),
+    total,
+    productsTotal: items.length ? Math.round(subtotal * 100) / 100 : null,
+    shippingPaid: total != null && items.length && total - subtotal > 0 ? Math.round((total - subtotal) * 100) / 100 : null,
+    shipBy: unix(order.ship_by_date),
+    shippedAt: unix(order.pickup_done_time),
+    carrier: order.shipping_carrier || null,
+    trackingCode: tracking && tracking !== "-" ? tracking : null,
+    shipmentId: pack.package_number || null,
+    buyer: { name: null, city: unmasked(order.recipient_address?.city), state: unmasked(order.recipient_address?.state) },
     orderedAt: order.create_time ? new Date(Number(order.create_time) * 1000).toISOString() : null,
     updatedAt: order.update_time ? new Date(Number(order.update_time) * 1000).toISOString() : null,
     lines: mergeLines((Array.isArray(order.item_list) ? order.item_list : []).map((/** @type {any} */ item) => {
@@ -75,7 +101,7 @@ const shopeeOrders = {
   /** @this {any} @param {{ accessToken: string, externalAccountId: string }} account @param {string[]} sns */
   async orderDetails(account, sns) {
     if (!sns.length) return [];
-    const res = await this.shopGet(account, "/api/v2/order/get_order_detail", { order_sn_list: sns.join(","), response_optional_fields: "item_list,total_amount" });
+    const res = await this.shopGet(account, "/api/v2/order/get_order_detail", { order_sn_list: sns.join(","), response_optional_fields: "item_list,total_amount,ship_by_date,shipping_carrier,package_list,recipient_address,pickup_done_time" });
     return (Array.isArray(res.order_list) ? res.order_list : []).map(mapOrder).filter(Boolean);
   },
 

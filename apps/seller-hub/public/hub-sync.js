@@ -5,46 +5,98 @@
 
   const registry = /** @type {Record<string, (kit: any) => () => Promise<void>>} */ ((/** @type {any} */ (window).DachHubViews ||= {}));
   const PAGE = 50;
+  /** Paginação com total. @param {any} kit @param {number} offset @param {number} total @param {number} size */
+  function pager(kit, offset, total, size) {
+    if (total <= size) return "";
+    return `<div class="hub-pager"><button class="seller-btn" type="button" data-page="${Math.max(0, offset - size)}" ${offset ? "" : "disabled"}>Anterior</button>
+      <span>${kit.int(offset + 1)}–${kit.int(Math.min(total, offset + size))} de ${kit.int(total)}</span>
+      <button class="seller-btn" type="button" data-page="${offset + size}" ${offset + size < total ? "" : "disabled"}>Próxima</button></div>`;
+  }
 
   const PUSH_STATES = /** @type {Record<string, [string, string]>} */ ({
     pending: ["Na fila", "warning"], sending: ["Enviando", "warning"], verified: ["Conferido", "success"],
     divergent: ["Divergente", "danger"], failed: ["Falhou", "danger"], skipped: ["Cancelado", ""],
   });
 
-  /* ───────────── Pedidos ───────────── */
+  /* ───────────── Pedidos (central) ───────────── */
+  const STAGE_LABELS = /** @type {Record<string, [string, string]>} */ ({
+    new: ["Novo", ""], paid: ["Pago", "accent"], invoiced: ["Faturado", "accent"], ready_to_ship: ["Pronto para envio", "warning"],
+    shipped: ["Enviado", "success"], delivered: ["Entregue", "success"], cancelled: ["Cancelado", "danger"], returned: ["Devolvido", "danger"],
+  });
+  const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+  /** @param {unknown} v */
+  const money = (v) => (v == null ? "—" : BRL.format(Number(v)));
+  /** @param {any} kit @param {string} stage */
+  const stageBadge = (kit, stage) => { const [l, t] = STAGE_LABELS[stage] || [stage, ""]; return `<span class="seller-badge" ${t ? `data-tone="${t}"` : ""}>${kit.esc(l)}</span>`; };
+  /** Prazo de envio: vermelho se venceu, amarelo se vence em 24h. @param {any} kit @param {any} o */
+  function dueCell(kit, o) {
+    if (!o.shipBy || !["new", "paid", "invoiced", "ready_to_ship"].includes(o.stage)) return '<span class="hub-muted">—</span>';
+    const ms = Date.parse(o.shipBy) - Date.now();
+    const tone = ms < 0 ? "danger" : ms < 24 * 3600e3 ? "warning" : "";
+    return `<span class="seller-badge" ${tone ? `data-tone="${tone}"` : ""}>${ms < 0 ? "Atrasado · " : ""}${kit.esc(kit.dateTime(o.shipBy))}</span>`;
+  }
+
   registry.orders = (kit) => {
     const { api, esc, int, root, empty, dateTime, CHANNEL_LABELS } = kit;
-    const state = { pendingOnly: new URLSearchParams(location.search).get("pendentes") === "1", offset: 0 };
+    const query = new URLSearchParams(location.search);
+    const state = {
+      stage: query.get("situacao") || "", accountId: query.get("account") || "", q: query.get("q") || "",
+      from: query.get("de") || "", to: query.get("ate") || "", due: query.get("prazo") || "",
+      pendingOnly: query.get("pendentes") === "1", offset: 0,
+    };
     let bound = false;
 
+    function params() {
+      const p = new URLSearchParams({ limit: String(PAGE), offset: String(state.offset) });
+      if (state.stage) p.set("stage", state.stage);
+      if (state.accountId) p.set("accountId", state.accountId);
+      if (state.q) p.set("q", state.q);
+      if (state.from) p.set("from", `${state.from}T00:00:00-03:00`);
+      if (state.to) p.set("to", `${state.to}T23:59:59-03:00`);
+      if (state.due) p.set("due", state.due);
+      if (state.pendingOnly) p.set("pending", "1");
+      return p;
+    }
+
     async function render() {
-      const params = new URLSearchParams({ limit: String(PAGE + 1), offset: String(state.offset) });
-      if (state.pendingOnly) params.set("pending", "1");
-      const { orders } = await api(`/orders?${params}`);
-      const hasMore = orders.length > PAGE;
-      const list = orders.slice(0, PAGE);
-      const toolbar = `<form class="hub-toolbar" data-orders-filter><label class="hub-check"><input type="checkbox" name="pending" ${state.pendingOnly ? "checked" : ""}> Só vendas sem vínculo</label><button class="seller-btn" type="submit">Filtrar</button></form>`;
-      if (!list.length && !state.offset) {
-        root.innerHTML = state.pendingOnly
-          ? `<section class="seller-card">${toolbar}<div class="seller-empty"><strong>Nenhuma venda sem vínculo</strong><span>Toda venda recebida baixou o estoque do produto certo.</span></div></section>`
-          : empty("Nenhum pedido recebido ainda", "Os pedidos chegam pelos avisos dos canais e por uma leitura de segurança a cada 10 minutos.");
-        return;
-      }
-      root.innerHTML = `<section class="seller-card">
-        <p>Cada venda baixa o estoque do produto; o cancelamento devolve. Venda Full não mexe no estoque central (fica no canal). Devolução física é ajuste manual em Estoque.</p>
-        ${toolbar}
-        <div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Quando</th><th>Canal</th><th>Pedido</th><th>Itens</th><th>Estoque</th><th class="hub-num">Total</th></tr></thead><tbody>
-        ${list.map((/** @type {any} */ o) => `<tr>
-          <td>${esc(dateTime(o.orderedAt))}</td>
-          <td><span class="seller-badge">${esc(CHANNEL_LABELS[o.channel] || o.channel)}</span><br><small>${esc(o.account)}</small></td>
-          <td><strong>${esc(o.orderId)}</strong><br>${o.status === "cancelled" ? '<span class="seller-badge" data-tone="danger">Cancelado</span>' : `<small>${esc(o.channelStatus || "")}</small>`}${o.fulfillment ? ' <span class="seller-badge">Full</span>' : ""}</td>
-          <td>${(o.lines || []).map((/** @type {any} */ l) => `${int(l.quantity)}× ${esc(l.sku || l.title || l.listingId)}`).join("<br>")}</td>
-          <td>${(o.lines || []).map((/** @type {any} */ l) => l.pending ? `<span class="seller-badge" data-tone="danger">Sem vínculo</span> <a href="/hub/pendencias">vincular</a>`
-            : l.returned ? '<span class="seller-badge">Devolvido</span>' : l.applied ? '<span class="seller-badge" data-tone="success">Baixado</span>' : '<span class="seller-badge">Sem baixa</span>').join("<br>")}</td>
-          <td class="hub-num">${o.total == null ? "—" : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(o.total)}</td></tr>`).join("")}
-        </tbody></table></div>
-        <div class="hub-pager"><button class="seller-btn" type="button" data-page="${Math.max(0, state.offset - PAGE)}" ${state.offset ? "" : "disabled"}>Anterior</button>
-          <button class="seller-btn" type="button" data-page="${state.offset + PAGE}" ${hasMore ? "" : "disabled"}>Próxima</button></div></section>`;
+      const [{ orders, total, summary }, { accounts }] = await Promise.all([api(`/orders?${params()}`), api("/stock/rules")]);
+      const s = summary || {};
+      const chips = /** @type {Array<[string, string, number, string]>} */ ([
+        ["stage", "paid", s.paid, "Pagos (a preparar)"], ["stage", "invoiced", s.invoiced, "Faturados"], ["stage", "ready_to_ship", s.readyToShip, "Prontos para envio"],
+        ["due", "late", s.late, "Atrasados"], ["due", "today", s.dueToday, "Vencem em 24h"], ["stage", "new", s.new, "Aguardando pagamento"],
+      ]);
+      const exportParams = params(); exportParams.delete("limit"); exportParams.delete("offset");
+      root.innerHTML = `
+        <section class="hub-attention hub-attention--orders">${chips.map(([field, value, n, label]) => `<button type="button" class="seller-kpi hub-attention__card ${(field === "stage" ? state.stage : state.due) === value ? "is-active" : ""}"
+          data-chip-field="${field}" data-chip-value="${value}" data-tone="${value === "late" ? "danger" : value === "today" ? "warning" : ""}"><span>${esc(label)}</span><strong>${int(n || 0)}</strong></button>`).join("")}</section>
+        <section class="seller-card">
+          <form class="hub-toolbar" data-orders-filter>
+            <input type="search" name="q" placeholder="Pedido, SKU, comprador, rastreio ou NF" value="${esc(state.q)}">
+            <select name="stage"><option value="">Todas as situações</option>${Object.entries(STAGE_LABELS).map(([k, [l]]) => `<option value="${k}" ${state.stage === k ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>
+            <select name="accountId"><option value="">Todas as contas</option>${accounts.map((/** @type {any} */ a) => `<option value="${esc(a.id)}" ${String(a.id) === state.accountId ? "selected" : ""}>${esc(CHANNEL_LABELS[a.channel] || a.channel)} · ${esc(a.label)}</option>`).join("")}</select>
+            <label class="hub-check">De <input type="date" name="from" value="${esc(state.from)}"></label>
+            <label class="hub-check">Até <input type="date" name="to" value="${esc(state.to)}"></label>
+            <select name="due"><option value="">Qualquer prazo</option><option value="late" ${state.due === "late" ? "selected" : ""}>Atrasados</option><option value="today" ${state.due === "today" ? "selected" : ""}>Vencem em 24h</option></select>
+            <label class="hub-check"><input type="checkbox" name="pending" ${state.pendingOnly ? "checked" : ""}> Só sem vínculo</label>
+            <button class="seller-btn" type="submit">Filtrar</button>
+            <span class="hub-toolbar__spacer"></span>
+            <a class="seller-btn" href="/hub/api/orders/export.csv?${esc(exportParams.toString())}">Exportar</a>
+          </form>
+          ${orders.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Data</th><th>Canal</th><th>Pedido</th><th>Itens</th><th>Enviar até</th><th class="hub-num">Produtos</th><th class="hub-num">Tarifas</th><th class="hub-num">Líquido</th><th>Estoque</th></tr></thead><tbody>
+          ${orders.map((/** @type {any} */ o) => `<tr class="hub-row-link" data-order="${esc(o.id)}">
+            <td>${esc(dateTime(o.orderedAt))}</td>
+            <td><span class="seller-badge">${esc(CHANNEL_LABELS[o.channel] || o.channel)}</span><br><small>${esc(o.account)}</small></td>
+            <td><a href="/hub/pedidos/detalhe?id=${esc(o.id)}"><strong>${esc(o.orderId)}</strong></a><br>${stageBadge(kit, o.stage)}${o.fulfillment ? ' <span class="seller-badge">Full</span>' : ""}</td>
+            <td>${(o.lines || []).map((/** @type {any} */ l) => `${int(l.quantity)}× ${esc(l.sku || l.title || l.listingId)}`).join("<br>")}</td>
+            <td>${dueCell(kit, o)}</td>
+            <td class="hub-num">${money(o.productsTotal ?? o.total)}</td><td class="hub-num">${money(o.feesTotal)}</td><td class="hub-num"><strong>${money(o.netTotal)}</strong></td>
+            <td>${(o.lines || []).map((/** @type {any} */ l) => l.pending ? '<span class="seller-badge" data-tone="danger">Sem vínculo</span>'
+              : l.returned ? '<span class="seller-badge">Devolvido</span>' : l.applied ? '<span class="seller-badge" data-tone="success">Baixado</span>' : '<span class="seller-badge">Sem baixa</span>').join("<br>")}</td></tr>`).join("")}
+          </tbody></table></div>` : (total === 0 && !state.stage && !state.q && !state.due && !state.pendingOnly && !state.accountId && !state.from && !state.to
+            ? `<div class="seller-empty"><strong>Nenhum pedido recebido ainda</strong><span>Os pedidos chegam pelos avisos dos canais e por uma leitura de segurança a cada 10 minutos.</span></div>`
+            : '<div class="seller-empty"><strong>Nenhum pedido com este filtro</strong></div>')}
+          ${pager(kit, state.offset, total, PAGE)}
+        </section>`;
     }
 
     function bind() {
@@ -54,7 +106,125 @@
         const form = /** @type {HTMLFormElement} */ (event.target);
         if (!form.matches("[data-orders-filter]")) return;
         event.preventDefault();
-        state.pendingOnly = new FormData(form).get("pending") === "on";
+        const d = new FormData(form);
+        Object.assign(state, {
+          q: String(d.get("q") || ""), stage: String(d.get("stage") || ""), accountId: String(d.get("accountId") || ""),
+          from: String(d.get("from") || ""), to: String(d.get("to") || ""), due: String(d.get("due") || ""), pendingOnly: d.get("pending") === "on", offset: 0,
+        });
+        await render();
+      });
+      root.addEventListener("click", async (event) => {
+        const target = /** @type {HTMLElement} */ (event.target);
+        const page = target.closest("[data-page]");
+        if (page) { state.offset = Number(page.getAttribute("data-page")) || 0; await render(); return; }
+        const chip = target.closest("[data-chip-field]");
+        if (chip) {
+          const field = /** @type {"stage" | "due"} */ (chip.getAttribute("data-chip-field"));
+          const value = String(chip.getAttribute("data-chip-value"));
+          state[field] = state[field] === value ? "" : value;
+          if (field === "due") state.stage = ""; else state.due = "";
+          state.offset = 0;
+          await render();
+          return;
+        }
+        const row = target.closest("[data-order]");
+        if (row && !target.closest("a")) location.href = `/hub/pedidos/detalhe?id=${row.getAttribute("data-order")}`;
+      });
+    }
+    return async () => { bind(); await render(); };
+  };
+
+  /* ───────────── Detalhe do pedido ───────────── */
+  registry.orderDetail = (kit) => {
+    const { api, esc, int, root, empty, dateTime, CHANNEL_LABELS } = kit;
+    return async () => {
+      const id = new URLSearchParams(location.search).get("id");
+      if (!id) { root.innerHTML = empty("Pedido não informado", "Abra um pedido pela lista.", '<a class="seller-btn" href="/hub/pedidos">Ver pedidos</a>'); return; }
+      const { order: o } = await api(`/orders/${encodeURIComponent(id)}`);
+      const EVENT_LABELS = /** @type {Record<string, string>} */ ({ received: "Pedido recebido", stage: "Situação mudou", stock: "Estoque" });
+      /** @param {string} label @param {string} value */
+      const row = (label, value) => `<div class="hub-metric"><span>${esc(label)}</span><strong>${value}</strong></div>`;
+      root.innerHTML = `
+        <section class="seller-card">
+          <div class="hub-account-head"><div><span class="seller-badge">${esc(CHANNEL_LABELS[o.channel] || o.channel)}</span> <small>${esc(o.account)}</small>
+            <h2 class="hub-order-title">Pedido ${esc(o.orderId)}</h2>${stageBadge(kit, o.stage)}${o.fulfillment ? ' <span class="seller-badge">Full</span>' : ""}
+            <small class="hub-muted"> no canal: ${esc(o.channelStatus || "—")}</small></div>
+            <a class="seller-btn" href="/hub/pedidos">Voltar aos pedidos</a></div>
+          <div class="hub-metrics">
+            ${row("Data do pedido", esc(dateTime(o.orderedAt)))}${row("Enviar até", dueCell(kit, o))}
+            ${row("Enviado em", esc(dateTime(o.shippedAt)))}${row("Entregue em", esc(dateTime(o.deliveredAt)))}
+          </div>
+        </section>
+        <section class="hub-two-col">
+          <article class="seller-card"><h2>Valores</h2><div class="hub-metrics hub-metrics--2">
+            ${row("Produtos", money(o.productsTotal ?? o.total))}${row("Frete pago pelo comprador", money(o.shippingPaid))}
+            ${row("Descontos", money(o.discountTotal))}${row("Tarifas do canal", money(o.feesTotal))}
+            ${row("Líquido estimado", `<strong>${money(o.netTotal)}</strong>`)}${row("Total no canal", money(o.total))}
+          </div><p class="hub-muted">Líquido estimado = produtos − tarifas − descontos (quando o canal informa). A margem com custo do produto entra na Fase 2.</p></article>
+          <article class="seller-card"><h2>Envio e comprador</h2><div class="hub-metrics hub-metrics--2">
+            ${row("Logística", esc(o.logisticType || "—"))}${row("Transportadora", esc(o.carrier || "—"))}
+            ${row("Rastreio", esc(o.trackingCode || "—"))}${row("Nota fiscal", esc(o.invoiceNumber || "—"))}
+            ${row("Comprador", esc(o.buyerName || "—"))}${row("Cidade / UF", esc([o.buyerCity, o.buyerState].filter(Boolean).join(" / ") || "—"))}
+          </div></article>
+        </section>
+        <section class="seller-card"><h2>Itens</h2>
+          <div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Produto</th><th>Anúncio</th><th class="hub-num">Qtd</th><th class="hub-num">Preço</th><th class="hub-num">Tarifa</th><th>Estoque</th></tr></thead><tbody>
+          ${(o.lines || []).map((/** @type {any} */ l) => `<tr><td>${l.sku ? `<a href="/hub/estoque/movimentos?item=${esc(l.itemId)}"><strong>${esc(l.sku)}</strong></a><br><small>${esc(l.itemName || "")}</small>` : '<span class="seller-badge" data-tone="danger">Sem vínculo</span>'}</td>
+            <td>${esc(l.title || l.listingId)}<br><small>${esc(l.listingId)}${l.variationId ? ` · ${esc(l.variationId)}` : ""}${l.channelSku ? ` · SKU ${esc(l.channelSku)}` : ""}</small></td>
+            <td class="hub-num">${int(l.quantity)}</td><td class="hub-num">${money(l.unitPrice)}</td><td class="hub-num">${money(l.saleFee)}</td>
+            <td>${l.pendingLink ? '<a href="/hub/pendencias">Vincular</a>' : l.cancelApplied ? "Devolvido" : l.saleApplied ? "Baixado" : o.fulfillment ? "Full (estoque do canal)" : "Sem baixa"}</td></tr>`).join("")}
+          </tbody></table></div></section>
+        <section class="seller-card"><h2>Linha do tempo</h2>
+          <ol class="hub-timeline">${(o.events || []).map((/** @type {any} */ e) => `<li><time>${esc(dateTime(e.createdAt))}</time><strong>${esc(EVENT_LABELS[e.kind] || e.kind)}</strong>
+            ${e.stage ? stageBadge(kit, e.stage) : ""}${e.channelStatus ? ` <small class="hub-muted">${esc(e.channelStatus)}</small>` : ""}${e.note ? `<div>${esc(e.note)}</div>` : ""}</li>`).join("") || "<li>Sem eventos.</li>"}</ol>
+        </section>`;
+    };
+  };
+
+  /* ───────────── Vendas do mês (cobrança) ───────────── */
+  registry.billing = (kit) => {
+    const { api, esc, int, root, dateTime, CHANNEL_LABELS } = kit;
+    const state = { month: new URLSearchParams(location.search).get("mes") || "", offset: 0 };
+    const KIND = /** @type {Record<string, [string, string]>} */ ({ counted: ["Entra na base", "success"], excluded: ["Cancelado/devolvido no mês", ""], credit: ["Crédito (mês já fechado)", "warning"] });
+    let bound = false;
+
+    async function render() {
+      const { month: m } = await api(`/billing/month${state.month ? `?month=${encodeURIComponent(state.month)}` : ""}`);
+      state.month = m.month;
+      const { statement } = await api(`/billing/statement?month=${encodeURIComponent(m.month)}&limit=${PAGE}&offset=${state.offset}`);
+      root.innerHTML = `
+        <section class="seller-card">
+          <form class="hub-toolbar" data-billing-month><label class="hub-check">Mês <input type="month" name="month" value="${esc(m.month)}"></label><button class="seller-btn" type="submit">Ver</button>
+            <span class="hub-toolbar__spacer"></span>${m.closing ? `<span class="seller-badge" data-tone="success">Fechado em ${esc(dateTime(m.closing.closedAt))}</span>` : m.current ? '<span class="seller-badge" data-tone="accent">Mês em andamento</span>' : '<span class="seller-badge" data-tone="warning">Aguardando fechamento</span>'}</form>
+          <p>Base da cobrança: valor dos produtos <strong>sem frete</strong>, de pedidos do mês (fuso de São Paulo). Cancelado ou devolvido dentro do mês sai da base; depois do fechamento vira crédito no mês seguinte.</p>
+        </section>
+        <section class="seller-grid">
+          <article class="seller-kpi"><span>Pedidos</span><strong>${int(m.orders)}</strong><small>${int(m.cancelledOrders)} cancelado(s)/devolvido(s)</small></article>
+          <article class="seller-kpi"><span>Vendas (GMV)</span><strong>${money(m.gmv)}</strong><small>produtos, sem frete</small></article>
+          <article class="seller-kpi"><span>Créditos</span><strong>${money(m.credits)}</strong><small>cancelados de meses fechados</small></article>
+          <article class="seller-kpi"><span>Base do mês</span><strong>${money(m.base)}</strong><small>vendas − créditos</small></article>
+        </section>
+        <section class="seller-card"><h2>Extrato</h2>
+          ${statement.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Data</th><th>Canal</th><th>Pedido</th><th>Situação</th><th class="hub-num">Valor</th><th>Na cobrança</th></tr></thead><tbody>
+          ${statement.map((/** @type {any} */ r) => { const [label, tone] = KIND[r.kind] || [r.kind, ""]; return `<tr><td>${esc(dateTime(r.orderedAt))}</td>
+            <td><span class="seller-badge">${esc(CHANNEL_LABELS[r.channel] || r.channel)}</span><br><small>${esc(r.account)}</small></td>
+            <td><a href="/hub/pedidos/detalhe?id=${esc(r.id)}">${esc(r.orderId)}</a></td><td>${stageBadge(kit, r.stage)}</td>
+            <td class="hub-num">${r.kind === "counted" ? money(r.value) : r.kind === "credit" ? `−${money(r.value)}` : `<s>${money(r.value)}</s>`}</td>
+            <td><span class="seller-badge" ${tone ? `data-tone="${tone}"` : ""}>${esc(label)}</span></td></tr>`; }).join("")}
+          </tbody></table></div>` : '<div class="seller-empty"><strong>Nenhum pedido neste mês</strong></div>'}
+          <div class="hub-pager"><button class="seller-btn" type="button" data-page="${Math.max(0, state.offset - PAGE)}" ${state.offset ? "" : "disabled"}>Anterior</button>
+            <button class="seller-btn" type="button" data-page="${state.offset + PAGE}" ${statement.length === PAGE ? "" : "disabled"}>Próxima</button></div>
+        </section>`;
+    }
+
+    function bind() {
+      if (bound) return;
+      bound = true;
+      root.addEventListener("submit", async (event) => {
+        const form = /** @type {HTMLFormElement} */ (event.target);
+        if (!form.matches("[data-billing-month]")) return;
+        event.preventDefault();
+        state.month = String(new FormData(form).get("month") || "");
         state.offset = 0;
         await render();
       });
