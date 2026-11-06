@@ -149,7 +149,7 @@ function createOrdersRepository(db) {
             title: l.title || null, quantity: l.quantity, unit_price: l.unitPrice ?? null, sale_fee: l.saleFee ?? null,
           })))]);
         const { rows: lines } = await client.query(`select ${LINE_COLUMNS} from hub.order_lines l where l.order_id = $1 order by l.id`, [saved.id]);
-        return { id: Number(saved.id), lines };
+        return { id: Number(saved.id), lines, created: !previous, stageChanged: Boolean(previous && previous.stage !== stage), stage };
       });
     },
 
@@ -207,10 +207,11 @@ function createOrdersRepository(db) {
      * Lista da central de pedidos. Filtros: situação, conta, período (data do pedido), busca (pedido, SKU, comprador,
      * rastreio, NF), atrasados (prazo de envio vencido) e vencendo (prazo nas próximas 24h).
      * @param {string} tenantId
+     * customStatus: id do status interno, "none" (sem status) ou vazio. tag: etiqueta exata.
      * @param {{ stage?: string, accountId?: number | null, from?: string | null, to?: string | null, q?: string,
-     *           due?: "" | "late" | "today", pendingOnly?: boolean, limit?: number, offset?: number }} [options]
+     *           due?: "" | "late" | "today", pendingOnly?: boolean, customStatus?: string, tag?: string, limit?: number, offset?: number }} [options]
      */
-    async searchOrders(tenantId, { stage = "", accountId = null, from = null, to = null, q = "", due = "", pendingOnly = false, limit = 50, offset = 0 } = {}) {
+    async searchOrders(tenantId, { stage = "", accountId = null, from = null, to = null, q = "", due = "", pendingOnly = false, customStatus = "", tag = "", limit = 50, offset = 0 } = {}) {
       const term = String(q || "").trim();
       const { rows } = await db.query(
         `with base as (
@@ -227,21 +228,24 @@ function createOrdersRepository(db) {
                                where ol.order_id = o.id and (coalesce(ol.channel_sku, '') ilike '%' || $6 || '%' or coalesce(i.sku, '') ilike '%' || $6 || '%')))
               and ($7 = '' or (o.stage in ('new','paid','invoiced','ready_to_ship') and o.ship_by is not null
                    and (($7 = 'late' and o.ship_by < now()) or ($7 = 'today' and o.ship_by >= now() and o.ship_by < now() + interval '24 hours'))))
-              and (not $8 or exists (select 1 from hub.order_lines ol where ol.order_id = o.id and ol.pending_link)))
+              and (not $8 or exists (select 1 from hub.order_lines ol where ol.order_id = o.id and ol.pending_link))
+              and ($11 = '' or ($11 = 'none' and o.custom_status_id is null) or o.custom_status_id::text = $11)
+              and ($12 = '' or exists (select 1 from unnest(o.tags) t where lower(t) = lower($12))))
          select b.id, b.channel, b.account, b.external_order_id as "orderId", b.status, b.stage, b.channel_status as "channelStatus",
                 b.fulfillment, b.total::float as total, b.products_total::float as "productsTotal", b.shipping_paid::float as "shippingPaid",
                 b.fees_total::float as "feesTotal", b.net_total::float as "netTotal", b.ordered_at as "orderedAt", b.ship_by as "shipBy",
                 b.tracking_code as "trackingCode", b.invoice_number as "invoiceNumber", b.buyer_name as "buyerName", b.logistic_type as "logisticType",
+                b.custom_status_id as "customStatusId", s.name as "customStatus", s.color as "customStatusColor", b.tags,
                 (select json_agg(json_build_object('sku', coalesce(i.sku, ol.channel_sku), 'title', ol.title, 'quantity', ol.quantity::float,
                   'listingId', ol.listing_id, 'variationId', ol.variation_id, 'pending', ol.pending_link, 'applied', ol.sale_applied,
                   'returned', ol.cancel_applied) order by ol.id)
                    from hub.order_lines ol left join hub.items i on i.id = ol.item_id where ol.order_id = b.id) as lines,
                 exists (select 1 from hub.order_lines ol where ol.order_id = b.id and ol.pending_link) as "hasPending",
                 count(*) over ()::int as "totalCount"
-           from base b
+           from base b left join hub.order_statuses s on s.id = b.custom_status_id
           order by b.ordered_at desc nulls last, b.id desc
           limit $9 offset $10`,
-        [tenantId, stage, accountId, from, to, term, due, pendingOnly, Math.min(5000, Math.max(1, limit)), Math.max(0, offset)]);
+        [tenantId, stage, accountId, from, to, term, due, pendingOnly, Math.min(5000, Math.max(1, limit)), Math.max(0, offset), String(customStatus || ""), String(tag || "").trim()]);
       return rows;
     },
 
@@ -269,8 +273,10 @@ function createOrdersRepository(db) {
                 o.net_total::float as "netTotal", o.ordered_at as "orderedAt", o.ship_by as "shipBy", o.shipped_at as "shippedAt",
                 o.delivered_at as "deliveredAt", o.cancelled_at as "cancelledAt", o.logistic_type as "logisticType", o.carrier,
                 o.tracking_code as "trackingCode", o.shipment_id as "shipmentId", o.invoice_number as "invoiceNumber", o.invoice_key as "invoiceKey",
-                o.buyer_name as "buyerName", o.buyer_city as "buyerCity", o.buyer_state as "buyerState"
+                o.buyer_name as "buyerName", o.buyer_city as "buyerCity", o.buyer_state as "buyerState",
+                o.custom_status_id as "customStatusId", s.name as "customStatus", s.color as "customStatusColor", o.tags
            from hub.channel_orders o join hub.channel_accounts a on a.id = o.channel_account_id
+           left join hub.order_statuses s on s.id = o.custom_status_id
           where o.id = $1 and a.tenant_id = $2`, [id, tenantId]);
       if (!order) return null;
       const [lines, events] = await Promise.all([

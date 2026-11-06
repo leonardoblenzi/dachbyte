@@ -19,6 +19,8 @@ const POLL_EVERY_MS = 10 * 60 * 1000;
  *   reconcile: (job: { runId: number, tenantId: string, accountId: number }) => Promise<unknown>,
  *   reconcileAll: () => Promise<unknown>,
  *   closeMonths: () => Promise<unknown>,
+ *   automation: (job: { tenantId: string, orderId: number, event: string, eventKey: string, stage?: string }) => Promise<unknown>,
+ *   automationsScan: () => Promise<unknown>,
  * }} SyncHandlers
  */
 
@@ -52,6 +54,8 @@ function createSyncQueues({ redisUrl, handlers }) {
       async enqueueWebhook(eventId) { setImmediate(() => { handlers().webhook(eventId).catch(log("webhook")); }); },
       /** @param {{ runId: number, tenantId: string, accountId: number }} job */
       async enqueueReconcile(job) { setImmediate(() => { handlers().reconcile(job).catch(log("reconcile")); }); },
+      /** @param {{ tenantId: string, orderId: number, event: string, eventKey: string, stage?: string }} job */
+      async enqueueAutomation(job) { setImmediate(() => { handlers().automation(job).catch(log("automation")); }); },
       async close() { for (const t of timers.values()) clearTimeout(t); timers.clear(); },
     };
   }
@@ -71,6 +75,10 @@ function createSyncQueues({ redisUrl, handlers }) {
     async enqueueWebhook(eventId) { await ordersQueue.add("webhook", { eventId }, { jobId: `webhook-${eventId}` }); },
     /** @param {{ runId: number, tenantId: string, accountId: number }} job */
     async enqueueReconcile(job) { await reconcileQueue.add("reconcile", job, { jobId: `reconcile-${job.runId}` }); },
+    /** Uma por pedido + evento + ocorrência (o banco também impede repetir a execução). @param {{ tenantId: string, orderId: number, event: string, eventKey: string, stage?: string }} job */
+    async enqueueAutomation(job) {
+      await ordersQueue.add("automation", job, { jobId: `auto-${job.orderId}-${job.event}-${String(job.eventKey).replace(/[^A-Za-z0-9_.-]/g, "_")}`.slice(0, 200), attempts: 3 });
+    },
     async close() { await pushQueue.close(); await ordersQueue.close(); await reconcileQueue.close(); await connection.quit().catch(() => {}); },
   };
 }
@@ -86,7 +94,9 @@ async function startSyncWorkers({ redisUrl, handlers, pollEveryMs = POLL_EVERY_M
   const orders = new Worker(ORDERS_QUEUE, async (job) => (
     job.name === "poll-all" ? handlers.pollAll()
       : job.name === "close-months" ? handlers.closeMonths()
-        : handlers.webhook(Number(job.data.eventId))), { connection, concurrency: 3 });
+        : job.name === "automation" ? handlers.automation(/** @type {any} */ (job.data))
+          : job.name === "automations-scan" ? handlers.automationsScan()
+            : handlers.webhook(Number(job.data.eventId))), { connection, concurrency: 3 });
   // Conferência: uma conta por vez (lê o canal inteiro; respeita o limite de requisições).
   const reconcile = new Worker(RECONCILE_QUEUE, async (job) => (job.name === "reconcile-all" ? handlers.reconcileAll() : handlers.reconcile(/** @type {any} */ (job.data))), { connection, concurrency: 1 });
   for (const [name, worker] of /** @type {Array<[string, any]>} */ ([["push", push], ["orders", orders], ["reconcile", reconcile]])) {
@@ -94,6 +104,8 @@ async function startSyncWorkers({ redisUrl, handlers, pollEveryMs = POLL_EVERY_M
   }
   const scheduler = new Queue(ORDERS_QUEUE, { connection });
   await scheduler.add("poll-all", {}, { repeat: { every: pollEveryMs }, jobId: "poll-all", removeOnComplete: 50, removeOnFail: 50 });
+  // Automações de prazo (vencendo / vencido): varredura a cada 10 min.
+  await scheduler.add("automations-scan", {}, { repeat: { every: 10 * 60 * 1000 }, jobId: "automations-scan", removeOnComplete: 50, removeOnFail: 50 });
   // Fechamento mensal das vendas (cobrança): todo dia às 03:00 de São Paulo fecha os meses passados ainda abertos.
   await scheduler.add("close-months", {}, { repeat: { pattern: "0 3 * * *", tz: "America/Sao_Paulo" }, jobId: "close-months", removeOnComplete: 30, removeOnFail: 30 });
   const reconcileScheduler = new Queue(RECONCILE_QUEUE, { connection });

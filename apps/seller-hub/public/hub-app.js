@@ -9,7 +9,7 @@
     basePath: "/hub",
     brand: { name: "DACHBYTE", sub: "Hub · Multicanal", logo: "/brand/dachbyte/hub/mark.svg", href: "/hub/" },
     navGroups: [
-      { id: "overview", label: "Visão geral", hint: "Painel e saúde", icon: "dashboard", items: [{ label: "Painel", path: "/hub/" }, { label: "Saúde das contas", path: "/hub/saude" }] },
+      { id: "overview", label: "Visão geral", hint: "Painel e saúde", icon: "dashboard", items: [{ label: "Painel", path: "/hub/" }, { label: "Saúde das contas", path: "/hub/saude" }, { label: "Avisos", path: "/hub/avisos" }] },
       { id: "catalog", label: "Catálogo", hint: "Produtos e vínculos", icon: "package", items: [
         { label: "Produtos", path: "/hub/catalogo" },
         { label: "Pendências", path: "/hub/pendencias" },
@@ -26,6 +26,7 @@
         { label: "Pedidos", path: "/hub/pedidos" },
         { label: "Atrasados", path: "/hub/pedidos?prazo=late" },
         { label: "Vendas sem vínculo", path: "/hub/pedidos?pendentes=1" },
+        { label: "Automações", path: "/hub/automacoes" },
       ] },
       { id: "account", label: "Conta", hint: "Acesso e integrações", icon: "user", items: [{ label: "Contas conectadas", path: "/hub/contas" }, { label: "Vendas do mês", path: "/hub/cobranca/vendas" }] },
     ],
@@ -71,6 +72,7 @@
    */
   function attentionCards(a) {
     const cards = /** @type {Array<[number, string, string, string, string]>} */ ([
+      [a.notificationsUnread, "Avisos das automações", "não lidos", "/hub/avisos", "warning"],
       [a.divergencesOpen, "Estoque mudado fora do Hub", "divergência(s) para decidir", "/hub/estoque/divergencias", "danger"],
       [a.pushProblems24h, "Envios com problema (24h)", "falha ou valor diferente no canal", "/hub/estoque/envios?estado=failed", "danger"],
       [a.pendingSales, "Vendas sem vínculo", "não baixaram estoque", "/hub/pedidos?pendentes=1", "danger"],

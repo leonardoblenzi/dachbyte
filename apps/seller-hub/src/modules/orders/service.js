@@ -19,10 +19,11 @@ const errorText = (error) => String(/** @type {any} */ (error)?.message || error
  *   connectors?: ReturnType<typeof import("../../connectors/registry").createConnectors>,
  *   tokens?: { getAccessToken: (accountId: number) => Promise<{ accessToken: string, externalAccountId: string }> },
  *   onItemsChanged?: (tenantId: string, itemIds: number[], reason: string) => Promise<unknown>,
+ *   onOrderChanged?: (change: { tenantId: string, orderId: number, created: boolean, stageChanged: boolean, stage: string }) => Promise<unknown>,
  *   now?: () => Date,
  * }} deps
  */
-function createOrdersService({ repository, stockRepository, connectors, tokens, onItemsChanged = async () => {}, now = () => new Date() }) {
+function createOrdersService({ repository, stockRepository, connectors, tokens, onItemsChanged = async () => {}, onOrderChanged = async () => {}, now = () => new Date() }) {
   /**
    * Aplica a baixa/devolução que falta no pedido. Idempotente: cada movimento tem chave por item do pedido.
    * @param {string} tenantId @param {number} accountId
@@ -82,7 +83,13 @@ function createOrdersService({ repository, stockRepository, connectors, tokens, 
   /** @param {{ id: number, tenantId: string }} account @param {import("./repository").ChannelOrder} order */
   async function ingest(account, order) {
     const saved = await repository.upsertOrder(Number(account.id), order);
-    return applyOrder(account.tenantId, Number(account.id), { id: saved.id, orderId: order.orderId, status: order.status, fulfillment: order.fulfillment, lines: saved.lines });
+    const result = await applyOrder(account.tenantId, Number(account.id), { id: saved.id, orderId: order.orderId, status: order.status, fulfillment: order.fulfillment, lines: saved.lines });
+    // Automações: pedido recebido / situação mudou. Falha aqui não desfaz o pedido nem a baixa.
+    if (saved.created || saved.stageChanged) {
+      try { await onOrderChanged({ tenantId: account.tenantId, orderId: saved.id, created: saved.created, stageChanged: saved.stageChanged, stage: saved.stage }); }
+      catch (error) { console.error("[seller-hub:automations] gatilho", saved.id, /** @type {any} */ (error)?.message); }
+    }
+    return result;
   }
 
   /** @param {string} channel */

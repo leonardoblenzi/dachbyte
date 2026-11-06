@@ -36,13 +36,22 @@
     return `<span class="seller-badge" ${tone ? `data-tone="${tone}"` : ""}>${ms < 0 ? "Atrasado · " : ""}${kit.esc(kit.dateTime(o.shipBy))}</span>`;
   }
 
+  /** Selo do status interno e etiquetas (definidos em hub-automations.js). @param {any} kit @param {any} o */
+  const statusAndTags = (kit, o) => {
+    const auto = /** @type {any} */ (window).DachHubAuto;
+    return auto ? `${auto.statusBadge(kit, o.customStatus, o.customStatusColor)} ${auto.tagsHtml(kit, o.tags)}` : "";
+  };
+
   registry.orders = (kit) => {
-    const { api, esc, int, root, empty, dateTime, CHANNEL_LABELS } = kit;
+    const { api, esc, int, root, empty, dateTime, CHANNEL_LABELS, isAdmin } = kit;
+    /** @type {Set<string>} */
+    const selected = new Set();
     const query = new URLSearchParams(location.search);
     const state = {
       stage: query.get("situacao") || "", accountId: query.get("account") || "", q: query.get("q") || "",
       from: query.get("de") || "", to: query.get("ate") || "", due: query.get("prazo") || "",
-      pendingOnly: query.get("pendentes") === "1", offset: 0,
+      pendingOnly: query.get("pendentes") === "1", customStatus: query.get("status") || "", tag: query.get("etiqueta") || "", offset: 0,
+      message: "", tone: "success",
     };
     let bound = false;
 
@@ -55,11 +64,16 @@
       if (state.to) p.set("to", `${state.to}T23:59:59-03:00`);
       if (state.due) p.set("due", state.due);
       if (state.pendingOnly) p.set("pending", "1");
+      if (state.customStatus) p.set("customStatus", state.customStatus);
+      if (state.tag) p.set("tag", state.tag);
       return p;
     }
 
     async function render() {
-      const [{ orders, total, summary }, { accounts }] = await Promise.all([api(`/orders?${params()}`), api("/stock/rules")]);
+      const [{ orders, total, summary }, { accounts }, { statuses }, { rules }] = await Promise.all([
+        api(`/orders?${params()}`), api("/stock/rules"), api("/automations/statuses").catch(() => ({ statuses: [] })), api("/automations/rules").catch(() => ({ rules: [] }))]);
+      const manualRules = rules.filter((/** @type {any} */ r) => r.event === "manual" && r.active);
+      for (const id of [...selected]) if (!orders.some((/** @type {any} */ o) => String(o.id) === id)) selected.delete(id);
       const s = summary || {};
       const chips = /** @type {Array<[string, string, number, string]>} */ ([
         ["stage", "paid", s.paid, "Pagos (a preparar)"], ["stage", "invoiced", s.invoiced, "Faturados"], ["stage", "ready_to_ship", s.readyToShip, "Prontos para envio"],
@@ -69,6 +83,7 @@
       root.innerHTML = `
         <section class="hub-attention hub-attention--orders">${chips.map(([field, value, n, label]) => `<button type="button" class="seller-kpi hub-attention__card ${(field === "stage" ? state.stage : state.due) === value ? "is-active" : ""}"
           data-chip-field="${field}" data-chip-value="${value}" data-tone="${value === "late" ? "danger" : value === "today" ? "warning" : ""}"><span>${esc(label)}</span><strong>${int(n || 0)}</strong></button>`).join("")}</section>
+        ${state.message ? `<div class="hub-flash" data-tone="${state.tone}">${esc(state.message)}</div>` : ""}
         <section class="seller-card">
           <form class="hub-toolbar" data-orders-filter>
             <input type="search" name="q" placeholder="Pedido, SKU, comprador, rastreio ou NF" value="${esc(state.q)}">
@@ -77,16 +92,28 @@
             <label class="hub-check">De <input type="date" name="from" value="${esc(state.from)}"></label>
             <label class="hub-check">Até <input type="date" name="to" value="${esc(state.to)}"></label>
             <select name="due"><option value="">Qualquer prazo</option><option value="late" ${state.due === "late" ? "selected" : ""}>Atrasados</option><option value="today" ${state.due === "today" ? "selected" : ""}>Vencem em 24h</option></select>
+            <select name="customStatus"><option value="">Qualquer status interno</option><option value="none" ${state.customStatus === "none" ? "selected" : ""}>Sem status interno</option>${statuses.map((/** @type {any} */ s) => `<option value="${esc(s.id)}" ${state.customStatus === String(s.id) ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select>
+            <input name="tag" placeholder="Etiqueta" value="${esc(state.tag)}" class="hub-input-md">
             <label class="hub-check"><input type="checkbox" name="pending" ${state.pendingOnly ? "checked" : ""}> Só sem vínculo</label>
             <button class="seller-btn" type="submit">Filtrar</button>
             <span class="hub-toolbar__spacer"></span>
             <a class="seller-btn" href="/hub/api/orders/export.csv?${esc(exportParams.toString())}">Exportar</a>
           </form>
-          ${orders.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Data</th><th>Canal</th><th>Pedido</th><th>Itens</th><th>Enviar até</th><th class="hub-num">Produtos</th><th class="hub-num">Tarifas</th><th class="hub-num">Líquido</th><th>Estoque</th></tr></thead><tbody>
+          ${isAdmin && orders.length ? `<form class="hub-bulk" data-bulk>
+            <strong>${selected.size ? `${int(selected.size)} selecionado(s)` : "Selecione pedidos para agir em lote"}</strong>
+            <select name="statusId"><option value="">Status interno…</option><option value="clear">Limpar status</option>${statuses.map((/** @type {any} */ s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")}</select>
+            <button class="seller-btn" type="button" data-bulk-status ${selected.size ? "" : "disabled"}>Aplicar status</button>
+            <input name="tag" placeholder="Etiqueta" maxlength="40" class="hub-input-md">
+            <button class="seller-btn" type="button" data-bulk-tag="add" ${selected.size ? "" : "disabled"}>Pôr</button><button class="seller-btn" type="button" data-bulk-tag="remove" ${selected.size ? "" : "disabled"}>Tirar</button>
+            ${manualRules.length ? `<select name="ruleId">${manualRules.map((/** @type {any} */ r) => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("")}</select>
+              <button class="seller-btn" type="button" data-bulk-run ${selected.size ? "" : "disabled"}>Executar automação</button>` : ""}
+          </form>` : ""}
+          ${orders.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr>${isAdmin ? `<th><input type="checkbox" data-select-all aria-label="Selecionar todos" ${selected.size && selected.size === orders.length ? "checked" : ""}></th>` : ""}<th>Data</th><th>Canal</th><th>Pedido</th><th>Itens</th><th>Enviar até</th><th class="hub-num">Produtos</th><th class="hub-num">Tarifas</th><th class="hub-num">Líquido</th><th>Estoque</th></tr></thead><tbody>
           ${orders.map((/** @type {any} */ o) => `<tr class="hub-row-link" data-order="${esc(o.id)}">
+            ${isAdmin ? `<td><input type="checkbox" data-select="${esc(o.id)}" ${selected.has(String(o.id)) ? "checked" : ""} aria-label="Selecionar pedido"></td>` : ""}
             <td>${esc(dateTime(o.orderedAt))}</td>
             <td><span class="seller-badge">${esc(CHANNEL_LABELS[o.channel] || o.channel)}</span><br><small>${esc(o.account)}</small></td>
-            <td><a href="/hub/pedidos/detalhe?id=${esc(o.id)}"><strong>${esc(o.orderId)}</strong></a><br>${stageBadge(kit, o.stage)}${o.fulfillment ? ' <span class="seller-badge">Full</span>' : ""}</td>
+            <td><a href="/hub/pedidos/detalhe?id=${esc(o.id)}"><strong>${esc(o.orderId)}</strong></a><br>${stageBadge(kit, o.stage)}${o.fulfillment ? ' <span class="seller-badge">Full</span>' : ""} ${statusAndTags(kit, o)}</td>
             <td>${(o.lines || []).map((/** @type {any} */ l) => `${int(l.quantity)}× ${esc(l.sku || l.title || l.listingId)}`).join("<br>")}</td>
             <td>${dueCell(kit, o)}</td>
             <td class="hub-num">${money(o.productsTotal ?? o.total)}</td><td class="hub-num">${money(o.feesTotal)}</td><td class="hub-num"><strong>${money(o.netTotal)}</strong></td>
@@ -109,7 +136,8 @@
         const d = new FormData(form);
         Object.assign(state, {
           q: String(d.get("q") || ""), stage: String(d.get("stage") || ""), accountId: String(d.get("accountId") || ""),
-          from: String(d.get("from") || ""), to: String(d.get("to") || ""), due: String(d.get("due") || ""), pendingOnly: d.get("pending") === "on", offset: 0,
+          from: String(d.get("from") || ""), to: String(d.get("to") || ""), due: String(d.get("due") || ""), pendingOnly: d.get("pending") === "on",
+          customStatus: String(d.get("customStatus") || ""), tag: String(d.get("tag") || "").trim(), offset: 0, message: "",
         });
         await render();
       });
@@ -127,8 +155,44 @@
           await render();
           return;
         }
+        if (target.matches("[data-select-all]")) {
+          const on = /** @type {HTMLInputElement} */ (target).checked;
+          root.querySelectorAll("[data-select]").forEach((el) => { const id = String(el.getAttribute("data-select")); if (on) selected.add(id); else selected.delete(id); });
+          await render(); return;
+        }
+        if (target.matches("[data-select]")) {
+          const id = String(target.getAttribute("data-select"));
+          if (/** @type {HTMLInputElement} */ (target).checked) selected.add(id); else selected.delete(id);
+          await render(); return;
+        }
+        const bulk = /** @type {HTMLFormElement | null} */ (root.querySelector("[data-bulk]"));
+        const orderIds = [...selected].map(Number);
+        const done = async (/** @type {Promise<any>} */ call, /** @type {(r: any) => string} */ text) => {
+          try { const r = await call; Object.assign(state, { message: text(r), tone: "success" }); selected.clear(); }
+          catch (error) { Object.assign(state, { message: /** @type {Error} */ (error).message, tone: "danger" }); }
+          await render();
+        };
+        if (bulk && target.closest("[data-bulk-status]")) {
+          const v = String(new FormData(bulk).get("statusId") || "");
+          if (!v) { state.message = "Escolha o status interno."; state.tone = "danger"; await render(); return; }
+          await done(api("/orders/status", { method: "POST", body: JSON.stringify({ orderIds, statusId: v === "clear" ? null : Number(v) }) }), (r) => `Status aplicado em ${r.changed} pedido(s).`);
+          return;
+        }
+        if (bulk && target.closest("[data-bulk-tag]")) {
+          const tag = String(new FormData(bulk).get("tag") || "").trim();
+          if (!tag) { state.message = "Informe a etiqueta."; state.tone = "danger"; await render(); return; }
+          const add = target.closest("[data-bulk-tag]")?.getAttribute("data-bulk-tag") === "add";
+          await done(api("/orders/tags", { method: "POST", body: JSON.stringify({ orderIds, add: add ? [tag] : [], remove: add ? [] : [tag] }) }), (r) => `Etiqueta ${add ? "posta" : "tirada"} em ${r.changed} pedido(s).`);
+          return;
+        }
+        if (bulk && target.closest("[data-bulk-run]")) {
+          const ruleId = Number(new FormData(bulk).get("ruleId"));
+          await done(api(`/automations/rules/${ruleId}/run`, { method: "POST", body: JSON.stringify({ orderIds }) }), (r) => `Automação executada em ${r.ran} pedido(s) (os que batem nas condições).`);
+          return;
+        }
+        if (target.closest("[data-bulk]")) return;
         const row = target.closest("[data-order]");
-        if (row && !target.closest("a")) location.href = `/hub/pedidos/detalhe?id=${row.getAttribute("data-order")}`;
+        if (row && !target.closest("a") && !target.closest("input")) location.href = `/hub/pedidos/detalhe?id=${row.getAttribute("data-order")}`;
       });
     }
     return async () => { bind(); await render(); };
@@ -136,20 +200,30 @@
 
   /* ───────────── Detalhe do pedido ───────────── */
   registry.orderDetail = (kit) => {
-    const { api, esc, int, root, empty, dateTime, CHANNEL_LABELS } = kit;
-    return async () => {
+    const { api, esc, int, root, empty, dateTime, CHANNEL_LABELS, isAdmin } = kit;
+    let bound = false;
+    const render = async () => {
       const id = new URLSearchParams(location.search).get("id");
       if (!id) { root.innerHTML = empty("Pedido não informado", "Abra um pedido pela lista.", '<a class="seller-btn" href="/hub/pedidos">Ver pedidos</a>'); return; }
-      const { order: o } = await api(`/orders/${encodeURIComponent(id)}`);
-      const EVENT_LABELS = /** @type {Record<string, string>} */ ({ received: "Pedido recebido", stage: "Situação mudou", stock: "Estoque" });
+      const [{ order: o }, { statuses }, { rules }] = await Promise.all([api(`/orders/${encodeURIComponent(id)}`),
+        api("/automations/statuses").catch(() => ({ statuses: [] })), api("/automations/rules").catch(() => ({ rules: [] }))]);
+      const manualRules = rules.filter((/** @type {any} */ r) => r.event === "manual" && r.active);
+      const EVENT_LABELS = /** @type {Record<string, string>} */ ({ received: "Pedido recebido", stage: "Situação mudou", stock: "Estoque", custom_status: "Status interno", tags: "Etiquetas", automation: "Automação" });
       /** @param {string} label @param {string} value */
       const row = (label, value) => `<div class="hub-metric"><span>${esc(label)}</span><strong>${value}</strong></div>`;
       root.innerHTML = `
         <section class="seller-card">
           <div class="hub-account-head"><div><span class="seller-badge">${esc(CHANNEL_LABELS[o.channel] || o.channel)}</span> <small>${esc(o.account)}</small>
             <h2 class="hub-order-title">Pedido ${esc(o.orderId)}</h2>${stageBadge(kit, o.stage)}${o.fulfillment ? ' <span class="seller-badge">Full</span>' : ""}
-            <small class="hub-muted"> no canal: ${esc(o.channelStatus || "—")}</small></div>
+            <small class="hub-muted"> no canal: ${esc(o.channelStatus || "—")}</small> ${statusAndTags(kit, o)}</div>
             <a class="seller-btn" href="/hub/pedidos">Voltar aos pedidos</a></div>
+          ${isAdmin ? `<form class="hub-bulk" data-order-actions="${esc(o.id)}">
+            <select name="statusId"><option value="clear" ${o.customStatusId ? "" : "selected"}>Sem status interno</option>${statuses.map((/** @type {any} */ s) => `<option value="${esc(s.id)}" ${Number(o.customStatusId) === Number(s.id) ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select>
+            <button class="seller-btn" type="button" data-order-status>Salvar status</button>
+            <input name="tag" placeholder="Nova etiqueta" maxlength="40" class="hub-input-md"><button class="seller-btn" type="button" data-order-tag>Pôr etiqueta</button>
+            ${(o.tags || []).map((/** @type {string} */ t) => `<button class="hub-tag hub-tag--remove" type="button" data-order-untag="${esc(t)}" title="Tirar etiqueta">${esc(t)} ✕</button>`).join("")}
+            ${manualRules.map((/** @type {any} */ r) => `<button class="seller-btn" type="button" data-order-run="${esc(r.id)}">${esc(r.name)}</button>`).join("")}
+            <small data-form-error class="hub-error"></small></form>` : ""}
           <div class="hub-metrics">
             ${row("Data do pedido", esc(dateTime(o.orderedAt)))}${row("Enviar até", dueCell(kit, o))}
             ${row("Enviado em", esc(dateTime(o.shippedAt)))}${row("Entregue em", esc(dateTime(o.deliveredAt)))}
@@ -179,6 +253,34 @@
             ${e.stage ? stageBadge(kit, e.stage) : ""}${e.channelStatus ? ` <small class="hub-muted">${esc(e.channelStatus)}</small>` : ""}${e.note ? `<div>${esc(e.note)}</div>` : ""}</li>`).join("") || "<li>Sem eventos.</li>"}</ol>
         </section>`;
     };
+    const bind = () => {
+      if (bound) return;
+      bound = true;
+      root.addEventListener("click", async (event) => {
+        const t = /** @type {HTMLElement} */ (event.target);
+        const form = /** @type {HTMLFormElement | null} */ (t.closest("[data-order-actions]"));
+        if (!form) return;
+        const orderIds = [Number(form.getAttribute("data-order-actions"))];
+        const d = new FormData(form);
+        const error = /** @type {HTMLElement} */ (form.querySelector("[data-form-error]"));
+        try {
+          if (t.closest("[data-order-status]")) {
+            const v = String(d.get("statusId") || "clear");
+            await api("/orders/status", { method: "POST", body: JSON.stringify({ orderIds, statusId: v === "clear" ? null : Number(v) }) });
+          } else if (t.closest("[data-order-tag]")) {
+            const tag = String(d.get("tag") || "").trim();
+            if (!tag) return;
+            await api("/orders/tags", { method: "POST", body: JSON.stringify({ orderIds, add: [tag] }) });
+          } else if (t.closest("[data-order-untag]")) {
+            await api("/orders/tags", { method: "POST", body: JSON.stringify({ orderIds, remove: [t.closest("[data-order-untag]")?.getAttribute("data-order-untag")] }) });
+          } else if (t.closest("[data-order-run]")) {
+            await api(`/automations/rules/${t.closest("[data-order-run]")?.getAttribute("data-order-run")}/run`, { method: "POST", body: JSON.stringify({ orderIds }) });
+          } else return;
+          await render();
+        } catch (err) { error.textContent = /** @type {Error} */ (err).message; }
+      });
+    };
+    return async () => { bind(); await render(); };
   };
 
   /* ───────────── Vendas do mês (cobrança) ───────────── */
@@ -328,6 +430,7 @@
       if (a.lastRun?.status === "failed") alerts.push({ tone: "warning", text: `${name}: a última conferência falhou (${a.lastRun.error || "erro"}).`, href: "/hub/saude" });
       if (a.mode === "active" && a.lastReconciledAt && Date.now() - Date.parse(a.lastReconciledAt) > 12 * HOUR) alerts.push({ tone: "warning", text: `${name}: estoque não é conferido há mais de 12h.`, href: "/hub/saude" });
     }
+    if (attention?.notificationsUnread) alerts.push({ tone: "warning", text: `${attention.notificationsUnread} aviso(s) das automações não lido(s).`, href: "/hub/avisos" });
     if (attention?.itemsLowStock) alerts.push({ tone: "warning", text: `${attention.itemsLowStock} produto(s) com estoque baixo (disponível até ${attention.threshold}).`, href: "/hub/estoque?filtro=low" });
     if (attention?.itemsZero) alerts.push({ tone: "warning", text: `${attention.itemsZero} produto(s) zerados no estoque do Hub.`, href: "/hub/estoque?filtro=zero" });
     return alerts;

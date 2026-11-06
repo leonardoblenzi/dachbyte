@@ -19,7 +19,7 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
  * @param {Parameters<typeof createContainer>[0]} [deps]
  */
 async function createApp(deps = {}) {
-  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing } = createContainer(deps);
+  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing, automations } = createContainer(deps);
 
   const app = express();
   app.set("trust proxy", 1);
@@ -215,7 +215,10 @@ async function createApp(deps = {}) {
     if (req.body && "lowStockThreshold" in req.body) settings = await sync.setLowStockThreshold({ identity: who(req), threshold: Number(req.body.lowStockThreshold) });
     return { settings: settings || await sync.getSettings(identity(req).tenantId) };
   }));
-  api.get("/overview/attention", handle(async (req) => ({ attention: await stock.attention(identity(req).tenantId) })));
+  api.get("/overview/attention", handle(async (req) => {
+    const [attention, notificationsUnread] = await Promise.all([stock.attention(identity(req).tenantId), automations.unreadCount(identity(req).tenantId)]);
+    return { attention: { ...attention, notificationsUnread } };
+  }));
   api.get("/stock/pushes", handle(async (req) => sync.listPushes(identity(req).tenantId, {
     state: String(req.query.state || ""), accountId: req.query.accountId ? int(req.query.accountId, 0) : null, limit: int(req.query.limit, 50), offset: int(req.query.offset, 0),
   })));
@@ -223,8 +226,9 @@ async function createApp(deps = {}) {
   // Reconciliação e saúde (E4).
   api.get("/health/accounts", handle(async (req) => {
     const tenantId = identity(req).tenantId;
-    const [accountsHealth, settings, attention] = await Promise.all([reconcile.health(tenantId), sync.getSettings(tenantId), stock.attention(tenantId)]);
-    return { accounts: accountsHealth, settings, attention };
+    const [accountsHealth, settings, attention, notificationsUnread] = await Promise.all([
+      reconcile.health(tenantId), sync.getSettings(tenantId), stock.attention(tenantId), automations.unreadCount(tenantId)]);
+    return { accounts: accountsHealth, settings, attention: { ...attention, notificationsUnread } };
   }));
   api.post("/accounts/:accountId/reconcile", requireAdmin, async (req, res, next) => {
     try {
@@ -249,6 +253,7 @@ async function createApp(deps = {}) {
     stage: String(query.stage || ""), accountId: query.accountId ? int(query.accountId, 0) : null,
     from: query.from ? String(query.from) : null, to: query.to ? String(query.to) : null, q: String(query.q || ""),
     due: /** @type {any} */ (["late", "today"].includes(String(query.due)) ? String(query.due) : ""), pendingOnly: query.pending === "1",
+    customStatus: String(query.customStatus || ""), tag: String(query.tag || ""),
     limit: int(query.limit, 50), offset: int(query.offset, 0),
   });
   api.get("/orders", handle(async (req) => orders.search(identity(req).tenantId, orderFilters(req.query))));
@@ -261,6 +266,33 @@ async function createApp(deps = {}) {
     } catch (error) { next(error); }
   });
   api.get("/orders/:orderId", handle(async (req) => ({ order: await orders.detail(identity(req).tenantId, int(req.params.orderId, 0)) })));
+  // Status internos, etiquetas e automações (Fase 3 / P2).
+  /** @param {any} body */
+  const idList = (body) => (Array.isArray(body?.orderIds) ? body.orderIds.map(Number).filter(Boolean) : []);
+  api.post("/orders/status", requireAdmin, handle(async (req) => automations.setStatus({
+    identity: who(req), orderIds: idList(req.body), statusId: req.body?.statusId ? Number(req.body.statusId) : null,
+  })));
+  api.post("/orders/tags", requireAdmin, handle(async (req) => automations.changeTags({
+    identity: who(req), orderIds: idList(req.body), add: Array.isArray(req.body?.add) ? req.body.add : [], remove: Array.isArray(req.body?.remove) ? req.body.remove : [],
+  })));
+  api.get("/automations/statuses", handle(async (req) => ({ statuses: await automations.listStatuses(identity(req).tenantId) })));
+  api.post("/automations/statuses", requireAdmin, handle(async (req) => ({ status: await automations.saveStatus({ identity: who(req), name: req.body?.name, color: req.body?.color }) })));
+  api.put("/automations/statuses/:id", requireAdmin, handle(async (req) => ({ status: await automations.saveStatus({ identity: who(req), id: int(req.params.id, 0), name: req.body?.name, color: req.body?.color }) })));
+  api.delete("/automations/statuses/:id", requireAdmin, handle(async (req) => ({ status: await automations.deleteStatus({ identity: who(req), id: int(req.params.id, 0) }) })));
+  api.get("/automations/rules", handle(async (req) => ({ rules: await automations.listRules(identity(req).tenantId) })));
+  api.post("/automations/rules", requireAdmin, handle(async (req) => ({ rule: await automations.saveRule({ identity: who(req), input: req.body || {} }) })));
+  api.put("/automations/rules/:id", requireAdmin, handle(async (req) => ({ rule: await automations.saveRule({ identity: who(req), id: int(req.params.id, 0), input: req.body || {} }) })));
+  api.put("/automations/rules/:id/active", requireAdmin, handle(async (req) => ({ rule: await automations.setActive({ identity: who(req), id: int(req.params.id, 0), active: req.body?.active === true }) })));
+  api.delete("/automations/rules/:id", requireAdmin, handle(async (req) => ({ rule: await automations.deleteRule({ identity: who(req), id: int(req.params.id, 0) }) })));
+  api.get("/automations/rules/:id/runs", handle(async (req) => ({ runs: await automations.listRuns(identity(req).tenantId, int(req.params.id, 0)) })));
+  api.post("/automations/rules/:id/run", requireAdmin, handle(async (req) => automations.runNow({ identity: who(req), ruleId: int(req.params.id, 0), orderIds: idList(req.body) })));
+  api.get("/automations/webhook-secret", requireAdmin, handle(async (req) => ({ secret: await automations.webhookSecret(identity(req).tenantId) })));
+  api.post("/automations/webhook-secret/rotate", requireAdmin, handle(async (req) => ({ secret: await automations.rotateWebhookSecret(who(req)) })));
+  api.get("/notifications", handle(async (req) => ({
+    notifications: await automations.listNotifications(identity(req).tenantId, { unreadOnly: req.query.unread === "1", limit: int(req.query.limit, 50), offset: int(req.query.offset, 0) }),
+    unread: await automations.unreadCount(identity(req).tenantId),
+  })));
+  api.post("/notifications/read", handle(async (req) => ({ marked: await automations.markRead(identity(req).tenantId, req.body?.id ? Number(req.body.id) : null) })));
   // Vendas medidas para a cobrança (% sobre vendas) e extrato pedido a pedido.
   api.get("/billing/month", handle(async (req) => ({ month: await billing.month(identity(req).tenantId, req.query.month ? String(req.query.month) : undefined) })));
   api.get("/billing/statement", handle(async (req) => ({ statement: await billing.statement(identity(req).tenantId, String(req.query.month || billing.currentMonth()), {

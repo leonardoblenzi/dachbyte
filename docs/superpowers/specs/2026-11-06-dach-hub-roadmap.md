@@ -167,7 +167,14 @@ O detalhe está em `2026-11-06-dach-hub-fase1-design.md`.
   - lista com filtros (situação, conta, período, busca por pedido/SKU/comprador/rastreio/NF, atrasados, vence em 24h, sem vínculo), contadores clicáveis e exportação CSV; detalhe do pedido;
   - **Vendas do mês:** base da cobrança (produtos sem frete, fuso de São Paulo), fechamento diário dos meses passados (`hub.gmv_closings`, 03:00) e crédito de cancelamento feito depois do fechamento; extrato pedido a pedido.
   - Pendente para cobrar de fato: o Hub de cobrança aceitar `gmv` na medição e o preço em faixas (seção 2).
-- **P2 — Status personalizados e automações** (evento → condição → ação, com histórico no pedido).
+- **P2 — Status internos e automações (feito, migração 007):**
+  - status internos da empresa (nome e cor) e etiquetas livres nos pedidos; troca manual em lote ou no detalhe;
+  - automações **quando → se → então**:
+    - quando: pedido recebido, situação mudou (opcionalmente para uma situação), status interno mudou, prazo de envio vencendo em N horas, prazo vencido, execução manual (botão);
+    - se (todas): canal, conta, situação, status interno, logística, Full, rastreio, NF, sem vínculo, valor, quantidade, SKU, UF, etiqueta;
+    - então: mudar status interno, pôr/tirar etiqueta, avisar a equipe (página Avisos e alertas), chamar webhook https assinado (`X-DachHub-Signature`, sem endereços internos);
+  - cada regra roda uma vez por ocorrência; encadeamento limitado a 3; histórico por regra e na linha do tempo do pedido; modelos prontos;
+  - varredura de prazo a cada 10 min no worker.
 - **P3 — Expedição:** separação (picking), conferência com bipagem e foto do pacote, coletas.
 - **P4 — Etiquetas por canal** e impressão agrupada.
 - **P5 — Fiscal:** NF via ERP (Bling primeiro) e envio da NF ao canal.
