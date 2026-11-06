@@ -12,6 +12,8 @@ const { createAccountsService, TokenManager } = require("./modules/accounts/serv
 const { createImportsRepository } = require("./modules/imports/repository");
 const { createImportsService } = require("./modules/imports/service");
 const { createImportQueue } = require("./jobs/importQueue");
+const { createStockRepository } = require("./modules/stock/repository");
+const { createStockService } = require("./modules/stock/service");
 
 /** Cifra criada só quando usada: sem chave, conectar conta falha com 503 sem derrubar o app. @param {string} key */
 function lazyCipher(key) {
@@ -24,7 +26,7 @@ function lazyCipher(key) {
 /**
  * Raiz de composição: monta as peças do Hub uma vez, para o site (app.js) e para o worker.
  * Qualquer peça pode ser trocada (testes, prévia local).
- * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, imports?: any, queue?: any }} [overrides]
+ * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, imports?: any, queue?: any, stock?: any }} [overrides]
  */
 function createContainer(overrides = {}) {
   const config = overrides.config || loadConfig();
@@ -40,7 +42,8 @@ function createContainer(overrides = {}) {
     imports = createImportsService({ repository: createImportsRepository(db), catalog, connectors, tokens });
     imports.setQueue(overrides.queue || createImportQueue({ redisUrl: config.redisUrl, runInline: (job) => imports.runImport(job) }));
   }
-  return { config, db, connectors, catalog, accounts, tokens, imports };
+  const stock = overrides.stock || createStockService({ repository: createStockRepository(db) });
+  return { config, db, connectors, catalog, accounts, tokens, imports, stock };
 }
 
 module.exports = { createContainer, lazyCipher };

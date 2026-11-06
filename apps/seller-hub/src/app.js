@@ -19,7 +19,7 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
  * @param {Parameters<typeof createContainer>[0]} [deps]
  */
 async function createApp(deps = {}) {
-  const { config, catalog, connectors, accounts, imports } = createContainer(deps);
+  const { config, catalog, connectors, accounts, imports, stock } = createContainer(deps);
 
   const app = express();
   app.set("trust proxy", 1);
@@ -30,7 +30,10 @@ async function createApp(deps = {}) {
     res.setHeader("Cache-Control", /^\/(assets|ui)\//.test(req.path) ? "public, max-age=3600" : "no-store");
     next();
   });
-  app.use(express.json({ limit: "1mb" }));
+  // Planilha de estoque vem em base64 no corpo: limite maior só nessas rotas.
+  const smallJson = express.json({ limit: "1mb" });
+  const sheetJson = express.json({ limit: "15mb" });
+  app.use((req, res, next) => (req.path.startsWith("/api/stock/spreadsheet/") ? sheetJson : smallJson)(req, res, next));
   app.use("/assets", express.static(path.resolve(__dirname, "../public"), { maxAge: "1h" }));
   app.use("/ui", express.static(path.resolve(__dirname, "../../shared/seller-ui"), { maxAge: "1h" }));
 
@@ -131,6 +134,60 @@ async function createApp(deps = {}) {
   api.get("/imports/:runId", async (req, res, next) => {
     try { res.json({ ok: true, run: await imports.getRun(identity(req).tenantId, int(req.params.runId, 0)) }); } catch (error) { next(error); }
   });
+  // Estoque mestre (E2): calcula e mostra; nada é escrito nos canais.
+  const who = (/** @type {any} */ req) => ({ tenantId: identity(req).tenantId, userId: identity(req).userId });
+  /** @param {(req: any) => Promise<any>} work */
+  const handle = (work) => async (/** @type {any} */ req, /** @type {any} */ res, /** @type {any} */ next) => {
+    try { res.json({ ok: true, ...(await work(req)) }); } catch (error) { next(error); }
+  };
+  api.get("/stock", handle(async (req) => stock.listStock(identity(req).tenantId, {
+    q: String(req.query.q || ""), filter: String(req.query.filter || "all"), limit: int(req.query.limit, 50), offset: int(req.query.offset, 0),
+  })));
+  api.get("/stock/export.csv", async (req, res, next) => {
+    try {
+      const csv = await stock.exportCsv(identity(req).tenantId);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="estoque-dach-hub-${new Date().toISOString().slice(0, 10)}.csv"`);
+      res.send(csv);
+    } catch (error) { next(error); }
+  });
+  api.get("/stock/movements", handle(async (req) => ({ movements: await stock.listMovements(identity(req).tenantId, {
+    itemId: req.query.itemId ? int(req.query.itemId, 0) : null, limit: int(req.query.limit, 50), offset: int(req.query.offset, 0),
+  }) })));
+  api.get("/stock/plan", handle(async (req) => stock.plan(identity(req).tenantId, {
+    accountId: req.query.accountId ? int(req.query.accountId, 0) : null, onlyChanges: req.query.onlyChanges === "1",
+    q: String(req.query.q || ""), limit: int(req.query.limit, 100), offset: int(req.query.offset, 0),
+  })));
+  api.get("/stock/rules", handle(async (req) => ({ accounts: await stock.listAccountRules(identity(req).tenantId) })));
+  api.get("/stock/items/:itemId", handle(async (req) => ({ item: await stock.getItem(identity(req).tenantId, int(req.params.itemId, 0)) })));
+  api.post("/stock/items/:itemId/adjust", requireAdmin, handle(async (req) => stock.adjust({
+    identity: who(req), itemId: int(req.params.itemId, 0), op: req.body?.op, quantity: Number(req.body?.quantity), note: String(req.body?.note || ""),
+  })));
+  api.put("/stock/items/:itemId/kit", requireAdmin, handle(async (req) => ({ item: await stock.setKit({
+    identity: who(req), itemId: int(req.params.itemId, 0), components: req.body?.components || [],
+  }) })));
+  api.post("/stock/spreadsheet/preview", requireAdmin, handle(async (req) => stock.previewSpreadsheet({
+    identity: who(req), mode: req.body?.mode, file: { fileName: String(req.body?.fileName || ""), contentBase64: String(req.body?.contentBase64 || "") },
+  })));
+  api.post("/stock/spreadsheet/apply", requireAdmin, handle(async (req) => stock.applySpreadsheet({
+    identity: who(req), mode: req.body?.mode, file: { fileName: String(req.body?.fileName || ""), contentBase64: String(req.body?.contentBase64 || "") },
+  })));
+  api.post("/stock/initial", requireAdmin, handle(async (req) => stock.initialFromChannels({
+    identity: who(req), source: req.body?.source, accountId: req.body?.accountId ? Number(req.body.accountId) : null,
+    onlyMissing: req.body?.onlyMissing !== false, apply: req.body?.apply === true,
+  })));
+  api.put("/stock/accounts/:accountId/mode", requireAdmin, handle(async (req) => ({ account: await stock.setAccountMode({
+    identity: who(req), accountId: int(req.params.accountId, 0), mode: String(req.body?.mode || ""),
+  }) })));
+  api.put("/stock/accounts/:accountId/rule", requireAdmin, handle(async (req) => stock.saveRule({
+    identity: who(req), scope: "account", targetId: int(req.params.accountId, 0), rule: req.body?.rule ?? null,
+  })));
+  api.put("/stock/listings/:listingId/rule", requireAdmin, handle(async (req) => stock.saveRule({
+    identity: who(req), scope: "listing", targetId: int(req.params.listingId, 0), rule: req.body?.rule ?? null,
+  })));
+  api.put("/stock/listings/:listingId/sync", requireAdmin, handle(async (req) => ({ listing: await stock.setListingSync({
+    identity: who(req), listingId: int(req.params.listingId, 0), enabled: req.body?.enabled === true,
+  }) })));
   app.use("/api", api);
 
   app.use((req, res) => {
@@ -141,7 +198,9 @@ async function createApp(deps = {}) {
   const onError = (error, _req, res, _next) => {
     const status = Number(error?.status) || 500;
     if (status >= 500) console.error("[seller-hub]", error);
-    res.status(status).json({ ok: false, error: status >= 500 ? "internal_error" : "request_error", message: status >= 500 ? "Não foi possível concluir agora." : error.message });
+    if (status >= 500) return res.status(status).json({ ok: false, error: "internal_error", message: "Não foi possível concluir agora." });
+    if (error?.type === "entity.too.large") return res.status(413).json({ ok: false, error: "too_large", message: "Arquivo grande demais (máx. 10 MB)." });
+    res.status(status).json({ ok: false, error: error.code || "request_error", message: error.message, ...(error.details ? { details: error.details } : {}) });
   };
   app.use(onError);
   return app;

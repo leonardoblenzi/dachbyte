@@ -51,4 +51,31 @@ function effectiveRule(accountRule, listingRule) {
   return { ...DEFAULT_RULE, ...(accountRule || {}), ...(listingRule || {}) };
 }
 
-module.exports = { quantityForListing, kitAvailable, effectiveRule, DEFAULT_RULE };
+const RULE_MODES = Object.freeze(["same", "fixed", "percent"]);
+
+/**
+ * Valida a regra vinda da tela. Devolve a regra limpa ou a mensagem do primeiro problema.
+ * @param {any} input @returns {{ rule: StockRule, error: null } | { rule: null, error: string }}
+ */
+function normalizeRule(input) {
+  const mode = String(input?.mode || "same");
+  if (!RULE_MODES.includes(mode)) return { rule: null, error: "Modo de regra inválido." };
+  /** @param {unknown} v */
+  const num = (v) => (v === "" || v == null ? null : Number(v));
+  const value = num(input?.value) ?? 0, cap = num(input?.cap), minLock = num(input?.minLock) ?? 0, safetyReserve = num(input?.safetyReserve) ?? 0;
+  for (const [label, v] of /** @type {Array<[string, number | null]>} */ ([["valor", value], ["teto", cap], ["trava mínima", minLock], ["reserva", safetyReserve]])) {
+    if (v != null && (!Number.isFinite(v) || v < 0)) return { rule: null, error: `O campo ${label} precisa ser um número maior ou igual a zero.` };
+  }
+  if (mode === "percent" && value > 100) return { rule: null, error: "O percentual vai de 0 a 100." };
+  return { rule: { mode: /** @type {StockRule["mode"]} */ (mode), value: mode === "same" ? 0 : value, cap, minLock, safetyReserve }, error: null };
+}
+
+/** Linha do banco (hub.stock_rules) → regra. @param {any} row @returns {StockRule | null} */
+function ruleFromRow(row) {
+  if (!row) return null;
+  /** @param {unknown} v */
+  const n = (v) => (v == null ? null : Number(v));
+  return { mode: row.mode, value: n(row.value) ?? 0, cap: n(row.cap), minLock: n(row.min_lock ?? row.minLock) ?? 0, safetyReserve: n(row.safety_reserve ?? row.safetyReserve) ?? 0 };
+}
+
+module.exports = { quantityForListing, kitAvailable, effectiveRule, normalizeRule, ruleFromRow, DEFAULT_RULE, RULE_MODES };

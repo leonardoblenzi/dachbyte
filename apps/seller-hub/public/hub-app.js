@@ -14,6 +14,12 @@
         { label: "Produtos", path: "/hub/catalogo" },
         { label: "Pendências", path: "/hub/pendencias" },
       ] },
+      { id: "stock", label: "Estoque", hint: "Saldos, regras e observação", icon: "stack", items: [
+        { label: "Saldos", path: "/hub/estoque" },
+        { label: "O que mudaria", path: "/hub/estoque/observacao" },
+        { label: "Movimentos", path: "/hub/estoque/movimentos" },
+        { label: "Regras por conta", path: "/hub/estoque/regras" },
+      ] },
       { id: "account", label: "Conta", hint: "Acesso e integrações", icon: "user", items: [{ label: "Contas conectadas", path: "/hub/contas" }] },
     ],
     footNote: "Catálogo, estoque, pedidos e preços de todos os canais em um só fluxo.",
@@ -220,6 +226,9 @@
   });
 
   const views = /** @type {Record<string, () => Promise<void>>} */ ({ overview: renderOverview, items: renderItems, pending: renderPending, accounts: renderAccounts });
+  // Views de outros arquivos (hub-stock.js) recebem as mesmas ferramentas.
+  const kit = { api, esc, int, dateTime, empty, root, main, isAdmin, loadChannels, CHANNEL_LABELS };
+  for (const [name, factory] of Object.entries(/** @type {any} */ (window).DachHubViews || {})) views[name] = factory(kit);
   const view = views[main.dataset.view || "overview"] || renderOverview;
   loadChannels().catch(() => []).then(view).catch((error) => {
     root.innerHTML = empty("Não foi possível carregar", /** @type {Error} */ (error).message);

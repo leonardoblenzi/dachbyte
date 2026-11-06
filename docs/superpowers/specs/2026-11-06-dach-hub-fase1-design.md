@@ -323,3 +323,14 @@ O Hub nasce com 3 marketplaces, mas já está preparado para outros canais (ex.:
 - Sem Redis configurado, a importação roda no próprio processo web (desenvolvimento e prévia).
 - Execução sem sinal de vida há 15 minutos é encerrada como falha no próximo pedido, para a conta não travar.
 - A primeira importação começa sozinha logo depois de conectar a conta; depois, o botão **Importar agora** em Contas conectadas.
+
+### 10.3 Estoque mestre (E2, modo observação)
+
+- **Ledger:** `hub.stock_movements` guarda cada alteração (estoque inicial, ajuste, inventário, planilha; venda e devolução chegam na E3) com `balance_after`, usuário e motivo. `hub.stock_balances` é atualizado na mesma transação, com trava por item. Saldo negativo é bloqueado nas operações manuais.
+- **Idempotência:** movimento com `idempotency_key` repetida é ignorado (ex.: a mesma planilha "somar" enviada duas vezes).
+- **Estoque informado:** item sem linha de saldo não recebe cálculo de envio. O Hub nunca zera um anúncio por falta de dado.
+- **Estoque inicial:** planilha (.xlsx ou .csv, com prévia e erros por linha), conta de referência ou menor estoque entre os canais. Full fica de fora.
+- **Kits:** sem estoque próprio; disponível = menor componente. Kit dentro de kit não é permitido.
+- **Regras:** padrão da conta e exceção por anúncio (`hub.stock_rules`), pausa por anúncio (`sync_enabled`) e modo da conta (desligado/observação; "ativo" só na E3). Conta nova começa em observação.
+- **"O que mudaria":** calculado na hora (`modules/stock/plan.js`, função pura) a partir do disponível, da regra e do estoque no canal.
+- **Testes de integração:** `HUB_TEST_DATABASE_URL=postgres://... npm run test:db` (banco descartável com as migrations aplicadas).

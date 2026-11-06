@@ -6,13 +6,17 @@ function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
 }
 
-const ASSET_VERSION = "20261107e";
+const ASSET_VERSION = "20261107g";
 
-/** Páginas do DACH Hub (E1). Cada uma vira um item do menu lateral. */
+/** Páginas do DACH Hub. Cada uma vira um item do menu lateral. */
 const PAGES = {
   "/": { title: "Painel", kicker: "Visão geral", lead: "Produtos, anúncios e vínculos de todos os canais conectados.", view: "overview" },
   "/catalogo": { title: "Produtos", kicker: "Catálogo", lead: "Cada produto (SKU DACH) com os anúncios ligados a ele em cada canal.", view: "items" },
   "/pendencias": { title: "Pendências", kicker: "Catálogo", lead: "Anúncios que ainda não estão ligados a um produto. Sem vínculo, a venda não baixa estoque.", view: "pending" },
+  "/estoque": { title: "Saldos", kicker: "Estoque", lead: "Estoque mestre de cada produto. Kits usam o menor componente.", view: "stock" },
+  "/estoque/observacao": { title: "O que mudaria", kicker: "Estoque", lead: "Quanto o Hub enviaria para cada anúncio, comparado ao que está no canal. Nada é enviado nesta fase.", view: "plan" },
+  "/estoque/movimentos": { title: "Movimentos", kicker: "Estoque", lead: "Histórico de cada alteração de estoque, com origem e motivo.", view: "movements" },
+  "/estoque/regras": { title: "Regras por conta", kicker: "Estoque", lead: "Modo de estoque de cada conta e a regra padrão de envio.", view: "rules" },
   "/contas": { title: "Contas conectadas", kicker: "Conta", lead: "Marketplaces e lojas virtuais conectados diretamente ao DACH Hub.", view: "accounts" },
 };
 
@@ -43,6 +47,7 @@ function renderPage(path, viewer) {
     <div data-view-root><div class="seller-card"><div class="seller-empty"><strong>Carregando…</strong></div></div></div>
   </main>
   <script src="/hub/ui/seller-shell.js?v=${ASSET_VERSION}"></script>
+  <script src="/hub/assets/hub-stock.js?v=${ASSET_VERSION}"></script>
   <script src="/hub/assets/hub-app.js?v=${ASSET_VERSION}"></script>
 </body>
 </html>`;
