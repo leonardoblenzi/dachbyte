@@ -127,6 +127,12 @@ exports.startTrayAuthorization = startTrayAuthorization;
  * GET /api/tray/callback
  * Landing page opcional de instalacao
  */
+const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 const showInstallPage = (req, res) => {
     const { url, adm_user, store, company_token } = req.query;
     if (!url) {
@@ -193,14 +199,14 @@ const showInstallPage = (req, res) => {
       <div class="container">
         <h1>Integracao de Pedidos Tray</h1>
         <p>Conecte sua loja Tray com o sistema para sincronizar pedidos.</p>
-        <p><strong>Loja:</strong> ${normalizedStoreUrl}</p>
-        ${store ? `<p><strong>Store:</strong> ${store}</p>` : ''}
-        ${adm_user ? `<p><strong>Usuario:</strong> ${adm_user}</p>` : ''}
+        <p><strong>Loja:</strong> ${escapeHtml(normalizedStoreUrl)}</p>
+        ${store ? `<p><strong>Store:</strong> ${escapeHtml(store)}</p>` : ''}
+        ${adm_user ? `<p><strong>Usuario:</strong> ${escapeHtml(adm_user)}</p>` : ''}
         <button onclick="authorize()">Autorizar agora</button>
       </div>
       <script>
         function authorize() {
-          window.location.href = ${JSON.stringify(authUrl)};
+          window.location.href = ${JSON.stringify(authUrl).replace(/</g, '\\u003c')};
         }
       </script>
     </body>
@@ -283,11 +289,11 @@ const handleAuthCallback = async (req, res) => {
           <h1>Integracao Tray conectada</h1>
           <p>Redirecionando para a area de Integracao do app...</p>
           <p style="margin-top:12px;font-size:13px;color:#cbd5e1;">
-            Loja ${String(store)}${adm_user ? ` • Usuario ${String(adm_user)}` : ''}
+            Loja ${escapeHtml(store)}${adm_user ? ` • Usuario ${escapeHtml(adm_user)}` : ''}
           </p>
         </div>
         <script>
-          const target = ${JSON.stringify(redirectUrl)};
+          const target = ${JSON.stringify(redirectUrl).replace(/</g, '\\u003c')};
           if (window.opener && !window.opener.closed) {
             window.opener.location.href = target;
             window.close();

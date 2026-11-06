@@ -1,9 +1,65 @@
 "use strict";
 
 const fetch = require("node-fetch");
+const net = require("net");
 const db = require("../db/db");
 const TokenService = require("./tokenService");
 const { itemsBulkPath, normalizeBulkResponse } = require("./meliBulk");
+
+// Guarda anti-SSRF: so permitimos buscar URLs publicas. Bloqueia loopback,
+// link-local (169.254.x, metadata de cloud), redes privadas e hosts internos.
+function isPublicHostname(hostname) {
+  const normalized = String(hostname || "").trim().toLowerCase().replace(/\.$/, "");
+  if (
+    !normalized ||
+    normalized === "localhost" ||
+    normalized.endsWith(".localhost") ||
+    normalized.endsWith(".local")
+  ) {
+    return false;
+  }
+  if (!net.isIP(normalized)) return true;
+  if (normalized === "::1" || normalized === "::") return false;
+
+  const octets = normalized.split(".").map(Number);
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet))) return false;
+  const [first, second] = octets;
+  return !(
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    first >= 224 ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168)
+  );
+}
+
+function assertPublicSourceUrl(url) {
+  let parsed;
+  try {
+    parsed = url instanceof URL ? url : new URL(String(url));
+  } catch (_error) {
+    throw new CloneDraftError(
+      "Informe um link publico de produto com HTTP ou HTTPS.",
+      400,
+      "source_url_invalid",
+    );
+  }
+  if (
+    !["http:", "https:"].includes(parsed.protocol) ||
+    parsed.username ||
+    parsed.password ||
+    !isPublicHostname(parsed.hostname)
+  ) {
+    throw new CloneDraftError(
+      "Informe um link publico de produto com HTTP ou HTTPS.",
+      400,
+      "source_url_not_public",
+    );
+  }
+  return parsed;
+}
 
 const ML_API_BASE = "https://api.mercadolibre.com";
 const SHOPEE_IMAGE_CDN = "https://down-br.img.susercontent.com/file/";
@@ -265,6 +321,7 @@ function parseSourceReference(value) {
 
   if (isHttpUrl(raw)) {
     const normalizedUrl = removeHashFromUrl(raw);
+    assertPublicSourceUrl(normalizedUrl);
     const hostname = String(new URL(normalizedUrl).hostname || "").toLowerCase();
     if (hostname.includes("shopee.")) {
       const ids = extractShopeeIdsFromUrl(normalizedUrl);
@@ -3851,6 +3908,11 @@ class ClonarAnuncioService {
     let publicUrl = publicUrls[0] || String(source || "").trim();
 
     for (const candidateUrl of publicUrls) {
+      try {
+        assertPublicSourceUrl(candidateUrl);
+      } catch (_error) {
+        continue;
+      }
       const currentResponse = await fetch(candidateUrl, {
         method: "GET",
         headers: {

@@ -103,7 +103,9 @@ function sleep(ms) {
 }
 
 function getHubLoginMode() {
-  return String(process.env.HUB_LOGIN_MODE || "fallback")
+  // Default seguro: "strict" desabilita o fallback legado. Habilite
+  // "fallback"/"mirror" apenas explicitamente via HUB_LOGIN_MODE.
+  return String(process.env.HUB_LOGIN_MODE || "strict")
     .trim()
     .toLowerCase();
 }
@@ -665,7 +667,10 @@ function isLegacyLoginSuccess(response, payload) {
     if (payload.error) return false;
   }
 
-  return true;
+  // Sem marcador explicito de sucesso, trate como falha. Evita que uma
+  // resposta 200 vazia (ex.: origem controlada via header Host) seja aceita
+  // como login valido.
+  return false;
 }
 
 function isMasterIdentity(identity, payload = {}) {

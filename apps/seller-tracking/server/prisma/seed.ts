@@ -9,6 +9,8 @@ const pool = new Pool({
 type UserRole = 'ADMIN' | 'USER';
 
 async function main() {
+  // Senhas de seed vem exclusivamente de variaveis de ambiente. Usuarios sem
+  // senha configurada sao ignorados (sem credenciais embutidas no codigo).
   const users: Array<{
     name: string;
     email: string;
@@ -17,23 +19,29 @@ async function main() {
   }> = [
     {
       name: 'Admin',
-      email: 'admin@avantracking.com.br',
-      password: 'admin',
+      email: process.env.SEED_ADMIN_EMAIL || 'admin@avantracking.com.br',
+      password: process.env.SEED_ADMIN_PASSWORD || '',
       role: 'ADMIN',
     },
     {
       name: 'Josy Rossi',
-      email: 'dmovambientes@gmail.com',
-      password: 'Dmov@123',
+      email: process.env.SEED_USER1_EMAIL || 'dmovambientes@gmail.com',
+      password: process.env.SEED_USER1_PASSWORD || '',
       role: 'USER',
     },
     {
       name: 'Nath Zanin',
-      email: 'coordenacao@drossiinteriores.com.br',
-      password: 'Alfenas@123',
+      email: process.env.SEED_USER2_EMAIL || 'coordenacao@drossiinteriores.com.br',
+      password: process.env.SEED_USER2_PASSWORD || '',
       role: 'USER',
     },
-  ];
+  ].filter((user) => {
+    if (!user.password) {
+      console.log(`Seed ignorado (senha nao configurada): ${user.email}`);
+      return false;
+    }
+    return true;
+  });
 
   for (const user of users) {
     const existingUser = await pool.query<{ id: string }>(
