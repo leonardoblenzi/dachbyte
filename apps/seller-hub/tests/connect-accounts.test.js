@@ -107,7 +107,7 @@ function fakeAccountsRepo({ owner = "t1" } = {}) {
 test("conectar conta: state de uso único, posse protegida e tokens cifrados", async () => {
   const cipher = createCipher("k");
   const connector = { configured: true, authorizeUrl: ({ state }) => `https://mk/auth?state=${state}`, exchangeCode: async () => ({ tokens: { accessToken: "AT", refreshToken: "RT", expiresAt: null, scopes: [] }, account: { externalAccountId: "S1", label: "Loja" } }) };
-  const connectors = { get: () => connector };
+  const connectors = { get: () => connector, definition: () => ({ auth: "oauth" }) };
   const identity = { tenantId: "t1", userId: "u1" };
   const repo = fakeAccountsRepo();
   const service = createAccountsService({ repository: repo, connectors, cipher, publicBaseUrl: "https://dachbyte.tech/hub" });
@@ -133,7 +133,7 @@ test("conectar conta: state de uso único, posse protegida e tokens cifrados", a
 test("conta já ligada a outra empresa é bloqueada", async () => {
   const repo = fakeAccountsRepo({ owner: "outra" });
   const connector = { configured: true, authorizeUrl: ({ state }) => `https://mk/?state=${state}`, exchangeCode: async () => ({ tokens: { accessToken: "A", refreshToken: null, expiresAt: null, scopes: [] }, account: { externalAccountId: "S1", label: null } }) };
-  const service = createAccountsService({ repository: repo, connectors: { get: () => connector }, cipher: createCipher("k"), publicBaseUrl: "https://x/hub" });
+  const service = createAccountsService({ repository: repo, connectors: { get: () => connector, definition: () => ({ auth: "oauth" }) }, cipher: createCipher("k"), publicBaseUrl: "https://x/hub" });
   const identity = { tenantId: "t1", userId: "u1" };
   const state = new URL(await service.startConnect({ identity, channel: "shopee" })).searchParams.get("state");
   await assert.rejects(() => service.finishConnect({ identity, channel: "shopee", query: { state, code: "c", shop_id: "1" } }), (e) => e.status === 409);
@@ -141,7 +141,7 @@ test("conta já ligada a outra empresa é bloqueada", async () => {
 });
 
 test("app sem configuração não deixa iniciar conexão", async () => {
-  const service = createAccountsService({ repository: fakeAccountsRepo(), connectors: { get: () => ({ configured: false }) }, cipher: createCipher("k"), publicBaseUrl: "https://x" });
+  const service = createAccountsService({ repository: fakeAccountsRepo(), connectors: { get: () => ({ configured: false }), definition: () => ({ auth: "oauth" }) }, cipher: createCipher("k"), publicBaseUrl: "https://x" });
   await assert.rejects(() => service.startConnect({ identity: { tenantId: "t", userId: "u" }, channel: "magalu" }), (e) => e.code === "channel_not_configured");
 });
 

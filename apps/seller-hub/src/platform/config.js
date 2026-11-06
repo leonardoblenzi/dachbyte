@@ -1,6 +1,8 @@
 // @ts-check
 "use strict";
 
+const { channelSettingsFromEnv } = require("../connectors/channels");
+
 /** @param {string | undefined} value */
 function list(value) {
   return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
@@ -18,14 +20,13 @@ function loadConfig(env = process.env) {
     suiteJwtSecret: String(env.SUITE_JWT_SECRET || "").trim(),
     allowedTenants: new Set(list(env.HUB_ALLOWED_TENANTS)),
     platformAdminEmails: new Set(list(env.HUB_PLATFORM_ADMIN_EMAILS).map((email) => email.toLowerCase())),
+    // Fila em segundo plano (BullMQ). Vazio = importação roda no próprio processo (desenvolvimento).
+    redisUrl: String(env.HUB_REDIS_URL || env.REDIS_URL || "").trim(),
     tokenEncryptionKey: String(env.HUB_TOKEN_ENCRYPTION_KEY || "").trim(),
     publicBaseUrl: String(env.HUB_PUBLIC_BASE_URL || "https://dachbyte.tech/hub").replace(/\/+$/, ""),
-    // Apps próprios do DACH Hub em cada marketplace (independentes dos módulos DACH).
-    channels: {
-      mercadolivre: { clientId: String(env.HUB_ML_APP_ID || "").trim(), clientSecret: String(env.HUB_ML_CLIENT_SECRET || "").trim() },
-      magalu: { clientId: String(env.HUB_MAGALU_CLIENT_ID || "").trim(), clientSecret: String(env.HUB_MAGALU_CLIENT_SECRET || "").trim(), scopes: list(env.HUB_MAGALU_SCOPES) },
-      shopee: { partnerId: String(env.HUB_SHOPEE_PARTNER_ID || "").trim(), partnerKey: String(env.HUB_SHOPEE_PARTNER_KEY || "").trim(), apiBase: String(env.HUB_SHOPEE_API_BASE || "https://partner.shopeemobile.com").trim() },
-    },
+    // Apps/credenciais próprios do DACH Hub em cada canal (independentes dos módulos DACH).
+    // Cada canal declara as suas variáveis em src/connectors/channels.js.
+    channels: channelSettingsFromEnv(env),
   };
 }
 

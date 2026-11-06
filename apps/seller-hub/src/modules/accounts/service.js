@@ -9,7 +9,8 @@ const STATE_TTL_SECONDS = 600;
 function fail(message, status, code) { return Object.assign(new Error(message), { status, code }); }
 
 /**
- * Conectar e desconectar contas dos marketplaces (OAuth com apps próprios do Hub).
+ * Conectar e desconectar contas dos canais (marketplaces e lojas virtuais).
+ * OAuth com apps próprios do Hub ou, em lojas virtuais, credenciais informadas num formulário.
  * @param {{
  *   repository: ReturnType<typeof import("./repository").createAccountsRepository>,
  *   connectors: ReturnType<typeof import("../../connectors/registry").createConnectors>,
@@ -21,13 +22,39 @@ function createAccountsService({ repository, connectors, cipher, publicBaseUrl }
   /** @param {string} channel */
   const redirectUri = (channel) => `${publicBaseUrl}/auth/${channel}/callback`;
 
+  /**
+   * Grava a conta conectada (posse protegida) e os tokens cifrados. Igual para OAuth e formulário.
+   * @param {{ identity: any, channel: string, tokens: any, account: { externalAccountId: string, label?: string | null } }} input
+   */
+  async function saveConnection({ identity, channel, tokens, account }) {
+    const stored = await repository.upsertAccount({
+      tenantId: identity.tenantId, channel, externalAccountId: account.externalAccountId, label: account.label ?? null, userId: identity.userId,
+    });
+    if (!stored) throw fail("Esta conta já está conectada a outra empresa no DACH Hub.", 409, "account_owned_by_other_tenant");
+    await repository.saveTokens(stored.id, {
+      accessTokenEnc: cipher.encrypt(tokens.accessToken),
+      refreshTokenEnc: tokens.refreshToken ? cipher.encrypt(tokens.refreshToken) : null,
+      expiresAt: tokens.expiresAt ?? null,
+      scopes: tokens.scopes || [],
+    });
+    await repository.audit({ tenantId: identity.tenantId, userId: identity.userId, action: "account_connected", details: { channel, account_id: stored.id, external_account_id: account.externalAccountId } });
+    return stored;
+  }
+
+  /** @param {string} channel @param {"oauth" | "credentials"} auth */
+  function connectorFor(channel, auth) {
+    const connector = connectors.get(channel);
+    if (connectors.definition(channel).auth !== auth) throw fail("Este canal usa outra forma de conexão.", 400, "wrong_connect_method");
+    if (!connector.configured) throw fail("Este canal ainda não tem o app do DACH Hub configurado.", 503, "channel_not_configured");
+    return connector;
+  }
+
   return {
     redirectUri,
 
     /** Gera o state de uso único e devolve a URL de autorização do marketplace. @param {{ identity: any, channel: string }} input */
     async startConnect({ identity, channel }) {
-      const connector = connectors.get(channel);
-      if (!connector.configured) throw fail("Este marketplace ainda não tem o app do DACH Hub configurado.", 503, "channel_not_configured");
+      const connector = connectorFor(channel, "oauth");
       const state = randomToken(32);
       await repository.saveState({ stateHash: sha256(state), tenantId: identity.tenantId, userId: identity.userId, channel, ttlSeconds: STATE_TTL_SECONDS });
       return connector.authorizeUrl({ state, redirectUri: redirectUri(channel) });
@@ -49,18 +76,25 @@ function createAccountsService({ repository, connectors, cipher, publicBaseUrl }
         throw fail("Link de conexão inválido ou expirado. Tente conectar de novo.", 400, "invalid_state");
       }
       const { tokens, account } = await connector.exchangeCode({ code, redirectUri: redirectUri(channel), shopId: query.shop_id });
-      const stored = await repository.upsertAccount({
-        tenantId: identity.tenantId, channel, externalAccountId: account.externalAccountId, label: account.label, userId: identity.userId,
-      });
-      if (!stored) throw fail("Esta conta do marketplace já está conectada a outra empresa no DACH Hub.", 409, "account_owned_by_other_tenant");
-      await repository.saveTokens(stored.id, {
-        accessTokenEnc: cipher.encrypt(tokens.accessToken),
-        refreshTokenEnc: tokens.refreshToken ? cipher.encrypt(tokens.refreshToken) : null,
-        expiresAt: tokens.expiresAt,
-        scopes: tokens.scopes,
-      });
-      await repository.audit({ tenantId: identity.tenantId, userId: identity.userId, action: "account_connected", details: { channel, account_id: stored.id, external_account_id: account.externalAccountId } });
-      return stored;
+      return saveConnection({ identity, channel, tokens, account });
+    },
+
+    /**
+     * Loja virtual conectada por formulário: só os campos declarados no canal são repassados
+     * ao conector, que valida as credenciais na própria loja antes de gravar.
+     * @param {{ identity: any, channel: string, fields: Record<string, any> }} input
+     */
+    async connectWithCredentials({ identity, channel, fields }) {
+      const connector = connectorFor(channel, "credentials");
+      /** @type {Record<string, string>} */
+      const clean = {};
+      for (const field of connectors.definition(channel).credentialFields || []) {
+        const value = String(fields?.[field.name] ?? "").trim();
+        if (!value) throw fail(`Preencha o campo ${field.label}.`, 400, "missing_field");
+        clean[field.name] = value;
+      }
+      const { tokens, account } = await connector.connectWithCredentials(clean);
+      return saveConnection({ identity, channel, tokens, account });
     },
 
     /** @param {string} tenantId */

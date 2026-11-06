@@ -1,10 +1,30 @@
 // @ts-check
 "use strict";
 
-const { MarketplaceConnector } = require("../contract");
+const { ChannelConnector } = require("../contract");
 const { requestJson } = require("../../platform/http");
+const { mapSku } = require("./mapper");
 
 const AUTHORIZE_URL = "https://id.magalu.com/login";
+const API_BASE = "https://api.magalu.com";
+/** Status percorridos na importação; só PUBLISHED busca preço e estoque (padrão do DACH Magalu). */
+const LIST_STATUSES = ["PUBLISHED", "UNPUBLISHED", "BLOCKED"];
+const PAGE_SIZE = 100;
+/** A API do portfólio limita a paginação a 20 mil por status. */
+const MAX_OFFSET = 20_000;
+const DETAIL_CONCURRENCY = 4;
+
+/** @template T, R @param {T[]} items @param {number} limit @param {(item: T) => Promise<R>} fn @returns {Promise<R[]>} */
+async function mapWithConcurrency(items, limit, fn) {
+  /** @type {R[]} */
+  const out = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) { const i = next++; out[i] = await fn(items[i]); }
+  });
+  await Promise.all(workers);
+  return out;
+}
 const TOKEN_URL = "https://id.magalu.com/oauth/token";
 
 /** Escopos de leitura de catálogo e pedidos + escrita de estoque e preço (mesmos nomes do ID Magalu usados no DACH Magalu). */
@@ -26,7 +46,7 @@ function jwtPayload(token) {
 }
 
 /** Conector do Magalu com o client próprio do DACH Hub no ID Magalu. */
-class MagaluConnector extends MarketplaceConnector {
+class MagaluConnector extends ChannelConnector {
   /** @param {{ clientId: string, clientSecret: string, scopes?: string[], fetchImpl?: typeof fetch }} options */
   constructor({ clientId, clientSecret, scopes = DEFAULT_SCOPES, fetchImpl = fetch }) {
     super();
@@ -81,6 +101,38 @@ class MagaluConnector extends MarketplaceConnector {
     return MagaluConnector.tokenSet(body, refreshToken);
   }
 
+  /** @param {string} accessToken @param {string} path */
+  async get(accessToken, path) {
+    return requestJson(`${API_BASE}${path}`, { headers: { authorization: `Bearer ${accessToken}` }, fetchImpl: this.fetchImpl });
+  }
+
+  /**
+   * Uma página do portfólio. Cursor = status + offset (PUBLISHED → UNPUBLISHED → BLOCKED).
+   * @param {{ accessToken: string }} account @param {{ cursor?: string | null }} [options]
+   */
+  async listListings(account, { cursor = null } = {}) {
+    const parsed = cursor ? JSON.parse(cursor) : { s: 0, o: 0 };
+    const status = LIST_STATUSES[parsed.s];
+    if (!status) return { listings: [], nextCursor: null };
+    const params = new URLSearchParams({ _offset: String(parsed.o), _limit: String(PAGE_SIZE), status, sort: "updated_at:desc" });
+    const page = await this.get(account.accessToken, `/seller/v1/portfolios/skus?${params}`);
+    const rows = Array.isArray(page?.results) ? page.results : [];
+    const listings = (await mapWithConcurrency(rows, DETAIL_CONCURRENCY, async (sku) => {
+      const code = String(sku?.sku || "").trim();
+      if (!code || status !== "PUBLISHED") return mapSku({ sku });
+      const path = encodeURIComponent(code);
+      const [price, stock] = await Promise.all([
+        this.get(account.accessToken, `/seller/v1/portfolios/prices/${path}`).catch(() => null),
+        this.get(account.accessToken, `/seller/v1/portfolios/stocks/${path}`).catch(() => null),
+      ]);
+      return mapSku({ sku, price, stock });
+    })).filter(Boolean);
+    const nextOffset = parsed.o + PAGE_SIZE;
+    const statusDone = rows.length < PAGE_SIZE || nextOffset >= MAX_OFFSET;
+    const next = statusDone ? { s: parsed.s + 1, o: 0 } : { s: parsed.s, o: nextOffset };
+    return { listings: /** @type {any[]} */ (listings), nextCursor: LIST_STATUSES[next.s] ? JSON.stringify(next) : null };
+  }
+
   /** O tenant do seller vem no claim `sub` do access token. @param {string} accessToken */
   static identity(accessToken) {
     const claims = jwtPayload(accessToken);
@@ -91,4 +143,4 @@ class MagaluConnector extends MarketplaceConnector {
   }
 }
 
-module.exports = { MagaluConnector, DEFAULT_SCOPES, _test: { jwtPayload } };
+module.exports = { MagaluConnector, DEFAULT_SCOPES, _test: { jwtPayload, mapWithConcurrency } };

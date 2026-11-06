@@ -2,8 +2,9 @@
 "use strict";
 
 /**
- * Formato único de anúncio dentro do Hub, igual para todos os marketplaces.
+ * Formato único de anúncio dentro do Hub, igual para todos os canais.
  * Um registro por variação vendável (anúncio sem variação = um registro).
+ * Em loja virtual: listingId = id do produto na loja, variationId = id da variante.
  * @typedef {{
  *   listingId: string,
  *   variationId?: string,
@@ -19,22 +20,28 @@
  * @typedef {{ id: number, externalAccountId: string, accessToken: string }} ConnectedAccount
  */
 
-/** Canais suportados nesta fase. */
-const CHANNELS = Object.freeze(["mercadolivre", "magalu", "shopee"]);
-
 /**
- * Contrato que todo conector de marketplace cumpre (portas e adaptadores).
- * O núcleo do Hub só conhece estes métodos; cada marketplace implementa do seu jeito.
+ * Contrato que todo conector de canal cumpre — marketplace ou loja virtual (portas e adaptadores).
+ * O núcleo do Hub só conhece estes métodos; cada canal implementa do seu jeito.
+ * A lista de canais fica em ./channels.js.
  */
-class MarketplaceConnector {
+class ChannelConnector {
   /** @returns {string} */
   get channel() { throw new Error("channel não implementado"); }
+  /** App/credenciais do Hub configurados para este canal. @returns {boolean} */
+  get configured() { return false; }
   /** URL de autorização do seller. @param {{ state: string, redirectUri: string }} _input @returns {string} */
   authorizeUrl(_input) { throw new Error("authorizeUrl não implementado"); }
-  /** Troca o código por tokens. @param {{ code: string, redirectUri: string }} _input @returns {Promise<any>} */
+  /** Troca o código por tokens (a Shopee manda também o shop_id). @param {{ code: string, redirectUri: string, shopId?: string | number }} _input @returns {Promise<any>} */
   async exchangeCode(_input) { throw new Error("exchangeCode não implementado"); }
-  /** Renova o token (no ML o refresh é de uso único). @param {{ refreshToken: string }} _input @returns {Promise<any>} */
+  /** Renova o token (no ML o refresh é de uso único). @param {{ refreshToken: string, externalAccountId?: string }} _input @returns {Promise<any>} */
   async refresh(_input) { throw new Error("refresh não implementado"); }
+  /**
+   * Conexão por formulário (lojas virtuais com chave de API/URL da loja). Valida as
+   * credenciais no canal e devolve os mesmos { tokens, account } do OAuth.
+   * @param {Record<string, string>} _fields @returns {Promise<any>}
+   */
+  async connectWithCredentials(_fields) { throw new Error("connectWithCredentials não implementado"); }
   /** Página de anúncios da conta. @param {ConnectedAccount} _account @param {{ cursor?: string | null }} _options
    *  @returns {Promise<{ listings: ListingRecord[], nextCursor: string | null }>} */
   async listListings(_account, _options) { throw new Error("listListings não implementado"); }
@@ -56,4 +63,4 @@ function validateListingRecord(record) {
   return problems;
 }
 
-module.exports = { MarketplaceConnector, CHANNELS, validateListingRecord };
+module.exports = { ChannelConnector, validateListingRecord };

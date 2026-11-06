@@ -60,9 +60,14 @@ function createAccountsRepository(db) {
         `select a.id, a.channel, a.external_account_id as "externalAccountId", a.label, a.status,
                 a.stock_sync_mode as "stockSyncMode", a.connected_at as "connectedAt", a.last_import_at as "lastImportAt",
                 t.expires_at as "tokenExpiresAt",
-                (select count(*)::int from hub.listings l where l.channel_account_id = a.id) as listings
+                (select count(*)::int from hub.listings l where l.channel_account_id = a.id) as listings,
+                case when r.id is null then null else jsonb_build_object(
+                  'id', r.id, 'status', r.status, 'trigger', r.trigger, 'pages', r.pages, 'listingsSeen', r.listings_seen,
+                  'linkedAuto', r.linked_auto, 'unlinked', r.unlinked, 'error', r.error_message,
+                  'createdAt', r.created_at, 'startedAt', r.started_at, 'finishedAt', r.finished_at) end as "lastImport"
            from hub.channel_accounts a
            left join hub.channel_tokens t on t.channel_account_id = a.id
+           left join lateral (select * from hub.import_runs x where x.channel_account_id = a.id order by x.id desc limit 1) r on true
           where a.tenant_id = $1 and a.status <> 'disconnected'
           order by a.channel, a.label`, [tenantId]);
       return rows;

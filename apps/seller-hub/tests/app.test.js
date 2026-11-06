@@ -21,7 +21,11 @@ async function withServer(options, run) {
     listPending: async () => [],
     linkListing: async (...args) => { calls.push(args); return { id: args[1], itemId: args[2] }; },
   };
-  const app = await createApp({ config, db: {}, catalog });
+  const imports = {
+    requestImport: async (input) => { calls.push(["import", input.accountId, input.trigger]); return { run: { id: 1, status: "queued" }, created: true }; },
+    getRun: async () => ({ id: 1, status: "running" }),
+  };
+  const app = await createApp({ config, db: {}, catalog, imports });
   const server = app.listen(0);
   const base = `http://127.0.0.1:${server.address().port}`;
   try { await run(base, calls); } finally { server.close(); }
@@ -94,5 +98,24 @@ test("conectar conta: operador volta com aviso, app sem configuração volta com
     assert.equal(admin.headers.get("location"), "/hub/contas?erro=channel_not_configured");
     const callback = await get(`${base}/auth/magalu/callback?error=access_denied`, token({ company_role: "admin" }), "text/html");
     assert.equal(callback.headers.get("location"), "/hub/contas?erro=authorization_denied");
+  });
+});
+
+test("importar agora: só administrador, responde 202 com a execução na fila", async () => {
+  await withServer({}, async (base, calls) => {
+    const post = (cookie) => fetch(`${base}/api/accounts/5/import`, { method: "POST", headers: { cookie: `suite_auth_token=${cookie}` } });
+    assert.equal((await post(token({ company_role: "operator" }))).status, 403);
+    const res = await post(token({ company_role: "admin" }));
+    assert.equal(res.status, 202);
+    assert.equal((await res.json()).run.status, "queued");
+    assert.deepEqual(calls.at(-1), ["import", 5, "manual"]);
+    assert.equal((await (await get(`${base}/api/imports/1`, token({}))).json()).run.status, "running");
+  });
+});
+
+test("lista de canais traz tipo, forma de conexão e capacidades", async () => {
+  await withServer({}, async (base) => {
+    const { channels } = await (await get(`${base}/api/channels`, token({}))).json();
+    assert.ok(channels.every((c) => c.kind === "marketplace" && c.auth === "oauth" && c.capabilities.listings === true));
   });
 });

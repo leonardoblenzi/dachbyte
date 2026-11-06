@@ -7,7 +7,7 @@
     product: "hub",
     theme: "violet",
     basePath: "/hub",
-    brand: { name: "DACHBYTE", sub: "Hub · Marketplaces", logo: "/brand/dachbyte/hub/mark.svg", href: "/hub/" },
+    brand: { name: "DACHBYTE", sub: "Hub · Multicanal", logo: "/brand/dachbyte/hub/mark.svg", href: "/hub/" },
     navGroups: [
       { id: "overview", label: "Visão geral", hint: "Painel e saúde", icon: "dashboard", items: [{ label: "Painel", path: "/hub/" }] },
       { id: "catalog", label: "Catálogo", hint: "Produtos e vínculos", icon: "package", items: [
@@ -24,7 +24,18 @@
   const main = /** @type {HTMLElement} */ (document.querySelector("[data-shell-content]"));
   const root = /** @type {HTMLElement} */ (document.querySelector("[data-view-root]"));
   const isAdmin = main.dataset.admin === "1";
-  const CHANNEL_LABELS = /** @type {Record<string, string>} */ ({ mercadolivre: "Mercado Livre", magalu: "Magalu", shopee: "Shopee" });
+  /** Rótulos vêm do catálogo de canais da API: canal novo (marketplace ou loja) aparece sem mexer na tela. */
+  const CHANNEL_LABELS = /** @type {Record<string, string>} */ ({});
+  const KIND_TITLES = /** @type {Record<string, [string, string]>} */ ({
+    marketplace: ["Marketplaces", "Você será levado ao marketplace para autorizar o acesso do DACH Hub e voltará para cá."],
+    store: ["Lojas virtuais", "Informe os dados de acesso da sua loja. O DACH Hub confere antes de salvar."],
+  });
+  /** @type {Promise<any[]> | null} */
+  let channelsPromise = null;
+  const loadChannels = () => (channelsPromise ||= api("/channels").then(({ channels }) => {
+    for (const c of channels) CHANNEL_LABELS[c.id] = c.label;
+    return channels;
+  }));
 
   /** @param {unknown} value */
   const esc = (value) => String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
@@ -50,7 +61,7 @@
         <article class="seller-kpi"><span>Vinculados</span><strong>${int(o?.linked)}</strong><small>ligados a um produto</small></article>
         <article class="seller-kpi"><span>Sem vínculo</span><strong>${int(o?.unlinked)}</strong><small>${int(o?.with_suggestion)} com sugestão</small></article>
       </section>
-      ${Number(o?.accounts) ? "" : empty("Nenhuma conta conectada ainda", "Conecte suas contas do Mercado Livre, Magalu e Shopee para importar os anúncios.", '<a class="seller-btn seller-btn--primary" href="/hub/contas">Ver contas</a>')}`;
+      ${Number(o?.accounts) ? "" : empty("Nenhuma conta conectada ainda", "Conecte seus marketplaces e lojas virtuais para importar os anúncios.", '<a class="seller-btn seller-btn--primary" href="/hub/contas">Ver contas</a>')}`;
   }
 
   async function renderItems() {
@@ -87,8 +98,29 @@
   });
   const dateTime = (/** @type {string} */ v) => v ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(v)) : "—";
 
+  /** Andamento da última importação da conta (texto curto para a tabela). @param {any} run */
+  function importCell(run) {
+    if (!run) return '<span class="hub-muted">Ainda não importada</span>';
+    if (run.status === "queued") return '<span class="seller-badge" data-tone="warning">Na fila</span>';
+    if (run.status === "running") return `<span class="seller-badge" data-tone="warning">Importando…</span><br><small>${int(run.listingsSeen)} anúncio(s) · ${int(run.pages)} página(s)</small>`;
+    if (run.status === "failed") return `<span class="seller-badge" data-tone="danger">Falhou</span><br><small title="${esc(run.error)}">${esc(String(run.error || "").slice(0, 80))}</small>`;
+    return `<span class="seller-badge" data-tone="success">Concluída</span><br><small>${esc(dateTime(run.finishedAt))} · ${int(run.listingsSeen)} anúncio(s), ${int(run.unlinked)} sem vínculo</small>`;
+  }
+
+  /** Enquanto houver importação ativa, a tela de Contas se atualiza sozinha. */
+  /** @type {number | null} */
+  let pollTimer = null;
+  /** @param {any[]} accounts */
+  function schedulePoll(accounts) {
+    if (pollTimer) window.clearTimeout(pollTimer);
+    pollTimer = null;
+    const active = accounts.some((a) => a.lastImport && (a.lastImport.status === "queued" || a.lastImport.status === "running"));
+    if (active && main.dataset.view === "accounts") pollTimer = window.setTimeout(() => { renderAccounts().catch(() => {}); }, 4000);
+  }
+
   async function renderAccounts() {
-    const [{ channels }, { accounts }] = await Promise.all([api("/channels"), api("/accounts")]);
+    const [channels, { accounts }] = await Promise.all([loadChannels(), api("/accounts")]);
+    const byId = Object.fromEntries(channels.map((/** @type {any} */ c) => [c.id, c]));
     const params = new URLSearchParams(location.search);
     const connected = params.get("conectado"), error = params.get("erro");
     const flash = connected
@@ -96,23 +128,71 @@
       : error ? `<div class="hub-flash" data-tone="danger">${esc(CONNECT_ERRORS[error] || "Não foi possível conectar a conta. Tente de novo.")}</div>` : "";
     const rows = accounts.map((/** @type {any} */ a) => {
       const [label, tone] = STATUS[a.status] || [a.status, "warning"];
+      const importing = a.lastImport && (a.lastImport.status === "queued" || a.lastImport.status === "running");
+      const canImport = a.status === "connected" && byId[a.channel]?.capabilities?.listings;
       const actions = isAdmin
-        ? `${a.status === "reconnect_required" ? `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(a.channel)}/start">Reconectar</a> ` : ""}<button class="seller-btn" type="button" data-disconnect="${esc(a.id)}">Desconectar</button>`
+        ? `${canImport ? `<button class="seller-btn seller-btn--primary" type="button" data-import="${esc(a.id)}" ${importing ? "disabled" : ""}>${importing ? "Importando…" : "Importar agora"}</button> ` : ""}${a.status === "reconnect_required" && byId[a.channel]?.auth === "oauth" ? `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(a.channel)}/start">Reconectar</a> ` : ""}<button class="seller-btn" type="button" data-disconnect="${esc(a.id)}">Desconectar</button>`
         : "";
       return `<tr><td><span class="seller-badge">${esc(CHANNEL_LABELS[a.channel] || a.channel)}</span></td><td><strong>${esc(a.label || a.externalAccountId)}</strong><br><small>${esc(a.externalAccountId)}</small></td>
-        <td><span class="seller-badge" data-tone="${tone}">${esc(label)}</span></td><td>${int(a.listings)}</td><td>${esc(dateTime(a.connectedAt))}</td><td>${actions}</td></tr>`;
+        <td><span class="seller-badge" data-tone="${tone}">${esc(label)}</span></td><td>${int(a.listings)}</td><td>${importCell(a.lastImport)}</td><td><div class="hub-actions">${actions}</div></td></tr>`;
     }).join("");
     root.innerHTML = `${flash}
       <section class="seller-card"><h2>Contas conectadas</h2><p>Contas ligadas direto ao DACH Hub. A mesma conta pode estar também num módulo DACH; são conexões separadas.</p>
-        ${accounts.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Canal</th><th>Conta</th><th>Situação</th><th>Anúncios</th><th>Conectada em</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
-          : '<div class="seller-empty"><strong>Nenhuma conta conectada</strong><span>Conecte abaixo as contas do Mercado Livre, Magalu e Shopee.</span></div>'}
+        ${accounts.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Canal</th><th>Conta</th><th>Situação</th><th>Anúncios</th><th>Importação</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+          : '<div class="seller-empty"><strong>Nenhuma conta conectada</strong><span>Conecte abaixo seus marketplaces e lojas virtuais.</span></div>'}
       </section>
-      <section class="seller-card"><h2>Conectar marketplace</h2><p>Você será levado ao marketplace para autorizar o acesso do DACH Hub e voltará para cá.</p>
-        <div class="hub-connect-grid">${channels.map((/** @type {any} */ c) => `<article class="hub-connect"><strong>${esc(c.label)}</strong>
-          ${c.available ? (isAdmin ? `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(c.id)}/start">Conectar ${esc(c.label)}</a>` : '<span class="seller-badge">Só o administrador conecta</span>') : '<span class="seller-badge" data-tone="warning">Aguardando app do marketplace</span>'}
-        </article>`).join("")}</div>
-      </section>`;
+      ${Object.entries(KIND_TITLES).map(([kind, [title, text]]) => {
+        const group = channels.filter((/** @type {any} */ c) => c.kind === kind);
+        return group.length ? `<section class="seller-card"><h2>${esc(title)}</h2><p>${esc(text)}</p><div class="hub-connect-grid">${group.map(connectCard).join("")}</div></section>` : "";
+      }).join("")}`;
+    schedulePoll(accounts);
   }
+
+  /** Cartão de conexão: botão de OAuth ou formulário de credenciais (lojas virtuais). @param {any} c */
+  function connectCard(c) {
+    let body;
+    if (!c.available) body = '<span class="seller-badge" data-tone="warning">Aguardando app do canal</span>';
+    else if (!isAdmin) body = '<span class="seller-badge">Só o administrador conecta</span>';
+    else if (c.auth === "credentials") {
+      body = `<form class="hub-connect-form" data-connect-form="${esc(c.id)}">${(c.credentialFields || []).map((/** @type {any} */ f) =>
+        `<label><span>${esc(f.label)}</span><input name="${esc(f.name)}" type="${f.type === "password" ? "password" : f.type === "url" ? "url" : "text"}" placeholder="${esc(f.placeholder)}" autocomplete="off" required></label>`).join("")}
+        <button class="seller-btn seller-btn--primary" type="submit">Conectar ${esc(c.label)}</button><small data-connect-error></small></form>`;
+    } else body = `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(c.id)}/start">Conectar ${esc(c.label)}</a>`;
+    return `<article class="hub-connect"><strong>${esc(c.label)}</strong>${body}</article>`;
+  }
+
+  root.addEventListener("submit", async (event) => {
+    const form = /** @type {HTMLFormElement} */ (event.target).closest("[data-connect-form]");
+    if (!(form instanceof HTMLFormElement)) return;
+    event.preventDefault();
+    const channel = form.getAttribute("data-connect-form");
+    const error = /** @type {HTMLElement} */ (form.querySelector("[data-connect-error]"));
+    form.setAttribute("aria-busy", "true");
+    error.textContent = "";
+    try {
+      await api(`/channels/${channel}/connect`, { method: "POST", body: JSON.stringify(Object.fromEntries(/** @type {any} */ (new FormData(form)))) });
+      history.replaceState(null, "", `/hub/contas?conectado=${encodeURIComponent(channel || "")}`);
+      await renderAccounts();
+    } catch (err) {
+      error.textContent = /** @type {Error} */ (err).message;
+    } finally {
+      form.removeAttribute("aria-busy");
+    }
+  });
+
+  root.addEventListener("click", async (event) => {
+    const button = /** @type {HTMLButtonElement | null} */ (/** @type {HTMLElement} */ (event.target).closest("[data-import]"));
+    if (!button) return;
+    button.disabled = true;
+    button.textContent = "Importando…";
+    try {
+      await api(`/accounts/${button.getAttribute("data-import")}/import`, { method: "POST" });
+      await renderAccounts();
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = /** @type {Error} */ (error).message;
+    }
+  });
 
   root.addEventListener("click", async (event) => {
     const button = /** @type {HTMLElement} */ (event.target).closest("[data-disconnect]");
@@ -140,7 +220,8 @@
   });
 
   const views = /** @type {Record<string, () => Promise<void>>} */ ({ overview: renderOverview, items: renderItems, pending: renderPending, accounts: renderAccounts });
-  (views[main.dataset.view || "overview"] || renderOverview)().catch((error) => {
+  const view = views[main.dataset.view || "overview"] || renderOverview;
+  loadChannels().catch(() => []).then(view).catch((error) => {
     root.innerHTML = empty("Não foi possível carregar", /** @type {Error} */ (error).message);
   });
 })();

@@ -14,39 +14,49 @@ const { buildIndex, matchListing, deriveItemsFromListings } = require("./matchin
  */
 function createCatalogService({ repository }) {
   /**
-   * Importa os anúncios de uma conta: cria os itens mestres que faltam
-   * (um por SKU) e grava cada anúncio com o vínculo decidido.
+   * Aplica um lote de anúncios de uma conta: cria os itens mestres que faltam
+   * (um por SKU) e grava cada anúncio com o vínculo decidido. Usado página a página pela importação.
+   * @param {{ tenantId: string, accountId: number, listings: ListingRecord[], createMissingItems?: boolean }} input
+   * @returns {Promise<{ listingsSeen: number, linkedAuto: number, unlinked: number }>}
+   */
+  async function applyListings({ tenantId, accountId, listings, createMissingItems = true }) {
+    if (!listings.length) return { listingsSeen: 0, linkedAuto: 0, unlinked: 0 };
+    if (createMissingItems) {
+      await repository.insertItems(tenantId, deriveItemsFromListings(listings));
+    }
+    const index = buildIndex(await repository.listItemsForMatching(tenantId));
+    let linkedAuto = 0, unlinked = 0;
+    const rows = listings.map((listing) => {
+      const match = matchListing(listing, index);
+      if (match.itemId) linkedAuto += 1; else unlinked += 1;
+      return {
+        listing_id: listing.listingId,
+        variation_id: listing.variationId || "",
+        channel_sku: listing.channelSku || null,
+        sku_key: skuKey(listing.channelSku),
+        ean: eanKey(listing.ean),
+        title: listing.title || null,
+        status: listing.status || null,
+        fulfillment: Boolean(listing.fulfillment),
+        channel_stock: listing.stock == null ? null : Number(listing.stock),
+        price: listing.price == null ? null : Number(listing.price),
+        item_id: match.itemId,
+        link_method: match.method,
+        suggestion_item_id: match.suggestionItemId,
+      };
+    });
+    await repository.upsertListings(accountId, rows);
+    return { listingsSeen: listings.length, linkedAuto, unlinked };
+  }
+
+  /**
+   * Importa um lote único já em memória, com registro de execução próprio (planilha, testes).
    * @param {{ tenantId: string, accountId: number, listings: ListingRecord[], createMissingItems?: boolean }} input
    */
-  async function importListings({ tenantId, accountId, listings, createMissingItems = true }) {
-    const run = await repository.startImportRun(accountId);
+  async function importListings(input) {
+    const run = await repository.startImportRun(input.accountId);
     try {
-      if (createMissingItems) {
-        await repository.insertItems(tenantId, deriveItemsFromListings(listings));
-      }
-      const index = buildIndex(await repository.listItemsForMatching(tenantId));
-      let linkedAuto = 0, unlinked = 0;
-      const rows = listings.map((listing) => {
-        const match = matchListing(listing, index);
-        if (match.itemId) linkedAuto += 1; else unlinked += 1;
-        return {
-          listing_id: listing.listingId,
-          variation_id: listing.variationId || "",
-          channel_sku: listing.channelSku || null,
-          sku_key: skuKey(listing.channelSku),
-          ean: eanKey(listing.ean),
-          title: listing.title || null,
-          status: listing.status || null,
-          fulfillment: Boolean(listing.fulfillment),
-          channel_stock: listing.stock == null ? null : Number(listing.stock),
-          price: listing.price == null ? null : Number(listing.price),
-          item_id: match.itemId,
-          link_method: match.method,
-          suggestion_item_id: match.suggestionItemId,
-        };
-      });
-      await repository.upsertListings(accountId, rows);
-      const result = { status: "succeeded", listingsSeen: listings.length, linkedAuto, unlinked };
+      const result = { status: "succeeded", ...(await applyListings(input)) };
       await repository.finishImportRun(run.id, result);
       return { runId: run.id, ...result };
     } catch (error) {
@@ -56,6 +66,7 @@ function createCatalogService({ repository }) {
   }
 
   return {
+    applyListings,
     importListings,
     /** @param {string} tenantId */
     overview: (tenantId) => repository.overview(tenantId),

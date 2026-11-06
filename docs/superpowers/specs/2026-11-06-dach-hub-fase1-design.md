@@ -262,7 +262,7 @@ apps/seller-hub/
       sync/       fila de envios, verificação, reconciliação, modo observação
       orders/     pedidos recebidos, baixa e devolução
       billing/    medição de vendas para o Hub de cobrança
-    connectors/   contract.js + mercadolivre/ magalu/ shopee/
+    connectors/   contract.js + channels.js (catálogo de canais) + mercadolivre/ magalu/ shopee/
     platform/     db, filas, cifra, auth da suíte, logs, config
     web/          rotas, controllers, views
     jobs/         workers (importação, envios, webhooks, reconciliação)
@@ -275,7 +275,7 @@ Cada módulo expõe uma interface pública (`index.js`). Outro módulo nunca lê
 
 | Camada | Estilo |
 |---|---|
-| Conectores | **Classes** que estendem `MarketplaceConnector`: `authorizeUrl`, `exchangeCode`, `refresh`, `listListings`, `getListing`, `writeStock`, `verifyStock`, `listOrders`, `getOrder`, `parseWebhook` |
+| Conectores | **Classes** que estendem `ChannelConnector` (marketplace ou loja virtual): `authorizeUrl`, `exchangeCode`, `refresh`, `listListings`, `getListing`, `writeStock`, `verifyStock`, `listOrders`, `getOrder`, `parseWebhook` |
 | Tokens e limite de requisições | **Classes** com estado (lock por conta, renovação, fila de chamadas) |
 | Regras de negócio | **Funções puras**: cálculo da quantidade por anúncio, kits, cascata de regras, casamento SKU/EAN, normalização |
 | Banco | **Repositórios** (funções com SQL explícito) |
@@ -296,3 +296,30 @@ Cada módulo expõe uma interface pública (`index.js`). Outro módulo nunca lê
 3. Integração dos repositórios e casos de uso contra um Postgres de teste (ex.: venda reprocessada não baixa duas vezes).
 4. Modo observação antes de qualquer escrita real.
 5. Validação das telas no navegador, em desktop e em 375 px.
+
+### 10.1 Canais futuros: novos marketplaces e lojas virtuais
+
+O Hub nasce com 3 marketplaces, mas já está preparado para outros canais (ex.: Amazon, Americanas, Casas Bahia; e lojas virtuais como Nuvemshop, Shopify, WooCommerce, VTEX, Loja Integrada, Tray).
+
+**Catálogo de canais (`src/connectors/channels.js`):** é o único lugar que lista os canais. Cada definição declara:
+- `kind`: `marketplace` ou `store` (loja virtual). A tela de Contas agrupa por tipo.
+- `auth`: `oauth` (o seller autoriza no site do canal) ou `credentials` (o seller informa URL da loja e chave de API num formulário gerado a partir de `credentialFields`).
+- `capabilities`: `listings`, `stockWrite`, `priceWrite`, `orders`, `fulfillment`. O núcleo consulta antes de agendar trabalho (ex.: importação só para canal com `listings`).
+- `settingsFromEnv` e `create`: variáveis de ambiente do canal e criação do conector.
+
+**O que não muda ao adicionar um canal:** banco (o `channel` é texto validado pelo catálogo, sem lista fixa), rotas, fila de importação, matching do catálogo e telas. Os rótulos vêm de `/api/channels`.
+
+**Formato comum:** em loja virtual, `listingId` é o id do produto na loja e `variationId` o da variante. O mesmo `ListingRecord` serve para os dois tipos.
+
+**Passos para um canal novo:**
+1. Criar `src/connectors/<canal>/` com o conector (estende `ChannelConnector`) e o mapper.
+2. Acrescentar a definição em `channels.js`.
+3. Rodar os testes de contrato e de extensibilidade (`tests/connectors-contract.test.js`, `tests/channels-extensibility.test.js`).
+
+### 10.2 Importação de anúncios
+
+- Uma execução por conta de cada vez (`hub.import_runs`, índice parcial). Pedir de novo devolve a execução ativa.
+- O worker (`npm run worker`, fila BullMQ `hub-import`) percorre o canal página a página: renova o token a cada página, grava os anúncios e o progresso, e no fim marca `last_import_at`.
+- Sem Redis configurado, a importação roda no próprio processo web (desenvolvimento e prévia).
+- Execução sem sinal de vida há 15 minutos é encerrada como falha no próximo pedido, para a conta não travar.
+- A primeira importação começa sozinha logo depois de conectar a conta; depois, o botão **Importar agora** em Contas conectadas.

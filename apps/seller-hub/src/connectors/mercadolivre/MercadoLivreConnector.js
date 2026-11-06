@@ -1,7 +1,7 @@
 // @ts-check
 "use strict";
 
-const { MarketplaceConnector } = require("../contract");
+const { ChannelConnector } = require("../contract");
 const { requestJson } = require("../../platform/http");
 const { mapItemsBatch } = require("./mapper");
 
@@ -14,7 +14,7 @@ const API = "https://api.mercadolibre.com";
  */
 
 /** Conector do Mercado Livre com o app próprio do DACH Hub. */
-class MercadoLivreConnector extends MarketplaceConnector {
+class MercadoLivreConnector extends ChannelConnector {
   /** @param {{ clientId: string, clientSecret: string, fetchImpl?: typeof fetch }} options */
   constructor({ clientId, clientSecret, fetchImpl = fetch }) {
     super();

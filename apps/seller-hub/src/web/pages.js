@@ -6,14 +6,14 @@ function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
 }
 
-const ASSET_VERSION = "20261107c";
+const ASSET_VERSION = "20261107e";
 
 /** Páginas do DACH Hub (E1). Cada uma vira um item do menu lateral. */
 const PAGES = {
   "/": { title: "Painel", kicker: "Visão geral", lead: "Produtos, anúncios e vínculos de todos os canais conectados.", view: "overview" },
   "/catalogo": { title: "Produtos", kicker: "Catálogo", lead: "Cada produto (SKU DACH) com os anúncios ligados a ele em cada canal.", view: "items" },
   "/pendencias": { title: "Pendências", kicker: "Catálogo", lead: "Anúncios que ainda não estão ligados a um produto. Sem vínculo, a venda não baixa estoque.", view: "pending" },
-  "/contas": { title: "Contas conectadas", kicker: "Conta", lead: "Contas do Mercado Livre, Magalu e Shopee conectadas diretamente ao DACH Hub.", view: "accounts" },
+  "/contas": { title: "Contas conectadas", kicker: "Conta", lead: "Marketplaces e lojas virtuais conectados diretamente ao DACH Hub.", view: "accounts" },
 };
 
 /**

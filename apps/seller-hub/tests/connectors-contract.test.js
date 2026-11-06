@@ -2,7 +2,9 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { validateListingRecord, MarketplaceConnector, CHANNELS } = require("../src/connectors/contract");
+const { validateListingRecord, ChannelConnector } = require("../src/connectors/contract");
+const { CHANNEL_DEFINITIONS } = require("../src/connectors/channels");
+const CHANNELS = CHANNEL_DEFINITIONS.map((def) => def.id);
 const ml = require("../src/connectors/mercadolivre/mapper");
 const magalu = require("../src/connectors/magalu/mapper");
 const shopee = require("../src/connectors/shopee/mapper");
@@ -70,7 +72,7 @@ test("Shopee: um registro por modelo; modelo sem SKU usa o SKU do item", () => {
 });
 
 test("contrato base obriga a implementar cada método", async () => {
-  const connector = new MarketplaceConnector();
+  const connector = new ChannelConnector();
   assert.throws(() => connector.channel);
   await assert.rejects(() => connector.listListings({ id: 1, externalAccountId: "x", accessToken: "t" }, {}));
   assert.deepEqual(validateListingRecord({ listingId: "" }), ["listingId ausente"]);

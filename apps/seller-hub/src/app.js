@@ -3,24 +3,9 @@
 
 const express = require("express");
 const path = require("node:path");
-const { loadConfig } = require("./platform/config");
-const { createDb } = require("./platform/db");
 const { createAuthMiddleware, requireAdmin } = require("./platform/auth");
-const { createCatalogRepository } = require("./modules/catalog/repository");
-const { createCatalogService } = require("./modules/catalog/service");
-const { createConnectors } = require("./connectors/registry");
-const { createAccountsRepository } = require("./modules/accounts/repository");
-const { createAccountsService } = require("./modules/accounts/service");
-const { createCipher } = require("./platform/crypto");
+const { createContainer } = require("./container");
 const { PAGES, renderPage } = require("./web/pages");
-
-/** Cifra criada só quando usada: sem chave, conectar conta falha com 503 sem derrubar o app. @param {string} key */
-function lazyCipher(key) {
-  /** @type {ReturnType<typeof createCipher> | null} */
-  let cipher = null;
-  const get = () => (cipher = cipher || createCipher(key));
-  return { encrypt: (/** @type {string} */ v) => get().encrypt(v), decrypt: (/** @type {string} */ v) => get().decrypt(v) };
-}
 
 /** @param {any} req */
 function identity(req) { return req.hubIdentity; }
@@ -31,16 +16,10 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
 /**
  * Cria o app do DACH Hub (montado em /hub pelo startExpressApp).
  * Dependências injetáveis para testes.
- * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any }} [deps]
+ * @param {Parameters<typeof createContainer>[0]} [deps]
  */
 async function createApp(deps = {}) {
-  const config = deps.config || loadConfig();
-  const db = deps.db || createDb(config);
-  const catalog = deps.catalog || createCatalogService({ repository: createCatalogRepository(db) });
-  const connectors = deps.connectors || createConnectors(config.channels);
-  const accounts = deps.accounts || createAccountsService({
-    repository: createAccountsRepository(db), connectors, cipher: lazyCipher(config.tokenEncryptionKey), publicBaseUrl: config.publicBaseUrl,
-  });
+  const { config, catalog, connectors, accounts, imports } = createContainer(deps);
 
   const app = express();
   app.set("trust proxy", 1);
@@ -75,13 +54,27 @@ async function createApp(deps = {}) {
   });
   app.get("/auth/:channel/callback", async (req, res) => {
     try {
-      await accounts.finishConnect({ identity: identity(req), channel: req.params.channel, query: req.query });
+      const account = await accounts.finishConnect({ identity: identity(req), channel: req.params.channel, query: req.query });
+      await startFirstImport(identity(req), account);
       res.redirect(302, `/hub/contas?conectado=${encodeURIComponent(req.params.channel)}`);
     } catch (error) {
       if (Number(/** @type {any} */ (error).status) >= 500) console.error("[seller-hub] callback", error);
       res.redirect(302, `/hub/contas?erro=${encodeURIComponent(/** @type {any} */ (error).code || "connect_failed")}`);
     }
   });
+
+  /**
+   * Primeira importação logo depois de conectar. Falha aqui não desfaz a conexão:
+   * o seller pode importar depois pelo botão.
+   * @param {any} who @param {any} account
+   */
+  async function startFirstImport(who, account) {
+    try {
+      await imports.requestImport({ identity: who, accountId: Number(account.id), trigger: "connect" });
+    } catch (error) {
+      console.error("[seller-hub] primeira importação não iniciada", account?.id, /** @type {any} */ (error)?.message);
+    }
+  }
 
   const api = express.Router();
   api.get("/session", (req, res) => {
@@ -111,14 +104,32 @@ async function createApp(deps = {}) {
     } catch (error) { next(error); }
   });
   api.get("/channels", (_req, res) => {
-    // "available" = app do DACH Hub configurado para aquele marketplace.
+    // "available" = app do DACH Hub configurado para aquele canal; "kind" separa marketplaces de lojas virtuais.
     res.json({ ok: true, channels: connectors.list() });
+  });
+  api.post("/channels/:channel/connect", requireAdmin, async (req, res, next) => {
+    // Lojas virtuais que conectam por formulário (chave de API / URL da loja).
+    try {
+      const account = await accounts.connectWithCredentials({ identity: identity(req), channel: String(req.params.channel), fields: req.body || {} });
+      await startFirstImport(identity(req), account);
+      res.json({ ok: true, account });
+    } catch (error) { next(error); }
   });
   api.get("/accounts", async (req, res, next) => {
     try { res.json({ ok: true, accounts: await accounts.listAccounts(identity(req).tenantId) }); } catch (error) { next(error); }
   });
   api.post("/accounts/:accountId/disconnect", requireAdmin, async (req, res, next) => {
     try { res.json({ ok: true, account: await accounts.disconnect({ identity: identity(req), accountId: int(req.params.accountId, 0) }) }); } catch (error) { next(error); }
+  });
+  // Importação de anúncios em segundo plano; a tela acompanha pelo status da execução.
+  api.post("/accounts/:accountId/import", requireAdmin, async (req, res, next) => {
+    try {
+      const { run, created } = await imports.requestImport({ identity: identity(req), accountId: int(req.params.accountId, 0), trigger: "manual" });
+      res.status(created ? 202 : 200).json({ ok: true, run, alreadyRunning: !created });
+    } catch (error) { next(error); }
+  });
+  api.get("/imports/:runId", async (req, res, next) => {
+    try { res.json({ ok: true, run: await imports.getRun(identity(req).tenantId, int(req.params.runId, 0)) }); } catch (error) { next(error); }
   });
   app.use("/api", api);
 

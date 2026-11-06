@@ -6,7 +6,8 @@ create schema if not exists hub;
 create table if not exists hub.channel_accounts (
   id bigserial primary key,
   tenant_id text not null,
-  channel text not null check (channel in ('mercadolivre','magalu','shopee')),
+  -- Sem lista fixa: o canal é validado pelo catálogo de canais do app (marketplaces e lojas virtuais).
+  channel text not null check (channel ~ '^[a-z][a-z0-9_]{1,39}$'),
   external_account_id text not null,
   label text,
   status text not null default 'connected' check (status in ('connected','reconnect_required','disconnected')),
@@ -92,17 +93,26 @@ create table if not exists hub.listings (
 create index if not exists idx_hub_listings_item on hub.listings(item_id);
 create index if not exists idx_hub_listings_unlinked on hub.listings(channel_account_id) where item_id is null;
 
+-- Uma importação por conta de cada vez (índice parcial abaixo). O progresso é gravado a cada página;
+-- heartbeat parado há muito tempo indica worker que caiu, e a próxima solicitação encerra a execução presa.
 create table if not exists hub.import_runs (
   id bigserial primary key,
   channel_account_id bigint not null references hub.channel_accounts(id) on delete cascade,
-  status text not null default 'running' check (status in ('running','succeeded','failed')),
+  status text not null default 'queued' check (status in ('queued','running','succeeded','failed')),
+  trigger text not null default 'manual' check (trigger in ('manual','connect','schedule')),
+  requested_by text,
+  pages integer not null default 0,
   listings_seen integer not null default 0,
   linked_auto integer not null default 0,
   unlinked integer not null default 0,
   error_message text,
-  started_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  started_at timestamptz,
+  heartbeat_at timestamptz not null default now(),
   finished_at timestamptz
 );
+create unique index if not exists uq_hub_import_active on hub.import_runs(channel_account_id) where status in ('queued','running');
+create index if not exists idx_hub_import_runs_account on hub.import_runs(channel_account_id, id desc);
 
 create table if not exists hub.audit_events (
   id bigserial primary key,

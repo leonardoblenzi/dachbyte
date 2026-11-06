@@ -59,7 +59,7 @@ function createCatalogRepository(db) {
 
     /** @param {number} accountId */
     async startImportRun(accountId) {
-      return db.queryOne("insert into hub.import_runs (channel_account_id) values ($1) returning id", [accountId]);
+      return db.queryOne("insert into hub.import_runs (channel_account_id, status, started_at) values ($1, 'running', now()) returning id", [accountId]);
     },
 
     /** @param {number} runId @param {{ status: string, listingsSeen?: number, linkedAuto?: number, unlinked?: number, error?: string | null }} result */

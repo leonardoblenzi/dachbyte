@@ -1,39 +1,49 @@
 // @ts-check
 "use strict";
 
-const { MercadoLivreConnector } = require("./mercadolivre/MercadoLivreConnector");
-const { MagaluConnector } = require("./magalu/MagaluConnector");
-const { ShopeeConnector } = require("./shopee/ShopeeConnector");
-
-const LABELS = { mercadolivre: "Mercado Livre", magalu: "Magalu", shopee: "Shopee" };
+const { CHANNEL_DEFINITIONS, validateDefinition } = require("./channels");
 
 /**
- * Cria os conectores a partir da configuração do Hub (apps próprios em cada marketplace).
- * @param {{ mercadolivre: { clientId: string, clientSecret: string }, magalu: { clientId: string, clientSecret: string, scopes: string[] }, shopee: { partnerId: string, partnerKey: string, apiBase: string } }} channels
+ * Cria os conectores a partir do catálogo de canais (./channels.js) e da configuração.
+ * @param {Record<string, Record<string, any>>} settings configuração por canal (config.channels)
  * @param {typeof fetch} [fetchImpl]
+ * @param {readonly import("./channels").ChannelDefinition[]} [definitions]
  */
-function createConnectors(channels, fetchImpl = fetch) {
-  /** @type {Record<string, any>} */
-  const connectors = {
-    mercadolivre: new MercadoLivreConnector({ ...channels.mercadolivre, fetchImpl }),
-    magalu: new MagaluConnector({ ...channels.magalu, fetchImpl }),
-    shopee: new ShopeeConnector({ ...channels.shopee, fetchImpl }),
+function createConnectors(settings, fetchImpl = fetch, definitions = CHANNEL_DEFINITIONS) {
+  /** @type {Map<string, { def: import("./channels").ChannelDefinition, connector: import("./contract").ChannelConnector }>} */
+  const entries = new Map();
+  for (const def of definitions) {
+    const problems = validateDefinition(def);
+    if (problems.length) throw new Error(`Canal ${def?.id || "?"} inválido: ${problems.join("; ")}`);
+    if (entries.has(def.id)) throw new Error(`Canal ${def.id} duplicado.`);
+    entries.set(def.id, { def, connector: def.create(settings?.[def.id] || {}, fetchImpl) });
+  }
+  /** @param {string} channel */
+  const entry = (channel) => {
+    const found = entries.get(channel);
+    if (!found) throw Object.assign(new Error("Canal desconhecido."), { status: 404, code: "unknown_channel" });
+    return found;
   };
   return {
     /** @param {string} channel */
-    get(channel) {
-      const connector = connectors[channel];
-      if (!connector) throw Object.assign(new Error("Canal desconhecido."), { status: 404 });
-      return connector;
-    },
+    get: (channel) => entry(channel).connector,
+    /** @param {string} channel */
+    definition: (channel) => entry(channel).def,
+    /** @param {string} channel */
+    has: (channel) => entries.has(channel),
+    /** Dados públicos dos canais para a tela (sem segredos). */
     list() {
-      return Object.values(connectors).map((connector) => ({
-        id: connector.channel,
-        label: LABELS[/** @type {keyof typeof LABELS} */ (connector.channel)],
+      return [...entries.values()].map(({ def, connector }) => ({
+        id: def.id,
+        label: def.label,
+        kind: def.kind,
+        auth: def.auth,
+        capabilities: { ...def.capabilities },
+        credentialFields: def.auth === "credentials" ? (def.credentialFields || []).map((f) => ({ name: f.name, label: f.label, type: f.type || "text", placeholder: f.placeholder || "" })) : [],
         available: Boolean(connector.configured),
       }));
     },
   };
 }
 
-module.exports = { createConnectors, LABELS };
+module.exports = { createConnectors };
