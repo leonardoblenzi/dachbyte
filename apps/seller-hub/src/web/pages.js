@@ -6,7 +6,7 @@ function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
 }
 
-const ASSET_VERSION = "20261109d";
+const ASSET_VERSION = "20261109e";
 
 /** Páginas do DACH Hub. Cada uma vira um item do menu lateral. */
 const PAGES = {
@@ -31,6 +31,8 @@ const PAGES = {
   "/cobranca/vendas": { title: "Vendas do mês", kicker: "Conta", lead: "Vendas medidas para a cobrança do DACH Hub (% sobre vendas), com o extrato pedido a pedido.", view: "billing" },
   "/estoque/divergencias": { title: "Divergências", kicker: "Estoque", lead: "Estoque que mudou nos canais por fora do Hub, encontrado na conferência.", view: "divergences" },
   "/estoque/regras": { title: "Regras por conta", kicker: "Estoque", lead: "Modo de estoque de cada conta e a regra padrão de envio.", view: "rules" },
+  "/analise": { title: "Vendas por canal", kicker: "Análise", lead: "Faturamento, pedidos, ticket e cancelamentos de cada canal e conta, comparados ao período anterior.", view: "salesAnalysis" },
+  "/analise/produtos": { title: "Mais vendidos", kicker: "Análise", lead: "O mesmo produto somado em todos os canais, com a fatia de cada canal e a curva ABC.", view: "topProducts" },
   "/contas": { title: "Contas conectadas", kicker: "Conta", lead: "Marketplaces e lojas virtuais conectados diretamente ao DACH Hub.", view: "accounts" },
 };
 
@@ -65,6 +67,7 @@ function renderPage(path, viewer) {
   <script src="/hub/assets/hub-sync.js?v=${ASSET_VERSION}"></script>
   <script src="/hub/assets/hub-automations.js?v=${ASSET_VERSION}"></script>
   <script src="/hub/assets/hub-expedition.js?v=${ASSET_VERSION}"></script>
+  <script src="/hub/assets/hub-analytics.js?v=${ASSET_VERSION}"></script>
   <script src="/hub/assets/hub-app.js?v=${ASSET_VERSION}"></script>
 </body>
 </html>`;

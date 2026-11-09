@@ -128,3 +128,8 @@ button.hub-attention__card{ text-align: left; font: inherit; cursor: pointer; }
 .hub-label-batch:last-child{ border-bottom: 0; }
 .hub-danger-text{ color: var(--seller-danger); font-size: 13px; }
 .hub-webhooks-btn{ margin-top: 6px; }
+/* Análise: barras de participação por canal. */
+.hub-share{ display: flex; width: 100%; min-width: 120px; max-width: 220px; height: 8px; margin: 4px 0; border-radius: 99px; background: var(--seller-surface-soft); border: 1px solid var(--seller-border); overflow: hidden; }
+.hub-share i{ display: block; height: 100%; }
+.hub-dot{ display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; vertical-align: 1px; }
+.hub-nowrap{ white-space: nowrap; margin-right: 8px; }

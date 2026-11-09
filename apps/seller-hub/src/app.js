@@ -20,7 +20,7 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
  * @param {Parameters<typeof createContainer>[0]} [deps]
  */
 async function createApp(deps = {}) {
-  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition, labels } = createContainer(deps);
+  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition, labels, analytics } = createContainer(deps);
 
   // Hub de acessos: liberação do produto dach_hub (substituível nos testes).
   const accessHub = /** @type {any} */ (deps).accessHub || createAccessHub(config.accessHub);
@@ -350,6 +350,17 @@ async function createApp(deps = {}) {
       res.setHeader("Content-Disposition", `${inline ? "inline" : "attachment"}; filename="${String(f.filename).replace(/[^A-Za-z0-9._-]/g, "_")}"`);
       res.setHeader("Cache-Control", "private, max-age=3600");
       res.send(f.content);
+    } catch (error) { next(error); }
+  });
+  // Análise (A1): vendas por canal e conta e mais vendidos multicanal, com o período anterior para comparar.
+  api.get("/analytics/sales", handle(async (req) => analytics.sales(identity(req).tenantId, req.query)));
+  api.get("/analytics/products", handle(async (req) => analytics.products(identity(req).tenantId, req.query)));
+  api.get("/analytics/products.csv", async (req, res, next) => {
+    try {
+      const csv = await analytics.productsCsv(identity(req).tenantId, req.query);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="mais-vendidos-dach-hub-${new Date().toISOString().slice(0, 10)}.csv"`);
+      res.send(`﻿${csv}`);
     } catch (error) { next(error); }
   });
   // Vendas medidas para a cobrança (% sobre vendas) e extrato pedido a pedido.

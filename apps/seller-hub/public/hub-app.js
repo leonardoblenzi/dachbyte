@@ -34,6 +34,10 @@
         { label: "Vendas sem vínculo", path: "/hub/pedidos?pendentes=1" },
         { label: "Automações", path: "/hub/automacoes" },
       ] },
+      { id: "analytics", label: "Análise", hint: "Vendas e mais vendidos", icon: "chart", items: [
+        { label: "Vendas por canal", path: "/hub/analise" },
+        { label: "Mais vendidos", path: "/hub/analise/produtos" },
+      ] },
       { id: "account", label: "Conta", hint: "Acesso e integrações", icon: "user", items: [{ label: "Contas conectadas", path: "/hub/contas" }, { label: "Vendas do mês", path: "/hub/cobranca/vendas" }] },
     ],
     footNote: "Catálogo, estoque, pedidos e preços de todos os canais em um só fluxo.",

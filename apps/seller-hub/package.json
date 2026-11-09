@@ -12,7 +12,7 @@
     "migrate": "node db/migrate.js deploy",
     "migrate:status": "node db/migrate.js status",
     "test": "node --test tests/*.test.js",
-    "test:db": "node --test --test-concurrency=1 tests/db.integration.test.js tests/db.e3.integration.test.js tests/db.e4.integration.test.js tests/db.orders.integration.test.js tests/db.automations.integration.test.js tests/db.expedition.integration.test.js tests/db.labels.integration.test.js tests/db.webhooks.integration.test.js"
+    "test:db": "node --test --test-concurrency=1 tests/db.integration.test.js tests/db.e3.integration.test.js tests/db.e4.integration.test.js tests/db.orders.integration.test.js tests/db.automations.integration.test.js tests/db.expedition.integration.test.js tests/db.labels.integration.test.js tests/db.webhooks.integration.test.js tests/db.analytics.integration.test.js"
   },
   "engines": {
     "node": ">=20"

@@ -1,6 +1,6 @@
 # DACH Hub — Análise por canal e custos da empresa (desenho)
 
-Data: 09/11/2026. Status: aprovado em conversa; implementação começa pela etapa A1.
+Data: 09/11/2026. Status: A1 feita (telas /hub/analise e /hub/analise/produtos); A2 em diante pendentes.
 
 ## 1. Objetivo
 
