@@ -90,3 +90,21 @@ test("destino padrão do lead é o e-mail do hub de acessos", () => {
   assert.match(service, /BREVO_COMMERCIAL_TO_EMAIL\) \|\|\s*"noreply@dachbyte\.tech"/);
 
 });
+
+test("fila da Shopee: por chegada os pedidos que vencem ficam no fim; por prazo, no topo", () => {
+  const { orders, orderQueue, deadlineState } = require("../public/brand/dachbyte/landing-experience.js");
+  const now = 10 * 60 + 30;
+  const urgentPositions = (mode) => orderQueue(orders, mode).map((o, i) => [i + 1, deadlineState(o, now).state]).filter(([, s]) => s !== "ok").map(([p]) => p);
+  assert.deepEqual(urgentPositions("arrival"), [5, 6]);
+  assert.deepEqual(urgentPositions("deadline"), [1, 2]);
+  assert.equal(deadlineState(orders.find((o) => o.id === "SH-4798"), 12 * 60).state, "late");
+});
+
+test("cada página de canal tem a própria cor (ML amarelo, Shopee vermelho, Magalu azul)", () => {
+  const css = read("public", "brand", "dachbyte", "seller", "landing.css");
+  assert.match(css, /html\[data-dachbyte-app="seller-ml"\] \{ --seller-primary: var\(--seller-ml\)/);
+  assert.match(css, /html\[data-dachbyte-app="seller-shopee"\] \{ --seller-primary: var\(--seller-shopee\)/);
+  assert.match(css, /html\[data-dachbyte-app="seller-magalu"\] \{ --seller-primary: var\(--seller-magalu\)/);
+  assert.doesNotMatch(css, /rgba\(255,138,63/);
+  for (const name of landings) assert.match(read("apps", "gateway", "views", "seller", name), /dx-contact-split/, name);
+});

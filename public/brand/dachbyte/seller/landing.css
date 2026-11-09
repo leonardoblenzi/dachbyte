@@ -1,4 +1,4 @@
-@import url('/brand/dachbyte/landing-experience.css?v=20261109.1');
+@import url('/brand/dachbyte/landing-experience.css?v=20261109.2');
 @import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,500;0,600;0,700;0,800;0,900;1,500;1,600&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
 
 :root {
@@ -25,7 +25,7 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; background: var(--seller-ink); color: var(--seller-text); font: 500 20px/1.45 var(--font-body); }
-body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(135deg, rgba(255,138,63,.10), transparent 30%), radial-gradient(circle at 90% 20%, rgba(108,147,255,.10), transparent 24%); }
+body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(135deg, color-mix(in srgb, var(--seller-primary) 10%, transparent), transparent 30%), radial-gradient(circle at 90% 20%, rgba(108,147,255,.10), transparent 24%); }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; }
 :focus-visible { outline: 2px solid var(--seller-primary); outline-offset: 4px; }
@@ -36,10 +36,10 @@ button { font: inherit; }
 .seller-login { color: var(--seller-muted); font-size: 16px; font-weight: 700; }
 .seller-button { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 22px; border: 1px solid var(--seller-primary); background: var(--seller-primary); color: #201006; font: 800 16px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; transition: transform .2s, background .2s; }
 .seller-button:hover { transform: translateY(-2px); background: var(--seller-primary-soft); }
-.seller-button--ghost { border-color: var(--seller-line); background: transparent; color: var(--seller-text); }.seller-button--ghost:hover { border-color: var(--seller-primary); background: rgba(255,138,63,.08); }
+.seller-button--ghost { border-color: var(--seller-line); background: transparent; color: var(--seller-text); }.seller-button--ghost:hover { border-color: var(--seller-primary); background: color-mix(in srgb, var(--seller-primary) 8%, transparent); }
 .seller-menu { display: none; padding: 10px; border: 1px solid var(--seller-line); background: transparent; color: var(--seller-text); }
 
-.seller-ticker { position: relative; z-index: 2; overflow: hidden; border-bottom: 1px solid var(--seller-line); background: rgba(255,138,63,.045); white-space: nowrap; }
+.seller-ticker { position: relative; z-index: 2; overflow: hidden; border-bottom: 1px solid var(--seller-line); background: color-mix(in srgb, var(--seller-primary) 4.5%, transparent); white-space: nowrap; }
 .seller-ticker__track { display: inline-flex; min-width: max-content; animation: seller-ticker 34s linear infinite; }
 .seller-ticker span { display: inline-flex; align-items: center; gap: 10px; padding: 9px 28px; color: var(--seller-muted); font: 12px/1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
 .seller-ticker b { color: var(--seller-primary-soft); font-weight: 400; }
@@ -57,7 +57,7 @@ h1, h2, h3, p { margin-top: 0; }
 .seller-section { padding: 96px 0; border-bottom: 1px solid var(--seller-line); }.seller-section--tight { padding: 64px 0; }.seller-section__head { display: grid; grid-template-columns: 1fr minmax(280px,.65fr); gap: 48px; align-items: end; margin-bottom: 42px; }.seller-section__tag { color: var(--seller-primary-soft); font: 13px/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }.seller-section h2 { margin: 14px 0 0; font: 800 clamp(34px,4vw,54px)/1 var(--font-display); letter-spacing: -.035em; }.seller-section__head p { margin: 0; color: var(--seller-muted); font-size: 20px; }
 .seller-grid { display: grid; grid-template-columns: repeat(4,1fr); border: 1px solid var(--seller-line); background: var(--seller-line); gap: 1px; }.seller-card { min-height: 430px; padding: 34px; background: var(--seller-ink); transition: background .25s, transform .25s; }.seller-card:hover { z-index: 1; background: var(--seller-ink-raised); transform: translateY(-4px); }.seller-card__index { color: var(--seller-primary); font: 14px/1 var(--font-mono); }.seller-card h3 { margin: 38px 0 14px; font: 800 29px/1.05 var(--font-display); }.seller-card p { color: var(--seller-muted); font-size: 19px; }.seller-card__features { display: grid; gap: 9px; margin: 24px 0 0; padding: 20px 0 0; border-top: 1px solid var(--seller-line); list-style: none; }.seller-card__features li { display: flex; gap: 10px; color: rgba(244,242,236,.82); font-size: 16px; line-height: 1.25; }.seller-card__features li::before { color: var(--seller-primary); content: '›'; }.seller-card a { display: inline-block; margin-top: 30px; color: var(--seller-primary-soft); font: 700 16px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; }
 .seller-journey { display: grid; grid-template-columns: repeat(3,1fr); border: 1px solid var(--seller-line); }.seller-journey__step { position: relative; padding: 34px; }.seller-journey__step + .seller-journey__step { border-left: 1px solid var(--seller-line); }.seller-journey__step + .seller-journey__step::before { position: absolute; top: 50%; left: -10px; width: 19px; height: 19px; border: 1px solid var(--seller-primary); background: var(--seller-ink); color: var(--seller-primary); font: 15px/17px var(--font-mono); text-align: center; content: '›'; transform: translateY(-50%); }.seller-journey__step span { color: var(--seller-primary); font: 13px/1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }.seller-journey__step h3 { margin: 22px 0 10px; font: 800 27px/1 var(--font-display); }.seller-journey__step p { margin: 0; color: var(--seller-muted); font-size: 18px; }
-.seller-showcase { --module-accent: var(--seller-primary); --module-soft: rgba(255,138,63,.12); padding: 108px 0; border-bottom: 1px solid var(--seller-line); scroll-margin-top: 74px; }.seller-showcase--shopee { --module-accent: var(--seller-shopee); --module-soft: rgba(255,90,47,.12); background: var(--seller-ink-raised); }
+.seller-showcase { --module-accent: var(--seller-primary); --module-soft: color-mix(in srgb, var(--seller-primary) 12%, transparent); padding: 108px 0; border-bottom: 1px solid var(--seller-line); scroll-margin-top: 74px; }.seller-showcase--shopee { --module-accent: var(--seller-shopee); --module-soft: rgba(255,90,47,.12); background: var(--seller-ink-raised); }
 .seller-showcase__layout { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(360px,.85fr); gap: 72px; align-items: center; }.seller-showcase--reverse .seller-showcase__visual { order: 2; }.seller-showcase--reverse .seller-showcase__copy { order: 1; }
 .seller-showcase__copy .seller-section__tag { color: var(--module-accent); }.seller-showcase__copy h2 { margin: 14px 0 22px; font: 850 clamp(38px,4.3vw,60px)/.98 var(--font-display); letter-spacing: -.04em; }.seller-showcase__copy h2 em { color: var(--module-accent); font-style: normal; }.seller-showcase__lead { margin: 0 0 28px; color: var(--seller-muted); font-size: 20px; }.seller-showcase__points { display: grid; gap: 13px; margin: 0; padding: 0; list-style: none; }.seller-showcase__points li { display: flex; align-items: center; gap: 12px; color: rgba(244,242,236,.86); font-size: 17px; }.seller-showcase__points li::before { width: 7px; height: 7px; border-radius: 50%; background: var(--module-accent); box-shadow: 0 0 12px var(--module-accent); content: ''; }.seller-showcase__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }.seller-showcase__actions .seller-button { border-color: var(--module-accent); background: var(--module-accent); }.seller-showcase__actions .seller-button--ghost { background: transparent; color: var(--seller-text); }
 .seller-showcase__visual { overflow: hidden; min-height: 470px; border: 1px solid color-mix(in srgb, var(--module-accent) 38%, transparent); background: radial-gradient(circle at 82% 8%, var(--module-soft), transparent 32%), #090d15; box-shadow: 0 30px 80px rgba(0,0,0,.34); }.seller-demo__top { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 20px; border-bottom: 1px solid var(--seller-line); }.seller-demo__title { font: 13px/1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }.seller-demo__live { color: var(--module-accent); font: 11px/1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
@@ -79,3 +79,17 @@ html[data-dachbyte-app="seller-magalu"] body::before { background: linear-gradie
 @media (max-width: 560px) { .seller-ticker span { padding-inline: 20px; }.seller-demo__tabs { grid-template-columns: 1fr; }.seller-demo__row { grid-template-columns: minmax(0,1fr) 72px; }.seller-demo__row .seller-demo__bar { display: none; }.seller-demo__board { grid-template-columns: 1fr; }.seller-demo__column { min-height: 0; }.seller-demo__kpis { grid-template-columns: 1fr; } }
 
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; }.seller-ticker__track { animation: none; }.seller-button, .seller-card { transition: none; } }
+
+/* Identidade de cada canal (09/11/2026): as páginas de módulo usam a cor do canal no lugar do laranja do Seller. */
+html[data-dachbyte-app="seller-ml"] { --seller-primary: var(--seller-ml); --seller-primary-soft: #fff0a8; }
+html[data-dachbyte-app="seller-shopee"] { --seller-primary: var(--seller-shopee); --seller-primary-soft: #ff9c7d; }
+html[data-dachbyte-app="seller-magalu"] { --seller-primary: var(--seller-magalu); --seller-primary-soft: #7fbcff; }
+html[data-dachbyte-app="seller-ml"] .dx-marketing, html[data-dachbyte-app="seller-ml"] .dx-experience { --dx-accent: #ffe066; }
+html[data-dachbyte-app="seller-shopee"] .dx-marketing, html[data-dachbyte-app="seller-shopee"] .dx-experience { --dx-accent: #ff5a2f; }
+html[data-dachbyte-app="seller-magalu"] .dx-marketing, html[data-dachbyte-app="seller-magalu"] .dx-experience { --dx-accent: #1683e8; }
+/* No azul do Magalu e no vermelho da Shopee o texto dos botões cheios fica branco (contraste). */
+html[data-dachbyte-app="seller-magalu"] .seller-button:not(.seller-button--ghost),
+html[data-dachbyte-app="seller-shopee"] .seller-button:not(.seller-button--ghost),
+html[data-dachbyte-app="seller-magalu"] .dx-primary, html[data-dachbyte-app="seller-shopee"] .dx-primary,
+html[data-dachbyte-app="seller-magalu"] .dx-global-actions .dx-talk, html[data-dachbyte-app="seller-shopee"] .dx-global-actions .dx-talk,
+html[data-dachbyte-app="seller-magalu"] .dx-switch button[aria-pressed="true"], html[data-dachbyte-app="seller-shopee"] .dx-switch button[aria-pressed="true"] { color: #fff; }

@@ -34,11 +34,19 @@
       breakEven: +(fixed / (.84 * (1 - discount / 100))).toFixed(2)
     };
   }
+  // Fila do dia (Shopee): mesma lista em duas ordens. Horários em minutos desde 0h de hoje (ontem < 0, amanhã > 1440).
   const orders = [
-    { id: 'SH-4821', title: 'Kit organizador', issue: 'Separar até 14h30', action: 'Conferir os 2 itens e encaminhar para embalagem.', steps: ['Separação', 'Embalagem', 'Pronto para coleta'] },
-    { id: 'SH-4817', title: 'Garrafa térmica', issue: 'Etiqueta pendente', action: 'Conferir o endereço antes de preparar a etiqueta.', steps: ['Conferência', 'Etiqueta pronta', 'Pronto para coleta'] },
-    { id: 'SH-4813', title: 'Luminária de mesa', issue: 'Coleta agendada', action: 'Conferir o pacote e registrar a entrega à transportadora.', steps: ['Pacote pronto', 'Conferido', 'Despachado'] }
+    { id: 'SH-4831', title: 'Garrafa térmica', arrived: 12 * 60 + 58, shipBy: 1440 + 12 * 60 },
+    { id: 'SH-4826', title: 'Kit organizador', arrived: 11 * 60 + 40, shipBy: 16 * 60 },
+    { id: 'SH-4819', title: 'Fone bluetooth', arrived: 10 * 60 + 5, shipBy: 18 * 60 },
+    { id: 'SH-4812', title: 'Luminária de mesa', arrived: 8 * 60 + 30, shipBy: 14 * 60 },
+    { id: 'SH-4807', title: 'Capa de celular', arrived: -(1440 - 22 * 60 - 10), shipBy: 12 * 60 },
+    { id: 'SH-4798', title: 'Tapete de banheiro', arrived: -(1440 - 19 * 60 - 45), shipBy: 11 * 60 }
   ];
+  // Ordena a fila: por chegada (mais recentes primeiro, como uma lista comum) ou por prazo de envio.
+  const orderQueue = (list, mode) => [...list].sort((a, b) => mode === 'deadline' ? a.shipBy - b.shipBy : b.arrived - a.arrived);
+  // Situação de um pedido no horário "agora": atrasado, vence logo (até 2h) ou no prazo.
+  const deadlineState = (order, now) => { const left = order.shipBy - now; return { left, state: left < 0 ? 'late' : left <= 120 ? 'soon' : 'ok' }; };
   const businessSteps = [
     ['Stock', 'Uma posição pede reposição.', 'O setor A-01 chegou a 8 unidades no exemplo. O estoque dá contexto à decisão.', '8 unidades', 'Estoque disponível'],
     ['Chat', 'A exceção ganha um responsável.', 'A equipe recebe uma solicitação com setor, prioridade e histórico. Nada depende de uma mensagem solta.', '1 solicitação', 'Responsável: operações'],
@@ -56,7 +64,7 @@
     return active ? active.login : '/login';
   };
   const nextStep = (step, total) => total > 0 ? Math.min(step + 1, total - 1) : 0;
-  if (typeof module !== 'undefined' && module.exports) module.exports = { margin, nextStep, orders, businessSteps, loginDestination };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { margin, nextStep, orders, orderQueue, deadlineState, businessSteps, loginDestination };
   if (!root.document) return;
   const money = value => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const linkList = (family, activeKey) => (products[family] || []).map(({ label, href, key }) => `<a href="${href}"${key === activeKey ? ' aria-current="page"' : ''}>${label}</a>`).join('');
@@ -79,10 +87,7 @@
     const options = family === 'seller' ? ['Mercado Livre', 'Shopee', 'Magalu', 'Outro canal'] : [...(products[family] || []).map(p => p.label), 'Outro'];
     const checked = label => String(interest || '').toLowerCase() === label.toLowerCase() ? ' checked' : '';
     host.innerHTML = `<form class="dx-lead" novalidate>
-      <div class="dx-lead__grid">
-        <label class="dx-field"><span>Nome</span><input name="name" autocomplete="name" required></label>
-        <label class="dx-field"><span>Empresa <small>(opcional)</small></span><input name="company" autocomplete="organization"></label>
-      </div>
+      <label class="dx-field"><span>Nome</span><input name="name" autocomplete="name" required></label>
       <fieldset class="dx-choice"><legend>Como prefere que a gente fale com você?</legend>
         <label><input type="radio" name="contact_preference" value="whatsapp" checked><span>WhatsApp</span></label>
         <label><input type="radio" name="contact_preference" value="email"><span>E-mail</span></label>
@@ -91,9 +96,8 @@
       <label class="dx-field" data-when="email" hidden><span>E-mail</span><input name="email" type="email" autocomplete="email" placeholder="voce@empresa.com.br"></label>
       <fieldset class="dx-chips"><legend>${family === 'seller' ? 'Onde você vende' : 'Produtos de interesse'}</legend>${options.map(o => `<label><input type="checkbox" name="channels" value="${escapeHtml(o)}"${checked(o)}><span>${escapeHtml(o)}</span></label>`).join('')}</fieldset>
       <label class="dx-field"><span>Pedidos por mês <small>(opcional)</small></span><select name="orders_volume"><option value="">Selecione</option>${leadVolumes.map(v => `<option>${v}</option>`).join('')}</select></label>
-      <label class="dx-field"><span>O que mais toma tempo hoje? <small>(opcional)</small></span><textarea name="message" rows="3" maxlength="2000"></textarea></label>
       <input class="dx-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-      <button class="dx-primary" type="submit">Enviar</button>
+      <button class="dx-primary" type="submit">Quero conversar</button>
       <p class="dx-lead__note">A equipe DACHBYTE responde pelo canal que você escolher. Seus dados servem só para este contato. <a href="/privacidade">Privacidade</a></p>
       <p class="dx-lead__status" role="status" aria-live="polite"></p>
     </form>`;
@@ -108,9 +112,9 @@
       const pref = preference();
       const channels = [...form.querySelectorAll('[name="channels"]:checked')].map(c => c.value);
       const payload = {
-        name: field('name').value.trim(), company: field('company').value.trim(), contact_preference: pref,
+        name: field('name').value.trim(), contact_preference: pref,
         cellphone: field('cellphone').value.trim(), email: field('email').value.trim(), channels,
-        orders_volume: field('orders_volume').value, message: field('message').value.trim(), website: field('website').value,
+        orders_volume: field('orders_volume').value, website: field('website').value,
         page_path: location.pathname
       };
       const problem = payload.name.length < 3 ? ['name', 'Informe seu nome.']
@@ -126,7 +130,7 @@
         if (!res.ok || !data.ok) throw new Error(data.error || 'Não foi possível enviar agora. Tente de novo em instantes.');
         host.innerHTML = `<div class="dx-lead dx-lead--done" role="status"><strong>Recebemos seu contato.</strong><p>Vamos falar com você por ${pref === 'whatsapp' ? 'WhatsApp' : 'e-mail'}.</p></div>`;
       } catch (error) {
-        button.disabled = false; button.textContent = 'Enviar';
+        button.disabled = false; button.textContent = 'Quero conversar';
         status.textContent = error.message; status.dataset.tone = 'error';
       }
     });
@@ -201,22 +205,30 @@
     panel.querySelectorAll('input').forEach(input => input.addEventListener('input', update)); update();
   }
   function queue(panel) {
-    let selected = 0; const progress = [0, 0, 0];
-    panel.innerHTML = `<div class="dx-grid"><div><h3>Comece pela pendência, não pela busca.</h3><p>Selecione um pedido. Avance o exemplo para acompanhar a mudança de etapa.</p><div class="dx-selection"></div><button class="dx-reset" type="button">Reiniciar exemplo</button></div><div class="dx-scene"><div class="dx-order"><div class="dx-package" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5"/><path d="M12 12v9"/><path d="M12 12L4 7.5"/><path d="M8 5.2l8 4.6"/></svg></div><span class="dx-eyebrow" data-id></span><h3 data-title></h3><p data-action></p><ol class="dx-stages"></ol><p role="status" data-status></p><button class="dx-primary" type="button" data-next>Avançar pedido simulado →</button></div></div></div>`;
+    const clock = m => { const d = ((m % 1440) + 1440) % 1440; return `${Math.floor(d / 60)}h${String(d % 60).padStart(2, '0')}`; };
+    const day = m => m >= 1440 ? 'amanhã ' : m < 0 ? 'ontem ' : '';
+    const leftLabel = left => left < 0 ? `atrasado há ${left > -60 ? -left + ' min' : Math.floor(-left / 60) + 'h' + String(-left % 60).padStart(2, '0')}` : left < 60 ? `vence em ${left} min` : `vence em ${Math.floor(left / 60)}h${String(left % 60).padStart(2, '0')}`;
+    let mode = 'arrival', now = 10 * 60 + 30;
+    panel.innerHTML = `<div class="dx-grid"><div class="dx-controls"><h3>A ordem da fila decide o que atrasa.</h3><p>Mesmos 6 pedidos, duas ordens. Mova o relógio e veja quais prazos de envio vencem enquanto a equipe trabalha de cima para baixo.</p><div class="dx-switch" role="group" aria-label="Ordem da fila"><button type="button" data-mode="arrival" aria-pressed="true">Mais recentes primeiro</button><button type="button" data-mode="deadline" aria-pressed="false">Por prazo (DACHBYTE)</button></div><label>Agora <output data-now-label></output><input aria-label="Horário agora" data-now type="range" min="540" max="1020" step="15" value="${now}"></label><small>Exemplo com dados fictícios. Prazos de envio são os que o marketplace define para cada pedido.</small></div><div class="dx-scene"><div class="dx-order"><span class="dx-eyebrow" data-queue-title></span><ol class="dx-queue" data-queue></ol><p class="dx-insight" role="status" data-queue-insight></p></div></div></div>`;
     const render = () => {
-      const item = orders[selected];
-      panel.querySelector('.dx-selection').innerHTML = orders.map((o, i) => `<button type="button" data-order="${i}" aria-pressed="${selected === i}"><span>${o.id} · ${o.title}</span><small>${progress[i] === 2 ? o.steps[2] : o.issue}</small></button>`).join('');
-      panel.querySelectorAll('[data-order]').forEach(b => b.addEventListener('click', () => { selected = +b.dataset.order; render(); panel.querySelector(`[data-order="${selected}"]`).focus({ preventScroll: true }); }));
-      panel.querySelector('[data-id]').textContent = item.id;
-      panel.querySelector('[data-title]').textContent = item.title;
-      panel.querySelector('[data-action]').textContent = item.action;
-      panel.querySelector('.dx-stages').innerHTML = item.steps.map((s, i) => `<li ${i === progress[selected] ? 'aria-current="step"' : ''}>${s}</li>`).join('');
-      panel.querySelector('[data-status]').textContent = 'Etapa atual: ' + item.steps[progress[selected]];
-      panel.querySelector('[data-next]').disabled = progress[selected] === 2;
-      panel.querySelector('[data-next]').textContent = progress[selected] === 2 ? 'Exemplo concluído' : 'Avançar pedido simulado →';
+      const list = orderQueue(orders, mode);
+      panel.querySelector('[data-now-label]').textContent = clock(now);
+      panel.querySelector('[data-queue-title]').textContent = mode === 'deadline' ? 'Fila por prazo de envio' : 'Fila por chegada';
+      panel.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+      panel.querySelector('[data-queue]').innerHTML = list.map((o, i) => { const st = deadlineState(o, now); return `<li class="dx-queue__row dx-queue__row--${st.state}"><span class="dx-queue__pos">${i + 1}</span><span class="dx-queue__main"><strong>${o.id} · ${o.title}</strong><small>chegou ${day(o.arrived)}${clock(o.arrived)} · enviar até ${day(o.shipBy)}${clock(o.shipBy)}</small></span><span class="dx-queue__badge">${st.state === 'ok' ? 'no prazo' : leftLabel(st.left)}</span></li>`; }).join('');
+      const urgent = list.map((o, i) => ({ o, i, st: deadlineState(o, now) })).filter(x => x.st.state !== 'ok');
+      const late = urgent.filter(x => x.st.state === 'late').length;
+      const plural = urgent.length > 1;
+      const nums = urgent.map(x => x.i + 1);
+      const positions = nums.length > 1 ? nums.slice(0, -1).join(', ') + ' e ' + nums[nums.length - 1] : String(nums[0] || '');
+      const insight = !urgent.length ? 'Nenhum prazo vence nas próximas 2 horas neste horário.'
+        : mode === 'arrival' ? `${urgent.length} pedido${plural ? 's' : ''} ${late ? (plural ? 'atrasados ou vencendo' : 'atrasado ou vencendo') : 'vencendo em até 2h'} fica${plural ? 'm nas posições' : ' na posição'} ${positions} da lista. Trabalhando de cima para baixo, ${plural ? 'eles saem' : 'ele sai'} por último.`
+        : `${plural ? `Os ${urgent.length} pedidos com prazo mais curto vêm` : 'O pedido com prazo mais curto vem'} primeiro. A equipe começa pelo que vence antes${late ? '; o que já atrasou fica visível no topo' : ''}.`;
+      panel.querySelector('[data-queue-insight]').textContent = insight;
     };
-    panel.querySelector('[data-next]').addEventListener('click', () => { progress[selected] = nextStep(progress[selected], 3); render(); });
-    panel.querySelector('.dx-reset').addEventListener('click', () => { progress.fill(0); selected = 0; render(); }); render();
+    panel.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { mode = b.dataset.mode; render(); }));
+    panel.querySelector('[data-now]').addEventListener('input', e => { now = +e.target.value; render(); });
+    render();
   }
   function business(panel) {
     let step = 0;
