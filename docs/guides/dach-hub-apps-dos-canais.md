@@ -153,8 +153,11 @@ Variáveis: `HUB_SHOPEE_PARTNER_ID`, `HUB_SHOPEE_PARTNER_KEY` e `HUB_SHOPEE_API_
 | Variável | Para quê |
 |---|---|
 | `HUB_DATABASE_URL` | Postgres (schema `hub`). Sem ela, usa `DATABASE_URL`. |
-| `SUITE_JWT_SECRET` | Mesmo segredo do login da suíte DACHBYTE. |
-| `HUB_ALLOWED_TENANTS` | Empresas liberadas no Hub (separadas por vírgula). |
+| `SUITE_JWT_SECRET` | Mesmo segredo do login da suíte DACHBYTE (quem já entrou na suíte entra direto no Hub). |
+| `HUB_SESSION_SECRET` | Segredo da sessão própria do Hub (`/hub/login`). Gere um longo e aleatório. Sem ele, o Hub usa o da suíte. |
+| `HUB_BASE_URL`, `HUB_INTERNAL_TOKEN` | Hub de acessos: confere a senha e libera o produto. Os mesmos valores que os módulos DACH já usam. |
+| `HUB_ACCESS_MODULE` | Módulo consultado no hub de acessos. Padrão `dach_hub`. |
+| `HUB_ALLOWED_TENANTS` | Reserva: empresas que entram sem consultar o hub de acessos (separadas por vírgula). Use enquanto o produto `dach_hub` não estiver cadastrado lá. |
 | `HUB_WRITE_TENANTS` | Empresas que podem gravar estoque nos canais (piloto). Fora da lista, só observação. |
 | `HUB_PLATFORM_ADMIN_EMAILS` | E-mails dos administradores da plataforma. |
 | `HUB_TOKEN_ENCRYPTION_KEY` | Chave que cifra tokens e segredos de avisos. Gere uma longa e aleatória e **não troque** depois: trocar invalida todas as conexões. |

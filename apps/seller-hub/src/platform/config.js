@@ -10,14 +10,24 @@ function list(value) {
 
 /**
  * Configuração do DACH Hub lida do ambiente.
- * Enquanto o produto estiver oculto, só empresas em HUB_ALLOWED_TENANTS (ou
- * administradores da plataforma) entram.
+ * Quem entra: equipe da plataforma, empresas em HUB_ALLOWED_TENANTS (reserva)
+ * ou quem o hub de acessos liberar no módulo dach_hub.
  */
 function loadConfig(env = process.env) {
   return {
     databaseUrl: String(env.HUB_DATABASE_URL || env.DATABASE_URL || "").trim(),
     schema: "hub",
     suiteJwtSecret: String(env.SUITE_JWT_SECRET || "").trim(),
+    // Sessão própria do Hub (/hub/login). Sem HUB_SESSION_SECRET, usa o segredo da suíte com audiência própria.
+    sessionSecret: String(env.HUB_SESSION_SECRET || env.SUITE_JWT_SECRET || "").trim(),
+    secureCookies: String(env.NODE_ENV || "").toLowerCase() === "production",
+    // Hub de acessos: confere a senha e libera o módulo do DACH Hub (mesmas variáveis dos módulos DACH).
+    accessHub: {
+      baseUrl: String(env.HUB_BASE_URL || "").trim().replace(/\/+$/, ""),
+      token: String(env.HUB_INTERNAL_TOKEN || "").trim(),
+      module: String(env.HUB_ACCESS_MODULE || "dach_hub").trim() || "dach_hub",
+    },
+    // Reserva enquanto o produto dach_hub não está no hub de acessos: empresas daqui entram sem consultar.
     allowedTenants: new Set(list(env.HUB_ALLOWED_TENANTS)),
     // Piloto: só estas empresas podem ativar a escrita de estoque nos canais. Vazio = ninguém escreve.
     writeTenants: new Set(list(env.HUB_WRITE_TENANTS)),

@@ -6,6 +6,8 @@ const path = require("node:path");
 const { createAuthMiddleware, requireAdmin } = require("./platform/auth");
 const { createContainer } = require("./container");
 const { PAGES, renderPage } = require("./web/pages");
+const { createLoginRouter } = require("./web/login");
+const { createAccessHub } = require("./platform/accessHub");
 
 /** @param {any} req */
 function identity(req) { return req.hubIdentity; }
@@ -20,6 +22,9 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
  */
 async function createApp(deps = {}) {
   const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition, labels } = createContainer(deps);
+
+  // Hub de acessos: confere senha e liberação do módulo dach_hub (substituível nos testes).
+  const accessHub = /** @type {any} */ (deps).accessHub || createAccessHub(config.accessHub);
 
   const app = express();
   app.set("trust proxy", 1);
@@ -55,7 +60,9 @@ async function createApp(deps = {}) {
   app.use("/assets", express.static(path.resolve(__dirname, "../public"), { maxAge: "1h" }));
   app.use("/ui", express.static(path.resolve(__dirname, "../../shared/seller-ui"), { maxAge: "1h" }));
 
-  app.use(createAuthMiddleware(config));
+  // Entrada própria do Hub (/hub/login, /hub/sair e /hub/api/session): pública, antes do controle de acesso.
+  app.use(createLoginRouter({ config, accessHub }));
+  app.use(createAuthMiddleware(config, { accessHub }));
 
   // Páginas (o shell monta o menu e a barra superior no navegador).
   for (const pagePath of /** @type {(keyof typeof PAGES)[]} */ (Object.keys(PAGES))) {

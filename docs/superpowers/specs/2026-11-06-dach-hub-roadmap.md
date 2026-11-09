@@ -481,7 +481,7 @@ Estudo completo em `docs/research/2026-11-06-magis5-e-base.md`, feito só com fo
 
 ---
 
-## 14. Login próprio do DACH Hub (pedido de 09/11/2026)
+## 14. Login próprio do DACH Hub (pedido de 09/11/2026) — feito em 09/11/2026
 
 **Objetivo:** o DACH Hub tem a própria página de entrada, com a marca do Hub, sem passar pela tela de login da suíte. Por enquanto, quem decide quem entra é o **hub de acessos** (repositório `hub pagamento`), o mesmo que já autentica a suíte.
 
@@ -490,10 +490,12 @@ Estudo completo em `docs/research/2026-11-06-magis5-e-base.md`, feito só com fo
 - O servidor do Hub confere a senha no hub de acessos (`POST /v1/internal/portal/auth/verify`, com o token interno) e depois pergunta se a empresa e o usuário podem usar o produto (`POST /v1/access/check`, módulo `dach_hub`).
 - Sessão própria: cookie `dach_hub_session` (httpOnly, Secure, SameSite=Lax, caminho `/hub`), assinado com `HUB_SESSION_SECRET`, validade de 12 horas, com nova checagem de acesso em cache curto (45 s), como no DACH Magalu.
 - Quem já está logado na suíte pode entrar direto (o cookie da suíte continua aceito), mas a liberação passa a vir do hub de acessos e não mais só de `HUB_ALLOWED_TENANTS`, que fica como reserva enquanto o produto `dach_hub` não existe lá.
-- Usuário com mais de uma empresa escolhe a empresa depois da senha.
+- Usuário com mais de uma empresa escolhe a empresa depois da senha (lista `available_tenants` do hub de acessos; o papel vale por empresa).
+- Saída em `/hub/sair`: depois de sair, a sessão da suíte não entra sozinha; a página oferece "Continuar como …".
+- Limite de tentativas: 8 senhas erradas seguidas por e-mail (ou 30 por IP) em 15 minutos bloqueiam por 15 minutos.
 - Falha fechada: hub de acessos fora do ar ou resposta estranha = não entra (com mensagem clara).
 
-**No hub de acessos:** cadastrar o produto/módulo `dach_hub` e a ação `ACCESS dach_hub`, para liberar empresas e usuários pelo painel de acessos. Recuperação de senha usa o fluxo atual da suíte até o Hub ter usuários próprios.
+**No hub de acessos (pendente, no repositório `hub pagamento`):** cadastrar o produto/módulo `dach_hub` e a ação `ACCESS dach_hub`, para liberar empresas e usuários pelo painel de acessos. Até lá, as empresas do piloto entram pela reserva `HUB_ALLOWED_TENANTS`. Recuperação de senha usa o fluxo atual da suíte até o Hub ter usuários próprios.
 
 **Depois (fora do escopo agora):** usuários próprios do Hub e permissões por área (seção 9), sem depender da suíte.
 

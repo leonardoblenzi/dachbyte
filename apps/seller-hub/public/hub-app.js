@@ -37,6 +37,7 @@
       { id: "account", label: "Conta", hint: "Acesso e integrações", icon: "user", items: [{ label: "Contas conectadas", path: "/hub/contas" }, { label: "Vendas do mês", path: "/hub/cobranca/vendas" }] },
     ],
     footNote: "Catálogo, estoque, pedidos e preços de todos os canais em um só fluxo.",
+    logoutHref: "/hub/sair",
     status: { label: "Modo observação", tone: "success", href: "/hub/saude" },
     links: [{ label: "Módulos", href: "/selecao-plataforma", icon: "dashboard" }],
   });
