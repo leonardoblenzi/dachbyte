@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="/ml/img/dachbyte-seller-mark.svg?v=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;500;600;700;800&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
   <style>
     :root{
       --bg:#090b10;
@@ -244,6 +244,92 @@
     }
   </style>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20261016" />
+  <style id="portal-refresh">
+    /* Visual atualizado (09/11/2026): mesma paleta e mesma tipografia da linha Seller (Exo 2, Rajdhani),
+       letras legíveis, menos bordas, ícones por produto e foco visível. Vem depois do theme.css de propósito. */
+    html[data-dachbyte-app="seller-portal"] body{font-family:"Exo 2",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+    html[data-dachbyte-app="seller-portal"] :is(.nav-label,.tenant small,.home-module-filter,.home-module-filter__count,.metric span,.badge,th,.field label){font-family:"Exo 2",Arial,sans-serif;letter-spacing:.01em}
+    html[data-dachbyte-app="seller-portal"] :is(.nav-label,.tenant small,.metric span,th,.field label){text-transform:none}
+    html[data-dachbyte-app="seller-portal"] .kicker{font-size:12px;letter-spacing:.12em}
+    html[data-dachbyte-app="seller-portal"] .brand__line{font-size:11.5px}
+    html[data-dachbyte-app="seller-portal"] .nav-label{font-size:12px;font-weight:600;color:var(--muted)}
+    html[data-dachbyte-app="seller-portal"] .nav{gap:4px}
+    html[data-dachbyte-app="seller-portal"] .nav__item{border-color:transparent;background:transparent;padding:8px 10px}
+    html[data-dachbyte-app="seller-portal"] .nav__item:hover{border-color:transparent;background:var(--panel)}
+    html[data-dachbyte-app="seller-portal"] .nav__item.is-active{border-color:rgba(255,138,61,.32);background:linear-gradient(135deg,rgba(255,138,61,.13),rgba(255,138,61,.03))}
+    html[data-dachbyte-app="seller-portal"] .nav__icon{border-color:transparent;background:var(--panel-2)}
+    html[data-dachbyte-app="seller-portal"] .nav__copy strong{font-size:14px;font-weight:600}
+    html[data-dachbyte-app="seller-portal"] .nav__copy small{font-size:12px}
+    html[data-dachbyte-app="seller-portal"] .brand{border-color:transparent}
+    html[data-dachbyte-app="seller-portal"] .tenant small{font-size:12px}
+    html[data-dachbyte-app="seller-portal"] h1{font-size:2.15rem;letter-spacing:-.01em}
+    html[data-dachbyte-app="seller-portal"] .lead{font-size:15px;color:#a3acb8}
+    html[data-dachbyte-app="seller-portal"] .section-head h2{font-size:1.3rem}
+    html[data-dachbyte-app="seller-portal"] .section-head p{font-size:13px}
+    html[data-dachbyte-app="seller-portal"] .home-module-filter{border-color:transparent;background:var(--panel);color:#aeb7c3;font-size:12.5px;font-weight:600;padding:7px 12px}
+    html[data-dachbyte-app="seller-portal"] .home-module-filter:hover{border-color:transparent;background:var(--panel-2)}
+    html[data-dachbyte-app="seller-portal"] .home-module-filter.is-active{border-color:rgba(255,138,61,.45);background:rgba(255,138,61,.1)}
+    html[data-dachbyte-app="seller-portal"] .home-module-filter__count{font-size:11.5px;border-color:transparent}
+    html[data-dachbyte-app="seller-portal"] .summary{gap:12px}
+    html[data-dachbyte-app="seller-portal"] .metric{border-color:transparent;padding:16px}
+    html[data-dachbyte-app="seller-portal"] .metric span{font-size:12.5px;font-weight:600}
+    html[data-dachbyte-app="seller-portal"] .metric strong{font-size:2rem;margin-top:6px}
+    html[data-dachbyte-app="seller-portal"] .metric--warn strong{color:var(--yellow)}
+    html[data-dachbyte-app="seller-portal"] .metric--danger strong{color:var(--red)}
+    html[data-dachbyte-app="seller-portal"] .badge{font-size:12px;font-weight:600;padding:4px 9px}
+    html[data-dachbyte-app="seller-portal"] .btn{border-radius:10px;padding:9px 14px;font-weight:700}
+    html[data-dachbyte-app="seller-portal"] .btn:not(.btn--ghost):not(.btn--soft):not(.btn--danger):not(.btn--outline){background:var(--orange)}
+    html[data-dachbyte-app="seller-portal"] .btn--ghost{border-color:var(--line-strong);color:#d5dbe2}
+    html[data-dachbyte-app="seller-portal"] .btn--outline{background:transparent;border:1px solid rgba(255,138,61,.6);color:var(--orange)}
+    html[data-dachbyte-app="seller-portal"] .btn--outline:hover{background:rgba(255,138,61,.1);filter:none}
+    html[data-dachbyte-app="seller-portal"] .module-groups{gap:28px}
+    html[data-dachbyte-app="seller-portal"] .module-group__head{flex-direction:column;align-items:flex-start;gap:3px;margin-bottom:12px}
+    html[data-dachbyte-app="seller-portal"] .module-group__head h3{font-size:1.15rem}
+    html[data-dachbyte-app="seller-portal"] .module-group__head small{font-size:13px;padding-left:17px}
+    html[data-dachbyte-app="seller-portal"] .modules-grid{gap:14px}
+    html[data-dachbyte-app="seller-portal"] .module-card{min-height:0;padding:18px;border-radius:14px;border-color:transparent;transition:border-color .16s ease,transform .16s ease,background .16s ease}
+    html[data-dachbyte-app="seller-portal"] .module-card:hover{border-color:var(--line-strong);transform:translateY(-1px)}
+    html[data-dachbyte-app="seller-portal"] .module-card.is-installed{border-color:transparent}
+    html[data-dachbyte-app="seller-portal"] .module-card.is-installed::before{display:none}
+    html[data-dachbyte-app="seller-portal"] .module-card.is-available{opacity:1;filter:none;background:transparent;border:1px dashed var(--line-strong)}
+    html[data-dachbyte-app="seller-portal"] .module-card.is-available:hover{opacity:1;filter:none;border-color:rgba(255,138,61,.5)}
+    html[data-dachbyte-app="seller-portal"] .module-card[data-enter]{cursor:pointer}
+    html[data-dachbyte-app="seller-portal"] .module-card h3{font-size:1.3rem;margin:14px 0 6px}
+    html[data-dachbyte-app="seller-portal"] .module-desc{font-size:13.5px;line-height:1.55;color:#a3acb8}
+    html[data-dachbyte-app="seller-portal"] .module-stats{font-size:12.5px;gap:14px}
+    html[data-dachbyte-app="seller-portal"] .module-plan{font-size:13px}
+    html[data-dachbyte-app="seller-portal"] .module-plan small{font-size:12px}
+    html[data-dachbyte-app="seller-portal"] .module-actions{padding-top:16px}
+    html[data-dachbyte-app="seller-portal"] .module-mark{width:44px;height:44px;border-radius:12px;border:0;background:rgba(255,138,61,.1);color:var(--orange)}
+    html[data-dachbyte-app="seller-portal"] .module-mark svg{width:22px;height:22px}
+    html[data-dachbyte-app="seller-portal"] .module-card.is-available .module-mark{background:var(--panel-2);color:var(--muted)}
+    html[data-dachbyte-app="seller-portal"] .module-mark--hub{background:rgba(156,130,245,.14)}
+    html[data-dachbyte-app="seller-portal"] .module-mark--hub img{width:36px;height:auto;display:block}
+    html[data-dachbyte-app="seller-portal"] .module-card.hub-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:20px;align-items:center;padding:20px 22px;background:linear-gradient(120deg,rgba(156,130,245,.11),rgba(17,21,28,0) 60%),var(--panel)}
+    html[data-dachbyte-app="seller-portal"] .module-card.hub-hero.is-available{background:linear-gradient(120deg,rgba(156,130,245,.07),rgba(9,11,16,0) 60%)}
+    html[data-dachbyte-app="seller-portal"] .module-card.hub-hero .module-mark{width:56px;height:56px;border-radius:14px}
+    html[data-dachbyte-app="seller-portal"] .module-card.hub-hero .module-mark--hub img{width:44px}
+    html[data-dachbyte-app="seller-portal"] .hub-hero__title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    html[data-dachbyte-app="seller-portal"] .hub-hero__title h3{margin:0}
+    html[data-dachbyte-app="seller-portal"] .hub-hero__features{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0;padding:0;list-style:none}
+    html[data-dachbyte-app="seller-portal"] .hub-hero__features li{font-size:12.5px;color:#d4cdfb;background:rgba(156,130,245,.12);border-radius:999px;padding:4px 10px}
+    html[data-dachbyte-app="seller-portal"] .module-card.hub-hero .module-actions{margin-top:0;padding-top:0;flex-wrap:nowrap}
+    html[data-dachbyte-app="seller-portal"] .alert{border-radius:14px}
+    html[data-dachbyte-app="seller-portal"] th{font-size:12px;font-weight:600}
+    html[data-dachbyte-app="seller-portal"] td{font-size:13px}
+    html[data-dachbyte-app="seller-portal"] .field label{font-size:12px;font-weight:600}
+    html[data-dachbyte-app="seller-portal"] :is(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+    html[data-dachbyte-app="seller-portal"] .module-card:focus-within{border-color:rgba(255,138,61,.45)}
+    @media(max-width:760px){
+      html[data-dachbyte-app="seller-portal"] .section-head{flex-direction:column;align-items:stretch;gap:10px}
+      html[data-dachbyte-app="seller-portal"] .home-module-filters{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -13px;padding:0 13px 2px}
+      html[data-dachbyte-app="seller-portal"] .home-module-filters::-webkit-scrollbar{display:none}
+      html[data-dachbyte-app="seller-portal"] .home-module-filter{flex:0 0 auto}
+      html[data-dachbyte-app="seller-portal"] .module-card.hub-hero{grid-template-columns:auto minmax(0,1fr);row-gap:14px;padding:18px;align-items:start}
+      html[data-dachbyte-app="seller-portal"] .module-card.hub-hero .module-actions{grid-column:1/-1;flex-wrap:wrap}
+      html[data-dachbyte-app="seller-portal"] h1{font-size:1.85rem}
+    }
+  </style>
 </head>
 <body>
   <div class="app">
@@ -275,7 +361,7 @@
         <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Abrir menu" aria-controls="portal-sidebar" aria-expanded="false"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
         <div class="tenant">
           <strong id="tenant-name">DACHBYTE Seller</strong>
-          <small>WORKSPACE DO CLIENTE</small>
+          <small>Workspace do cliente</small>
         </div>
         <div class="userbox">
           <span id="top-alert-count"></span>
@@ -295,9 +381,9 @@
 
       <div class="content">
         <section class="view is-active" data-view="home">
-          <div class="kicker">Dach Seller Home</div>
+          <div class="kicker">Início</div>
           <h1 id="home-title">Bem-vindo.</h1>
-          <p class="lead">Entre nos seus módulos, acompanhe contas vinculadas e resolva planos e renovações sem sair do portal.</p>
+          <p class="lead" id="home-lead">Entre nos seus produtos, acompanhe contas vinculadas e resolva planos e renovações sem sair do portal.</p>
           <div class="alerts" id="alerts"></div>
           <div class="section-head">
             <div><h2>Seus produtos</h2><p>O que sua empresa contratou, por categoria.</p></div>
@@ -472,6 +558,19 @@
         { id:"marketing", label:"Marketing", hint:"Anúncios pagos", slugs:["dach_ads"] },
       ];
       const moduleFallbackDescriptions = { dach_hub:"Estoque, pedidos e anúncios de todos os canais num lugar só." };
+      const moduleIconPaths = {
+        ml:'<path d="M6 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/><path d="M17 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/><path d="M17 17h-11v-14h-2"/><path d="M6 5l14 1l-1 7h-13"/>',
+        magalu:'<path d="M3 21h18"/><path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2-4h14l2 4"/><path d="M5 21v-10.15"/><path d="M19 21v-10.15"/><path d="M9 21v-4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4"/>',
+        shopee:'<path d="M6.33 8h11.34a2 2 0 0 1 1.98 2.3l-1.26 8.15a3 3 0 0 1-2.96 2.55h-6.86a3 3 0 0 1-2.96-2.55l-1.26-8.15a2 2 0 0 1 1.98-2.3z"/><path d="M9 11v-5a3 3 0 0 1 6 0v5"/>',
+        madeira:'<path d="M5 11a2 2 0 0 1 2 2v2h10v-2a2 2 0 1 1 4 0v4a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2z"/><path d="M5 11v-5a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v5"/><path d="M6 19v2"/><path d="M18 19v2"/>',
+        dach_ads:'<path d="M18 8a3 3 0 0 1 0 6"/><path d="M10 8v11a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-5"/><path d="M12 8l4.52-3.77a.9 .9 0 0 1 1.48 .69v12.16a.9 .9 0 0 1-1.48 .69l-4.52-3.77h-8a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h8"/>',
+        _:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+      };
+      moduleIconPaths.madeiramadeira=moduleIconPaths.madeira;
+      function moduleMarkHtml(module){
+        if(module.slug==="dach_hub") return '<div class="module-mark module-mark--hub" aria-hidden="true"><img src="/brand/dachbyte/hub/mark-transparent.png?v=1" alt=""></div>';
+        return '<div class="module-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(moduleIconPaths[module.slug]||moduleIconPaths._)+'</svg></div>';
+      }
       const statusMeta = {
         active:{label:"Ativo",className:"badge--active"},
         attention:{label:"Atenção",className:"badge--warning"},
@@ -534,7 +633,7 @@
           return enter+setup+locked+manage;
         }
         if(module.can_purchase && Array.isArray(module.catalog_plans) && module.catalog_plans.length){
-          return '<button class="btn" type="button" data-purchase="'+esc(module.slug)+'">Contratar</button>';
+          return '<button class="btn btn--outline" type="button" data-purchase="'+esc(module.slug)+'">Contratar</button>';
         }
         if(!state.overview?.user?.can_manage_billing){
           return '<button class="btn btn--ghost" type="button" disabled>Solicite ao administrador</button>';
@@ -571,9 +670,19 @@
           : module.resource_required
             ? '<div class="module-stats"><span>'+countLabel(module.accounts?.total,"conta","contas")+'</span><span>'+countLabel(module.accounts?.active,"ativa","ativas")+'</span>'+(Number(module.accounts?.expiring||0)?'<span><b>'+Number(module.accounts.expiring)+'</b> a vencer</span>':"")+'</div>'
             : '<div class="module-stats"><span>Produto instalado</span></div>';
-        return '<article class="module-card '+(module.installed?"is-installed":"is-available")+(module.slug==="dach_hub"?" is-wide":"")+'">'+
-          '<div class="module-top"><div class="module-mark">'+esc(moduleMarks[module.slug]||module.slug.slice(0,2).toUpperCase())+'</div>'+badge(module.installed?module.status:"available")+'</div>'+
-          '<h3>'+esc(module.name)+'</h3><div class="module-desc">'+esc(module.description||moduleFallbackDescriptions[module.slug]||"Módulo DACHBYTE Seller.")+'</div>'+stats+modulePlanLine(module)+
+        const enter=module.installed&&module.can_enter&&goRoutes[module.slug]?' data-enter="'+esc(goRoutes[module.slug])+'"':"";
+        const desc=esc(module.description||moduleFallbackDescriptions[module.slug]||"Módulo DACHBYTE Seller.");
+        const cardState=module.installed?"is-installed":"is-available";
+        const status=badge(module.installed?module.status:"available");
+        if(module.slug==="dach_hub"){
+          return '<article class="module-card '+cardState+' is-wide hub-hero"'+enter+'>'+moduleMarkHtml(module)+
+            '<div class="hub-hero__body"><div class="hub-hero__title"><h3>'+esc(module.name)+'</h3>'+status+'</div><div class="module-desc">'+desc+'</div>'+
+            '<ul class="hub-hero__features"><li>Estoque central</li><li>Pedidos e expedição</li><li>Anúncios de todos os canais</li></ul>'+modulePlanLine(module)+'</div>'+
+            '<div class="module-actions">'+moduleActions(module)+'</div></article>';
+        }
+        return '<article class="module-card '+cardState+'"'+enter+'>'+
+          '<div class="module-top">'+moduleMarkHtml(module)+status+'</div>'+
+          '<h3>'+esc(module.name)+'</h3><div class="module-desc">'+desc+'</div>'+stats+modulePlanLine(module)+
           '<div class="module-actions">'+moduleActions(module)+'</div></article>';
       }
 
@@ -618,8 +727,8 @@
         updateHomeModuleFilters(installed);
         const s=state.overview.summary||{};
         $("#module-summary").innerHTML=[
-          ["Contratados",s.installed_modules||0],["Disponíveis",s.available_modules||0],["Contas ativas",s.active_accounts||0],["A vencer",s.expiring_accounts||0],["Vencidas",s.expired_accounts||0]
-        ].map(([l,v])=>'<div class="metric"><span>'+esc(l)+'</span><strong>'+Number(v||0)+'</strong></div>').join("");
+          ["Contratados",s.installed_modules||0,""],["Disponíveis",s.available_modules||0,""],["Contas ativas",s.active_accounts||0,""],["A vencer",s.expiring_accounts||0,"warn"],["Vencidas",s.expired_accounts||0,"danger"]
+        ].map(([l,v,tone])=>'<div class="metric'+(tone&&Number(v)>0?" metric--"+tone:"")+'"><span>'+esc(l)+'</span><strong>'+Number(v||0)+'</strong></div>').join("");
       }
 
       function renderAlerts(){
@@ -755,11 +864,30 @@
         $("#user-role").textContent=roleLabel(o.user?.role);
         $("#user-avatar").textContent=firstName(o.user?.name||"U").charAt(0).toUpperCase();
         $("#home-title").textContent=greeting()+", "+firstName(o.user?.name)+".";
+        $("#home-lead").textContent=homeSummary(o);
+      }
+      // Resumo de uma linha no Início: o que está contratado e o que pede atenção.
+      function homeSummary(o){
+        const installed=(o.modules||[]).filter(m=>m.installed).length;
+        if(!installed) return "Sua empresa ainda não contratou nenhum produto. Veja os disponíveis em Módulos.";
+        const s=o.summary||{};
+        const parts=[installed+(installed===1?" produto contratado":" produtos contratados")];
+        const expired=Number(s.expired_accounts||0), expiring=Number(s.expiring_accounts||0);
+        if(expired) parts.push(expired+(expired===1?" conta vencida":" contas vencidas"));
+        if(expiring) parts.push(expiring+(expiring===1?" conta vence em breve":" contas vencem em breve"));
+        if(!expired&&!expiring) parts.push("tudo em dia");
+        return parts.join(" · ")+".";
       }
 
       function renderAll(){
         renderHeader(); renderAlerts(); renderModules(); renderAccounts(); renderPlans(); renderCompany(); bindDynamicActions();
       }
+
+      document.addEventListener("click",event=>{
+        const card=event.target.closest("[data-enter]");
+        if(!card||event.target.closest("a,button,input,select,textarea,label"))return;
+        window.location.href=card.dataset.enter;
+      });
 
       function bindDynamicActions(){
         document.querySelectorAll("[data-purchase]").forEach(btn=>btn.onclick=()=>openPurchase(btn.dataset.purchase));
