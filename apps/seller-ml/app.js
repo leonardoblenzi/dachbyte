@@ -9,6 +9,8 @@ const jwt = require("jsonwebtoken");
 const db = require("./db/db");
 const { createMlRetirementService } = require("./services/internalRetirementService");
 const { createMlRetirementRouter } = require("./routes/internalRetirementRoutes");
+const { createInternalConnectionsService } = require("./services/internalConnectionsService");
+const { createInternalConnectionsRouter } = require("./routes/internalConnectionsRoutes");
 const { syncHubIdentity } = require("../../lib/hubIdentitySync");
 const {
   corsOptionsDelegate,
@@ -138,6 +140,15 @@ module.exports = function createMlApp() {
   app.use("/internal/hub/retirement", createMlRetirementRouter({
     secret: process.env.SELLER_RETIREMENT_TOKEN,
     retire: createMlRetirementService({ withClient: db.withClient }),
+  }));
+  // Conexão única: o DACH Hub pede contas e chaves do Mercado Livre por aqui.
+  app.use("/internal/connections", createInternalConnectionsRouter({
+    secret: process.env.SELLER_CONNECTIONS_TOKEN,
+    service: createInternalConnectionsService({
+      db,
+      tokens: require("./services/tokenService"),
+      authorize: (input) => require("./routes/meliOAuthRoutes").createExternalAuthorization(input),
+    }),
   }));
   app.use(
     createOriginGuard({

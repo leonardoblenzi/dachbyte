@@ -21,6 +21,12 @@
   # Synthetic staging/production smoke probes must not count as real legacy use.
   @legacy-validation-probe header X-Dachbyte-Validation-Probe legacy-smoke
   log_skip @legacy-validation-probe
+  # Service-to-service APIs (connection broker, notification relay) only run
+  # inside the Docker network. They also check a bearer token, but never leave.
+  @internal-only path /ml/internal/* /hub/internal/*
+  handle @internal-only {
+    respond 404
+  }
   @seller-ml-web path /ml /ml/*
   handle @seller-ml-web {
     reverse_proxy seller-ml-web:3000

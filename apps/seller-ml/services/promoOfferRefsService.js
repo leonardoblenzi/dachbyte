@@ -115,6 +115,7 @@ async function listAccountsForMeliUser(meliUserId) {
       LEFT JOIN meli_tokens mt
         ON mt.meli_conta_id = mc.id
       WHERE mc.meli_user_id = $1
+        AND EXISTS (SELECT 1 FROM ml.meli_conta_produtos p WHERE p.meli_conta_id = mc.id AND p.produto = 'ml')
       ORDER BY mc.id DESC
     `,
     [uid],

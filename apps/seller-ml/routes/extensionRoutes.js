@@ -5,6 +5,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const db = require("../db/db");
+const { activeInProductSql } = require("../services/connectionProducts");
 const ClonarAnuncioService = require("../services/clonarAnuncioService");
 const ExtensionRealtimeInsightsService = require("../services/extensionRealtimeInsightsService");
 const KeywordCurationService = require("../services/keywordCurationService");
@@ -304,6 +305,7 @@ async function listAccountsForUser(req) {
          join empresa_usuarios eu on eu.empresa_id = mc.empresa_id
     left join meli_tokens mt on mt.meli_conta_id = mc.id
         where eu.usuario_id = $1
+          and ${activeInProductSql("mc")}
         order by e.nome asc,
                  case eu.papel when 'owner' then 1 when 'admin' then 2 else 3 end,
                  mc.id asc`,
@@ -355,6 +357,7 @@ async function resolveAccountForUser(req, meliContaId) {
            join empresa_usuarios eu on eu.empresa_id = mc.empresa_id
           where mc.id = $1
             and eu.usuario_id = $2
+            and ${activeInProductSql("mc")}
           limit 1`,
         [accountId, uid],
       );

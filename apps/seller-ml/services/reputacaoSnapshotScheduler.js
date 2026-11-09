@@ -1,6 +1,7 @@
 "use strict";
 
 const db = require("../db/db");
+const { activeInProductSql } = require("./connectionProducts");
 const ReputacaoService = require("./reputacaoService");
 const { decryptToken } = require("./tokenCrypto");
 const { withPgAdvisoryLock } = require("./pgAdvisoryLock");
@@ -21,7 +22,7 @@ function currentDateSaoPaulo(now = new Date()) {
 
 async function getActiveAccountsForReputationSnapshots(accountIds = null) {
   const params = [];
-  let where = "where coalesce(mc.status, 'ativa') = 'ativa'";
+  let where = `where coalesce(mc.status, 'ativa') = 'ativa' and ${activeInProductSql("mc")}`;
   if (Array.isArray(accountIds) && accountIds.length) {
     params.push(accountIds.map(Number).filter((id) => Number.isFinite(id) && id > 0));
     where += ` and mc.id = any($${params.length}::bigint[])`;

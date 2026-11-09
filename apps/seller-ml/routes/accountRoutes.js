@@ -3,6 +3,7 @@
 
 const express = require("express");
 const db = require("../db/db");
+const { activeInProductSql, deactivateProduct } = require("../services/connectionProducts");
 const { createAuditAction } = require("../middleware/auditAction");
 const { buildPlanCheckoutUrl, unlinkBillingResource } = require("../services/hubCreditsService");
 const {
@@ -321,6 +322,7 @@ router.get("/list", async (req, res) => {
              on eu.usuario_id = $3
             and eu.empresa_id = mc.empresa_id
           where mc.empresa_id = $2
+            and ${activeInProductSql("mc")}
             ${includeUnlinked ? "" : "and lower(coalesce(mc.status, '')) not in ('desvinculada','revogada','unlinked','revoked')"}
           order by (eu.default_meli_conta_id = mc.id) desc, mc.id asc`,
         [
@@ -472,6 +474,7 @@ router.get("/current", async (req, res) => {
           from meli_contas mc
           where mc.id = $1 and mc.empresa_id = $3
             and lower(coalesce(mc.status, '')) not in ('desvinculada','revogada','unlinked','revoked')
+            and ${activeInProductSql("mc")}
           limit 1`,
         [
           oauthId,
@@ -597,6 +600,7 @@ router.post(
            from meli_contas mc
           where mc.id = $1 and mc.empresa_id = $3
             and lower(coalesce(mc.status, '')) not in ('desvinculada','revogada','unlinked','revoked')
+            and ${activeInProductSql("mc")}
           limit 1`,
         [meliContaId, emp.empresa_nome || null, emp.empresa_id]
       );
@@ -726,9 +730,17 @@ router.post(
             return { alreadyUnlinked: true, account };
           }
 
+          // Conexão única: se outro produto (DACH Hub) usa a conta, o módulo ML
+          // só sai dela. Conexão e chaves continuam para o outro produto.
+          const otherProducts = await client.query(
+            `select produto from ml.meli_conta_produtos where meli_conta_id = $1 and produto <> 'ml'`,
+            [accountId],
+          );
+          const keepConnection = otherProducts.rows.length > 0;
+
           await client.query(
             `update meli_contas
-                set status = 'desvinculada',
+                set status = case when $2::boolean then status else 'desvinculada' end,
                     billing_status = 'awaiting_subscription',
                     billing_mode = 'paid',
                     usage_policy = 'metered',
@@ -736,13 +748,16 @@ router.post(
                     billing_review_due_at = now(),
                     atualizado_em = now()
               where id = $1`,
-            [accountId],
+            [accountId, keepConnection],
           );
+          await deactivateProduct(client, accountId, "ml");
 
-          const deletedTokens = await client.query(
-            `delete from meli_tokens where meli_conta_id = $1`,
-            [accountId],
-          );
+          const deletedTokens = keepConnection
+            ? { rowCount: 0 }
+            : await client.query(
+                `delete from meli_tokens where meli_conta_id = $1`,
+                [accountId],
+              );
 
           const replacementRows = await client.query(
             `select mc.id
@@ -751,6 +766,7 @@ router.post(
               where mc.empresa_id = $1
                 and mc.id <> $2
                 and lower(coalesce(mc.status, '')) not in ('desvinculada','revogada','unlinked','revoked')
+                and ${activeInProductSql("mc")}
               order by (mt.meli_conta_id is not null) desc, mc.ultimo_uso_em desc nulls last, mc.criado_em asc, mc.id asc
               limit 1`,
             [account.empresa_id, accountId],
@@ -770,6 +786,7 @@ router.post(
             account,
             replacement_meli_conta_id: replacementId,
             removed_tokens: Number(deletedTokens.rowCount || 0),
+            kept_connection: keepConnection,
             updated_default_users: Number(defaultUpdate.rowCount || 0),
           };
         } catch (error) {
@@ -830,6 +847,7 @@ router.post(
         },
         replacement_meli_conta_id: result.replacement_meli_conta_id,
         removed_tokens: result.removed_tokens,
+        kept_connection: result.kept_connection === true,
         updated_default_users: result.updated_default_users,
         hub_sync: hubSync,
       });

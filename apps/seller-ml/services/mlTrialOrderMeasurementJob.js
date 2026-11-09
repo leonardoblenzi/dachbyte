@@ -127,6 +127,7 @@ async function queueMissingCurrentPeriodMeasurements(db, now = new Date(), optio
      SELECT mc.id, $1::date, $2::date, 'queued'
        FROM meli_contas mc
       WHERE mc.status = 'ativa'
+        AND EXISTS (SELECT 1 FROM ml.meli_conta_produtos p WHERE p.meli_conta_id = mc.id AND p.produto = 'ml')
         AND (mc.billing_mode = 'trial' OR ($3::boolean AND mc.billing_mode = 'paid'))
      ON CONFLICT (account_id, period_start) DO NOTHING`,
     [window.periodStart, window.periodEndExclusive, includePostpaid]

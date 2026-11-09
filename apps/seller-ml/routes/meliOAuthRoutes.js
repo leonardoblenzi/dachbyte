@@ -6,6 +6,7 @@ const companyAccessGuards = require("../services/companyAccessService");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const db = require("../db/db");
+const { activeInProductSql, activateProduct } = require("../services/connectionProducts");
 const { createAuditAction } = require("../middleware/auditAction");
 const { oauthRateLimiter, validateStrongPassword } = require("../middleware/security");
 const { canEncryptTokens, encryptToken } = require("../services/tokenCrypto");
@@ -454,6 +455,7 @@ router.get("/contas", async (req, res) => {
         if (!emp) throw createUserWithoutCompanyError(uid);
         where.push(`c.empresa_id = $${p++}`);
         params.push(emp.empresa_id);
+        where.push(activeInProductSql("c"));
       }
 
       if (onlyActive) {
@@ -577,9 +579,10 @@ router.get("/contas", async (req, res) => {
 
         const r = await client.query(
           `select 1
-             from meli_contas
-            where id = $1 and empresa_id = $2
-              and lower(coalesce(status, '')) not in ('desvinculada','revogada','unlinked','revoked')
+             from meli_contas mc
+            where mc.id = $1 and mc.empresa_id = $2
+              and lower(coalesce(mc.status, '')) not in ('desvinculada','revogada','unlinked','revoked')
+              and ${activeInProductSql("mc")}
             limit 1`,
           [currentId, emp.empresa_id],
         );
@@ -684,6 +687,7 @@ async function handleSelecionarConta(req, res, rawContaId, opts = {}) {
          where c.id = $1
            and c.empresa_id = $2
            and lower(coalesce(c.status, '')) not in ('desvinculada','revogada','unlinked','revoked')
+           and ${activeInProductSql("c")}
          limit 1
         `,
         [meli_conta_id, emp.empresa_id],
@@ -1117,6 +1121,14 @@ async function handleTrialOAuthCallback(req, res, { code, state, redirectUri }) 
   return res.redirect(withBase(req, "/ativar-teste"));
 }
 
+/** Volta para o produto que pediu a autorização (só caminhos do próprio produto). */
+function otherProductReturnUrl(outcome) {
+  const fallback = "/hub/contas";
+  const raw = String(outcome?.return_to || "");
+  const safe = /^\/hub\/[A-Za-z0-9/_-]*$/.test(raw) ? raw : fallback;
+  return `${safe}?conectado=mercadolivre&conta=${encodeURIComponent(String(outcome.meli_user_id))}`;
+}
+
 // ===============================
 // POST /api/meli/oauth/start
 // body: { return_to? }
@@ -1276,7 +1288,8 @@ router.get(
       await client.query("begin");
       try {
         const st = await client.query(
-          `select state, empresa_id, usuario_id, code_verifier, return_to, expira_em
+          `select state, empresa_id, usuario_id, code_verifier, return_to, expira_em,
+                  coalesce(produto, 'ml') as produto, origem_usuario_global_id
              from oauth_states
             where state = $1
             limit 1`,
@@ -1360,6 +1373,9 @@ router.get(
           throw err;
         }
 
+        // Conta nova nasce ativa no produto que pediu a autorização (gatilho da 080).
+        await client.query("select set_config('ml.connection_product', $1, true)", [row.produto]);
+
         const apelidoDefault = `Conta ${meli_user_id}`;
         let apelido = await tryGetMlNickname(access_token, meli_user_id);
         if (!apelido) apelido = apelidoDefault;
@@ -1424,6 +1440,13 @@ router.get(
           ],
         );
 
+        await activateProduct(
+          client,
+          contaId,
+          row.produto,
+          row.usuario_id ? `ml_user:${row.usuario_id}` : `hub_user:${row.origem_usuario_global_id || "?"}`,
+        );
+
         await client.query(`delete from oauth_states where state = $1`, [
           state,
         ]);
@@ -1431,6 +1454,7 @@ router.get(
         await client.query("commit");
 
         return {
+          produto: row.produto,
           return_to: row.return_to || "/vincular-conta",
           empresaId: row.empresa_id,
           usuarioId: row.usuario_id,
@@ -1444,6 +1468,12 @@ router.get(
         throw e;
       }
     });
+
+    // Autorização pedida por outro produto (DACH Hub): a conta fica só nele.
+    // Nada de cobrança, cookie ou conta padrão do módulo ML.
+    if (outcome?.produto && outcome.produto !== "ml") {
+      return res.redirect(otherProductReturnUrl(outcome));
+    }
 
     if (outcome?.contaId) {
       let hubRelinkError = null;
@@ -1564,9 +1594,10 @@ router.get("/current", async (req, res) => {
       if (!emp) return null;
 
       const c = await client.query(
-        `select id, meli_user_id, apelido, site_id, status
-           from meli_contas
-          where id = $1 and empresa_id = $2
+        `select mc.id, mc.meli_user_id, mc.apelido, mc.site_id, mc.status
+           from meli_contas mc
+          where mc.id = $1 and mc.empresa_id = $2
+            and ${activeInProductSql("mc")}
           limit 1`,
         [contaId, emp.empresa_id],
       );
@@ -1597,4 +1628,66 @@ router.get("/current", async (req, res) => {
   }
 });
 
+/**
+ * Autorização pedida por outro produto da DACHBYTE (DACH Hub) pela API interna.
+ * Não há usuário do módulo ML: a empresa vem do hub de acessos (tenant global) e
+ * é criada aqui se ainda não existir. O retorno usa o mesmo callback do módulo,
+ * calculado como se a requisição viesse do domínio público informado.
+ */
+async function createExternalAuthorization({ tenantId, companyName, userGlobalId, product, returnTo, publicOrigin }) {
+  if (!ML_APP_ID || !ML_CLIENT_SECRET) throw Object.assign(new Error("ml_app_not_configured"), { status: 503 });
+  let origin;
+  try {
+    origin = new URL(String(publicOrigin || ""));
+  } catch {
+    throw Object.assign(new Error("invalid_public_origin"), { status: 400 });
+  }
+  const callbackReq = {
+    baseUrl: "/ml/api/meli",
+    protocol: origin.protocol.replace(":", ""),
+    headers: { host: origin.host, "x-forwarded-proto": origin.protocol.replace(":", "") },
+  };
+  const redirectUri = resolveRedirectUri(callbackReq);
+  const state = randomState();
+  const codeVerifier = randomVerifier();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  await db.withClient(async (client) => {
+    await client.query("begin");
+    try {
+      let empresa = (await client.query(
+        "select id from empresas where tenant_global_id = $1 limit 1",
+        [tenantId],
+      )).rows[0];
+      if (!empresa) {
+        empresa = (await client.query(
+          "insert into empresas (nome, tenant_global_id) values ($1, $2) returning id",
+          [String(companyName || "").trim() || "Empresa DACHBYTE", tenantId],
+        )).rows[0];
+      }
+      await client.query(`delete from oauth_states where expira_em < now()`);
+      await client.query(
+        `insert into oauth_states (state, empresa_id, usuario_id, code_verifier, return_to, expira_em, produto, origem_usuario_global_id)
+         values ($1, $2, null, $3, $4, $5, $6, $7)`,
+        [state, empresa.id, codeVerifier, returnTo, expiresAt.toISOString(), product, userGlobalId || null],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    }
+  });
+
+  const url = new URL(AUTH_BASE);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("client_id", String(ML_APP_ID));
+  url.searchParams.set("redirect_uri", String(redirectUri));
+  url.searchParams.set("state", state);
+  url.searchParams.set("code_challenge", sha256Base64Url(codeVerifier));
+  url.searchParams.set("code_challenge_method", "S256");
+  return { url: url.toString(), expires_at: expiresAt.toISOString() };
+}
+
+router.createExternalAuthorization = createExternalAuthorization;
+router.otherProductReturnUrl = otherProductReturnUrl;
 module.exports = router;

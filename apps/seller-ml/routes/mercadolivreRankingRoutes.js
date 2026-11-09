@@ -3,6 +3,7 @@
 const express = require("express");
 const companyAccessGuards = require("../services/companyAccessService");
 const db = require("../db/db");
+const { activeInProductSql } = require("../services/connectionProducts");
 const TokenService = require("../services/tokenService");
 const { decryptToken } = require("../services/tokenCrypto");
 const { withPgAdvisoryLock } = require("../services/pgAdvisoryLock");
@@ -1035,7 +1036,7 @@ async function saveSnapshot({ meliContaId, range, tipoRanking, positionedRows, s
 async function getActiveAccountsForSnapshots(accountIds = null) {
   await ensureRankingSettingsTable();
   const params = [];
-  let where = "where coalesce(mc.status, 'ativa') = 'ativa' and coalesce(rs.persist_enabled, false) = true";
+  let where = `where coalesce(mc.status, 'ativa') = 'ativa' and coalesce(rs.persist_enabled, false) = true and ${activeInProductSql("mc")}`;
   if (Array.isArray(accountIds) && accountIds.length) {
     params.push(accountIds);
     where += ` and mc.id = any($${params.length}::bigint[])`;

@@ -30,19 +30,31 @@ function createMlRetirementService({ withClient }) {
           throw error;
         }
         const unlinked = ["desvinculada", "revogada", "unlinked", "revoked"].includes(String(account.status).toLowerCase());
-        if (action === "delete" && !unlinked) {
+        // Conexão única: se outro produto (DACH Hub) usa a conta, o módulo ML só
+        // sai dela; a conexão e as chaves continuam para o outro produto.
+        const others = await client.query(
+          `select 1 from ml.meli_conta_produtos where meli_conta_id=$1 and produto <> 'ml' limit 1`,
+          [account.id],
+        );
+        const keepConnection = others.rows.length > 0;
+        const mlActive = (await client.query(
+          `select 1 from ml.meli_conta_produtos where meli_conta_id=$1 and produto='ml' limit 1`,
+          [account.id],
+        )).rows.length > 0;
+        if (action === "delete" && !unlinked && !(keepConnection && !mlActive)) {
           const error = new Error("retirement_not_disabled");
           error.status = 409;
           throw error;
         }
+        await client.query(`delete from ml.meli_conta_produtos where meli_conta_id=$1 and produto='ml'`, [account.id]);
         if (!unlinked) {
           await client.query(
-            `update meli_contas set status = 'desvinculada', billing_status='awaiting_subscription',
-                    atualizado_em=now() where id=$1`,
-            [account.id],
+            `update meli_contas set status = case when $2::boolean then status else 'desvinculada' end,
+                    billing_status='awaiting_subscription', atualizado_em=now() where id=$1`,
+            [account.id, keepConnection],
           );
         }
-        await client.query(`delete from meli_tokens where meli_conta_id=$1`, [account.id]);
+        if (!keepConnection) await client.query(`delete from meli_tokens where meli_conta_id=$1`, [account.id]);
         await client.query(
           `update empresa_usuarios set default_meli_conta_id=null
             where empresa_id=$1 and default_meli_conta_id=$2`,

@@ -8,6 +8,7 @@
 "use strict";
 
 const db = require("../db/db");
+const { activeInProductSql } = require("../services/connectionProducts");
 const {
   canEncryptTokens,
   decryptToken,
@@ -355,6 +356,7 @@ async function getOAuthCredsForUserAndContaId(usuarioId, meliContaId, options = 
          from meli_contas mc
         where mc.id = $1 and mc.empresa_id = $2
           and lower(coalesce(mc.status, '')) not in ('desvinculada','revogada','unlinked','revoked')
+          and ${activeInProductSql("mc")}
         limit 1`,
       [
         meliContaId,

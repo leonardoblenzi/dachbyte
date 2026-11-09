@@ -4,8 +4,30 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 const MeliWebhookQueueService = require("../services/meliWebhookQueueService");
 const { validateWebhookNotification } = require("../services/meliWebhookSecurity");
+const { createHubNotificationRelay } = require("../services/hubNotificationRelay");
 
 const router = express.Router();
+
+// Repasse ao DACH Hub (conexão única). Sem URL/token configurados, não faz nada.
+let relayToHub = null;
+function hubRelay() {
+  if (!relayToHub) {
+    relayToHub = createHubNotificationRelay({
+      db: require("../db/db"),
+      url: process.env.HUB_ML_NOTIFICATIONS_URL,
+      token: process.env.SELLER_CONNECTIONS_TOKEN,
+    });
+  }
+  return relayToHub;
+}
+
+function relayInBackground(body) {
+  setImmediate(() => {
+    hubRelay()(body).catch((error) => {
+      console.warn("[ML][hub-relay] falha ao repassar aviso:", error?.message || error);
+    });
+  });
+}
 
 const webhookRateLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -55,6 +77,9 @@ router.post("/webhooks/notifications", webhookRateLimiter, async (req, res) => {
         reason: validation.reason,
       });
     }
+
+    // Já validado (inclusive application_id): pedidos e envios vão também ao Hub.
+    relayInBackground(req.body || {});
 
     if (validation.ignored) {
       if (logIgnoredTopics()) {

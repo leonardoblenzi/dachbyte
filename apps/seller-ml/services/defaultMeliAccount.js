@@ -1,6 +1,7 @@
 "use strict";
 
 const db = require("../db/db");
+const { activeInProductSql } = require("./connectionProducts");
 
 const COOKIE_MELI_CONTA = "meli_conta_id";
 
@@ -74,6 +75,7 @@ async function findAccountByIdForUser(client, userId, contaId) {
       where eu.usuario_id = $1
         and c.id = $2
         and lower(coalesce(c.status, '')) not in ('desvinculada','revogada','unlinked','revoked')
+        and ${activeInProductSql("c")}
       limit 1`,
     [userId, contaId],
   );
@@ -82,10 +84,11 @@ async function findAccountByIdForUser(client, userId, contaId) {
 
 async function findFirstAccountForEmpresa(client, empresaId) {
   const { rows } = await client.query(
-    `select id, empresa_id, meli_user_id, apelido, site_id, status
-      from meli_contas
-     where empresa_id = $1
-       and lower(coalesce(status, '')) not in ('desvinculada','revogada','unlinked','revoked')
+    `select mc.id, mc.empresa_id, mc.meli_user_id, mc.apelido, mc.site_id, mc.status
+      from meli_contas mc
+     where mc.empresa_id = $1
+       and lower(coalesce(mc.status, '')) not in ('desvinculada','revogada','unlinked','revoked')
+       and ${activeInProductSql("mc")}
      order by criado_em asc, id asc
       limit 1`,
     [empresaId],

@@ -386,6 +386,11 @@ function buildAuthHeaders(initHeaders, token) {
   return headers;
 }
 
+function isInvalidGrant(status, payload) {
+  if (Number(status) !== 400) return false;
+  return /invalid_grant/i.test(String(payload?.error || payload?.code || payload?.message || ""));
+}
+
 async function exchangeRefreshToken(credsInput, client = null) {
   const L = logPrefix(credsInput);
   const {
@@ -431,6 +436,18 @@ async function exchangeRefreshToken(credsInput, client = null) {
     error.code = "ML_TOKEN_REFRESH_FAILED";
     error.statusCode = response.status;
     error.mlPayload = errorData;
+    // Autorização perdida (seller revogou, senha trocada, refresh já usado):
+    // marca a conta para reconectar em vez de falhar em silêncio para sempre.
+    if (meli_conta_id && isInvalidGrant(response.status, errorData)) {
+      error.reconnectRequired = true;
+      await queryWith(client,
+        `update meli_contas set status = 'erro', atualizado_em = now()
+          where id = $1 and status = 'ativa'`,
+        [meli_conta_id],
+      ).catch((markError) => {
+        console.warn(`${L} Falha ao marcar conta para reconexao:`, markError?.message || markError);
+      });
+    }
     throw error;
   }
 
