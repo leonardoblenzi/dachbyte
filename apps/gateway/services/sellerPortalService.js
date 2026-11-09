@@ -11,15 +11,34 @@ function normalizeIdentity(identity = {}) {
   };
 }
 
+// Retirados da oferta em 09/11/2026 (nenhuma empresa usa): somem da seleção de plataforma para todos.
+const RETIRED_MODULES = new Set(["tracking", "davanttilog", "skuleader"]);
+
 const PLATFORM_SELLER_MODULES = [
   { slug: "ml", name: "Mercado Livre" },
   { slug: "shopee", name: "Shopee" },
   { slug: "magalu", name: "Magalu" },
-  { slug: "tracking", name: "Tracking" },
-  { slug: "davanttilog", name: "DACHBYTE Log" },
   { slug: "madeira", name: "Madeira" },
-  { slug: "skuleader", name: "SKU Tracker" },
 ];
+
+/** Tira os módulos retirados da visão geral do portal e refaz as contagens de contratados e disponíveis. */
+function withoutRetiredModules(result) {
+  const payload = result?.payload;
+  if (!result?.ok || !payload || !Array.isArray(payload.modules)) return result;
+  const modules = payload.modules.filter((module) => !RETIRED_MODULES.has(String(module?.slug || "").toLowerCase()));
+  if (modules.length === payload.modules.length) return result;
+  const alerts = Array.isArray(payload.alerts)
+    ? payload.alerts.filter((alert) => !RETIRED_MODULES.has(String(alert?.module || alert?.module_slug || "").toLowerCase()))
+    : payload.alerts;
+  const summary = payload.summary && typeof payload.summary === "object"
+    ? {
+      ...payload.summary,
+      installed_modules: modules.filter((module) => module.installed).length,
+      available_modules: modules.filter((module) => !module.installed).length,
+    }
+    : payload.summary;
+  return { ...result, payload: { ...payload, modules, alerts, summary } };
+}
 
 function isPlatformMaster(identity, resolved) {
   return resolved.tenant_id === `platform-${resolved.user_id}` &&
@@ -152,7 +171,7 @@ function createSellerPortalService({ baseUrl, internalToken, fetchImpl = fetch }
           },
         };
       }
-      return post("/v1/internal/portal/overview", resolved);
+      return withoutRetiredModules(await post("/v1/internal/portal/overview", resolved));
     },
 
     async checkout(identity, input = {}) {
@@ -281,4 +300,4 @@ function createSellerPortalService({ baseUrl, internalToken, fetchImpl = fetch }
   };
 }
 
-module.exports = { createSellerPortalService };
+module.exports = { createSellerPortalService, RETIRED_MODULES };

@@ -22,14 +22,13 @@ const MASTER_ADMIN_EMAIL = String(
   .trim()
   .toLowerCase();
 
+// Módulos retirados da oferta em 09/11/2026 (nenhuma empresa usa): não entram na sessão nem na seleção.
+const RETIRED_SUITE_MODULES = new Set(["tracking", "davanttilog", "skuleader"]);
 const MODULE_MATRIX = [
   { id: "ml", hubModule: "ml" },
   { id: "shopee", hubModule: "shopee" },
   { id: "magalu", hubModule: "magalu" },
-  { id: "tracking", hubModule: "tracking" },
-  { id: "davanttilog", hubModule: "davanttilog" },
   { id: "madeiramadeira", hubModule: "madeira" },
-  { id: "skuleader", hubModule: "skuleader" },
   { id: "dach_ads", hubModule: "dach_ads" },
 ];
 const HUB_AUTH_MODULE_CANDIDATES = [
@@ -259,16 +258,17 @@ function daysUntilDate(value) {
 
 function suiteModuleFromHubModule(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  if (normalized === "madeira") return "madeiramadeira";
-  if (normalized === "rastreio" || normalized === "avantracking") return "tracking";
-  if (
+  let id = normalized;
+  if (normalized === "madeira") id = "madeiramadeira";
+  else if (normalized === "rastreio" || normalized === "avantracking") id = "tracking";
+  else if (
     normalized === "logisync" ||
     normalized === "logsync" ||
     normalized === "davantti-log" ||
     normalized === "davantti_log" ||
     normalized === "davantti log"
-  ) return "davanttilog";
-  return normalized;
+  ) id = "davanttilog";
+  return RETIRED_SUITE_MODULES.has(id) ? null : id;
 }
 
 function buildSubscriptionFromAccessCheck(payload = {}, previous = null) {

@@ -34,7 +34,7 @@ test("platform master sees only Seller modules authorized by the Hub", async () 
   assert.deepEqual(result.payload.modules.map((module) => module.slug), ["ml"]);
   assert.equal(result.payload.modules[0].can_enter, true);
   assert.equal(result.payload.modules[0].can_purchase, false);
-  assert.equal(requests.length, 7);
+  assert.equal(requests.length, 4, "um por módulo oferecido (tracking, davanttilog e skuleader foram retirados)");
   assert.ok(requests.every(({ url, body }) => url.endsWith("/v1/access/check") &&
     body.tenant_id === "platform-master-ml" && body.user_id === "master-ml"));
 });
