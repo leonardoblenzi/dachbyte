@@ -532,5 +532,5 @@ Estudo completo em `docs/research/2026-11-06-magis5-e-base.md`, feito só com fo
 
 Desenho completo em `2026-11-09-dach-hub-analise-e-custos-design.md`. Resumo:
 - **Área "Análise"** com fórmulas aproveitadas do antigo Price: A1 vendas e mais vendidos por canal e conta (só dados do Hub), A2 margem por canal (custos + taxas reais), A3 Ads e caixa, A4 preço (junto do gestor de anúncios, §15).
-- **Hub como fonte única do custo**: custo no item do Hub (SKU da empresa; vínculo por EAN, SKU ou manual), com histórico por data de vigência, extras por canal e alíquota por conta. Cada módulo pode ligar "Usar custos do DACH Hub"; com o vínculo ativo, o custo só é editado no Hub e o módulo fica somente leitura. Sem Hub, o módulo segue com o próprio cadastro.
+- **Hub como fonte única do custo**: custo no item do Hub (SKU da empresa; vínculo por EAN, SKU ou manual), com histórico por data de vigência, extras por canal e alíquota por conta. Cada módulo pode ligar "Usar custos do DACH Hub" (primeira vinculação sempre manual, pela tela de Integrações do módulo, só para quem tem o Hub contratado); com o vínculo ativo, o custo só é editado no Hub e o módulo fica somente leitura. Sem Hub, o módulo segue com o próprio cadastro.
 - Implantação gradual: publicar o Hub, custos e A2 no Hub, vínculo em um módulo piloto, depois os demais.

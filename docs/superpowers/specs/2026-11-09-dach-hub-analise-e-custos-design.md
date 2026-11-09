@@ -65,6 +65,12 @@ Faixa de preço de concorrentes e recomendação de preço, integradas ao gestor
 ### 4.4 Vínculo de cada módulo com o Hub
 Cada módulo (ML, Shopee, Magalu) ganha a opção **"Usar custos do DACH Hub"**.
 
+**A primeira vinculação é sempre manual, pela tela de Integrações do módulo** (no ML, `Conta › Integrações`, `/conta/integracoes`, onde já ficam MarkFlow e Trello; Shopee e Magalu ganham o mesmo padrão):
+- Card **"DACH Hub — custos dos produtos"**. Só aparece como disponível quando a empresa tem o DACH Hub contratado (consulta ao hub de acessos, módulo `dach_hub`); sem contrato, o card mostra "Disponível para quem assina o DACH Hub" e não permite conectar.
+- Só administradores da empresa conectam ou desconectam.
+- Fluxo: **Conectar** → prévia (diferenças de custo e SKUs que ficariam sem custo) → escolha de qual custo vale → **Aceitar e vincular**. Nada é vinculado automaticamente, nem quando a empresa contrata o Hub.
+- No mesmo card: status (vinculado desde, por quem, última atualização dos custos) e **Desvincular**.
+
 **Vínculo ativo — o Hub é a única fonte:**
 - Tela de custos do módulo fica **somente leitura**, com o aviso "Custos gerenciados pelo DACH Hub" e o botão "Editar no DACH Hub" (abre o item no Hub; respeita a permissão do usuário no Hub).
 - Importação de custos por planilha, edição item a item e alíquota local ficam bloqueadas no módulo.
