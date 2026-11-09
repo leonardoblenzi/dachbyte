@@ -33,7 +33,7 @@ test('canonical visual stylesheet exposes the reusable Magalu primitives and loa
 
   assert.equal(
     stylesheetHrefs.at(-1),
-    '/magalu/assets/css/magalu-canonical-ui.css?v=2026110801',
+    '/magalu/assets/css/magalu-canonical-ui.css?v=2026110901',
     'canonical stylesheet should load after the existing Magalu stylesheets',
   );
 });

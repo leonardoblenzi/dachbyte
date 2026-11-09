@@ -110,6 +110,20 @@
   .mg-content > section[data-page] { width: 100%; margin-top: 12px; }
 }
 
+/* Painel: período personalizado (seletor De/Até abaixo dos botões de período). */
+#mg-dashboard .mg-page-actions { position: relative; }
+.mg-period-custom { position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; display: grid; gap: 10px; width: min(320px, calc(100vw - 32px)); padding: 14px; border: 1px solid var(--mg-ui-border); border-radius: 16px; background: var(--mg-ui-surface); box-shadow: 0 18px 40px rgba(15, 23, 42, .16); }
+.mg-period-custom[hidden] { display: none; }
+.mg-period-custom__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.mg-period-custom__fields label { display: grid; gap: 4px; min-width: 0; }
+.mg-period-custom__fields span { color: var(--mg-ui-muted); font-size: 10px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.mg-period-custom input { width: 100%; min-height: 38px; padding: 0 10px; border: 1px solid var(--mg-ui-border); border-radius: 10px; background: var(--mg-ui-surface); color: var(--mg-ui-title); font: inherit; font-size: 11px; color-scheme: light; }
+.mg-app[data-theme="dark"] .mg-period-custom input { color-scheme: dark; }
+.mg-period-custom__hint { color: var(--mg-ui-muted); font-size: 10px; line-height: 1.4; }
+.mg-period-custom__error { margin: 0; color: var(--mg-danger, #d64545); font-size: 11px; font-weight: 700; }
+.mg-period-custom__actions { display: flex; justify-content: flex-end; gap: 8px; }
+.mg-period-custom__actions .mg-primary-btn { min-width: 110px; }
+
 .mg-app[data-theme="dark"] {
   --mg-ui-border: rgba(184, 218, 244, .2);
   --mg-ui-surface: #102d47;

@@ -138,18 +138,26 @@ async function orderDetail(accountId,code){
   const effective=ownValid?items.rows:fallback;
   return{order:{...order,item_count:Number(order.item_count)||effective.length||null},items:effective,deliveries:deliveryRows};
 }
-async function stats(accountId, days=30, offsetDays=0){
+// Janela do painel: últimos N dias (rolante) ou um intervalo de datas AAAA-MM-DD no fuso de São Paulo.
+function orderWindow(days, offsetDays, range){
+  if(range&&/^\d{4}-\d{2}-\d{2}$/.test(String(range.from))&&/^\d{4}-\d{2}-\d{2}$/.test(String(range.to))){
+    return {sql:"purchased_at>=(($2::date)::timestamp at time zone 'America/Sao_Paulo') and purchased_at<((($3::date)+1)::timestamp at time zone 'America/Sao_Paulo')",params:[String(range.from),String(range.to)]};
+  }
   const safeDays=Math.max(1,Math.min(60,Number(days)||30));
   const safeOffset=Math.max(0,Math.min(60-safeDays,Number(offsetDays)||0));
-  const totals=await db.queryOne(`select count(*)::int total,count(*) filter(where purchased_at>=date_trunc('day',now()))::int today,count(*) filter(where purchased_at>=now()-interval '7 days')::int last_7d,sum(case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else 0 end)::numeric as gross_value_30d,avg(case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else null end)::numeric as ticket_average_30d from magalu.orders where account_id=$1 and is_present and lower(coalesce(status,'')) not in ('cancelled','canceled') and purchased_at>=now()-(($2::int + $3::int) * interval '1 day') and purchased_at<now()-($3::int * interval '1 day')`,[Number(accountId),safeDays,safeOffset]);
+  return {sql:"purchased_at>=now()-(($2::int + $3::int) * interval '1 day') and purchased_at<now()-($3::int * interval '1 day')",params:[safeDays,safeOffset],days:safeDays};
+}
+async function stats(accountId, days=30, offsetDays=0, range=null){
+  const win=orderWindow(days,offsetDays,range);
+  const safeDays=win.days||Math.max(1,Number(days)||1);
+  const totals=await db.queryOne(`select count(*)::int total,count(*) filter(where purchased_at>=date_trunc('day',now()))::int today,count(*) filter(where purchased_at>=now()-interval '7 days')::int last_7d,sum(case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else 0 end)::numeric as gross_value_30d,avg(case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else null end)::numeric as ticket_average_30d from magalu.orders where account_id=$1 and is_present and lower(coalesce(status,'')) not in ('cancelled','canceled') and ${win.sql}`,[Number(accountId),...win.params]);
   const {rows}=await db.query(`select coalesce(nullif(status,''),'unknown') status,count(*)::int total from magalu.deliveries where account_id=$1 and is_present group by 1 order by total desc`,[Number(accountId)]);
   return{...(totals||{}),delivery_statuses:rows,days:safeDays};
 }
 // Pedidos cancelados na janela (mesmo recorte de dias do painel).
-async function cancelledCount(accountId, days=30, offsetDays=0){
-  const safeDays=Math.max(1,Math.min(60,Number(days)||30));
-  const safeOffset=Math.max(0,Math.min(60-safeDays,Number(offsetDays)||0));
-  const row=await db.queryOne(`select count(*)::int total,coalesce(sum(case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else 0 end),0)::numeric as value from magalu.orders where account_id=$1 and is_present and lower(coalesce(status,'')) in ('cancelled','canceled') and purchased_at>=now()-(($2::int + $3::int) * interval '1 day') and purchased_at<now()-($3::int * interval '1 day')`,[Number(accountId),safeDays,safeOffset]);
+async function cancelledCount(accountId, days=30, offsetDays=0, range=null){
+  const win=orderWindow(days,offsetDays,range);
+  const row=await db.queryOne(`select count(*)::int total,coalesce(sum(case when amount_total is not null and coalesce(amount_normalizer,0)>0 then amount_total::numeric/amount_normalizer else 0 end),0)::numeric as value from magalu.orders where account_id=$1 and is_present and lower(coalesce(status,'')) in ('cancelled','canceled') and ${win.sql}`,[Number(accountId),...win.params]);
   return {total:Number(row?.total||0),value:Number(row?.value||0)};
 }
 
@@ -236,4 +244,4 @@ async function ownedCodes(accountId,codes){
 
 async function accountSyncState(accountId){return db.queryOne(`select orders_sync_status,orders_last_synced_at,orders_last_error from magalu.accounts where id=$1`,[Number(accountId)]);}
 async function runs(accountId,limit=12){const{rows}=await db.query(`select id,sync_type,status,scanned_count,created_count,updated_count,failed_count,result,error_message,started_at,finished_at from magalu.sync_runs where account_id=$1 and sync_type like 'orders_%' order by started_at desc limit $2`,[Number(accountId),int(limit,1,50,12)]);return rows;}
-module.exports={upsertOrder,upsertDelivery,setSyncState,accountSyncState,listOrders,orderDetail,stats,cancelledCount,monthPace,knownChannels,getDelivery,ownedCodes,runs,itemCoverage,codesWithIdentifiedItems,_test:{text,int,whereFor}};
+module.exports={upsertOrder,upsertDelivery,setSyncState,accountSyncState,listOrders,orderDetail,stats,cancelledCount,monthPace,knownChannels,getDelivery,ownedCodes,runs,itemCoverage,codesWithIdentifiedItems,_test:{text,int,whereFor,orderWindow}};

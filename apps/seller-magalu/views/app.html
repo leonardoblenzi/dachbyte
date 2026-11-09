@@ -27,7 +27,7 @@
   <link rel="stylesheet" href="/magalu/assets/css/magalu-fixes-20261105.css?v=2026110502">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-ranking.css?v=2026110801">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-projection.css?v=2026110803">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-canonical-ui.css?v=2026110801">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-canonical-ui.css?v=2026110901">
 </head>
 <body>
 <div class="mg-app" data-theme="light">
@@ -157,7 +157,7 @@
             <span class="mg-kicker">Visão geral · Magalu</span><h1>Painel</h1><p>Acompanhe faturamento, margem, ritmo do mês e o que merece atenção na conta.</p>
             <div class="mg-dashboard-meta"><span>Magalu</span><i class="mg-dashboard-meta__dot"></i><strong id="mg-dashboard-account-name">Conta Magalu</strong><i class="mg-dashboard-meta__dot"></i><span id="mg-dashboard-period-label">Últimos 7 dias</span><i class="mg-dashboard-meta__dot"></i><span id="mg-dashboard-updated">Atualizando...</span></div>
           </div>
-          <div class="mg-page-actions"><div class="mg-period-selector" id="mg-dashboard-period" role="group" aria-label="Período do painel"><button data-period="today" type="button">Hoje</button><button class="is-active" data-period="7d" type="button">7 dias</button><button data-period="14d" type="button">14 dias</button><button data-period="30d" type="button">30 dias</button></div><button class="mg-icon-btn" id="mg-dashboard-refresh" type="button" aria-label="Atualizar painel">↻</button></div>
+          <div class="mg-page-actions"><div class="mg-period-selector" id="mg-dashboard-period" role="group" aria-label="Período do painel"><button data-period="today" type="button">Hoje</button><button class="is-active" data-period="7d" type="button">7 dias</button><button data-period="14d" type="button">14 dias</button><button data-period="30d" type="button">30 dias</button><button data-period="custom" id="mg-dashboard-custom-toggle" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="mg-dashboard-custom">Personalizado</button></div><div class="mg-period-custom" id="mg-dashboard-custom" role="dialog" aria-label="Período personalizado" hidden><div class="mg-period-custom__fields"><label><span>De</span><input id="mg-dashboard-from" type="date"></label><label><span>Até</span><input id="mg-dashboard-to" type="date"></label></div><small class="mg-period-custom__hint">Até 90 dias. A comparação usa o período anterior de mesmo tamanho.</small><p class="mg-period-custom__error" id="mg-dashboard-custom-error" role="alert" hidden></p><div class="mg-period-custom__actions"><button class="mg-secondary-btn" id="mg-dashboard-custom-cancel" type="button">Cancelar</button><button class="mg-primary-btn" id="mg-dashboard-custom-apply" type="button">Aplicar</button></div></div><button class="mg-icon-btn" id="mg-dashboard-refresh" type="button" aria-label="Atualizar painel">↻</button></div>
         </header>
         <section class="mg-dashboard-health" id="mg-dashboard-health" data-tone="neutral" hidden><span class="mg-dashboard-health__icon">!</span><span id="mg-dashboard-health-text">Consolidando saúde da conta…</span><a id="mg-dashboard-health-link" href="/magalu/">Ver detalhes →</a></section>
         <section class="mg-dashboard-primary-kpis" aria-label="Indicadores principais">
@@ -659,7 +659,7 @@
     <script src="/magalu/assets/js/magalu-dashboard.js?v=2026110703"></script>
     <script src="/magalu/assets/js/magalu-ranking.js?v=2026110702"></script>
     <script src="/magalu/assets/js/magalu-projection.js?v=2026110804"></script>
-        <script src="/magalu/assets/js/magalu-app.js?v=2026110801"></script>
+        <script src="/magalu/assets/js/magalu-app.js?v=2026110901"></script>
 <script src="/magalu/assets/js/magalu-account.js?v=2026110701"></script>
         <script src="/magalu/assets/js/magalu-sku-management.js?v=2026110501"></script>
     <script src="/magalu/assets/js/magalu-orders.js?v=2026110502"></script>

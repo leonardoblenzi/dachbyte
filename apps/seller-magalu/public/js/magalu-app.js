@@ -444,10 +444,66 @@
     if (text) el.textContent = text;
   }
 
+  // Periodo personalizado viaja como "custom:AAAA-MM-DD:AAAA-MM-DD" (chave unica de cache e de requisicao).
+  function parseCustomPeriod(period) {
+    const match = /^custom:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/.exec(String(period || ""));
+    return match ? { from: match[1], to: match[2] } : null;
+  }
+  function dashboardPeriodBody(period) {
+    const custom = parseCustomPeriod(period);
+    return custom ? { period: "custom", from: custom.from, to: custom.to } : { period };
+  }
+  function dashboardPeriodQuery(period) {
+    return new URLSearchParams(dashboardPeriodBody(period)).toString();
+  }
+  function spToday() {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  }
+  function shiftIsoDate(iso, days) {
+    const date = new Date(`${iso}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
+  }
+  function shortBrDate(iso) { const [, m, d] = String(iso).split("-"); return `${d}/${m}`; }
+  function setDashboardPeriodButtons(period) {
+    const custom = parseCustomPeriod(period);
+    document.querySelectorAll("#mg-dashboard-period [data-period]").forEach((item) => item.classList.toggle("is-active", custom ? item.dataset.period === "custom" : item.dataset.period === period));
+    const toggle = $("mg-dashboard-custom-toggle");
+    if (toggle) toggle.textContent = custom ? (custom.from === custom.to ? shortBrDate(custom.from) : `${shortBrDate(custom.from)} – ${shortBrDate(custom.to)}`) : "Personalizado";
+  }
+  function closeDashboardCustom() {
+    const panel = $("mg-dashboard-custom");
+    if (panel) panel.hidden = true;
+    $("mg-dashboard-custom-toggle")?.setAttribute("aria-expanded", "false");
+  }
+  function openDashboardCustom() {
+    const panel = $("mg-dashboard-custom"), from = $("mg-dashboard-from"), to = $("mg-dashboard-to");
+    if (!panel || !from || !to) return;
+    const today = spToday(), current = parseCustomPeriod(state.dashboardPeriod);
+    from.max = today; to.max = today;
+    from.value = current?.from || shiftIsoDate(today, -6);
+    to.value = current?.to || today;
+    $("mg-dashboard-custom-error").hidden = true;
+    panel.hidden = false;
+    $("mg-dashboard-custom-toggle")?.setAttribute("aria-expanded", "true");
+    from.focus();
+  }
+  function applyDashboardCustom() {
+    const from = $("mg-dashboard-from")?.value || "", to = $("mg-dashboard-to")?.value || "", error = $("mg-dashboard-custom-error");
+    const days = from && to ? Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86400000) + 1 : 0;
+    const message = !from || !to ? "Informe as duas datas." : from > to ? "A data inicial deve ser anterior à final." : to > spToday() ? "Escolha datas até hoje." : days > 90 ? "Escolha um período de até 90 dias." : "";
+    if (message) { error.textContent = message; error.hidden = false; return; }
+    state.dashboardPeriod = `custom:${from}:${to}`;
+    setDashboardPeriodButtons(state.dashboardPeriod);
+    closeDashboardCustom();
+    // Personalizado sempre consulta a API: pedidos do periodo e do periodo anterior, com carregamento.
+    void loadDashboard({ force: true });
+  }
+
   // Sincroniza os pedidos do periodo (fila) e espera o job desta conta terminar.
   async function runDashboardOrdersSync(account, period, controller, current, overlay) {
     let lastLoadingMessageAt = Date.now();
-    const queued = await fetchJson("/magalu/api/dashboard/refresh", { method: "POST", body: JSON.stringify({ account_id: account.id, period }), signal: controller.signal, loading: "none" });
+    const queued = await fetchJson("/magalu/api/dashboard/refresh", { method: "POST", body: JSON.stringify({ account_id: account.id, ...dashboardPeriodBody(period) }), signal: controller.signal, loading: "none" });
     if (!current()) return false;
     const deadline = Date.now() + 180000;
     while (true) {
@@ -484,7 +540,7 @@
       return Number(selected()?.id)===Number(account.id);
     };
     const emit = (data) => window.dispatchEvent(new CustomEvent("magalu:dashboarddata", { detail: { data } }));
-    const dashboardUrl = (fresh) => `/magalu/api/dashboard?account_id=${account.id}&period=${encodeURIComponent(requestedPeriod)}${fresh ? "&fresh=1" : ""}`;
+    const dashboardUrl = (fresh) => `/magalu/api/dashboard?account_id=${account.id}&${dashboardPeriodQuery(requestedPeriod)}${fresh ? "&fresh=1" : ""}`;
     const overlay=window.MagaluLoadingOverlay;
     const cached = force ? null : readDashboardCache(account.id, requestedPeriod);
     let shown = Boolean(cached);
@@ -1164,10 +1220,27 @@
     $("mg-sync-now")?.addEventListener("click", () => void sync());
     $("mg-dashboard-refresh")?.addEventListener("click", () => void loadDashboard({ force: true }));
     document.querySelectorAll("#mg-dashboard-period [data-period]").forEach((button) => button.addEventListener("click", () => {
+      if (button.dataset.period === "custom") {
+        if ($("mg-dashboard-custom")?.hidden === false) closeDashboardCustom(); else openDashboardCustom();
+        return;
+      }
+      closeDashboardCustom();
       state.dashboardPeriod = button.dataset.period || "7d";
-      document.querySelectorAll("#mg-dashboard-period [data-period]").forEach((item) => item.classList.toggle("is-active", item === button));
+      setDashboardPeriodButtons(state.dashboardPeriod);
       void loadDashboard();
     }));
+    $("mg-dashboard-custom-apply")?.addEventListener("click", applyDashboardCustom);
+    $("mg-dashboard-custom-cancel")?.addEventListener("click", closeDashboardCustom);
+    $("mg-dashboard-custom")?.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") { closeDashboardCustom(); $("mg-dashboard-custom-toggle")?.focus(); }
+      if (event.key === "Enter") { event.preventDefault(); applyDashboardCustom(); }
+    });
+    document.addEventListener("click", (event) => {
+      const panel = $("mg-dashboard-custom");
+      if (!panel || panel.hidden) return;
+      if (panel.contains(event.target) || event.target.closest?.("#mg-dashboard-custom-toggle")) return;
+      closeDashboardCustom();
+    });
     $("mg-test-connection")?.addEventListener("click", () => void testConnection());
     $("mg-price-preview-btn")?.addEventListener("click", () => void previewWrite("price"));
     $("mg-stock-preview-btn")?.addEventListener("click", () => void previewWrite("stock"));
