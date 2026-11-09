@@ -91,13 +91,29 @@ test("destino padrão do lead é o e-mail do hub de acessos", () => {
 
 });
 
-test("fila da Shopee: por chegada os pedidos que vencem ficam no fim; por prazo, no topo", () => {
-  const { orders, orderQueue, deadlineState } = require("../public/brand/dachbyte/landing-experience.js");
-  const now = 10 * 60 + 30;
-  const urgentPositions = (mode) => orderQueue(orders, mode).map((o, i) => [i + 1, deadlineState(o, now).state]).filter(([, s]) => s !== "ok").map(([p]) => p);
-  assert.deepEqual(urgentPositions("arrival"), [5, 6]);
-  assert.deepEqual(urgentPositions("deadline"), [1, 2]);
-  assert.equal(deadlineState(orders.find((o) => o.id === "SH-4798"), 12 * 60).state, "late");
+test("simulação de estoque: cobertura, ponto de pedido e compra sugerida como nas telas de Estoque", () => {
+  const { stockPlan } = require("../public/brand/dachbyte/landing-experience.js");
+  assert.deepEqual(stockPlan(100, 8, 15), { coverage: 12.5, days: 12, risk: "alto", orderBy: -3, gapDays: 3, lostSales: 20, suggestion: 296 });
+  assert.equal(stockPlan(0, 5, 10).risk, "ruptura");
+  assert.equal(stockPlan(0, 5, 10).lostSales, 50);
+  assert.equal(stockPlan(40, 8, 3).risk, "critico");
+  assert.equal(stockPlan(240, 8, 15).risk, "atencao");
+  assert.equal(stockPlan(240, 8, 15).suggestion, 176, "desconta o que ainda sobra quando a reposição chega");
+  assert.equal(stockPlan(400, 5, 10).risk, "ok");
+  assert.equal(stockPlan(400, 5, 10).suggestion, 0);
+});
+
+test("landings mostram funções que existem nos módulos, sem a fila por prazo nem etiquetas inventadas", () => {
+  const js = read("public", "brand", "dachbyte", "landing-experience.js");
+  assert.doesNotMatch(js, /Por prazo \(DACHBYTE\)|orderQueue|deadlineState/);
+  assert.match(js, /shopee: stock/);
+  const general = read("apps", "gateway", "views", "seller", "landing-general.html");
+  assert.doesNotMatch(general, /Etiqueta pendente|Coleta confirmada|Separar até/);
+  for (const name of landings.slice(1)) {
+    const html = read("apps", "gateway", "views", "seller", name);
+    assert.match(html, /class="seller-features"/, name);
+    assert.doesNotMatch(html, /id="leitura"|id="operacao"|\bIA\b/, name);
+  }
 });
 
 test("cada página de canal tem a própria cor (ML amarelo, Shopee vermelho, Magalu azul)", () => {

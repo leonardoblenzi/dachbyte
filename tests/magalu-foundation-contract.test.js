@@ -30,8 +30,9 @@ test("Gateway and suite selection expose Magalu as a Hub-controlled module", () 
   assert.match(gateway, /app\.get\("\/go\/magalu"/);
   assert.match(gateway, /bootstrapMagaluSession/);
   assert.match(suiteAuth, /\{ id: "magalu", hubModule: "magalu" \}/);
-  assert.match(selection, /data-module="magalu"/);
-  assert.match(selection, /href="\/go\/magalu"/);
+  // A seleção monta os cartões por categoria; o Magalu fica em "Inteligência por marketplace" e entra por /go/magalu.
+  assert.match(selection, /slugs:\[[^\]]*"magalu"/);
+  assert.match(selection, /magalu: "\/go\/magalu"/);
 });
 
 test("public Seller pages are owned by Gateway instead of seller-ml", () => {

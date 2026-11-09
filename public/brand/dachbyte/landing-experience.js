@@ -34,19 +34,24 @@
       breakEven: +(fixed / (.84 * (1 - discount / 100))).toFixed(2)
     };
   }
-  // Fila do dia (Shopee): mesma lista em duas ordens. Horários em minutos desde 0h de hoje (ontem < 0, amanhã > 1440).
-  const orders = [
-    { id: 'SH-4831', title: 'Garrafa térmica', arrived: 12 * 60 + 58, shipBy: 1440 + 12 * 60 },
-    { id: 'SH-4826', title: 'Kit organizador', arrived: 11 * 60 + 40, shipBy: 16 * 60 },
-    { id: 'SH-4819', title: 'Fone bluetooth', arrived: 10 * 60 + 5, shipBy: 18 * 60 },
-    { id: 'SH-4812', title: 'Luminária de mesa', arrived: 8 * 60 + 30, shipBy: 14 * 60 },
-    { id: 'SH-4807', title: 'Capa de celular', arrived: -(1440 - 22 * 60 - 10), shipBy: 12 * 60 },
-    { id: 'SH-4798', title: 'Tapete de banheiro', arrived: -(1440 - 19 * 60 - 45), shipBy: 11 * 60 }
-  ];
-  // Ordena a fila: por chegada (mais recentes primeiro, como uma lista comum) ou por prazo de envio.
-  const orderQueue = (list, mode) => [...list].sort((a, b) => mode === 'deadline' ? a.shipBy - b.shipBy : b.arrived - a.arrived);
-  // Situação de um pedido no horário "agora": atrasado, vence logo (até 2h) ou no prazo.
-  const deadlineState = (order, now) => { const left = order.shipBy - now; return { left, state: left < 0 ? 'late' : left <= 120 ? 'soon' : 'ok' }; };
+  // Estoque e reposição, na mesma linha das telas de Estoque dos módulos: cobertura = estoque ÷ vendas por dia;
+  // risco crítico até 7 dias, alto até 15 e atenção até 30. A compra sugerida cobre 30 dias depois da chegada
+  // mais 7 dias de segurança (cálculo simplificado para a demonstração).
+  function stockPlan(stock, perDay, leadDays) {
+    const coverage = perDay > 0 ? stock / perDay : Infinity;
+    const risk = stock <= 0 ? 'ruptura' : coverage <= 7 ? 'critico' : coverage <= 15 ? 'alto' : coverage <= 30 ? 'atencao' : 'ok';
+    const gap = Math.max(0, leadDays - coverage);
+    const atArrival = Math.max(0, stock - perDay * leadDays);
+    return {
+      coverage: +coverage.toFixed(1),
+      days: Math.floor(coverage),
+      risk,
+      orderBy: Math.floor(coverage - leadDays),
+      gapDays: Math.ceil(gap),
+      lostSales: Math.ceil(gap * perDay),
+      suggestion: Math.max(0, Math.ceil(perDay * 37 - atArrival))
+    };
+  }
   const businessSteps = [
     ['Stock', 'Uma posição pede reposição.', 'O setor A-01 chegou a 8 unidades no exemplo. O estoque dá contexto à decisão.', '8 unidades', 'Estoque disponível'],
     ['Chat', 'A exceção ganha um responsável.', 'A equipe recebe uma solicitação com setor, prioridade e histórico. Nada depende de uma mensagem solta.', '1 solicitação', 'Responsável: operações'],
@@ -64,7 +69,7 @@
     return active ? active.login : '/login';
   };
   const nextStep = (step, total) => total > 0 ? Math.min(step + 1, total - 1) : 0;
-  if (typeof module !== 'undefined' && module.exports) module.exports = { margin, nextStep, orders, orderQueue, deadlineState, businessSteps, loginDestination };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { margin, nextStep, stockPlan, businessSteps, loginDestination };
   if (!root.document) return;
   const money = value => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const linkList = (family, activeKey) => (products[family] || []).map(({ label, href, key }) => `<a href="${href}"${key === activeKey ? ' aria-current="page"' : ''}>${label}</a>`).join('');
@@ -175,18 +180,18 @@
     if (el.dataset.dxExperienceMounted === 'true') return;
     el.dataset.dxExperienceMounted = 'true';
     el.classList.add('dx-experience');
-    const title = type === 'business' ? 'Uma exceção. Três equipes conectadas.' : type === 'ml' ? 'Você vendeu. Quanto ficou?' : type === 'magalu' ? 'Você vendeu no Magalu. Quanto ficou?' : type === 'shopee' ? 'Qual pedido precisa de você agora?' : 'Da venda ao pedido, experimente a decisão.';
+    const title = type === 'business' ? 'Uma exceção. Três equipes conectadas.' : type === 'ml' ? 'Você vendeu. Quanto ficou?' : type === 'magalu' ? 'Você vendeu no Magalu. Quanto ficou?' : type === 'shopee' ? 'Quando o seu estoque acaba?' : 'Margem e estoque: experimente a decisão.';
     const intro = type === 'business' ? 'Avance pelo cenário de reposição e veja como cada produto participa da rotina.' : 'Mude os controles e acompanhe o efeito. Uma prévia para explorar antes de conversar com a equipe.';
     el.innerHTML = `<header class="dx-section-head"><span class="dx-eyebrow">${type === 'business' ? 'Fluxo Business' : 'Laboratório Seller'} · interativo</span><h2>${title}</h2><p>${intro}</p><span class="dx-demo-label">Simulação local · dados fictícios · nenhuma ação na sua conta</span></header><div class="dx-workbench"></div>`;
     const bench = el.querySelector('.dx-workbench');
     if (type === 'business') return business(bench);
-    const scene = ({ ml: calculator, magalu: calculator, shopee: queue })[type];
+    const scene = ({ ml: calculator, magalu: calculator, shopee: stock })[type];
     if (scene) return scene(bench);
     const buttons = document.createElement('div');
     buttons.className = 'dx-switch';
     buttons.setAttribute('aria-label', 'Escolher demonstração');
     const panel = document.createElement('div');
-    const scenes = [['Margem · Mercado Livre', calculator], ['Pedidos · Shopee', queue]];
+    const scenes = [['Margem da venda', calculator], ['Estoque e reposição', stock]];
     scenes.forEach(([label, fn], i) => {
       const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.setAttribute('aria-pressed', String(i === 0));
       b.addEventListener('click', () => { buttons.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); panel.replaceChildren(); fn(panel); }); buttons.append(b);
@@ -204,31 +209,37 @@
     };
     panel.querySelectorAll('input').forEach(input => input.addEventListener('input', update)); update();
   }
-  function queue(panel) {
-    const clock = m => { const d = ((m % 1440) + 1440) % 1440; return `${Math.floor(d / 60)}h${String(d % 60).padStart(2, '0')}`; };
-    const day = m => m >= 1440 ? 'amanhã ' : m < 0 ? 'ontem ' : '';
-    const leftLabel = left => left < 0 ? `atrasado há ${left > -60 ? -left + ' min' : Math.floor(-left / 60) + 'h' + String(-left % 60).padStart(2, '0')}` : left < 60 ? `vence em ${left} min` : `vence em ${Math.floor(left / 60)}h${String(left % 60).padStart(2, '0')}`;
-    let mode = 'arrival', now = 10 * 60 + 30;
-    panel.innerHTML = `<div class="dx-grid"><div class="dx-controls"><h3>A ordem da fila decide o que atrasa.</h3><p>Mesmos 6 pedidos, duas ordens. Mova o relógio e veja quais prazos de envio vencem enquanto a equipe trabalha de cima para baixo.</p><div class="dx-switch" role="group" aria-label="Ordem da fila"><button type="button" data-mode="arrival" aria-pressed="true">Mais recentes primeiro</button><button type="button" data-mode="deadline" aria-pressed="false">Por prazo (DACHBYTE)</button></div><label>Agora <output data-now-label></output><input aria-label="Horário agora" data-now type="range" min="540" max="1020" step="15" value="${now}"></label><small>Exemplo com dados fictícios. Prazos de envio são os que o marketplace define para cada pedido.</small></div><div class="dx-scene"><div class="dx-order"><span class="dx-eyebrow" data-queue-title></span><ol class="dx-queue" data-queue></ol><p class="dx-insight" role="status" data-queue-insight></p></div></div></div>`;
-    const render = () => {
-      const list = orderQueue(orders, mode);
-      panel.querySelector('[data-now-label]').textContent = clock(now);
-      panel.querySelector('[data-queue-title]').textContent = mode === 'deadline' ? 'Fila por prazo de envio' : 'Fila por chegada';
-      panel.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
-      panel.querySelector('[data-queue]').innerHTML = list.map((o, i) => { const st = deadlineState(o, now); return `<li class="dx-queue__row dx-queue__row--${st.state}"><span class="dx-queue__pos">${i + 1}</span><span class="dx-queue__main"><strong>${o.id} · ${o.title}</strong><small>chegou ${day(o.arrived)}${clock(o.arrived)} · enviar até ${day(o.shipBy)}${clock(o.shipBy)}</small></span><span class="dx-queue__badge">${st.state === 'ok' ? 'no prazo' : leftLabel(st.left)}</span></li>`; }).join('');
-      const urgent = list.map((o, i) => ({ o, i, st: deadlineState(o, now) })).filter(x => x.st.state !== 'ok');
-      const late = urgent.filter(x => x.st.state === 'late').length;
-      const plural = urgent.length > 1;
-      const nums = urgent.map(x => x.i + 1);
-      const positions = nums.length > 1 ? nums.slice(0, -1).join(', ') + ' e ' + nums[nums.length - 1] : String(nums[0] || '');
-      const insight = !urgent.length ? 'Nenhum prazo vence nas próximas 2 horas neste horário.'
-        : mode === 'arrival' ? `${urgent.length} pedido${plural ? 's' : ''} ${late ? (plural ? 'atrasados ou vencendo' : 'atrasado ou vencendo') : 'vencendo em até 2h'} fica${plural ? 'm nas posições' : ' na posição'} ${positions} da lista. Trabalhando de cima para baixo, ${plural ? 'eles saem' : 'ele sai'} por último.`
-        : `${plural ? `Os ${urgent.length} pedidos com prazo mais curto vêm` : 'O pedido com prazo mais curto vem'} primeiro. A equipe começa pelo que vence antes${late ? '; o que já atrasou fica visível no topo' : ''}.`;
-      panel.querySelector('[data-queue-insight]').textContent = insight;
+  function stock(panel) {
+    const days = n => n === 1 ? '1 dia' : `${n} dias`;
+    const date = n => new Date(Date.now() + n * 864e5).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const sales = n => `${n} venda${n === 1 ? '' : 's'} perdida${n === 1 ? '' : 's'}`;
+    const labels = { ruptura: 'Sem estoque', critico: 'Crítico', alto: 'Risco alto', atencao: 'Atenção', ok: 'Saudável' };
+    panel.innerHTML = `<div class="dx-grid"><div class="dx-controls"><h3>Quanto tempo o seu estoque aguenta?</h3><p>Mude o estoque, o ritmo de vendas e o prazo do fornecedor. Veja quando o item acaba, até quando pedir e quanto comprar.</p><label>Estoque atual <output data-stock-label></output><input aria-label="Estoque atual" data-stock type="range" min="0" max="600" step="10" value="100"></label><label>Vendas por dia <output data-sales-label></output><input aria-label="Vendas por dia" data-sales type="range" min="1" max="40" step="1" value="8"></label><label>Prazo do fornecedor <output data-lead-label></output><input aria-label="Prazo do fornecedor" data-lead type="range" min="1" max="60" step="1" value="15"></label><small>Números fictícios e cálculo simplificado. No módulo, a média de vendas vem dos seus pedidos de 30, 60 ou 90 dias, item a item.</small></div><div class="dx-scene"><div class="dx-receipt dx-stock" data-risk="alto"><span class="dx-eyebrow">Situação do item</span><div class="dx-stock__head"><strong class="dx-profit" data-cover></strong><span class="dx-stock__risk" data-risk-label></span></div><p class="dx-stock__sub">de cobertura no ritmo atual</p><div class="dx-stock__line" role="img" data-line><i class="dx-stock__fill" data-fill></i><i class="dx-stock__gap" data-gap></i><b class="dx-stock__lead" data-lead-mark></b></div><div class="dx-stock__axis"><span>hoje</span><span>30 dias</span><span>60 dias</span></div><ul class="dx-stock__legend"><li><i class="dx-stock__key"></i>estoque</li><li><i class="dx-stock__key dx-stock__key--lead"></i>reposição chega, se pedir hoje</li><li><i class="dx-stock__key dx-stock__key--gap"></i>sem estoque</li></ul><dl><div><dt>Estoque acaba</dt><dd data-stockout></dd></div><div><dt>Pedir ao fornecedor até</dt><dd data-order-by></dd></div><div><dt>Comprar hoje <small>30 dias após a chegada + 7 de segurança</small></dt><dd data-suggest></dd></div></dl><p class="dx-insight" role="status" data-stock-insight></p></div></div></div>`;
+    const update = () => {
+      const s = +panel.querySelector('[data-stock]').value, v = +panel.querySelector('[data-sales]').value, l = +panel.querySelector('[data-lead]').value;
+      const r = stockPlan(s, v, l);
+      const pct = n => Math.max(0, Math.min(100, n / 60 * 100));
+      const set = (key, text) => { panel.querySelector(`[data-${key}]`).textContent = text; };
+      panel.querySelector('.dx-stock').dataset.risk = r.risk;
+      set('stock-label', `${s} un.`); set('sales-label', `${v} por dia`); set('lead-label', days(l));
+      set('cover', r.coverage >= 60 ? '60+ dias' : days(r.days));
+      set('risk-label', labels[r.risk]);
+      set('stockout', s <= 0 ? 'já acabou' : r.days === 0 ? 'hoje' : r.days > 60 ? 'em mais de 60 dias' : `em ${days(r.days)} · ${date(r.days)}`);
+      set('order-by', r.orderBy < 0 ? 'já passou do ponto' : r.orderBy === 0 ? 'hoje' : r.orderBy > 60 ? 'sem pressa' : `em ${days(r.orderBy)} · ${date(r.orderBy)}`);
+      set('suggest', r.suggestion ? `${r.suggestion.toLocaleString('pt-BR')} un.` : 'sem compra agora');
+      set('stock-insight', s <= 0 ? `Item sem estoque. Pedindo hoje, a reposição chega em ${days(l)}: cerca de ${sales(r.lostSales)} no ritmo atual.`
+        : r.gapDays > 0 ? `Mesmo pedindo hoje, o estoque acaba ${days(r.gapDays)} antes de a reposição chegar: cerca de ${sales(r.lostSales)}.`
+        : r.orderBy === 0 ? 'Peça hoje: o estoque dura exatamente o prazo do fornecedor.'
+        : r.orderBy <= 7 ? `Peça nos próximos ${days(r.orderBy)} para a reposição chegar antes de o estoque acabar.`
+        : r.orderBy > 60 ? 'Estoque para mais de dois meses no ritmo atual. Nenhuma compra é necessária agora.'
+        : `Há folga: dá para esperar até ${days(r.orderBy)} para pedir.${r.suggestion ? ` Pedindo hoje, bastam ${r.suggestion.toLocaleString('pt-BR')} un.` : ''}`);
+      panel.querySelector('[data-fill]').style.width = pct(r.coverage) + '%';
+      const gap = panel.querySelector('[data-gap]');
+      gap.style.left = pct(r.coverage) + '%'; gap.style.width = Math.max(0, pct(l) - pct(r.coverage)) + '%';
+      panel.querySelector('[data-lead-mark]').style.left = pct(l) + '%';
+      panel.querySelector('[data-line]').setAttribute('aria-label', `O estoque dura ${days(r.days)}; a reposição chega em ${days(l)} se o pedido sair hoje.`);
     };
-    panel.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { mode = b.dataset.mode; render(); }));
-    panel.querySelector('[data-now]').addEventListener('input', e => { now = +e.target.value; render(); });
-    render();
+    panel.querySelectorAll('input').forEach(input => input.addEventListener('input', update)); update();
   }
   function business(panel) {
     let step = 0;
