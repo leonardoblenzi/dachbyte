@@ -131,6 +131,18 @@
     .module-desc{color:var(--muted);font-size:.78rem;line-height:1.5}
     .module-stats{display:flex;gap:13px;flex-wrap:wrap;color:#b8c0ca;font-size:.7rem;margin-top:11px}
     .module-stats b{color:#fff}
+    .module-groups{display:grid;gap:24px}
+    .module-group__head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 11px}
+    .module-group__head h3{margin:0;display:flex;align-items:center;gap:8px;font-family:"Rajdhani",sans-serif;font-size:1.08rem;font-weight:700}
+    .module-group__head small{color:var(--muted);font-size:.74rem}
+    .module-group__dot{width:9px;height:9px;border-radius:50%;background:var(--muted-2)}
+    .module-group[data-category="multicanal"] .module-group__dot{background:#9c82f5}
+    .module-group[data-category="marketplace"] .module-group__dot{background:#3edcc0}
+    .module-group[data-category="marketing"] .module-group__dot{background:var(--orange)}
+    .module-card.is-wide{grid-column:1/-1;min-height:0}
+    .module-plan{margin-top:10px;color:#d7dde5;font-size:.74rem;line-height:1.45}
+    .module-plan small{display:block;color:var(--muted);font-size:.7rem}
+    .home-more{margin:18px 0 0}
     .module-actions{display:flex;gap:8px;align-items:center;margin-top:auto;padding-top:18px;flex-wrap:wrap}
     .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:20px 0 13px}
     .chip{appearance:none;border:1px solid var(--line);background:var(--panel);color:#aab3bf;border-radius:999px;padding:7px 11px;font-size:.72rem;font-weight:700;cursor:pointer}
@@ -288,24 +300,23 @@
           <p class="lead">Entre nos seus módulos, acompanhe contas vinculadas e resolva planos e renovações sem sair do portal.</p>
           <div class="alerts" id="alerts"></div>
           <div class="section-head">
-            <div><h2>Meus módulos</h2><p>Produtos contratados e prontos para sua operação.</p></div>
+            <div><h2>Seus produtos</h2><p>O que sua empresa contratou, por categoria.</p></div>
             <div class="home-module-filters" aria-label="Filtrar módulos contratados">
               <button class="home-module-filter is-active" type="button" data-home-module-filter="operational">Ativos + atenção <span class="home-module-filter__count" data-home-module-count="operational">0</span></button>
               <button class="home-module-filter" type="button" data-home-module-filter="all">Todos <span class="home-module-filter__count" data-home-module-count="all">0</span></button>
               <button class="home-module-filter" type="button" data-home-module-filter="inactive">Inativos <span class="home-module-filter__count" data-home-module-count="inactive">0</span></button>
             </div>
           </div>
-          <div class="modules-grid" id="home-installed"></div>
-          <div class="section-head"><div><h2>Explore outros módulos</h2><p>Produtos disponíveis para ampliar sua operação.</p></div></div>
-          <div class="modules-grid" id="home-available"></div>
+          <div class="module-groups" id="home-installed"></div>
+          <p class="home-more"><button class="btn btn--ghost" type="button" data-view-target="modules">Ver todos os produtos e os disponíveis para contratar</button></p>
         </section>
 
         <section class="view" data-view="modules">
           <div class="kicker">Produtos</div>
           <h1>Módulos</h1>
-          <p class="lead">Seu catálogo Seller em uma única visão. Contratados aparecem primeiro; os demais continuam disponíveis para contratação.</p>
+          <p class="lead">Todos os produtos DACHBYTE por categoria: os contratados com o plano e os disponíveis para contratar.</p>
           <div class="summary" id="module-summary"></div>
-          <div class="modules-grid" id="all-modules"></div>
+          <div class="module-groups" id="all-modules"></div>
         </section>
 
         <section class="view" data-view="accounts">
@@ -451,8 +462,16 @@
         madeira: "/go/madeiramadeira",
         madeiramadeira: "/go/madeiramadeira",
         dach_ads: "/go/ads",
+        dach_hub: "/hub/",
       };
-      const moduleMarks = { ml:"ML",shopee:"SH",magalu:"MG",madeira:"MD",madeiramadeira:"MD",dach_ads:"AD" };
+      const moduleMarks = { ml:"ML",shopee:"SH",magalu:"MG",madeira:"MD",madeiramadeira:"MD",dach_ads:"AD",dach_hub:"HB" };
+      // Categorias da seleção: o Hub é o gerenciador multicanal; os módulos de marketplace vão a fundo em cada canal.
+      const moduleCategories = [
+        { id:"multicanal", label:"Gestão multicanal", hint:"O gerenciador: estoque, pedidos e anúncios de todos os canais", slugs:["dach_hub"] },
+        { id:"marketplace", label:"Inteligência por marketplace", hint:"Cada canal a fundo: margem, promoções e campanhas", slugs:["ml","magalu","shopee","madeira","madeiramadeira"] },
+        { id:"marketing", label:"Marketing", hint:"Anúncios pagos", slugs:["dach_ads"] },
+      ];
+      const moduleFallbackDescriptions = { dach_hub:"Estoque, pedidos e anúncios de todos os canais num lugar só." };
       const statusMeta = {
         active:{label:"Ativo",className:"badge--active"},
         attention:{label:"Atenção",className:"badge--warning"},
@@ -523,13 +542,38 @@
         return '<button class="btn btn--ghost" type="button" disabled>Consulte o comercial</button>';
       }
 
+      function modulePlanLine(module){
+        if(module.installed){
+          const resources=Array.isArray(module.resources)?module.resources:[];
+          const plans=[...new Set(resources.map(r=>r.plan?.name||r.plan?.code).filter(Boolean))];
+          const ends=resources.map(r=>r.access_ends_at).filter(Boolean).map(v=>new Date(v)).filter(d=>Number.isFinite(d.getTime())).sort((a,b)=>a-b)[0];
+          if(!plans.length&&!ends) return "";
+          return '<div class="module-plan">'+esc(plans.length?(plans.length===1?"Plano "+plans[0]:plans.length+" planos: "+plans.join(", ")):"Contratado")+(ends?'<small>Próximo vencimento: '+esc(dateFmt.format(ends))+'</small>':'')+'</div>';
+        }
+        const prices=(module.catalog_plans||[]).map(p=>Number(p.monthly_price_cents)).filter(v=>Number.isFinite(v)&&v>0);
+        return prices.length?'<div class="module-plan">A partir de '+esc(formatMoney(Math.min(...prices)))+' por mês</div>':"";
+      }
+      function categoryOf(slug){
+        return moduleCategories.find(c=>c.slugs.includes(slug))?.id||"outros";
+      }
+      function groupedModulesHtml(list,emptyText){
+        if(!list.length) return '<div class="empty">'+esc(emptyText)+'</div>';
+        const groups=[...moduleCategories,{id:"outros",label:"Outros",hint:"",slugs:[]}];
+        return groups.map(group=>{
+          const items=list.filter(m=>categoryOf(m.slug)===group.id);
+          if(!items.length) return "";
+          return '<section class="module-group" data-category="'+esc(group.id)+'"><div class="module-group__head"><h3><span class="module-group__dot" aria-hidden="true"></span>'+esc(group.label)+'</h3>'+(group.hint?'<small>'+esc(group.hint)+'</small>':'')+'</div><div class="modules-grid">'+items.map(moduleCard).join("")+'</div></section>';
+        }).join("");
+      }
       function moduleCard(module){
-        const stats = module.resource_required
-          ? '<div class="module-stats"><span>'+countLabel(module.accounts?.total,"conta","contas")+'</span><span>'+countLabel(module.accounts?.active,"ativa","ativas")+'</span>'+(Number(module.accounts?.expiring||0)?'<span><b>'+Number(module.accounts.expiring)+'</b> a vencer</span>':"")+'</div>'
-          : '<div class="module-stats"><span>'+(module.installed?"Produto instalado":"Disponível no catálogo")+'</span></div>';
-        return '<article class="module-card '+(module.installed?"is-installed":"is-available")+'">'+
-          '<div class="module-top"><div class="module-mark">'+esc(moduleMarks[module.slug]||module.slug.slice(0,2).toUpperCase())+'</div>'+badge(module.status)+'</div>'+
-          '<h3>'+esc(module.name)+'</h3><div class="module-desc">'+esc(module.description||"Módulo DACHBYTE Seller.")+'</div>'+stats+
+        // Disponíveis mostram só o preço (linha do plano); contas e situação valem para os contratados.
+        const stats = !module.installed ? ""
+          : module.resource_required
+            ? '<div class="module-stats"><span>'+countLabel(module.accounts?.total,"conta","contas")+'</span><span>'+countLabel(module.accounts?.active,"ativa","ativas")+'</span>'+(Number(module.accounts?.expiring||0)?'<span><b>'+Number(module.accounts.expiring)+'</b> a vencer</span>':"")+'</div>'
+            : '<div class="module-stats"><span>Produto instalado</span></div>';
+        return '<article class="module-card '+(module.installed?"is-installed":"is-available")+(module.slug==="dach_hub"?" is-wide":"")+'">'+
+          '<div class="module-top"><div class="module-mark">'+esc(moduleMarks[module.slug]||module.slug.slice(0,2).toUpperCase())+'</div>'+badge(module.installed?module.status:"available")+'</div>'+
+          '<h3>'+esc(module.name)+'</h3><div class="module-desc">'+esc(module.description||moduleFallbackDescriptions[module.slug]||"Módulo DACHBYTE Seller.")+'</div>'+stats+modulePlanLine(module)+
           '<div class="module-actions">'+moduleActions(module)+'</div></article>';
       }
 
@@ -568,9 +612,9 @@
         const installed=modules.filter(m=>m.installed);
         const visibleInstalled=homeFilteredInstalledModules(installed);
         const available=modules.filter(m=>!m.installed);
-        $("#home-installed").innerHTML=visibleInstalled.length?visibleInstalled.map(moduleCard).join(""):'<div class="empty">Nenhum módulo encontrado neste filtro.</div>';
-        $("#home-available").innerHTML=available.length?available.map(moduleCard).join(""):'<div class="empty">Todos os módulos disponíveis já estão contratados.</div>';
-        $("#all-modules").innerHTML=modules.map(moduleCard).join("");
+        $("#home-installed").innerHTML=groupedModulesHtml(visibleInstalled,installed.length?"Nenhum produto neste filtro.":"Sua empresa ainda não contratou nenhum produto. Veja os disponíveis em Módulos.");
+        const sortedInstalled=[...installed].sort((a,b)=>homeModuleStatusWeight(a.status)-homeModuleStatusWeight(b.status)||String(a.name||"").localeCompare(String(b.name||""),"pt-BR"));
+        $("#all-modules").innerHTML=groupedModulesHtml([...sortedInstalled,...available],"Nenhum produto disponível no momento.");
         updateHomeModuleFilters(installed);
         const s=state.overview.summary||{};
         $("#module-summary").innerHTML=[

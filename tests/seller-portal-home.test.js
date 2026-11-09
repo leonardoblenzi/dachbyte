@@ -30,8 +30,10 @@ test("platform selection is a navigable SaaS shell instead of a hidden-card sele
   for (const view of ["home", "modules", "accounts", "plans", "company"]) {
     assert.match(portal, new RegExp('data-view(?:-target)?="' + view + '"'));
   }
-  assert.match(portal, /Meus módulos/);
-  assert.match(portal, /Explore outros módulos/);
+  assert.match(portal, /Seus produtos/);
+  assert.doesNotMatch(portal, /Explore outros módulos/, "disponíveis ficam na aba Módulos, não no Início");
+  for (const label of ["Gestão multicanal", "Inteligência por marketplace", "Marketing"]) assert.match(portal, new RegExp(label));
+  assert.match(portal, /dach_hub: "\/hub\/"/);
   assert.match(portal, /data-home-module-filter="operational"/);
   assert.match(portal, /Ativos \+ atenção/);
   assert.match(portal, /data-home-module-filter="all"/);
