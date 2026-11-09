@@ -545,5 +545,5 @@ Desenho completo em `2026-11-09-dach-hub-analise-e-custos-design.md`. Resumo:
 
 **Contrato com o hub de acessos (a implementar no repositório "hub pagamento"):**
 - `POST /v1/access/check` do módulo `dach_hub` devolve `limits.channel_accounts` (número). Sem o campo, o Hub usa `HUB_DEFAULT_ACCOUNT_LIMIT` (vazio = sem limite).
-- O Hub registra cada conta em `POST /v1/internal/resources/sync` (`module_slug: "dach_hub"`, `account_id: "<canal>:<id da conta>"`) e remove em `/resources/unlink`. Modo `monitor` (`HUB_RESOURCE_SYNC`): falha só gera aviso no log.
-- Falta no hub de acessos: cadastrar o produto `dach_hub` (catálogo e `billing_products`), planos com `max_units` = contas (`unit_label` "contas") e devolver `limits.channel_accounts` no check.
+- O Hub registra cada conta em `POST /v1/internal/resources/sync` (`module_slug: "dach_hub"`, `account_id: "<canal>:<id da conta>"`) e remove em `/resources/unlink`. Desligado por padrão (`HUB_RESOURCE_SYNC=off`); `monitor` só quando a cobrança do DACH Hub estiver definida, porque recurso de cobrança pode entrar na decisão de acesso.
+- Feito no hub de acessos (migration 073): produto `dach_hub` (somente acesso, sem preço), campo "Limite de contas de marketplace" na política da instalação e `limits.channel_accounts` no check (faixa do plano pago, quando houver, vale primeiro).
