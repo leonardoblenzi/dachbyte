@@ -18,3 +18,4 @@
 }
 /* Acoes da lista Precos do catalogo: Exportar XLSX ao lado de Atualizar. */
 .mg-promo-results-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.mg-promo-type-cell{display:grid;gap:6px;min-width:0}.mg-promo-stock-toggle{display:flex!important;align-items:flex-start;line-height:1.3;gap:6px;margin:0;color:var(--mg-ui-muted,var(--mg-muted));font-size:11px!important;font-weight:750;letter-spacing:0;text-transform:none;cursor:pointer;white-space:normal}.mg-promo-stock-toggle input{flex:0 0 14px;width:14px!important;min-height:14px!important;height:14px;margin:0;accent-color:var(--mg-primary)}

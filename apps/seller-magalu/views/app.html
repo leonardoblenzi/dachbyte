@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="/magalu/assets/css/magalu-loading.css?v=2026103001">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-promotions.css?v=2026093001">
     <link rel="stylesheet" href="/magalu/assets/css/magalu-campaign-tabs.css?v=2026110501">
-  <link rel="stylesheet" href="/magalu/assets/css/magalu-promocoes-massa.css?v=2026110803">
+  <link rel="stylesheet" href="/magalu/assets/css/magalu-promocoes-massa.css?v=2026110901">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-margin-parity.css?v=2026101401">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-cost-visual-parity.css?v=2026110505">
   <link rel="stylesheet" href="/magalu/assets/css/magalu-process-panel.css?v=2026110402">
@@ -595,7 +595,7 @@
       <section id="mg-promo-prices-page" class="mg-product-page mg-financial-page mg-promo-prices" data-campaign-panel="pricing" hidden>
         <header class="mg-rich-hero mg-ui-hero"><div><span class="mg-kicker">Promoções · Magalu</span><h1>Precificação promocional</h1><p>Consulte os preços, defina a margem alvo e revise cada sugestão antes de gerar o arquivo Magalu.</p></div></header>
         <section class="mg-promo-prices__filters mg-ui-filter-card" aria-label="Filtros de preço">
-          <label>Tipo de busca<select id="mg-promo-search-type"><option value="sku">SKU</option><option value="ean">EAN</option><option value="group">Família</option><option value="product">Produto</option></select></label>
+          <div class="mg-promo-type-cell"><label>Tipo de busca<select id="mg-promo-search-type"><option value="sku">SKU</option><option value="ean">EAN</option><option value="group">Família</option><option value="product">Produto</option></select></label><label class="mg-promo-stock-toggle" title="Usa o estoque da última sincronização do catálogo"><input id="mg-promo-in-stock" type="checkbox"><span>Apenas estoque&nbsp;&gt;&nbsp;0</span></label></div>
           <label>Buscar<input id="mg-promo-search" type="search" placeholder="SKUs separados por vírgula" aria-describedby="mg-promo-search-hint"><small id="mg-promo-search-hint">Separe vários identificadores por vírgula.</small></label>
           <label>Publicação<select id="mg-promo-publication"><option value="">Todos</option><option value="PUBLISHED" selected>Publicado</option><option value="UNPUBLISHED">Despublicado</option><option value="BLOCKED">Bloqueado</option><option value="UNDER_REVIEW">Em revisão</option></select></label>
           <label>Atividade<select id="mg-promo-activity"><option value="">Todos</option><option value="active" selected>Ativo</option><option value="inactive">Inativo</option></select></label>
@@ -668,6 +668,6 @@
 <script src="/magalu/assets/js/magalu-promotions.js?v=2026093001"></script>
 <script src="/magalu/assets/js/magalu-campaign-tabs.js?v=2026110502"></script>
 <script src="/magalu/assets/js/magalu-process-panel.js?v=2026110504"></script>
-<script src="/magalu/assets/js/magalu-promocoes-massa.js?v=2026110803"></script>
+<script src="/magalu/assets/js/magalu-promocoes-massa.js?v=2026110901"></script>
 </body>
 </html>
