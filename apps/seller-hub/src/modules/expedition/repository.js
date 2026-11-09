@@ -3,7 +3,7 @@
 
 /** Pedido que ainda precisa sair: situação antes do envio, sem Full, não cancelado. */
 const PRE_SHIP = "o.stage in ('new','paid','invoiced','ready_to_ship') and not o.fulfillment and o.status = 'open'";
-const ORDER_COLUMNS = `o.id, a.channel, coalesce(a.label, a.external_account_id) as account, o.external_order_id as "orderId", o.stage,
+const ORDER_COLUMNS = `o.id, a.channel, coalesce(a.nickname, a.label, a.external_account_id) as account, o.external_order_id as "orderId", o.stage,
   o.ship_by as "shipBy", o.ordered_at as "orderedAt", o.packed_at as "packedAt", o.packed_by as "packedBy", o.pack_issue as "packIssue",
   o.picking_batch_id as "batchId", o.pickup_id as "pickupId", o.handed_over_at as "handedOverAt", o.tracking_code as "trackingCode",
   o.carrier, o.logistic_type as "logisticType", o.fulfillment,

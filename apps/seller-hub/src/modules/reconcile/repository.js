@@ -132,7 +132,7 @@ function createReconcileRepository(db) {
       const { rows } = await db.query(
         `select d.id, d.status, d.recurring, d.expected::float as expected, d.observed::float as observed, d.detected_at as "detectedAt",
                 d.resolved_by as "resolvedBy", d.resolved_at as "resolvedAt", a.id as "accountId", a.channel,
-                coalesce(a.label, a.external_account_id) as account, a.stock_sync_mode as "accountMode",
+                coalesce(a.nickname, a.label, a.external_account_id) as account, a.stock_sync_mode as "accountMode",
                 l.id as "listingDbId", l.listing_id as "listingId", l.variation_id as "variationId", l.title, i.sku
            from hub.stock_divergences d
            join hub.channel_accounts a on a.id = d.channel_account_id
@@ -176,7 +176,7 @@ function createReconcileRepository(db) {
     /** Saúde de cada conta: conexão, leituras, avisos recebidos, envios e divergências. @param {string} tenantId */
     async health(tenantId) {
       const { rows } = await db.query(
-        `select a.id, a.channel, coalesce(a.label, a.external_account_id) as label, a.status, a.stock_sync_mode as "mode",
+        `select a.id, a.channel, coalesce(a.nickname, a.label, a.external_account_id) as label, a.status, a.stock_sync_mode as "mode",
                 a.divergence_policy as policy, a.activated_at as "activatedAt", a.last_import_at as "lastImportAt",
                 a.orders_synced_at as "ordersSyncedAt", a.last_reconciled_at as "lastReconciledAt", t.expires_at as "tokenExpiresAt",
                 (select count(*)::int from hub.webhook_events w where w.channel = a.channel and w.external_account_id = a.external_account_id

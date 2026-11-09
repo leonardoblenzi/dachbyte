@@ -107,7 +107,7 @@ function createAutomationsRepository(db) {
     /** O que as condições e o webhook enxergam do pedido. @param {string} tenantId @param {number} orderId */
     async orderContext(tenantId, orderId) {
       return db.queryOne(
-        `select o.id, o.external_order_id as "orderId", a.channel, a.id as "accountId", coalesce(a.label, a.external_account_id) as account,
+        `select o.id, o.external_order_id as "orderId", a.channel, a.id as "accountId", coalesce(a.nickname, a.label, a.external_account_id) as account,
                 o.stage, o.channel_status as "channelStatus", o.custom_status_id as "customStatusId", s.name as "customStatus",
                 o.logistic_type as "logisticType", o.fulfillment, o.tracking_code is not null as "hasTracking", o.tracking_code as "trackingCode",
                 o.invoice_number is not null as "hasInvoice", o.ship_by as "shipBy", o.ordered_at as "orderedAt", o.buyer_state as "buyerState",

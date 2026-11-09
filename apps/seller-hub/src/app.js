@@ -5,8 +5,7 @@ const express = require("express");
 const path = require("node:path");
 const { createAuthMiddleware, requireAdmin, SUITE_COOKIE } = require("./platform/auth");
 const { createContainer } = require("./container");
-const { PAGES, renderPage } = require("./web/pages");
-const { createAccessHub } = require("./platform/accessHub");
+const { PAGES, renderPage, renderLinkPage } = require("./web/pages");
 
 /** @param {any} req */
 function identity(req) { return req.hubIdentity; }
@@ -20,10 +19,7 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
  * @param {Parameters<typeof createContainer>[0]} [deps]
  */
 async function createApp(deps = {}) {
-  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition, labels, analytics } = createContainer(deps);
-
-  // Hub de acessos: liberação do produto dach_hub (substituível nos testes).
-  const accessHub = /** @type {any} */ (deps).accessHub || createAccessHub(config.accessHub);
+  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition, labels, analytics, accessHub } = createContainer(deps);
 
   const app = express();
   app.set("trust proxy", 1);
@@ -64,6 +60,37 @@ async function createApp(deps = {}) {
     res.clearCookie(SUITE_COOKIE, { path: "/" });
     res.redirect(302, "/login");
   });
+  // Link de autorização (público): quem abre pode não ter login na DACHBYTE, por exemplo o dono da conta do marketplace.
+  const channelLabel = (/** @type {string | null} */ channel) => (channel && connectors.has(channel) ? connectors.definition(channel).label : channel) || "marketplace";
+  app.get("/conectar/:token", async (req, res, next) => {
+    try {
+      const info = await accounts.linkInfo(String(req.params.token));
+      res.type("html").send(renderLinkPage({ status: info.status, channelLabel: channelLabel(info.channel), token: String(req.params.token) }));
+    } catch (error) { next(error); }
+  });
+  app.get("/conectar/:token/iniciar", async (req, res) => {
+    try {
+      res.redirect(302, await accounts.startLink(String(req.params.token)));
+    } catch (error) {
+      const code = String(/** @type {any} */ (error)?.code || "");
+      res.status(410).type("html").send(renderLinkPage({ status: code.startsWith("link_") ? code.slice(5) : "invalid", channelLabel: "marketplace", token: "" }));
+    }
+  });
+  // Retorno do marketplace vindo de um link: sem sessão. Retorno normal segue para a rota com login, mais abaixo.
+  app.get("/auth/:channel/callback", async (req, res, next) => {
+    const channel = String(req.params.channel);
+    try {
+      if (!connectors.has(channel) || !(await accounts.isLinkCallback(channel, req.query.state))) return next();
+      const { account, identity: who } = await accounts.finishLinkConnect({ channel, query: req.query });
+      await startFirstImport(who, account);
+      res.type("html").send(renderLinkPage({ status: "connected", channelLabel: channelLabel(channel), token: "" }));
+    } catch (error) {
+      if (Number(/** @type {any} */ (error).status) >= 500) console.error("[seller-hub] callback do link", error);
+      const code = String(/** @type {any} */ (error)?.code || "connect_failed");
+      res.status(400).type("html").send(renderLinkPage({ status: "failed", channelLabel: channelLabel(channel), token: "", message: /** @type {any} */ (error)?.message, code }));
+    }
+  });
+
   app.use(createAuthMiddleware(config, { accessHub }));
 
   // Páginas (o shell monta o menu e a barra superior no navegador).
@@ -77,7 +104,7 @@ async function createApp(deps = {}) {
   app.get("/auth/:channel/start", async (req, res) => {
     if (!identity(req).isAdmin) return res.redirect(302, "/hub/contas?erro=admin_required");
     try {
-      res.redirect(302, await accounts.startConnect({ identity: identity(req), channel: req.params.channel }));
+      res.redirect(302, await accounts.startConnect({ identity: identity(req), channel: req.params.channel, reconnectAccountId: int(req.query.conta, 0) || undefined }));
     } catch (error) {
       res.redirect(302, `/hub/contas?erro=${encodeURIComponent(/** @type {any} */ (error).code || "connect_failed")}`);
     }
@@ -151,7 +178,21 @@ async function createApp(deps = {}) {
     } catch (error) { next(error); }
   });
   api.get("/accounts", async (req, res, next) => {
-    try { res.json({ ok: true, accounts: await accounts.listAccounts(identity(req).tenantId) }); } catch (error) { next(error); }
+    try {
+      const tenantId = identity(req).tenantId;
+      const [list, usage, links] = await Promise.all([accounts.listAccounts(tenantId), accounts.usage(identity(req)), identity(req).isAdmin ? accounts.listLinks(tenantId) : []]);
+      res.json({ ok: true, accounts: list, usage, links });
+    } catch (error) { next(error); }
+  });
+  // Apelido da conta e links de autorização (só o administrador da empresa).
+  api.put("/accounts/:accountId/nickname", requireAdmin, async (req, res, next) => {
+    try { res.json({ ok: true, account: await accounts.setNickname({ identity: identity(req), accountId: int(req.params.accountId, 0), nickname: req.body?.nickname }) }); } catch (error) { next(error); }
+  });
+  api.post("/accounts/links", requireAdmin, async (req, res, next) => {
+    try { res.json({ ok: true, link: await accounts.createLink({ identity: identity(req), channel: String(req.body?.channel || "") }) }); } catch (error) { next(error); }
+  });
+  api.post("/accounts/links/:linkId/cancel", requireAdmin, async (req, res, next) => {
+    try { res.json({ ok: true, link: await accounts.cancelLink({ identity: identity(req), linkId: int(req.params.linkId, 0) }) }); } catch (error) { next(error); }
   });
   // Avisos assinados por conta (Magalu): assina de novo e troca o segredo guardado.
   api.post("/accounts/:accountId/webhooks", requireAdmin, async (req, res, next) => {

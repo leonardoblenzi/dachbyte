@@ -157,7 +157,7 @@ function createSyncRepository(db) {
     async listPushes(tenantId, { state = "", accountId = null, limit = 50, offset = 0 } = {}) {
       const [list, summary] = await Promise.all([
         db.query(
-          `select ${PUSH_COLUMNS}, a.channel, coalesce(a.label, a.external_account_id) as account, l.listing_id as "listingId",
+          `select ${PUSH_COLUMNS}, a.channel, coalesce(a.nickname, a.label, a.external_account_id) as account, l.listing_id as "listingId",
                   l.variation_id as "variationId", l.title, i.sku
              from hub.stock_pushes p
              join hub.channel_accounts a on a.id = p.channel_account_id

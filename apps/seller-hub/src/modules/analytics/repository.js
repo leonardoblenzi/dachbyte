@@ -15,7 +15,7 @@ function createAnalyticsRepository(db) {
      */
     async salesByAccount(tenantId, { from, to, channel, accountId }) {
       const { rows } = await db.query(
-        `select a.id as "accountId", a.channel, coalesce(a.label, a.external_account_id) as account,
+        `select a.id as "accountId", a.channel, coalesce(a.nickname, a.label, a.external_account_id) as account,
                 (count(*) filter (where not ${LOST}))::int as orders,
                 coalesce(sum(${VALUE}) filter (where not ${LOST}), 0)::float as gmv,
                 (count(*) filter (where ${LOST}))::int as "cancelledOrders",

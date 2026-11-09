@@ -229,7 +229,7 @@ function createStockRepository(db) {
      */
     async planListings(tenantId, { accountId = null, itemIds = null } = {}) {
       const { rows } = await db.query(
-        `select l.id, a.id as "accountId", a.channel, coalesce(a.label, a.external_account_id) as "accountLabel", a.stock_sync_mode as "accountMode",
+        `select l.id, a.id as "accountId", a.channel, coalesce(a.nickname, a.label, a.external_account_id) as "accountLabel", a.stock_sync_mode as "accountMode",
                 l.listing_id as "listingId", l.variation_id as "variationId", l.title, l.fulfillment, l.channel_stock::float as "channelStock",
                 l.sync_enabled as "syncEnabled", i.id as "itemId", i.sku, i.name as "itemName", l.last_pushed_stock::float as "lastPushedStock",
                 case when ar.id is null then null else json_build_object('mode', ar.mode, 'value', ar.value, 'cap', ar.cap, 'min_lock', ar.min_lock, 'safety_reserve', ar.safety_reserve) end as "accountRule",
@@ -248,7 +248,7 @@ function createStockRepository(db) {
     /** Contas com o modo de estoque e a regra padrão. @param {string} tenantId */
     async listAccountRules(tenantId) {
       const { rows } = await db.query(
-        `select a.id, a.channel, coalesce(a.label, a.external_account_id) as label, a.status, a.stock_sync_mode as "mode",
+        `select a.id, a.channel, coalesce(a.nickname, a.label, a.external_account_id) as label, a.status, a.stock_sync_mode as "mode",
                 a.activated_at as "activatedAt",
                 case when r.id is null then null else json_build_object('mode', r.mode, 'value', r.value, 'cap', r.cap, 'min_lock', r.min_lock, 'safety_reserve', r.safety_reserve) end as rule,
                 (select count(*)::int from hub.listings l where l.channel_account_id = a.id and l.item_id is not null) as linked

@@ -139,7 +139,14 @@
     callback_incomplete: "O marketplace não devolveu os dados da conexão. Tente de novo.",
     invalid_state: "O link de conexão expirou. Tente conectar de novo.",
     account_owned_by_other_tenant: "Esta conta do marketplace já está conectada a outra empresa no DACH Hub.",
+    account_limit_reached: "O limite de contas do seu plano já foi atingido. Desconecte uma conta ou fale com a DACHBYTE para ampliar o plano.",
   });
+  const LINK_STATUS = /** @type {Record<string, [string, string]>} */ ({
+    ready: ["Aguardando", "warning"], in_progress: ["Aberto", "accent"], used: ["Conta conectada", "success"],
+    expired: ["Expirou", ""], cancelled: ["Cancelado", ""],
+  });
+  /** @type {any} */
+  let accountsUsage = null;
   const STATUS = /** @type {Record<string, [string, string]>} */ ({
     connected: ["Conectada", "success"],
     reconnect_required: ["Reconectar", "danger"],
@@ -167,7 +174,8 @@
   }
 
   async function renderAccounts() {
-    const [channels, { accounts }] = await Promise.all([loadChannels(), api("/accounts")]);
+    const [channels, { accounts, usage, links }] = await Promise.all([loadChannels(), api("/accounts")]);
+    accountsUsage = usage;
     const byId = Object.fromEntries(channels.map((/** @type {any} */ c) => [c.id, c]));
     const params = new URLSearchParams(location.search);
     const connected = params.get("conectado"), error = params.get("erro");
@@ -179,12 +187,18 @@
       const importing = a.lastImport && (a.lastImport.status === "queued" || a.lastImport.status === "running");
       const canImport = a.status === "connected" && byId[a.channel]?.capabilities?.listings;
       const actions = isAdmin
-        ? `${canImport ? `<button class="seller-btn seller-btn--primary" type="button" data-import="${esc(a.id)}" ${importing ? "disabled" : ""}>${importing ? "Importando…" : "Importar agora"}</button> ` : ""}${a.status === "reconnect_required" && byId[a.channel]?.auth === "oauth" ? `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(a.channel)}/start">Reconectar</a> ` : ""}<button class="seller-btn" type="button" data-disconnect="${esc(a.id)}">Desconectar</button>`
+        ? `${canImport ? `<button class="seller-btn seller-btn--primary" type="button" data-import="${esc(a.id)}" ${importing ? "disabled" : ""}>${importing ? "Importando…" : "Importar agora"}</button> ` : ""}${a.status === "reconnect_required" && byId[a.channel]?.auth === "oauth" ? `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(a.channel)}/start?conta=${esc(a.id)}">Reconectar</a> ` : ""}<button class="seller-btn" type="button" data-nickname="${esc(a.id)}" data-current="${esc(a.nickname || "")}">Apelido</button> <button class="seller-btn" type="button" data-disconnect="${esc(a.id)}">Desconectar</button>`
         : "";
-      return `<tr><td><span class="seller-badge">${esc(CHANNEL_LABELS[a.channel] || a.channel)}</span></td><td><strong>${esc(a.label || a.externalAccountId)}</strong><br><small>${esc(a.externalAccountId)}</small></td>
+      return `<tr><td><span class="seller-badge">${esc(CHANNEL_LABELS[a.channel] || a.channel)}</span></td><td><strong>${esc(a.nickname || a.label || a.externalAccountId)}</strong><br><small>${esc(a.nickname && a.label ? `${a.label} · ${a.externalAccountId}` : a.externalAccountId)}</small></td>
         <td><span class="seller-badge" data-tone="${tone}">${esc(label)}</span>${webhooksLine(a)}</td><td>${int(a.listings)}</td><td>${importCell(a.lastImport)}</td><td><div class="hub-actions">${actions}</div></td></tr>`;
     }).join("");
-    root.innerHTML = `${flash}
+    const full = usage.limit != null && usage.total >= usage.limit;
+    const perChannel = Object.entries(usage.byChannel || {}).map(([ch, n]) => `${esc(CHANNEL_LABELS[ch] || ch)} ${int(n)}`).join(" · ");
+    const usageLine = `<div class="hub-flash" ${full ? 'data-tone="warning"' : ""}><strong>${usage.limit == null ? `${int(usage.total)} conta(s) conectada(s)` : `${int(usage.total)} de ${int(usage.limit)} contas do plano`}</strong>${perChannel ? ` · ${perChannel}` : ""}${full ? ". Limite atingido: desconecte uma conta ou fale com a DACHBYTE para ampliar o plano." : usage.limit != null ? `. Restam ${int(usage.remaining)}.` : ""}</div>`;
+    const linkRows = (links || []).map((/** @type {any} */ l) => { const [label, tone] = LINK_STATUS[l.status] || [l.status, ""]; return `<tr><td><span class="seller-badge">${esc(CHANNEL_LABELS[l.channel] || l.channel)}</span></td>
+      <td>${esc(dateTime(l.createdAt))}</td><td><span class="seller-badge" ${tone ? `data-tone="${tone}"` : ""}>${esc(label)}</span>${l.account ? `<br><small>${esc(l.account)}</small>` : ""}</td>
+      <td>${l.status === "ready" || l.status === "in_progress" ? `<button class="seller-btn hub-btn-xs" type="button" data-cancel-link="${esc(l.id)}">Cancelar</button>` : ""}</td></tr>`; }).join("");
+    root.innerHTML = `${flash}${usageLine}
       <section class="seller-card"><h2>Contas conectadas</h2><p>Contas ligadas direto ao DACH Hub. A mesma conta pode estar também num módulo DACH; são conexões separadas.</p>
         ${accounts.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Canal</th><th>Conta</th><th>Situação</th><th>Anúncios</th><th>Importação</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
           : '<div class="seller-empty"><strong>Nenhuma conta conectada</strong><span>Conecte abaixo seus marketplaces e lojas virtuais.</span></div>'}
@@ -192,7 +206,11 @@
       ${Object.entries(KIND_TITLES).map(([kind, [title, text]]) => {
         const group = channels.filter((/** @type {any} */ c) => c.kind === kind);
         return group.length ? `<section class="seller-card"><h2>${esc(title)}</h2><p>${esc(text)}</p><div class="hub-connect-grid">${group.map(connectCard).join("")}</div></section>` : "";
-      }).join("")}`;
+      }).join("")}
+      ${isAdmin ? `<section class="seller-card"><h2>Links de autorização</h2>
+        <p>Para conectar a conta de outra pessoa (um sócio, um cliente da agência) ou uma segunda conta do mesmo marketplace: gere o link no cartão do marketplace e envie. Ele vale 15 minutos e uma vez só; quem abre não precisa de login na DACHBYTE. Para a sua própria segunda conta, abra o link numa janela anônima.</p>
+        <div data-link-result></div>
+        ${linkRows ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Canal</th><th>Gerado em</th><th>Situação</th><th></th></tr></thead><tbody>${linkRows}</tbody></table></div>` : ""}</section>` : ""}`;
     schedulePoll(accounts);
   }
 
@@ -213,11 +231,13 @@
     let body;
     if (!c.available) body = '<span class="seller-badge" data-tone="warning">Aguardando app do canal</span>';
     else if (!isAdmin) body = '<span class="seller-badge">Só o administrador conecta</span>';
+    else if (accountsUsage && accountsUsage.limit != null && accountsUsage.total >= accountsUsage.limit) body = '<span class="seller-badge" data-tone="warning">Limite de contas do plano atingido</span>';
     else if (c.auth === "credentials") {
       body = `<form class="hub-connect-form" data-connect-form="${esc(c.id)}">${(c.credentialFields || []).map((/** @type {any} */ f) =>
         `<label><span>${esc(f.label)}</span><input name="${esc(f.name)}" type="${f.type === "password" ? "password" : f.type === "url" ? "url" : "text"}" placeholder="${esc(f.placeholder)}" autocomplete="off" required></label>`).join("")}
         <button class="seller-btn seller-btn--primary" type="submit">Conectar ${esc(c.label)}</button><small data-connect-error></small></form>`;
-    } else body = `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(c.id)}/start">Conectar ${esc(c.label)}</a>`;
+    } else body = `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(c.id)}/start">Conectar ${esc(c.label)}</a>
+      <button class="seller-btn" type="button" data-create-link="${esc(c.id)}">Gerar link de autorização</button>`;
     return `<article class="hub-connect"><strong>${esc(c.label)}</strong>${body}</article>`;
   }
 
@@ -237,6 +257,43 @@
       error.textContent = /** @type {Error} */ (err).message;
     } finally {
       form.removeAttribute("aria-busy");
+    }
+  });
+
+  // Link de autorização, cancelar link e apelido da conta.
+  root.addEventListener("click", async (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    const create = /** @type {HTMLButtonElement | null} */ (target.closest("[data-create-link]"));
+    const cancel = /** @type {HTMLButtonElement | null} */ (target.closest("[data-cancel-link]"));
+    const nick = /** @type {HTMLButtonElement | null} */ (target.closest("[data-nickname]"));
+    const copy = /** @type {HTMLButtonElement | null} */ (target.closest("[data-copy-link]"));
+    try {
+      if (create) {
+        create.disabled = true;
+        const { link } = await api("/accounts/links", { method: "POST", body: JSON.stringify({ channel: create.getAttribute("data-create-link") }) });
+        await renderAccounts();
+        const box = /** @type {HTMLElement | null} */ (root.querySelector("[data-link-result]"));
+        if (box) {
+          box.innerHTML = `<div class="hub-flash" data-tone="success"><strong>Link para ${esc(CHANNEL_LABELS[link.channel] || link.channel)} gerado.</strong> Vale até ${esc(dateTime(link.expiresAt))}.
+            <div class="hub-toolbar"><input class="hub-input-lg" readonly value="${esc(link.url)}" aria-label="Link de autorização"><button class="seller-btn seller-btn--primary" type="button" data-copy-link="${esc(link.url)}">Copiar</button></div></div>`;
+          box.scrollIntoView({ block: "center" });
+        }
+      } else if (copy) {
+        await navigator.clipboard.writeText(copy.getAttribute("data-copy-link") || "");
+        copy.textContent = "Copiado";
+      } else if (cancel) {
+        cancel.disabled = true;
+        await api(`/accounts/links/${cancel.getAttribute("data-cancel-link")}/cancel`, { method: "POST" });
+        await renderAccounts();
+      } else if (nick) {
+        const value = window.prompt("Apelido da conta (ex.: Loja Matriz). Deixe vazio para usar o nome do marketplace.", nick.getAttribute("data-current") || "");
+        if (value === null) return;
+        await api(`/accounts/${nick.getAttribute("data-nickname")}/nickname`, { method: "PUT", body: JSON.stringify({ nickname: value }) });
+        await renderAccounts();
+      }
+    } catch (error) {
+      const button = create || cancel || nick || copy;
+      if (button) { button.disabled = false; button.textContent = /** @type {Error} */ (error).message; }
     }
   });
 

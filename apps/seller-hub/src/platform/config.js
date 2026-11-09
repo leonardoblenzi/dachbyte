@@ -29,6 +29,10 @@ function loadConfig(env = process.env) {
     // Piloto: só estas empresas podem ativar a escrita de estoque nos canais. Vazio = ninguém escreve.
     writeTenants: new Set(list(env.HUB_WRITE_TENANTS)),
     platformAdminEmails: new Set(list(env.HUB_PLATFORM_ADMIN_EMAILS).map((email) => email.toLowerCase())),
+    // Limite de contas quando o hub de acessos não informa o do plano. Vazio = sem limite.
+    defaultAccountLimit: /^\d+$/.test(String(env.HUB_DEFAULT_ACCOUNT_LIMIT || "").trim()) ? Number(String(env.HUB_DEFAULT_ACCOUNT_LIMIT).trim()) : null,
+    // Registro das contas no hub de acessos (recursos do dach_hub): "monitor" registra sem bloquear; "off" desliga.
+    resourceSync: String(env.HUB_RESOURCE_SYNC || "monitor").trim().toLowerCase() === "off" ? "off" : "monitor",
     // Fila em segundo plano (BullMQ). Vazio = importação roda no próprio processo (desenvolvimento).
     redisUrl: String(env.HUB_REDIS_URL || env.REDIS_URL || "").trim(),
     tokenEncryptionKey: String(env.HUB_TOKEN_ENCRYPTION_KEY || "").trim(),

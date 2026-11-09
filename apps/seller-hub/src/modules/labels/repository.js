@@ -14,7 +14,7 @@ function createLabelsRepository(db) {
     /** O que cada canal precisa para gerar a etiqueta. @param {string} tenantId @param {number[]} orderIds */
     async refsForOrders(tenantId, orderIds) {
       const { rows } = await db.query(
-        `select o.id, a.id as "accountId", a.channel, coalesce(a.label, a.external_account_id) as account, o.external_order_id as "orderId",
+        `select o.id, a.id as "accountId", a.channel, coalesce(a.nickname, a.label, a.external_account_id) as account, o.external_order_id as "orderId",
                 o.shipment_id as "shipmentId", o.tracking_code as "trackingCode", o.channel_refs as refs, o.stage, o.status, o.fulfillment
            from hub.channel_orders o join hub.channel_accounts a on a.id = o.channel_account_id
           where a.tenant_id = $1 and o.id = any($2::bigint[]) and a.status = 'connected' order by a.id, o.id`, [tenantId, orderIds]);
@@ -60,7 +60,7 @@ function createLabelsRepository(db) {
       const { rows } = await db.query(
         `select b.id, b.format, b.orders, b.failures, b.created_by as "createdBy", b.created_at as "createdAt",
                 coalesce((select json_agg(json_build_object('id', f.id, 'channel', f.channel, 'filename', f.filename, 'orders', f.orders, 'sizeBytes', f.size_bytes,
-                  'account', (select coalesce(a.label, a.external_account_id) from hub.channel_accounts a where a.id = f.channel_account_id)) order by f.id)
+                  'account', (select coalesce(a.nickname, a.label, a.external_account_id) from hub.channel_accounts a where a.id = f.channel_account_id)) order by f.id)
                   from hub.label_files f where f.batch_id = b.id), '[]') as files
            from hub.label_batches b where b.tenant_id = $1 and b.created_at > now() - make_interval(days => $2)
           order by b.id desc limit 30`, [tenantId, KEEP_DAYS]);

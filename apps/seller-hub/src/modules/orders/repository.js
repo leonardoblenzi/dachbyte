@@ -218,7 +218,7 @@ function createOrdersRepository(db) {
       const term = String(q || "").trim();
       const { rows } = await db.query(
         `with base as (
-           select o.*, a.channel, coalesce(a.label, a.external_account_id) as account
+           select o.*, a.channel, coalesce(a.nickname, a.label, a.external_account_id) as account
              from hub.channel_orders o join hub.channel_accounts a on a.id = o.channel_account_id
             where a.tenant_id = $1
               and ($2 = '' or o.stage = $2)
@@ -270,7 +270,7 @@ function createOrdersRepository(db) {
     /** Detalhe do pedido com itens e linha do tempo. @param {string} tenantId @param {number} id */
     async getOrderDetail(tenantId, id) {
       const order = await db.queryOne(
-        `select o.id, a.channel, coalesce(a.label, a.external_account_id) as account, o.external_order_id as "orderId", o.status, o.stage,
+        `select o.id, a.channel, coalesce(a.nickname, a.label, a.external_account_id) as account, o.external_order_id as "orderId", o.status, o.stage,
                 o.channel_status as "channelStatus", o.fulfillment, o.total::float as total, o.products_total::float as "productsTotal",
                 o.shipping_paid::float as "shippingPaid", o.fees_total::float as "feesTotal", o.discount_total::float as "discountTotal",
                 o.net_total::float as "netTotal", o.ordered_at as "orderedAt", o.ship_by as "shipBy", o.shipped_at as "shippedAt",
@@ -320,7 +320,7 @@ function createOrdersRepository(db) {
     /** Extrato: pedidos que entram (ou saem, como crédito) na base do mês. @param {string} tenantId @param {string} month @param {{ limit?: number, offset?: number }} [options] */
     async gmvStatement(tenantId, month, { limit = 100, offset = 0 } = {}) {
       const { rows } = await db.query(
-        `select o.id, a.channel, coalesce(a.label, a.external_account_id) as account, o.external_order_id as "orderId", o.stage,
+        `select o.id, a.channel, coalesce(a.nickname, a.label, a.external_account_id) as account, o.external_order_id as "orderId", o.stage,
                 o.ordered_at as "orderedAt", o.cancelled_at as "cancelledAt", coalesce(o.products_total, o.total, 0)::float as value,
                 case when date_trunc('month', o.ordered_at at time zone 'America/Sao_Paulo')::date = $2::date
                      then case when o.stage in ('cancelled','returned') then 'excluded' else 'counted' end
@@ -361,7 +361,7 @@ function createOrdersRepository(db) {
     /** @param {string} tenantId @param {{ pendingOnly?: boolean, limit?: number, offset?: number }} [options] */
     async listOrders(tenantId, { pendingOnly = false, limit = 50, offset = 0 } = {}) {
       const { rows } = await db.query(
-        `select o.id, a.channel, coalesce(a.label, a.external_account_id) as account, o.external_order_id as "orderId", o.status,
+        `select o.id, a.channel, coalesce(a.nickname, a.label, a.external_account_id) as account, o.external_order_id as "orderId", o.status,
                 o.channel_status as "channelStatus", o.fulfillment, o.total::float as total, o.ordered_at as "orderedAt",
                 json_agg(json_build_object('sku', coalesce(i.sku, ol.channel_sku), 'title', ol.title, 'quantity', ol.quantity::float,
                   'listingId', ol.listing_id, 'variationId', ol.variation_id, 'pending', ol.pending_link, 'applied', ol.sale_applied,

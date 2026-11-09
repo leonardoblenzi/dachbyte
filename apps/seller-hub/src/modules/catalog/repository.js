@@ -88,7 +88,7 @@ function createCatalogRepository(db) {
     async listItems(tenantId, { q = "", limit = 50, offset = 0 } = {}) {
       const { rows } = await db.query(
         `select i.id, i.sku, i.name, i.ean, i.kind,
-                coalesce(json_agg(json_build_object('channel', a.channel, 'account', coalesce(a.label, a.external_account_id),
+                coalesce(json_agg(json_build_object('channel', a.channel, 'account', coalesce(a.nickname, a.label, a.external_account_id),
                   'listingId', l.listing_id, 'variationId', l.variation_id, 'status', l.status, 'stock', l.channel_stock,
                   'fulfillment', l.fulfillment)) filter (where l.id is not null), '[]') as listings
            from hub.items i
@@ -106,7 +106,7 @@ function createCatalogRepository(db) {
     /** @param {string} tenantId @param {{ limit?: number, offset?: number }} options */
     async listUnlinked(tenantId, { limit = 50, offset = 0 } = {}) {
       const { rows } = await db.query(
-        `select l.id, a.channel, coalesce(a.label, a.external_account_id) as account, l.listing_id as "listingId",
+        `select l.id, a.channel, coalesce(a.nickname, a.label, a.external_account_id) as account, l.listing_id as "listingId",
                 l.variation_id as "variationId", l.channel_sku as "channelSku", l.title, l.status, l.channel_stock as stock,
                 s.id as "suggestionItemId", s.sku as "suggestionSku", s.name as "suggestionName"
            from hub.listings l

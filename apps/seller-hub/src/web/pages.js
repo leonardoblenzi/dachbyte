@@ -6,7 +6,7 @@ function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
 }
 
-const ASSET_VERSION = "20261109e";
+const ASSET_VERSION = "20261109f";
 
 /** Páginas do DACH Hub. Cada uma vira um item do menu lateral. */
 const PAGES = {
@@ -73,4 +73,58 @@ function renderPage(path, viewer) {
 </html>`;
 }
 
-module.exports = { PAGES, renderPage, ASSET_VERSION };
+const LINK_TEXT = /** @type {Record<string, [string, string]>} */ ({
+  ready: ["Conectar sua conta", "Uma empresa convidou você a conectar a conta {canal} ao DACH Hub. Você vai entrar no {canal} e autorizar o acesso. Não é preciso ter login na DACHBYTE."],
+  in_progress: ["Link já aberto", "Este link já foi usado para começar uma conexão. Peça um novo link a quem enviou."],
+  used: ["Link já usado", "A conta já foi conectada com este link. Se precisar conectar outra, peça um novo link."],
+  expired: ["Link expirado", "O link vale 15 minutos. Peça um novo link a quem enviou."],
+  cancelled: ["Link cancelado", "Quem enviou cancelou este link. Peça um novo, se precisar."],
+  invalid: ["Link inválido", "Confira se o endereço foi copiado inteiro ou peça um novo link."],
+  connected: ["Conta conectada", "A conta {canal} foi conectada ao DACH Hub. Já pode fechar esta página."],
+  failed: ["Não foi possível conectar", "{mensagem}"],
+});
+
+/**
+ * Página pública do link de autorização (sem menu: quem abre pode não ter login na DACHBYTE).
+ * @param {{ status: string, channelLabel: string, token: string, message?: string, code?: string }} input
+ */
+function renderLinkPage({ status, channelLabel, token, message, code }) {
+  const [title, text] = LINK_TEXT[status] || LINK_TEXT.invalid;
+  const body = text.replace(/\{canal\}/g, channelLabel).replace("{mensagem}", message || "Tente de novo ou peça um novo link.");
+  const tone = status === "connected" ? "#2dd9a8" : status === "ready" ? "#a78bfa" : "#ff8294";
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>${esc(title)} · DACH Hub</title>
+  <link rel="icon" href="/brand/dachbyte/hub/mark-transparent.png?v=1" type="image/png">
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #0e0b1a; color: #f4f2ec; font: 16px/1.6 Inter, system-ui, sans-serif; }
+    main { width: min(100%, 460px); padding: 32px; border: 1px solid #2c2547; border-radius: 18px; background: #151126; }
+    img { width: 44px; height: 44px; }
+    h1 { margin: 16px 0 8px; font-size: 24px; line-height: 1.2; }
+    p { margin: 0 0 24px; color: #c9c3dd; }
+    .tag { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; color: ${tone}; background: color-mix(in srgb, ${tone} 16%, transparent); }
+    a.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 20px; border-radius: 10px; background: #7c5cff; color: #fff; font-weight: 700; text-decoration: none; }
+    a.btn:focus-visible { outline: 3px solid #a78bfa; outline-offset: 3px; }
+    small { display: block; margin-top: 18px; color: #8f88a8; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/brand/dachbyte/hub/mark-transparent.png?v=1" alt="DACH Hub">
+    <h1>${esc(title)}</h1>
+    <span class="tag">${esc(channelLabel)}</span>
+    <p style="margin-top:14px">${esc(body)}</p>
+    ${status === "ready" ? `<a class="btn" href="/hub/conectar/${encodeURIComponent(token)}/iniciar">Autorizar no ${esc(channelLabel)}</a>
+    <small>O link vale uma vez só. Se você já estiver logado no ${esc(channelLabel)} com outra conta, abra este link numa janela anônima.</small>` : ""}
+    ${code ? `<small>Código: ${esc(code)}</small>` : ""}
+  </main>
+</body>
+</html>`;
+}
+
+module.exports = { PAGES, renderPage, renderLinkPage, ASSET_VERSION };

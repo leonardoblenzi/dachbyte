@@ -534,3 +534,16 @@ Desenho completo em `2026-11-09-dach-hub-analise-e-custos-design.md`. Resumo:
 - **Área "Análise"** com fórmulas aproveitadas do antigo Price: A1 vendas e mais vendidos por canal e conta (só dados do Hub), A2 margem por canal (custos + taxas reais), A3 Ads e caixa, A4 preço (junto do gestor de anúncios, §15).
 - **Hub como fonte única do custo**: custo no item do Hub (SKU da empresa; vínculo por EAN, SKU ou manual), com histórico por data de vigência, extras por canal e alíquota por conta. Cada módulo pode ligar "Usar custos do DACH Hub" (primeira vinculação sempre manual, pela tela de Integrações do módulo, só para quem tem o Hub contratado); com o vínculo ativo, o custo só é editado no Hub e o módulo fica somente leitura. Sem Hub, o módulo segue com o próprio cadastro.
 - Implantação gradual: publicar o Hub, custos e A2 no Hub, vínculo em um módulo piloto, depois os demais.
+
+## 17. Contas por plano e link de autorização (pedido de 09/11/2026)
+
+**Feito no DACH Hub:**
+- Várias contas por marketplace (já existia) com **limite total do plano**: as contas de todos os marketplaces somam juntas (ex.: plano com 10 contas → 4 no ML, 2 na Shopee...). A tela "Contas conectadas" mostra "3 de 5 contas · Mercado Livre 1 · Shopee 2".
+- Conectar acima do limite é bloqueado antes de ir ao marketplace e de novo no retorno; "Reconectar" uma conta da empresa e a mesma conta voltando não gastam vaga; desconectar libera a vaga. Plano que diminui não desconecta nada.
+- **Link de autorização** (padrão do antigo Price): vale 15 min, uso único, quem abre não precisa de login na DACHBYTE. Serve para a conta de outra pessoa ou para a segunda conta do mesmo marketplace (janela anônima). Guarda o limite do plano no momento em que foi gerado.
+- **Apelido** da conta (ex.: "Loja Matriz"), usado em todas as telas e na Análise.
+
+**Contrato com o hub de acessos (a implementar no repositório "hub pagamento"):**
+- `POST /v1/access/check` do módulo `dach_hub` devolve `limits.channel_accounts` (número). Sem o campo, o Hub usa `HUB_DEFAULT_ACCOUNT_LIMIT` (vazio = sem limite).
+- O Hub registra cada conta em `POST /v1/internal/resources/sync` (`module_slug: "dach_hub"`, `account_id: "<canal>:<id da conta>"`) e remove em `/resources/unlink`. Modo `monitor` (`HUB_RESOURCE_SYNC`): falha só gera aviso no log.
+- Falta no hub de acessos: cadastrar o produto `dach_hub` (catálogo e `billing_products`), planos com `max_units` = contas (`unit_label` "contas") e devolver `limits.channel_accounts` no check.

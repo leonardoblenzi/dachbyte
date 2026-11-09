@@ -23,7 +23,7 @@ function parseCookies(header) {
 
 /**
  * @typedef {{ tenantId: string, userId: string, email: string, name: string, companyRole: string | null,
- *             isAdmin: boolean, isPlatformAdmin: boolean }} HubIdentity
+ *             isAdmin: boolean, isPlatformAdmin: boolean, accountLimit?: number | null }} HubIdentity
  */
 
 /** @param {Record<string, any>} payload @param {{ platformAdminEmails: Set<string> }} config @returns {HubIdentity} */
@@ -68,8 +68,8 @@ function readSession(req, config) {
  * Sem resposta do hub de acessos = não entra.
  * @param {HubIdentity} identity
  * @param {{ allowedTenants: Set<string> }} config
- * @param {{ configured: boolean, checkAccess: (identity: { tenantId: string, userId: string }) => Promise<{ allow: boolean, reason: string }> } | null | undefined} accessHub
- * @returns {Promise<{ allow: boolean, reason: string }>}
+ * @param {{ configured: boolean, checkAccess: (identity: { tenantId: string, userId: string }) => Promise<{ allow: boolean, reason: string, accountLimit?: number | null }> } | null | undefined} accessHub
+ * @returns {Promise<{ allow: boolean, reason: string, accountLimit?: number | null }>}
  */
 async function decideAccess(identity, config, accessHub) {
   if (identity.isPlatformAdmin) return { allow: true, reason: "platform_admin" };
@@ -104,7 +104,8 @@ function createAuthMiddleware(config, { accessHub } = {}) {
         if (wantsHtml(req)) return res.redirect(302, "/selecao-plataforma?module=dach_hub_unavailable");
         return res.status(403).json({ ok: false, error: "hub_not_enabled", reason: decision.reason, message: "O DACH Hub não está liberado para esta empresa ou usuário." });
       }
-      /** @type {any} */ (req).hubIdentity = session.identity;
+      // Limite de contas do plano (null = não informado): vale para conectar contas e gerar links.
+      /** @type {any} */ (req).hubIdentity = { ...session.identity, accountLimit: decision.accountLimit ?? null };
       return next();
     } catch (error) { return next(error); }
   };

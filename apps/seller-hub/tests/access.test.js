@@ -20,12 +20,12 @@ test("hub de acessos: liberação do produto dach_hub em cache curto; erro de re
   };
   const hub = createAccessHub({ baseUrl: "https://acessos", token: "tok", module: "dach_hub", fetchImpl, now: () => now });
   const who = { tenantId: "t1", userId: "u1" };
-  assert.deepEqual(await hub.checkAccess(who), { allow: true, reason: "ok" });
+  assert.deepEqual(await hub.checkAccess(who), { allow: true, reason: "ok", accountLimit: null });
   assert.deepEqual(calls[0], { path: "/v1/access/check", body: { tenant_id: "t1", user_id: "u1", module: "dach_hub", action: "ACCESS dach_hub" }, auth: "Bearer tok" });
   answer = { status: 200, body: { allow: false, reason: "product_not_installed" } };
   assert.equal((await hub.checkAccess(who)).allow, true, "dentro de 45 s vale o cache");
   now = 46_000;
-  assert.deepEqual(await hub.checkAccess(who), { allow: false, reason: "product_not_installed" });
+  assert.deepEqual(await hub.checkAccess(who), { allow: false, reason: "product_not_installed", accountLimit: null });
   answer = "network";
   now = 100_000;
   assert.equal((await hub.checkAccess(who)).allow, false, "sem resposta = não entra");
