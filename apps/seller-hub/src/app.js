@@ -3,10 +3,9 @@
 
 const express = require("express");
 const path = require("node:path");
-const { createAuthMiddleware, requireAdmin } = require("./platform/auth");
+const { createAuthMiddleware, requireAdmin, SUITE_COOKIE } = require("./platform/auth");
 const { createContainer } = require("./container");
 const { PAGES, renderPage } = require("./web/pages");
-const { createLoginRouter } = require("./web/login");
 const { createAccessHub } = require("./platform/accessHub");
 
 /** @param {any} req */
@@ -23,7 +22,7 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
 async function createApp(deps = {}) {
   const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition, labels } = createContainer(deps);
 
-  // Hub de acessos: confere senha e liberação do módulo dach_hub (substituível nos testes).
+  // Hub de acessos: liberação do produto dach_hub (substituível nos testes).
   const accessHub = /** @type {any} */ (deps).accessHub || createAccessHub(config.accessHub);
 
   const app = express();
@@ -60,8 +59,11 @@ async function createApp(deps = {}) {
   app.use("/assets", express.static(path.resolve(__dirname, "../public"), { maxAge: "1h" }));
   app.use("/ui", express.static(path.resolve(__dirname, "../../shared/seller-ui"), { maxAge: "1h" }));
 
-  // Entrada própria do Hub (/hub/login, /hub/sair e /hub/api/session): pública, antes do controle de acesso.
-  app.use(createLoginRouter({ config, accessHub }));
+  // Sem login próprio: o Hub usa o login único da DACHBYTE (/login). Sair do Hub é sair da DACHBYTE.
+  app.get("/sair", (_req, res) => {
+    res.clearCookie(SUITE_COOKIE, { path: "/" });
+    res.redirect(302, "/login");
+  });
   app.use(createAuthMiddleware(config, { accessHub }));
 
   // Páginas (o shell monta o menu e a barra superior no navegador).

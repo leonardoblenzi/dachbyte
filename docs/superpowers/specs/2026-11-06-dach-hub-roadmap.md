@@ -66,9 +66,9 @@
 | **3. Central de pedidos** | Pedidos de todos os canais normalizados, status e automações, NF via ERP, etiquetas, expedição e base da cobrança | 1 | G |
 | **4. Publicação multicanal** | Cadastro mestre completo, mapeamento de categoria e atributo, criar anúncios em lote, fila de correção | 1 (2 ajuda) | G |
 | **5. Atendimento e novos canais** | Caixa única de perguntas, mensagens e reclamações; mensagens automáticas; novos conectores | 3 | G |
-| **Transversal** | Login próprio do Hub (seção 14), permissões, auditoria, notificações, relatórios, mobile, observabilidade | contínuo | — |
+| **Transversal** | Acesso pelo login único da DACHBYTE (seção 14), permissões, auditoria, notificações, relatórios, mobile, observabilidade | contínuo | — |
 
-Ordem recomendada: **1 → 3 → login próprio → 2 → 4 → 5** (revisada em 09/11/2026; ver seções 14 e 15).
+Ordem recomendada: **1 → 3 → 2 → 4 → 5** (revisada em 09/11/2026; acesso pelo login único na seção 14, gestor de anúncios na seção 15).
 - A Fase 3 vem antes da 2 porque a cobrança por % depende da central de pedidos.
 - Pedidos são o dia a dia que prende o cliente.
 - Preço por canal já tem ferramentas parciais nos módulos.
@@ -481,23 +481,27 @@ Estudo completo em `docs/research/2026-11-06-magis5-e-base.md`, feito só com fo
 
 ---
 
-## 14. Login próprio do DACH Hub (pedido de 09/11/2026) — feito em 09/11/2026
+## 14. Acesso ao DACH Hub: login único da DACHBYTE (decidido em 09/11/2026)
 
-**Objetivo:** o DACH Hub tem a própria página de entrada, com a marca do Hub, sem passar pela tela de login da suíte. Por enquanto, quem decide quem entra é o **hub de acessos** (repositório `hub pagamento`), o mesmo que já autentica a suíte.
+**Decisão:** o DACH Hub **não tem login próprio**. É mais um produto da DACHBYTE: mesma conta, mesma senha e mesma sessão dos módulos. O que permite assinar só o Hub, só os módulos ou os dois é a **liberação por produto** no hub de acessos, não o login. (A página `/hub/login` com sessão própria chegou a ser feita e foi retirada no mesmo dia.)
 
-**Como fica**
-- Página `https://dachbyte.tech/hub/login` (tema Violeta DACH), com e-mail, senha, "esqueci a senha" e saída em `/hub/sair`.
-- O servidor do Hub confere a senha no hub de acessos (`POST /v1/internal/portal/auth/verify`, com o token interno) e depois pergunta se a empresa e o usuário podem usar o produto (`POST /v1/access/check`, módulo `dach_hub`).
-- Sessão própria: cookie `dach_hub_session` (httpOnly, Secure, SameSite=Lax, caminho `/hub`), assinado com `HUB_SESSION_SECRET`, validade de 12 horas, com nova checagem de acesso em cache curto (45 s), como no DACH Magalu.
-- Quem já está logado na suíte pode entrar direto (o cookie da suíte continua aceito), mas a liberação passa a vir do hub de acessos e não mais só de `HUB_ALLOWED_TENANTS`, que fica como reserva enquanto o produto `dach_hub` não existe lá.
-- Usuário com mais de uma empresa escolhe a empresa depois da senha (lista `available_tenants` do hub de acessos; o papel vale por empresa).
-- Saída em `/hub/sair`: depois de sair, a sessão da suíte não entra sozinha; a página oferece "Continuar como …".
-- Limite de tentativas: 8 senhas erradas seguidas por e-mail (ou 30 por IP) em 15 minutos bloqueiam por 15 minutos.
-- Falha fechada: hub de acessos fora do ar ou resposta estranha = não entra (com mensagem clara).
+**Como funciona**
+- Entrada pelo `/login` da DACHBYTE; depois do login, a pessoa escolhe o Hub na seleção de plataforma.
+- Abrir o Hub sem estar logado leva ao `/login`.
+- A cada acesso, o Hub pergunta ao hub de acessos se a empresa e o usuário podem usar o produto (`POST /v1/access/check`, módulo `dach_hub`, ação `ACCESS dach_hub`), com cache de 45 s. Quem não contratou volta para a seleção de plataforma (`?module=dach_hub_unavailable`). Hub de acessos fora do ar = não entra.
+- `HUB_ALLOWED_TENANTS` fica como reserva enquanto o produto `dach_hub` não existe no hub de acessos; a equipe da plataforma (`HUB_PLATFORM_ADMIN_EMAILS`) sempre entra.
+- "Sair" no Hub sai da DACHBYTE (sessão única).
 
-**No hub de acessos (pendente, no repositório `hub pagamento`):** cadastrar o produto/módulo `dach_hub` e a ação `ACCESS dach_hub`, para liberar empresas e usuários pelo painel de acessos. Até lá, as empresas do piloto entram pela reserva `HUB_ALLOWED_TENANTS`. Recuperação de senha usa o fluxo atual da suíte até o Hub ter usuários próprios.
+**No hub de acessos (pendente, repositório `hub pagamento`):** cadastrar o produto `dach_hub` para liberar e contratar o Hub pelo portal.
 
-**Depois (fora do escopo agora):** usuários próprios do Hub e permissões por área (seção 9), sem depender da suíte.
+**Seleção de plataforma (proposta, aguardando aprovação):**
+- Início: só os produtos contratados, agrupados por categoria.
+- Módulos: contratados (com plano) e disponíveis (para contratar).
+- Categorias:
+  - **Gestão multicanal**: DACH Hub (o gerenciador).
+  - **Inteligência por marketplace**: Mercado Livre, Magalu, Shopee e MadeiraMadeira.
+  - **Marketing**: DACH Ads.
+- SKU Leader, Tracking e DavanttiLog deixam de ser oferecidos; o alcance da retirada para quem já usa está em aberto.
 
 ---
 

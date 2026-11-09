@@ -18,10 +18,7 @@ function loadConfig(env = process.env) {
     databaseUrl: String(env.HUB_DATABASE_URL || env.DATABASE_URL || "").trim(),
     schema: "hub",
     suiteJwtSecret: String(env.SUITE_JWT_SECRET || "").trim(),
-    // Sessão própria do Hub (/hub/login). Sem HUB_SESSION_SECRET, usa o segredo da suíte com audiência própria.
-    sessionSecret: String(env.HUB_SESSION_SECRET || env.SUITE_JWT_SECRET || "").trim(),
-    secureCookies: String(env.NODE_ENV || "").toLowerCase() === "production",
-    // Hub de acessos: confere a senha e libera o módulo do DACH Hub (mesmas variáveis dos módulos DACH).
+    // Hub de acessos: libera o produto DACH Hub por empresa e usuário (mesmas variáveis dos módulos DACH).
     accessHub: {
       baseUrl: String(env.HUB_BASE_URL || "").trim().replace(/\/+$/, ""),
       token: String(env.HUB_INTERNAL_TOKEN || "").trim(),

@@ -51,7 +51,7 @@ test("sem sessão: página manda para o login e API responde 401", async () => {
   await withServer({}, async (base) => {
     const page = await get(`${base}/`, null, "text/html");
     assert.equal(page.status, 302);
-    assert.equal(page.headers.get("location"), "/hub/login?volta=%2Fhub%2F");
+    assert.equal(page.headers.get("location"), "/login");
     assert.equal((await get(`${base}/api/overview`)).status, 401);
   });
 });
@@ -62,7 +62,7 @@ test("empresa fora da lista de liberação não entra (produto oculto)", async (
     assert.equal(res.status, 403);
     assert.equal((await res.json()).error, "hub_not_enabled");
     const page = await get(`${base}/catalogo`, token({ tenant_id: "outra" }), "text/html");
-    assert.equal(page.headers.get("location"), "/hub/login?erro=sem_acesso");
+    assert.match(page.headers.get("location"), /selecao-plataforma/);
   });
 });
 
