@@ -21,9 +21,6 @@ test("gateway does not mount product applications in-process", () => {
     'require("../seller-shopee")',
     'require("../seller-magalu")',
     'require("../seller-madeira")',
-    'require("../seller-tracking")',
-    'require("../seller-log")',
-    'require("../seller-leader")',
     'require("../business/app")',
     'app.use("/business"',
     'app.use("/ml"',
@@ -31,12 +28,6 @@ test("gateway does not mount product applications in-process", () => {
     'app.use("/magalu"',
     'app.use("/madeira"',
     'app.use("/madeiramadeira"',
-    'app.use("/tracking"',
-    'app.use("/avantracking"',
-    'app.use("/log"',
-    'app.use("/davanttilog"',
-    'app.use("/leader"',
-    'app.use("/skuleader"',
   ]) {
     assert.equal(source.includes(forbidden), false, forbidden);
   }
@@ -50,9 +41,6 @@ test("products expose their own runtime starters and Business uses an external C
     "apps/seller-shopee/start.js",
     "apps/seller-magalu/start.js",
     "apps/seller-madeira/start.js",
-    "apps/seller-tracking/start.js",
-    "apps/seller-log/start.js",
-    "apps/seller-leader/start.js",
     "apps/business/start.js",
     "platform/runtime/startExpressApp.js",
   ];

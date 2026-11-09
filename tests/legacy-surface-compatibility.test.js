@@ -28,12 +28,11 @@ test("legacy Seller routes stay available at the Caddy edge", () => {
     ["/ml", "seller-ml-web"],
     ["/shopee", "seller-shopee"],
     ["/madeiramadeira", "seller-madeira"],
-    ["/avantracking", "seller-tracking"],
-    ["/davanttilog", "seller-log"],
-    ["/skuleader", "seller-leader"],
   ]) {
     assert.match(caddy, new RegExp(`path ${route} ${route}/\\*\\s+handle @[\\w-]+ \\{\\s+reverse_proxy ${service}:3000`, "s"), route);
   }
+  // Tracking, DavanttiLog e SKU Leader foram retirados em 09/11/2026: a borda não encaminha mais para eles.
+  assert.doesNotMatch(caddy, /avantracking|davanttilog|skuleader|seller-(tracking|log|leader)/);
   for (const route of ["/volt-price", "/voltstock", "/chat", "/voltchat", "/volt_chat"]) {
     assert.ok(business.includes(route), `business legacy route ${route} must remain mounted`);
   }
@@ -48,7 +47,7 @@ test("legacy session cookies and OAuth callback paths stay represented in their 
   const ml = source("apps/seller-ml/app.js");
   const shopee = source("apps/seller-shopee/src/routes/auth.routes.js");
 
-  for (const cookie of ["suite_auth_token", "auth_token", "sid", "skuleader_auth_token", "davanttilog_token"]) {
+  for (const cookie of ["suite_auth_token", "auth_token", "sid"]) {
     assert.ok(gateway.includes(cookie), `gateway legacy cookie ${cookie} must remain supported`);
   }
   assert.ok(business.includes("volt_core_session"));

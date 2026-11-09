@@ -65,9 +65,6 @@ test("Hub shared environment overrides service-specific legacy settings", () => 
     "seller-magalu-web",
     "seller-magalu-worker",
     "seller-madeira",
-    "seller-tracking",
-    "seller-log",
-    "seller-leader",
     "business-portal",
     "business-core",
     "business-stock",
@@ -98,7 +95,7 @@ test("Business products run separately and Python is private", () => {
 
 test("Caddy preserves route boundaries, Core assets and websocket API", () => {
   const source = read("infra/Caddyfile");
-  for (const prefix of ["ml", "shopee", "magalu", "madeiramadeira", "avantracking", "davanttilog", "skuleader", "voltstock", "volt-price", "chat", "business", "ads"]) {
+  for (const prefix of ["ml", "shopee", "magalu", "madeiramadeira", "voltstock", "volt-price", "chat", "business", "ads"]) {
     assert.ok(source.includes(`path /${prefix} /${prefix}/*`), prefix);
   }
   assert.match(source, /\/api\/core/);
@@ -162,4 +159,12 @@ test("DACH Ads runs as API + worker with an ops-only migrator", () => {
   assert.equal(compose.services["ads-migrate"].restart, "no");
   assert.match(read("infra/postgres/provision-business.sh"), /DACHBYTE_ADS_DB/);
   assert.match(read("infra/env/postgres.env.example"), /DACHBYTE_ADS_WORKER_ROLE/);
+});
+
+test("retired Seller modules (Tracking, DavanttiLog, SKU Leader) have no service, image step or proxy", () => {
+  for (const name of ["seller-tracking", "seller-log", "seller-leader"]) {
+    assert.equal(compose.services[name], undefined, name);
+  }
+  assert.doesNotMatch(read("infra/docker/node.Dockerfile"), /seller-(tracking|log|leader)/);
+  assert.doesNotMatch(read("infra/Caddyfile"), /avantracking|davanttilog|skuleader/);
 });

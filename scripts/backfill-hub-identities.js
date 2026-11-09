@@ -11,8 +11,6 @@ const moduleRoot = path.resolve(__dirname, "..");
   path.join(moduleRoot, ".env"),
   path.join(moduleRoot, "apps", "seller-ml", ".env"),
   path.join(moduleRoot, "apps", "seller-shopee", ".env"),
-  path.join(moduleRoot, "apps", "seller-tracking", ".env"),
-  path.join(moduleRoot, "apps", "seller-tracking", "server", ".env"),
   path.join(moduleRoot, "apps", "seller-madeira", ".env"),
 ].forEach((envPath) => {
   if (fs.existsSync(envPath)) {
@@ -25,7 +23,6 @@ function resolvePgModule() {
     path.join(moduleRoot, "apps", "seller-ml"),
     path.join(moduleRoot, "apps", "seller-shopee"),
     path.join(moduleRoot, "apps", "seller-madeira"),
-    path.join(moduleRoot, "apps", "seller-tracking", "server"),
     moduleRoot,
   ];
 
@@ -150,33 +147,6 @@ async function syncShopee() {
   return syncRows(rows, "shopee");
 }
 
-async function syncTracking() {
-  const rows = await runQuery(
-    process.env.AVANTRACKING_DATABASE_URL || process.env.DATABASE_URL,
-    `
-      select
-        c."tenantGlobalId" as tenant_id,
-        c.name as company_name,
-        c."documentType" as document_type,
-        c."documentNumber" as document_number,
-        u."userGlobalId" as user_id,
-        coalesce(nullif(u.name, ''), u.email) as full_name,
-        u.email,
-        case
-          when upper(coalesce(u.role::text, '')) = 'ADMIN' then 'owner'
-          else 'operator'
-        end as role
-      from "User" u
-      join "Company" c on c.id = u."companyId"
-      where c."tenantGlobalId" is not null
-        and u."userGlobalId" is not null
-        and coalesce(u.email, '') <> ''
-    `,
-  );
-
-  return syncRows(rows, "tracking");
-}
-
 async function syncMadeira() {
   const rows = await runQuery(
     process.env.MAD_DATABASE_URL,
@@ -212,7 +182,6 @@ async function main() {
   const totals = {
     ml: await syncMl(),
     shopee: await syncShopee(),
-    tracking: await syncTracking(),
     madeira: await syncMadeira(),
   };
 

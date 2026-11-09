@@ -9,8 +9,7 @@
     seller: [
       { label: 'Mercado Livre', href: '/seller/mercado-livre', login: '/ml/login', key: 'ml' },
       { label: 'Shopee', href: '/seller/shopee', login: '/shopee', key: 'shopee' },
-      { label: 'Magalu', href: '/seller/magalu', login: '/go/magalu', key: 'magalu' },
-      { label: 'Rastreio', href: '/seller/rastreio', login: '/avantracking', key: 'tracking' }
+      { label: 'Magalu', href: '/seller/magalu', login: '/go/magalu', key: 'magalu' }
     ],
     business: [
       { label: 'Stock', href: '/voltstock', login: '/voltstock/login', key: 'stock' },
@@ -40,11 +39,6 @@
     { id: 'SH-4817', title: 'Garrafa térmica', issue: 'Etiqueta pendente', action: 'Conferir o endereço antes de preparar a etiqueta.', steps: ['Conferência', 'Etiqueta pronta', 'Pronto para coleta'] },
     { id: 'SH-4813', title: 'Luminária de mesa', issue: 'Coleta agendada', action: 'Conferir o pacote e registrar a entrega à transportadora.', steps: ['Pacote pronto', 'Conferido', 'Despachado'] }
   ];
-  const deliveries = [
-    { id: 'PED-1048', title: 'Sem atualização', place: 'Centro de distribuição', age: 'Há 3 dias', state: 1, advice: 'Consultar a transportadora e avisar o cliente sobre o acompanhamento.' },
-    { id: 'PED-1039', title: 'Previsão ultrapassada', place: 'Unidade de destino', age: 'Prazo excedido em 1 dia', state: 2, advice: 'Solicitar uma nova previsão e manter o cliente informado.' },
-    { id: 'PED-1022', title: 'Entrega confirmada', place: 'Destino', age: 'Hoje, às 09h06', state: 3, advice: 'Encerrar o acompanhamento e preservar o histórico da entrega.' }
-  ];
   const businessSteps = [
     ['Stock', 'Uma posição pede reposição.', 'O setor A-01 chegou a 8 unidades no exemplo. O estoque dá contexto à decisão.', '8 unidades', 'Estoque disponível'],
     ['Chat', 'A exceção ganha um responsável.', 'A equipe recebe uma solicitação com setor, prioridade e histórico. Nada depende de uma mensagem solta.', '1 solicitação', 'Responsável: operações'],
@@ -52,7 +46,7 @@
   ];
   const moduleKey = (family, moduleName) => {
     const normalized = String(moduleName || '').toLowerCase();
-    if (family === 'seller') return ({ 'mercado livre': 'ml', shopee: 'shopee', magalu: 'magalu', rastreio: 'tracking', tracking: 'tracking' })[normalized];
+    if (family === 'seller') return ({ 'mercado livre': 'ml', shopee: 'shopee', magalu: 'magalu' })[normalized];
     if (family === 'business') return normalized === 'business' ? undefined : normalized;
     if (family === 'ads') return normalized === 'ads' || normalized === 'dach ads' ? 'ads' : normalized;
     return undefined;
@@ -62,7 +56,7 @@
     return active ? active.login : '/login';
   };
   const nextStep = (step, total) => total > 0 ? Math.min(step + 1, total - 1) : 0;
-  if (typeof module !== 'undefined' && module.exports) module.exports = { margin, nextStep, orders, deliveries, businessSteps, loginDestination };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { margin, nextStep, orders, businessSteps, loginDestination };
   if (!root.document) return;
   const money = value => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const linkList = (family, activeKey) => (products[family] || []).map(({ label, href, key }) => `<a href="${href}"${key === activeKey ? ' aria-current="page"' : ''}>${label}</a>`).join('');
@@ -115,17 +109,17 @@
     if (el.dataset.dxExperienceMounted === 'true') return;
     el.dataset.dxExperienceMounted = 'true';
     el.classList.add('dx-experience');
-    const title = type === 'business' ? 'Uma exceção. Três equipes conectadas.' : type === 'ml' ? 'Você vendeu. Quanto ficou?' : type === 'shopee' ? 'Qual pedido precisa de você agora?' : type === 'tracking' ? 'Uma entrega saiu da rota. E agora?' : 'Da venda à entrega, experimente a decisão.';
+    const title = type === 'business' ? 'Uma exceção. Três equipes conectadas.' : type === 'ml' ? 'Você vendeu. Quanto ficou?' : type === 'shopee' ? 'Qual pedido precisa de você agora?' : 'Da venda à entrega, experimente a decisão.';
     const intro = type === 'business' ? 'Avance pelo cenário de reposição e veja como cada produto participa da rotina.' : 'Mude os controles e acompanhe o efeito. Uma prévia para explorar antes de conversar com a equipe.';
     el.innerHTML = `<header class="dx-section-head"><span class="dx-eyebrow">${type === 'business' ? 'Fluxo Business' : 'Laboratório Seller'} · interativo</span><h2>${title}</h2><p>${intro}</p><span class="dx-demo-label">Simulação local · dados fictícios · nenhuma ação na sua conta</span></header><div class="dx-workbench"></div>`;
     const bench = el.querySelector('.dx-workbench');
     if (type === 'business') return business(bench);
-    if (type !== 'seller') return ({ ml: calculator, shopee: queue, tracking: tracking })[type](bench);
+    if (type !== 'seller') return ({ ml: calculator, shopee: queue })[type](bench);
     const buttons = document.createElement('div');
     buttons.className = 'dx-switch';
     buttons.setAttribute('aria-label', 'Escolher demonstração');
     const panel = document.createElement('div');
-    const scenes = [['Margem · Mercado Livre', calculator], ['Pedidos · Shopee', queue], ['Entregas · Rastreio', tracking]];
+    const scenes = [['Margem · Mercado Livre', calculator], ['Pedidos · Shopee', queue]];
     scenes.forEach(([label, fn], i) => {
       const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.setAttribute('aria-pressed', String(i === 0));
       b.addEventListener('click', () => { buttons.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); panel.replaceChildren(); fn(panel); }); buttons.append(b);
@@ -160,11 +154,6 @@
     };
     panel.querySelector('[data-next]').addEventListener('click', () => { progress[selected] = nextStep(progress[selected], 3); render(); });
     panel.querySelector('.dx-reset').addEventListener('click', () => { progress.fill(0); selected = 0; render(); }); render();
-  }
-  function tracking(panel) {
-    panel.innerHTML = `<div class="dx-grid"><div><h3>Três trajetos. Prioridades diferentes.</h3><p>Escolha uma entrega para localizar a exceção e entender o próximo contato.</p><div class="dx-selection">${deliveries.map((d, i) => `<button type="button" data-delivery="${i}" aria-pressed="${i === 0}"><span>${d.id}</span><small>${d.title}</small></button>`).join('')}</div><p class="dx-insight" role="status" data-advice></p></div><div class="dx-logistics"><div class="dx-route-map" aria-label="Etapas da entrega"><div class="dx-route-line"></div>${['Origem', 'Distribuição', 'Unidade local', 'Destino'].map((s, i) => `<div class="dx-node" data-node="${i}"><span aria-hidden="true">${i === 3 ? '⌂' : '▣'}</span><b>${s}</b></div>`).join('')}</div><div class="dx-location"><strong data-place></strong><span data-age></span></div></div></div>`;
-    const select = index => { const d = deliveries[index]; panel.querySelectorAll('[data-delivery]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.delivery === index))); panel.querySelectorAll('[data-node]').forEach(n => { n.classList.toggle('dx-node-active', +n.dataset.node === d.state); n.classList.toggle('dx-node-passed', +n.dataset.node < d.state); }); panel.querySelector('[data-place]').textContent = d.place; panel.querySelector('[data-age]').textContent = d.age; panel.querySelector('[data-advice]').textContent = d.advice; };
-    panel.querySelectorAll('[data-delivery]').forEach(b => b.addEventListener('click', () => select(+b.dataset.delivery))); select(0);
   }
   function business(panel) {
     let step = 0;

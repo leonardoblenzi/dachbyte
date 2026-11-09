@@ -58,7 +58,6 @@ test("all Seller public landings load the global menu that exposes Magalu", () =
     "landing-general.html",
     "landing-mercado-livre.html",
     "landing-shopee.html",
-    "landing-tracking.html",
     "landing-magalu.html",
   ]) {
     assert.match(view(fileName), /landing-experience\.js/, fileName);

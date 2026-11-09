@@ -75,9 +75,6 @@ test("every standalone starter declares its stable public prefix", () => {
     "apps/seller-shopee/start.js": "/shopee",
     "apps/seller-magalu/start.js": "/magalu",
     "apps/seller-madeira/start.js": "/madeiramadeira",
-    "apps/seller-tracking/start.js": "/avantracking",
-    "apps/seller-log/start.js": "/davanttilog",
-    "apps/seller-leader/start.js": "/skuleader",
     "apps/business/server.js": "/business",
   };
 
@@ -93,7 +90,6 @@ test("Seller deployment commands launch prefix hosts and probe their mounted hea
     "apps/seller-shopee/package.json": { start: "node start.js", dev: "nodemon start.js" },
     "apps/seller-magalu/package.json": { start: "node start.js" },
     "apps/seller-madeira/package.json": { start: "node start.js" },
-    "apps/seller-tracking/package.json": { start: "node start.js", dev: "node --watch start.js" },
   };
 
   for (const [relativePath, expectedScripts] of Object.entries(packages)) {

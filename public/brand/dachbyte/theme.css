@@ -78,8 +78,7 @@ html[data-dachbyte-app="ads"] {
 }
 
 /* Seller: all ML views and administrative shell, including async shell CSS. */
-html[data-dachbyte-app="seller-ml"] body,
-html[data-dachbyte-app="seller-leader"] body {
+html[data-dachbyte-app="seller-ml"] body {
   --master-brand: #08758a;
   --master-brand-strong: #086778;
   --master-brand-soft: #e3f5f7;
@@ -87,8 +86,7 @@ html[data-dachbyte-app="seller-leader"] body {
   --ml-blue: #08758a;
   --ml-bg: linear-gradient(145deg, #f3f8fa, #edf4f7);
 }
-html[data-dachbyte-app="seller-ml"] body.theme-dark,
-html[data-dachbyte-app="seller-leader"] body.theme-dark {
+html[data-dachbyte-app="seller-ml"] body.theme-dark {
   --master-brand: #48dfe7;
   --master-brand-strong: #48dfe7;
   --master-brand-soft: #12343d;
@@ -125,12 +123,6 @@ html[data-dachbyte-app="seller-shopee"] body.neo.theme-dark {
   --id-surface-soft: #102b3d;
 }
 html[data-dachbyte-app="seller-madeira"] body { --cyan: #48dfe7; --blue: #478cff; --amber: #ff974a; }
-html[data-dachbyte-app="seller-log"] .brand-mark {
-  background: transparent;
-  padding: 0;
-  overflow: hidden;
-}
-html[data-dachbyte-app="seller-log"] .brand-mark img { width: 100%; height: 100%; object-fit: contain; }
 
 /* Original symbol cutouts: no image mat, card, rounded box or CSS backdrop. */
 html[data-dachbyte-line] img[src$="/mark-transparent.png"] {

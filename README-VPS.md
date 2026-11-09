@@ -14,9 +14,6 @@ apps/
   seller-ml/            Mercado Livre e worker de filas
   seller-shopee/
   seller-madeira/
-  seller-tracking/
-  seller-log/
-  seller-leader/
   business/
     core/
     stock/

@@ -5,11 +5,7 @@ COPY --chown=node:node . .
 RUN npm ci --include=dev
 
 FROM base AS seller
-RUN npm --prefix apps/seller-madeira ci --workspaces=false \
- && npm --prefix apps/seller-tracking ci \
- && npm --prefix apps/seller-tracking/server ci \
- && cd apps/seller-tracking/server && npx tsc \
- && cd /app && npm --prefix apps/seller-tracking run build
+RUN npm --prefix apps/seller-madeira ci --workspaces=false
 RUN mkdir -p apps/seller-ml/results && chown node:node apps/seller-ml/results
 ENV NODE_ENV=production PORT=3000
 USER node

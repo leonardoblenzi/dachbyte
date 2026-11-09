@@ -13,12 +13,12 @@ const LEGACY_SURFACE_REGISTRY = Object.freeze({
   status: "canonical-domain-active",
   removalBlockedUntil: "Post-rollout telemetry and retirement evidence are approved.",
   routes: Object.freeze([
-    "/ml", "/shopee", "/madeiramadeira", "/avantracking", "/davanttilog", "/skuleader",
+    "/ml", "/shopee", "/madeiramadeira",
     "/volt-price", "/voltstock", "/chat", "/voltchat", "/volt_chat", "/stock",
     "/sacdavantti",
   ]),
   cookies: Object.freeze([
-    "suite_auth_token", "auth_token", "sid", "skuleader_auth_token", "davanttilog_token",
+    "suite_auth_token", "auth_token", "sid",
     "volt_core_session", "volt_price_session", "vp_tray_oauth_state", "vp_shopee_oauth_state",
   ]),
   oauthCallbacks: Object.freeze([

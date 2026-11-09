@@ -16,9 +16,6 @@ test('brand icons are RGBA PNGs and Seller favicons have no background rectangle
     'apps/seller-ml/public/img/dachbyte-seller-mark.svg',
     'apps/seller-shopee/public/img/dachbyte-seller-mark.svg',
     'apps/seller-madeira/public/dachbyte-seller-mark.svg',
-    'apps/seller-tracking/public/dachbyte-seller-mark.svg',
-    'apps/seller-log/public/dachbyte-seller-mark.svg',
-    'apps/seller-leader/public/assets/dachbyte-seller-mark.svg',
   ]) assert.doesNotMatch(read(file), /<rect\b/);
 });
 

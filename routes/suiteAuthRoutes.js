@@ -22,8 +22,13 @@ const MASTER_ADMIN_EMAIL = String(
   .trim()
   .toLowerCase();
 
-// Módulos retirados da oferta em 09/11/2026 (nenhuma empresa usa): não entram na sessão nem na seleção.
-const RETIRED_SUITE_MODULES = new Set(["tracking", "davanttilog", "skuleader"]);
+// SKU Leader, Tracking e DavanttiLog foram retirados em 09/11/2026 e seus apps saíram do código.
+// O Hub ainda pode listá-los (com os nomes antigos), então são descartados antes de entrar na sessão.
+const RETIRED_SUITE_MODULES = new Set([
+  "tracking", "rastreio", "avantracking",
+  "davanttilog", "logisync", "logsync", "davantti-log", "davantti_log", "davantti log",
+  "skuleader",
+]);
 const MODULE_MATRIX = [
   { id: "ml", hubModule: "ml" },
   { id: "shopee", hubModule: "shopee" },
@@ -36,10 +41,7 @@ const HUB_AUTH_MODULE_CANDIDATES = [
   "ml",
   "shopee",
   "magalu",
-  "tracking",
-  "davanttilog",
   "madeira",
-  "skuleader",
   "dach_ads",
   "volt_core",
 ];
@@ -258,17 +260,8 @@ function daysUntilDate(value) {
 
 function suiteModuleFromHubModule(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  let id = normalized;
-  if (normalized === "madeira") id = "madeiramadeira";
-  else if (normalized === "rastreio" || normalized === "avantracking") id = "tracking";
-  else if (
-    normalized === "logisync" ||
-    normalized === "logsync" ||
-    normalized === "davantti-log" ||
-    normalized === "davantti_log" ||
-    normalized === "davantti log"
-  ) id = "davanttilog";
-  return RETIRED_SUITE_MODULES.has(id) ? null : id;
+  if (RETIRED_SUITE_MODULES.has(normalized)) return null;
+  return normalized === "madeira" ? "madeiramadeira" : normalized;
 }
 
 function buildSubscriptionFromAccessCheck(payload = {}, previous = null) {
@@ -605,10 +598,7 @@ async function tryLegacySuiteLogin(req, email, password) {
   const checks = [
     { id: "ml", path: "/ml/api/auth/login", module: "ml" },
     { id: "shopee", path: "/shopee/api/auth/login", module: "shopee" },
-    { id: "tracking", path: "/avantracking/api/users/login", module: "avantracking" },
-    { id: "davanttilog", path: "/davanttilog/api/auth/login", module: "davanttilog" },
     { id: "madeiramadeira", path: "/madeiramadeira/api/auth/login", module: "madeira" },
-    { id: "skuleader", path: "/skuleader/api/auth/login", module: "skuleader" },
   ];
 
   const allowedModules = [];

@@ -11,9 +11,7 @@
   --ink-soft: #5f5885;
   --line: #d9d1fb;
   --brand: #5f46e8;
-  --tracking: #4d62f3;
   --shopee: #f35f6d;
-  --skuleader: #56a560;
   --madeira: #d79736;
   --ml: #8a5cff;
 }
@@ -419,22 +417,10 @@ body.is-session-loading .suite-main {
   color: #423b69;
 }
 
-.module-icon--tracking,
-.module-badge--tracking {
-  background: #e8ecff;
-  color: #4255cb;
-}
-
 .module-icon--shopee,
 .module-badge--shopee {
   background: #ffe9ec;
   color: #c94d65;
-}
-
-.module-icon--skuleader,
-.module-badge--skuleader {
-  background: #e9f8e8;
-  color: #4d8f4e;
 }
 
 .module-icon--madeira,
@@ -449,16 +435,8 @@ body.is-session-loading .suite-main {
   color: #6a4fe0;
 }
 
-.module-tile--tracking {
-  border-top: 3px solid var(--tracking);
-}
-
 .module-tile--shopee {
   border-top: 3px solid var(--shopee);
-}
-
-.module-tile--skuleader {
-  border-top: 3px solid var(--skuleader);
 }
 
 .module-tile--madeira {

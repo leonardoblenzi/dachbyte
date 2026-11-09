@@ -30,7 +30,15 @@ test("login da suíte e tela da seleção não carregam mais os módulos retirad
   const auth = fs.readFileSync(path.join(root, "routes/suiteAuthRoutes.js"), "utf8");
   const matrix = auth.slice(auth.indexOf("const MODULE_MATRIX"), auth.indexOf("];", auth.indexOf("const MODULE_MATRIX")));
   assert.doesNotMatch(matrix, /tracking|davanttilog|skuleader/);
-  assert.match(auth, /RETIRED_SUITE_MODULES\.has\(id\) \? null : id/);
+  // O Hub ainda pode devolver os slugs (e apelidos antigos): são descartados antes de entrar na sessão.
+  assert.match(auth, /if \(RETIRED_SUITE_MODULES\.has\(normalized\)\) return null;/);
+  for (const slug of ["tracking", "rastreio", "avantracking", "davanttilog", "logisync", "skuleader"]) {
+    assert.match(auth.slice(auth.indexOf("const RETIRED_SUITE_MODULES"), auth.indexOf("]);", auth.indexOf("const RETIRED_SUITE_MODULES"))), new RegExp(`"${slug}"`));
+  }
+  const candidates = auth.slice(auth.indexOf("const HUB_AUTH_MODULE_CANDIDATES"), auth.indexOf("];", auth.indexOf("const HUB_AUTH_MODULE_CANDIDATES")));
+  assert.doesNotMatch(candidates, /tracking|davanttilog|skuleader/);
+  // Sem login legado direto nos apps retirados.
+  assert.doesNotMatch(auth, /\/avantracking\/api|\/davanttilog\/api|\/skuleader\/api/);
   const page = fs.readFileSync(path.join(root, "apps/seller-ml/views/selecao-plataforma.html"), "utf8");
   assert.doesNotMatch(page, /\/go\/tracking|\/go\/davanttilog|\/go\/skuleader/);
 });

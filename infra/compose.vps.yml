@@ -185,60 +185,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 120s
-  seller-tracking:
-    <<: *runtime
-    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
-    image: dachbyte/seller:local
-    command: ["node", "apps/seller-tracking/start.js"]
-    env_file: ["./env/seller-tracking.env", "./env/hub.env"]
-    environment:
-      NODE_ENV: production
-      PORT: "3000"
-    depends_on:
-      postgres: {condition: service_healthy}
-      redis: {condition: service_healthy}
-    healthcheck:
-      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/avantracking/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 120s
-  seller-log:
-    <<: *runtime
-    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
-    image: dachbyte/seller:local
-    command: ["node", "apps/seller-log/start.js"]
-    env_file: ["./env/seller-log.env", "./env/hub.env"]
-    environment:
-      NODE_ENV: production
-      PORT: "3000"
-    depends_on:
-      postgres: {condition: service_healthy}
-      redis: {condition: service_healthy}
-    healthcheck:
-      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/davanttilog/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 120s
-  seller-leader:
-    <<: *runtime
-    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
-    image: dachbyte/seller:local
-    command: ["node", "apps/seller-leader/start.js"]
-    env_file: ["./env/seller-leader.env", "./env/hub.env"]
-    environment:
-      NODE_ENV: production
-      PORT: "3000"
-    depends_on:
-      postgres: {condition: service_healthy}
-      redis: {condition: service_healthy}
-    healthcheck:
-      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/skuleader/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 120s
   ads-api:
     <<: *runtime
     build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: ads}

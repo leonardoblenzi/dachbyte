@@ -39,7 +39,6 @@ test("public Seller pages are owned by Gateway instead of seller-ml", () => {
     "landing-general.html",
     "landing-mercado-livre.html",
     "landing-shopee.html",
-    "landing-tracking.html",
     "landing-magalu.html",
     "legal-magalu-terms.html",
     "legal-magalu-privacy.html",

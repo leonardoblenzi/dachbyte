@@ -3,8 +3,6 @@
     '/seller': 'seller',
     '/seller/mercado-livre': 'ml',
     '/seller/shopee': 'shopee',
-    '/seller/rastreio': 'tracking',
-    '/seller/tracking': 'tracking',
     '/seller/magalu': 'magalu',
   };
   const experience = experienceByPath[window.location.pathname.replace(/\/$/, '') || '/seller'];

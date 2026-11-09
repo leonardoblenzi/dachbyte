@@ -74,25 +74,10 @@ test("bootstrap da Shopee exige senha de administrador configurada no ambiente",
   assert.doesNotMatch(seedAdmin, /SUPER_ADMIN_PASSWORD\s*\|\|\s*["'][^"']+/);
 });
 
-test("Rastreio usa o Hub para sessoes atuais e normaliza a identidade", () => {
-  const tracking = source(
-    path.join("apps", "seller-tracking", "server", "src", "controllers", "userController.ts"),
-  );
-  assert.match(
-    tracking,
-    /isLegacySuitePayload\(suitePayload\)\s*&&\s*!hasSuiteTrackingAccess\(suitePayload\)/,
-  );
-  assert.match(
-    tracking,
-    /"userGlobalId"\s*=\s*COALESCE\(NULLIF\(\$4, ''\), "userGlobalId"\)/,
-  );
-});
-
 test("modulos revalidam liberacao em cinco minutos e bloqueio em trinta segundos", () => {
   const gateSources = [
     source(path.join("apps", "seller-ml", "app.js")),
     source(path.join("apps", "seller-shopee", "src", "middlewares", "sessionAuth.js")),
-    source(path.join("apps", "seller-tracking", "server", "src", "middleware", "auth.ts")),
   ];
 
   for (const gateSource of gateSources) {

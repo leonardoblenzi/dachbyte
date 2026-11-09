@@ -12,7 +12,6 @@ const publicShellPages = [
   ["apps", "gateway", "views", "seller", "landing-general.html"],
   ["apps", "gateway", "views", "seller", "landing-mercado-livre.html"],
   ["apps", "gateway", "views", "seller", "landing-shopee.html"],
-  ["apps", "gateway", "views", "seller", "landing-tracking.html"],
   ["apps", "gateway", "views", "seller", "landing-magalu.html"],
   ["apps", "gateway", "views", "seller", "legal-magalu-terms.html"],
   ["apps", "gateway", "views", "seller", "legal-magalu-privacy.html"],

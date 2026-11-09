@@ -256,18 +256,6 @@
     "line": "seller"
   },
   {
-    "path": "apps/seller-log/public/index.html",
-    "line": "seller"
-  },
-  {
-    "path": "apps/seller-leader/public/index.html",
-    "line": "seller"
-  },
-  {
-    "path": "apps/seller-leader/public/login.html",
-    "line": "seller"
-  },
-  {
     "path": "apps/business/public/landing.html",
     "line": "business"
   },
@@ -286,10 +274,6 @@
   {
     "path": "apps/business/chat/sordchat-frontend/public/index.html",
     "line": "business"
-  },
-  {
-    "path": "apps/seller-tracking/index.html",
-    "line": "seller"
   },
   {
     "path": "apps/business/core/index.html",

@@ -52,9 +52,12 @@ test("all public Business landings load the shared navigation experience", () =>
 test("Seller shared assets map every public route to a distinct decision demo", () => {
   const js = read("public", "brand", "dachbyte", "seller", "landing.js");
   const css = read("public", "brand", "dachbyte", "seller", "landing.css");
-  for (const [route, experience] of [["/seller", "seller"], ["/seller/mercado-livre", "ml"], ["/seller/shopee", "shopee"], ["/seller/magalu", "magalu"], ["/seller/rastreio", "tracking"]]) {
+  for (const [route, experience] of [["/seller", "seller"], ["/seller/mercado-livre", "ml"], ["/seller/shopee", "shopee"], ["/seller/magalu", "magalu"]]) {
     assert.match(js, new RegExp(`'${route.replaceAll("/", "\\/")}'\\s*:\\s*'${experience}'`));
   }
+  // O Tracking foi retirado em 09/11/2026: nem a landing nem o menu global apontam para ele.
+  assert.doesNotMatch(js, /rastreio|tracking/);
+  assert.doesNotMatch(read("public", "brand", "dachbyte", "landing-experience.js"), /\/seller\/rastreio|\/avantracking|tracking/);
   assert.match(js, /initSellerDemos/);
   assert.doesNotMatch(js, /landing-experience\.js/);
   assert.match(css, /landing-experience\.css/);

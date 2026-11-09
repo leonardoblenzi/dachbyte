@@ -11,7 +11,8 @@ function normalizeIdentity(identity = {}) {
   };
 }
 
-// Retirados da oferta em 09/11/2026 (nenhuma empresa usa): somem da seleção de plataforma para todos.
+// Retirados em 09/11/2026 (nenhuma empresa usa) e com os apps já fora do código. O Hub ainda pode
+// listá-los no catálogo, então somem da seleção de plataforma para todos.
 const RETIRED_MODULES = new Set(["tracking", "davanttilog", "skuleader"]);
 
 const PLATFORM_SELLER_MODULES = [

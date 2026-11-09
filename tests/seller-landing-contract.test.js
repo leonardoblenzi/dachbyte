@@ -24,7 +24,6 @@ test("Seller exposes a compact general landing and three module landings", () =>
     ["landing-mercado-livre.html", "DACHBYTE Mercado Livre"],
     ["landing-shopee.html", "DACHBYTE Shopee"],
     ["landing-magalu.html", "DACHBYTE Magalu"],
-    ["landing-tracking.html", "DACHBYTE Tracking"],
   ];
 
   for (const [fileName, heading] of expectedPages) {
@@ -35,9 +34,12 @@ test("Seller exposes a compact general landing and three module landings", () =>
   }
 
   const generalLanding = fs.readFileSync(view("landing-general.html"), "utf8");
-  for (const destination of ["/seller/mercado-livre", "/seller/shopee", "/seller/magalu", "/seller/rastreio"]) {
+  for (const destination of ["/seller/mercado-livre", "/seller/shopee", "/seller/magalu"]) {
     assert.match(generalLanding, new RegExp(destination.replaceAll("/", "\\/")));
   }
+  // O Tracking foi retirado em 09/11/2026: sem landing própria nem links na landing geral.
+  assert.equal(fs.existsSync(view("landing-tracking.html")), false);
+  assert.doesNotMatch(generalLanding, /\/seller\/rastreio|\/avantracking|DACHBYTE Tracking/);
 });
 
 test("Seller landings delegate product navigation to the global shell", () => {
@@ -50,9 +52,8 @@ test("Seller landings delegate product navigation to the global shell", () => {
     "landing-mercado-livre.html",
     "landing-shopee.html",
     "landing-magalu.html",
-    "landing-tracking.html",
   ];
-  for (const [pageName, moduleName] of modulePages.map((pageName, index) => [pageName, ["Mercado Livre", "Shopee", "Magalu", "Rastreio"][index]])) {
+  for (const [pageName, moduleName] of modulePages.map((pageName, index) => [pageName, ["Mercado Livre", "Shopee", "Magalu"][index]])) {
     const html = fs.readFileSync(view(pageName), "utf8");
     assert.match(html, new RegExp(`data-dx-shell="seller" data-dx-module="${moduleName}"`));
     assert.match(html, /landing-experience\.js/);
@@ -62,11 +63,11 @@ test("Seller landings delegate product navigation to the global shell", () => {
 
 test("general Seller landing keeps useful comparison depth", () => {
   const html = fs.readFileSync(view("landing-general.html"), "utf8");
-  assert.equal((html.match(/seller-card__features/g) || []).length, 4);
-  assert.equal((html.match(/data-seller-demo>/g) || []).length, 3);
-  assert.equal((html.match(/data-seller-demo-tab=/g) || []).length, 9);
-  assert.equal((html.match(/>Conhecer mais</g) || []).length, 3);
-  for (const appEntry of ["/ml/login", "/shopee", "/avantracking"]) {
+  assert.equal((html.match(/seller-card__features/g) || []).length, 3);
+  assert.equal((html.match(/data-seller-demo>/g) || []).length, 2);
+  assert.equal((html.match(/data-seller-demo-tab=/g) || []).length, 6);
+  assert.equal((html.match(/>Conhecer mais</g) || []).length, 2);
+  for (const appEntry of ["/ml/login", "/shopee"]) {
     assert.match(html, new RegExp(`href="${appEntry}"`));
   }
   assert.match(html, /seller-ticker/);
@@ -88,6 +89,5 @@ test("gateway serves marketing routes before redirecting nested product paths", 
   assert.ok(landingRoute >= 0);
   assert.ok(canonicalRegistration > landingRoute);
   assert.match(source, /"\/seller-assets"/);
-  assert.match(source, /"\/seller\/rastreio"/);
-  assert.match(source, /"\/seller\/tracking"/);
+  assert.doesNotMatch(source, /"\/seller\/rastreio"|"\/seller\/tracking"|landing-tracking/);
 });

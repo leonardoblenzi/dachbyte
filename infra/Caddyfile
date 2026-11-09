@@ -37,18 +37,6 @@
   handle @seller-madeira {
     reverse_proxy seller-madeira:3000
   }
-  @seller-tracking path /avantracking /avantracking/*
-  handle @seller-tracking {
-    reverse_proxy seller-tracking:3000
-  }
-  @seller-log path /davanttilog /davanttilog/*
-  handle @seller-log {
-    reverse_proxy seller-log:3000
-  }
-  @seller-leader path /skuleader /skuleader/*
-  handle @seller-leader {
-    reverse_proxy seller-leader:3000
-  }
   @dach-seller path /dach/seller /dach/seller/*
   handle @dach-seller {
     reverse_proxy gateway:3000

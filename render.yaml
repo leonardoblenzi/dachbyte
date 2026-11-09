@@ -20,8 +20,6 @@ services:
         - apps/seller-ml/**
         - apps/seller-shopee/**
         - apps/seller-madeira/**
-        - apps/seller-tracking/**
-        - apps/seller-leader/**
         - images/**
     envVars:
       - key: NODE_ENV
@@ -31,8 +29,6 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: SHOPEE_DATABASE_URL
-        sync: false
-      - key: AVANTRACKING_DATABASE_URL
         sync: false
       - key: VOLT_CORP_PUBLIC_URL
         value: https://volt-corp.onrender.com

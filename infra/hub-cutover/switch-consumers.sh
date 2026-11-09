@@ -17,7 +17,7 @@ consumer_services=(
   gateway
   seller-ml-web seller-ml-worker
   seller-magalu-web seller-magalu-worker
-  seller-shopee seller-madeira seller-tracking seller-log seller-leader
+  seller-shopee seller-madeira
   ads-api ads-worker
   business-portal business-core business-stock business-chat business-price business-chat-api
 )

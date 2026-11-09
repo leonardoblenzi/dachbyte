@@ -102,10 +102,6 @@ function trialRequestOriginMatches(req) {
 
 function hasModuleAccess(payload, moduleId) {
   const aliases = {
-    "davantti-log": "davanttilog",
-    davantti_log: "davanttilog",
-    davanttilog: "davanttilog",
-    davanlog: "davanttilog",
     volt_stock: "voltstock",
     voltstock: "voltstock",
     ads: "dach_ads",
@@ -154,11 +150,6 @@ function renewalUrlFromSuitePayload(payload) {
 function hubModuleFromSuiteModule(moduleId) {
   const aliases = {
     madeiramadeira: "madeira",
-    tracking: "tracking",
-    logisync: "davanttilog",
-    logsync: "davanttilog",
-    "davantti-log": "davanttilog",
-    davantti_log: "davanttilog",
     ads: "dach_ads",
     dachads: "dach_ads",
     dach_ads: "dach_ads",
@@ -229,7 +220,7 @@ async function checkSuiteModuleAccess(payload, moduleId) {
 
 function clearModuleCookies(res) {
   const cookiePaths = ["/", "/ml", "/shopee", "/magalu"];
-  ["auth_token", "sid", "skuleader_auth_token", "davanttilog_token"].forEach((name) => {
+  ["auth_token", "sid"].forEach((name) => {
     cookiePaths.forEach((path) => res.clearCookie(name, { path }));
   });
 }
@@ -479,40 +470,6 @@ async function bootstrapMlSession(payload, res) {
   res.cookie("auth_token", token, cookieOptions(24 * 60 * 60 * 1000));
 }
 
-async function bootstrapSkuLeaderSession(payload, res) {
-  const jwtSecret =
-    String(process.env.SKULEADER_JWT_SECRET || "").trim() ||
-    String(process.env.JWT_SECRET || "").trim() ||
-    String(process.env.ML_JWT_SECRET || "").trim();
-  if (!jwtSecret) return;
-
-  const tenantGlobalId = String(payload?.tenant_id || "").trim();
-  const userGlobalId = String(payload?.user_id || "").trim();
-  const email = String(payload?.email || "").trim().toLowerCase();
-  if (!tenantGlobalId || !userGlobalId || !email) return;
-
-  const token = jwt.sign(
-    {
-      user_global_id: userGlobalId,
-      tenant_global_id: tenantGlobalId,
-      empresa_id: null,
-      empresa_nome:
-        String(payload?.company_name || "").trim() || "Empresa DACHBYTE",
-      email,
-      nivel: "global",
-      nome: String(payload?.name || "").trim() || null,
-    },
-    jwtSecret,
-    { expiresIn: "12h" },
-  );
-
-  res.cookie(
-    "skuleader_auth_token",
-    token,
-    cookieOptions(12 * 60 * 60 * 1000),
-  );
-}
-
 async function resolveProvisionedShopeeRole(client) {
   const rows = (
     await client.query(`
@@ -690,9 +647,6 @@ async function bootstrapModuleSession(moduleId, payload, res) {
   }
   if (moduleId === "magalu") {
     return bootstrapMagaluSession(payload, res);
-  }
-  if (moduleId === "skuleader") {
-    return bootstrapSkuLeaderSession(payload, res);
   }
 }
 
@@ -961,7 +915,6 @@ async function main() {
     }
     return res.sendFile(path.join(sellerViewRoot, "shopee-trial-link.html"));
   });
-  app.get(["/seller/rastreio", "/seller/rastreio/", "/seller/tracking", "/seller/tracking/", "/dach/seller/rastreio", "/dach/seller/rastreio/", "/dach/seller/tracking", "/dach/seller/tracking/"], sendSellerLanding("landing-tracking.html"));
   app.get(["/seller/magalu", "/seller/magalu/"], sendSellerLanding("landing-magalu.html"));
   app.get(["/seller/magalu/termos", "/seller/magalu/termos/"], sendSellerLanding("legal-magalu-terms.html"));
   app.get(["/seller/magalu/privacidade", "/seller/magalu/privacidade/"], sendSellerLanding("legal-magalu-privacy.html"));
@@ -1047,9 +1000,6 @@ async function main() {
     "/go/madeiramadeira",
     createSuiteGoHandler("madeiramadeira", "/madeiramadeira"),
   );
-  app.get("/go/tracking", createSuiteGoHandler("tracking", "/avantracking"));
-  app.get("/go/davanttilog", createSuiteGoHandler("davanttilog", "/davanttilog"));
-  app.get("/go/skuleader", createSuiteGoHandler("skuleader", "/skuleader"));
   app.get("/go/ads", createSuiteGoHandler("dach_ads", "/ads/app", {
     loginPath: "/ads/login",
     deniedPath: "/ads/access-denied",

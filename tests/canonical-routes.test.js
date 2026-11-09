@@ -31,8 +31,12 @@ test("business canonical paths target the current mounts and preserve suffix/que
 });
 
 test("canonical route tables expose both public product families", () => {
-  assert.equal(CANONICAL_ROUTE_GROUPS.seller.length, 15);
+  assert.equal(CANONICAL_ROUTE_GROUPS.seller.length, 9);
   assert.equal(CANONICAL_ROUTE_GROUPS.business.length, 9);
   assert.equal(getCanonicalRedirect("/seller/unknown", "", "seller"), null);
+  // Tracking, DavanttiLog e SKU Leader foram retirados em 09/11/2026: sem atalho público.
+  for (const retired of ["/seller/tracking", "/seller/log", "/seller/leader", "/dach/seller/tracking", "/dach/seller/log", "/dach/seller/leader"]) {
+    assert.equal(getCanonicalRedirect(retired, "", "seller"), null, retired);
+  }
   assert.equal(getCanonicalRedirect("/other", "", "business"), null);
 });

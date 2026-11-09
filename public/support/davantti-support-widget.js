@@ -18,8 +18,6 @@
   var SUBCATEGORIES = [
     "DACHBYTE Seller · Mercado Livre",
     "DACHBYTE Seller · Shopee",
-    "Avantracking",
-    "LogiSync",
     "MadeiraMadeira",
     "DACHBYTE Business",
     "DACHBYTE Chat",
@@ -106,8 +104,6 @@
   function inferModule() {
     var text = (window.location.href || "").toLowerCase();
     if (text.indexOf("/shopee") >= 0) return "DACHBYTE Seller · Shopee";
-    if (text.indexOf("/avantracking") >= 0) return "Avantracking";
-    if (text.indexOf("/davanttilog") >= 0) return "DACHBYTE Log";
     if (text.indexOf("/madeiramadeira") >= 0) return "MadeiraMadeira";
     if (text.indexOf("/voltstock") >= 0) return "DACHBYTE Stock";
     if (text.indexOf("/voltchat") >= 0 || text.indexOf("/chat") >= 0) return "DACHBYTE Chat";

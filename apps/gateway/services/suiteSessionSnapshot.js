@@ -9,7 +9,7 @@ function deniedSnapshot(code) {
   return { ok: false, logged: true, code: String(code || "hub_access_denied") };
 }
 
-const SELLER_MODULES = new Set(["ml", "shopee", "magalu", "tracking", "davanttilog", "madeira", "madeiramadeira", "skuleader"]);
+const SELLER_MODULES = new Set(["ml", "shopee", "magalu", "madeira", "madeiramadeira"]);
 
 function platformSnapshot(identity = {}) {
   const allowedModules = normalizedStrings(identity.allowed_modules);

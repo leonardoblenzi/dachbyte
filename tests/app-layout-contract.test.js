@@ -10,9 +10,6 @@ const moves = {
   ml: "apps/seller-ml",
   shopee: "apps/seller-shopee",
   MadeiraMadeira: "apps/seller-madeira",
-  avantracking: "apps/seller-tracking",
-  davanttilog: "apps/seller-log",
-  LeaderSku: "apps/seller-leader",
   business: "apps/business",
   ads: "apps/ads",
 };
@@ -31,5 +28,15 @@ test("DACHBYTE products live under apps with no legacy product directories", () 
 
   for (const product of ["core", "stock", "chat", "price"]) {
     assert.equal(fs.existsSync(path.join(root, "apps/business", product)), true, product);
+  }
+});
+
+test("retired Seller modules (Tracking, DavanttiLog, SKU Leader) are gone from the repository", () => {
+  const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" }).split("\0");
+  for (const prefix of [
+    "apps/seller-tracking/", "apps/seller-log/", "apps/seller-leader/",
+    "avantracking/", "davanttilog/", "LeaderSku/",
+  ]) {
+    assert.equal(tracked.some(file => file.startsWith(prefix)), false, prefix);
   }
 });

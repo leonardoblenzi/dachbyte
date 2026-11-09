@@ -11,7 +11,7 @@ test("Seller selector exposes only shared Seller modules", () => {
   const source = fs.readFileSync(path.join(root, "apps/seller-ml/views/selecao-plataforma.html"), "utf8");
   const cards = Array.from(source.matchAll(/class="module-card" href="[^"]+" data-module="([^"]+)"/g), (match) => match[1]);
 
-  assert.deepEqual(cards, ["ml", "shopee", "magalu", "tracking"]);
+  assert.deepEqual(cards, ["ml", "shopee", "magalu"]);
   assert.doesNotMatch(source, /dach_ads:/);
   assert.doesNotMatch(source, /davanttilog:/);
   assert.doesNotMatch(source, /madeiramadeira:/);
@@ -22,7 +22,7 @@ test("independent modules retain protected Gateway entry routes", () => {
   const source = fs.readFileSync(path.join(root, "apps/gateway/server.js"), "utf8");
 
   assert.match(source, /\/go\/ads/);
-  assert.match(source, /\/go\/davanttilog/);
   assert.match(source, /\/go\/madeiramadeira/);
-  assert.match(source, /\/go\/skuleader/);
+  // Tracking, DavanttiLog e SKU Leader foram retirados em 09/11/2026: sem rota de entrada.
+  assert.doesNotMatch(source, /\/go\/(tracking|davanttilog|skuleader)/);
 });
