@@ -64,10 +64,10 @@ test("Seller landings delegate product navigation to the global shell", () => {
 test("general Seller landing keeps useful comparison depth", () => {
   const html = fs.readFileSync(view("landing-general.html"), "utf8");
   assert.equal((html.match(/seller-card__features/g) || []).length, 3);
-  assert.equal((html.match(/data-seller-demo>/g) || []).length, 2);
-  assert.equal((html.match(/data-seller-demo-tab=/g) || []).length, 6);
-  assert.equal((html.match(/>Conhecer mais</g) || []).length, 2);
-  for (const appEntry of ["/ml/login", "/shopee"]) {
+  assert.equal((html.match(/data-seller-demo>/g) || []).length, 3);
+  assert.equal((html.match(/data-seller-demo-tab=/g) || []).length, 9);
+  assert.equal((html.match(/>Conhecer mais</g) || []).length, 3);
+  for (const appEntry of ["/ml/login", "/shopee", "/go/magalu"]) {
     assert.match(html, new RegExp(`href="${appEntry}"`));
   }
   assert.match(html, /seller-ticker/);
