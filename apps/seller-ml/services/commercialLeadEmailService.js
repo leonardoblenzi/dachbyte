@@ -35,7 +35,7 @@ function recipient() {
   return {
     email:
       normalize(process.env.BREVO_COMMERCIAL_TO_EMAIL) ||
-      "contato@davanttisuite.com.br",
+      "noreply@dachbyte.tech",
     name: normalize(process.env.BREVO_COMMERCIAL_TO_NAME) || "Comercial DACHBYTE",
   };
 }
@@ -46,6 +46,12 @@ function channelsLabel(channels) {
     : "Nao informado";
 }
 
+function preferenceLabel(preference) {
+  if (preference === "whatsapp") return "WhatsApp";
+  if (preference === "email") return "E-mail";
+  return "Nao informado";
+}
+
 function buildCommercialLeadHtml({
   name,
   email,
@@ -54,6 +60,8 @@ function buildCommercialLeadHtml({
   channels,
   message,
   pagePath,
+  contactPreference,
+  ordersVolume,
   userAgent,
   ipAddress,
 }) {
@@ -69,6 +77,8 @@ function buildCommercialLeadHtml({
   const safePath = escapeHtml(pagePath || "/landing");
   const safeUserAgent = escapeHtml(userAgent || "-");
   const safeIp = escapeHtml(ipAddress || "-");
+  const safePreference = escapeHtml(preferenceLabel(contactPreference));
+  const safeVolume = escapeHtml(ordersVolume || "Nao informado");
 
   return `
     <div style="font-family:Arial,Helvetica,sans-serif;background:#f4f7fb;padding:32px;color:#0f172a;">
@@ -95,12 +105,14 @@ function buildCommercialLeadHtml({
 
           <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:22px;">
             <div style="padding:16px 18px;border:1px solid #dbe5f0;border-radius:18px;background:#f8fbff;">
-              <div style="font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#64748b;">Celular</div>
-              <div style="margin-top:8px;font-size:16px;font-weight:800;color:#0f172a;">${safeCellphone}</div>
+              <div style="font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#64748b;">Responder por</div>
+              <div style="margin-top:8px;font-size:16px;font-weight:800;color:#0f172a;">${safePreference}</div>
+              <div style="margin-top:4px;font-size:14px;color:#475569;">WhatsApp/celular: ${safeCellphone}</div>
             </div>
             <div style="padding:16px 18px;border:1px solid #dbe5f0;border-radius:18px;background:#f8fbff;">
-              <div style="font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#64748b;">Origem</div>
-              <div style="margin-top:8px;font-size:16px;font-weight:800;color:#0f172a;">${safePath}</div>
+              <div style="font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#64748b;">Pedidos por mes</div>
+              <div style="margin-top:8px;font-size:16px;font-weight:800;color:#0f172a;">${safeVolume}</div>
+              <div style="margin-top:4px;font-size:14px;color:#475569;">Origem: ${safePath}</div>
             </div>
           </div>
 
@@ -128,6 +140,8 @@ async function sendCommercialLeadEmail({
   channels,
   message,
   pagePath,
+  contactPreference,
+  ordersVolume,
   userAgent,
   ipAddress,
 }) {
@@ -151,7 +165,7 @@ async function sendCommercialLeadEmail({
   const payload = {
     sender: sender(),
     to: [{ email: to.email, name: to.name || undefined }],
-    subject: `[DACHBYTE Seller] Lead comercial - ${channelsLabel(channels)}`,
+    subject: `[DACHBYTE Seller] Lead comercial - ${channelsLabel(channels)}${contactPreference ? ` - responder por ${preferenceLabel(contactPreference)}` : ""}`,
     htmlContent: buildCommercialLeadHtml({
       name,
       email,
@@ -160,14 +174,15 @@ async function sendCommercialLeadEmail({
       channels,
       message,
       pagePath,
+      contactPreference,
+      ordersVolume,
       userAgent,
       ipAddress,
     }),
     tags: ["commercial-lead", "landing"],
-    replyTo: {
-      email: normalize(email),
-      name: normalize(name) || undefined,
-    },
+    ...(normalize(email)
+      ? { replyTo: { email: normalize(email), name: normalize(name) || undefined } }
+      : {}),
   };
 
   const response = await fetch(BREVO_API_URL, {

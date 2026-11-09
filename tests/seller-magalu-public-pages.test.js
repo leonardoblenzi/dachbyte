@@ -31,9 +31,11 @@ test("Gateway owns Magalu public pages and protected entry while seller-magalu o
 test("Magalu landing presents catalog, pricing, inventory, availability, and legal links", () => {
   const source = view("landing-magalu.html");
 
-  for (const copy of ["Catálogo", "Preços", "Estoque", "Piloto"]) {
+  for (const copy of ["Catálogo", "Preços", "Estoque", "Integração oficial"]) {
     assert.ok(source.includes(copy), copy);
   }
+  // O módulo saiu da fase piloto em 09/11/2026: a landing não fala mais em piloto.
+  assert.doesNotMatch(source, /piloto/i);
   for (const href of ['href="/seller/magalu/termos"', 'href="/seller/magalu/privacidade"']) {
     assert.ok(source.includes(href), href);
   }

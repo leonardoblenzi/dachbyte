@@ -8,7 +8,8 @@
   var API_BASE = String(window.DAVANTTI_SUPPORT_API_BASE || "").replace(/\/+$/, "");
   var CHAT_KEY = "davantti:sac:chat-id";
   var TICKET_KEY = "davantti:sac:ticket";
-  var LAUNCHER_TOP_KEY = "davantti:sac:launcher-top";
+  // v2: o valor antigo foi gravado com a aba presa no topo (erro corrigido em 09/11/2026); passa a ser ignorado.
+  var LAUNCHER_TOP_KEY = "davantti:sac:launcher-top:v2";
   var CATEGORIES = [
     "Contratação",
     "Bugs/Problemas na plataforma",
@@ -139,14 +140,16 @@
     var viewportHeight = Math.max(window.innerHeight || 0, 320);
     var min = 72;
     var max = Math.max(min, viewportHeight - 72);
-    var next = Number(value);
-    if (!Number.isFinite(next)) next = Math.round(viewportHeight * 0.58);
+    // Sem posição salva (null/vazio), a aba fica a 58% da altura. Antes, Number(null) virava 0
+    // e a aba grudava no topo, em cima do menu das páginas.
+    var next = value === null || value === undefined || value === "" ? NaN : Number(value);
+    if (!Number.isFinite(next) || next <= 0) next = Math.round(viewportHeight * 0.58);
     return Math.min(max, Math.max(min, next));
   }
 
   function restoreLauncherTop() {
     try {
-      return clampLauncherTop(Number(localStorage.getItem(LAUNCHER_TOP_KEY)));
+      return clampLauncherTop(localStorage.getItem(LAUNCHER_TOP_KEY));
     } catch (_error) {
       return clampLauncherTop(null);
     }
@@ -773,8 +776,10 @@
     launcherDrag.pointerId = null;
   });
 
+  // Ao redimensionar só reposiciona dentro da tela; a posição só é salva quando a pessoa arrasta a aba.
   window.addEventListener("resize", function () {
-    saveLauncherTop(state.launcherTop);
+    state.launcherTop = clampLauncherTop(state.launcherTop);
+    applyLauncherPosition();
   });
 
   document.addEventListener("change", function (event) {
