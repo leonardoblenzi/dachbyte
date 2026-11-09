@@ -7,7 +7,7 @@
     product: "hub",
     theme: "violet",
     basePath: "/hub",
-    brand: { name: "DACHBYTE", sub: "Hub · Multicanal", logo: "/brand/dachbyte/hub/mark.svg?v=2", href: "/hub/" },
+    brand: { name: "DACHBYTE", sub: "Hub · Multicanal", logo: "/brand/dachbyte/hub/mark-transparent.png?v=1", href: "/hub/" },
     navGroups: [
       { id: "overview", label: "Visão geral", hint: "Painel e saúde", icon: "dashboard", items: [{ label: "Painel", path: "/hub/" }, { label: "Saúde das contas", path: "/hub/saude" }, { label: "Avisos", path: "/hub/avisos" }] },
       { id: "catalog", label: "Catálogo", hint: "Produtos e vínculos", icon: "package", items: [

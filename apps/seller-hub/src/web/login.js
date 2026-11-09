@@ -53,7 +53,7 @@ function renderLoginPage({ error, notice, suiteUser, returnTo }) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Entrar · DACH Hub</title>
-  <link rel="icon" href="/brand/dachbyte/hub/mark.svg?v=2" type="image/svg+xml">
+  <link rel="icon" href="/brand/dachbyte/hub/mark-transparent.png?v=1" type="image/png">
   <script>try{var t=JSON.parse(localStorage.getItem("dachbyte:hub:shell:theme")||"null");document.documentElement.setAttribute("data-theme",t||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"));}catch(e){}</script>
   <link rel="stylesheet" href="/hub/ui/seller-shell.css?v=${ASSET_VERSION}">
   <link rel="stylesheet" href="/hub/assets/hub-login.css?v=${ASSET_VERSION}">
@@ -61,14 +61,14 @@ function renderLoginPage({ error, notice, suiteUser, returnTo }) {
 <body class="hub-login">
   <main class="hub-login__wrap">
     <section class="hub-login__brand" aria-hidden="true">
-      <img src="/brand/dachbyte/hub/mark.svg?v=2" alt="" width="56" height="56">
+      <img src="/brand/dachbyte/hub/mark-transparent.png?v=1" alt="" width="56" height="56">
       <strong>DACH Hub</strong>
       <p>Catálogo, estoque, pedidos e preços de todos os canais em um só fluxo.</p>
       <ul><li>Mercado Livre, Magalu e Shopee num lugar só</li><li>Estoque central com conferência em cada envio</li><li>Pedidos, expedição e etiquetas</li></ul>
     </section>
     <section class="hub-login__card" data-login data-return="${esc(returnTo)}">
       <div class="hub-login__head">
-        <img src="/brand/dachbyte/hub/mark.svg?v=2" alt="" width="36" height="36">
+        <img src="/brand/dachbyte/hub/mark-transparent.png?v=1" alt="" width="36" height="36">
         <div><span class="seller-kicker">DACH Hub</span><h1>Entrar</h1></div>
       </div>
       <div class="hub-login__flash" data-tone="danger" data-login-error ${error ? "" : "hidden"} role="alert">${esc(error || "")}</div>

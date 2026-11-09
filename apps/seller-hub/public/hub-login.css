@@ -79,3 +79,4 @@ body.hub-login{
   .hub-login__brand{ display: none; }
   .hub-login__card{ padding: 22px 18px; }
 }
+.hub-login img{ object-fit: contain; }

@@ -77,7 +77,7 @@ test("páginas usam o shell compartilhado com tema Violeta e ícone do Hub", asy
     const html = await (await get(`${base}/pendencias`, token({}), "text/html")).text();
     assert.match(html, /data-seller-theme="violet"/);
     assert.match(html, /\/hub\/ui\/seller-shell\.css/);
-    assert.match(html, /\/brand\/dachbyte\/hub\/mark\.svg/);
+    assert.match(html, /\/brand\/dachbyte\/hub\/mark-transparent\.png/);
     assert.match(html, /data-view="pending"/);
     assert.match(html, /<html lang="pt-BR"/);
   });
