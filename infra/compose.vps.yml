@@ -115,6 +115,54 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
+  # DACH Hub (gestor multicanal). Banco próprio "dachbyte_seller_hub" (o "dachbyte_hub" é do hub de acessos).
+  seller-hub-web:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-hub/start.js"]
+    env_file: ["./env/seller-hub.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/scripts/vps-healthcheck.cjs", "/hub/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+  seller-hub-worker:
+    <<: *runtime
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-hub/worker.js"]
+    env_file: ["./env/seller-hub.env", "./env/hub.env"]
+    environment:
+      NODE_ENV: production
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "/app/apps/seller-hub/scripts/worker-health.cjs"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+  seller-hub-migrate:
+    profiles: [ops]
+    build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}
+    image: dachbyte/seller:local
+    command: ["node", "apps/seller-hub/db/migrate.js", "deploy"]
+    env_file: ["./env/seller-hub.env"]
+    environment:
+      NODE_ENV: production
+    networks: [data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
   seller-magalu-migrate:
     profiles: [ops]
     build: {context: "..", dockerfile: infra/docker/node.Dockerfile, target: seller}

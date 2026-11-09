@@ -41,10 +41,27 @@ startSyncWorkers({
     automation: (job) => automations.onOrderEvent(job),
     automationsScan: () => automations.scanDue(),
   },
-}).then((h) => { syncHandle = h; console.log("[seller-hub:worker] processando importação, pedidos, envios de estoque e conferências"); })
+}).then((h) => { syncHandle = h; startHeartbeat(); console.log("[seller-hub:worker] processando importação, pedidos, envios de estoque e conferências"); })
   .catch((error) => { console.error("[seller-hub:worker] filas da E3 não iniciaram", error); process.exit(1); });
 
+// Sinal de vida para o healthcheck do container (scripts/worker-health.cjs): grava a cada 10 s, vale 60 s.
+const HEARTBEAT_KEY = "seller-hub:worker:heartbeat";
+/** @type {any} */
+let heartbeatRedis = null;
+/** @type {any} */
+let heartbeatTimer = null;
+function startHeartbeat() {
+  const Redis = require("ioredis");
+  heartbeatRedis = new Redis(config.redisUrl, { maxRetriesPerRequest: 1 });
+  const beat = () => heartbeatRedis.set(HEARTBEAT_KEY, JSON.stringify({ ts: Date.now(), pid: process.pid }), "EX", 60)
+    .catch((/** @type {any} */ error) => console.error("[seller-hub:worker] heartbeat", error?.message));
+  void beat();
+  heartbeatTimer = setInterval(beat, 10000);
+}
+
 async function shutdown() {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  if (heartbeatRedis) heartbeatRedis.disconnect();
   await handle.close().catch(() => {});
   if (syncHandle) await syncHandle.close().catch(() => {});
   await container.syncQueues.close().catch(() => {});
