@@ -82,4 +82,13 @@ function evaluate(row,global,override={}){
     pix_mode:mode||null,pix_price:pixPrice===null?null:pixPrice/100,pix_receivable:pixReceivable===null?null:pixReceivable/100,pix_margin:pixMarginResult,
     eligible:issues.length===0,issues};
 }
-module.exports={evaluate,PIX_MODES,_test:{endingAtLeast,listForPix}};
+// Parâmetros gerais sem os quais nenhum SKU pode ser elegível (evita rodar o recorte inteiro à toa).
+const REQUIRED_TERMS=[["commission_rate","Comissão estimada"],["target_margin","Margem sem Pix"],["fixed_fee","Tarifa fixa"],["shipping","Frete estimado"]];
+const REQUIRED_PIX_TERMS=[["pix_discount","Desconto Pix ao cliente"],["pix_seller_share","Sua parte no desconto"],["pix_margin","Margem no Pix"]];
+function missingTerms(terms={}){
+  const empty=([key])=>terms[key]==null||String(terms[key]).trim()==="";
+  const missing=REQUIRED_TERMS.filter(empty);
+  if(pixMode(terms.pix_mode))missing.push(...REQUIRED_PIX_TERMS.filter(empty));
+  return missing.map(([key,label])=>({key,label}));
+}
+module.exports={evaluate,missingTerms,PIX_MODES,_test:{endingAtLeast,listForPix}};
