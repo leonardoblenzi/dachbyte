@@ -62,13 +62,13 @@
 | Fase | Entrega principal | Depende de | Tamanho |
 |---|---|---|---|
 | **1. Catálogo mestre e estoque central** | SKU DACH, vínculos, ledger de estoque, kits, regras por canal, baixa automática, reconciliação | — | G |
-| **2. Preço por canal** | Regra de preço em cascata com custo, comissão, frete e imposto; trava de margem; envio com verificação | 1 | M |
+| **2. Gestor de anúncios** (seção 15) | Produto mestre controla preço, título, descrição, fotos e ficha dos anúncios já existentes, com reflexo nos canais; regra de preço por conta e anúncio | 1 | G |
 | **3. Central de pedidos** | Pedidos de todos os canais normalizados, status e automações, NF via ERP, etiquetas, expedição e base da cobrança | 1 | G |
 | **4. Publicação multicanal** | Cadastro mestre completo, mapeamento de categoria e atributo, criar anúncios em lote, fila de correção | 1 (2 ajuda) | G |
 | **5. Atendimento e novos canais** | Caixa única de perguntas, mensagens e reclamações; mensagens automáticas; novos conectores | 3 | G |
-| **Transversal** | Permissões, auditoria, notificações, relatórios, mobile, observabilidade | contínuo | — |
+| **Transversal** | Login próprio do Hub (seção 14), permissões, auditoria, notificações, relatórios, mobile, observabilidade | contínuo | — |
 
-Ordem recomendada: **1 → 3 → 2 → 4 → 5**.
+Ordem recomendada: **1 → 3 → login próprio → 2 → 4 → 5** (revisada em 09/11/2026; ver seções 14 e 15).
 - A Fase 3 vem antes da 2 porque a cobrança por % depende da central de pedidos.
 - Pedidos são o dia a dia que prende o cliente.
 - Preço por canal já tem ferramentas parciais nos módulos.
@@ -478,3 +478,46 @@ Estudo completo em `docs/research/2026-11-06-magis5-e-base.md`, feito só com fo
   - Fase 3: pipeline de status do pedido, automações, checkout com bipagem e foto do pacote, coletas, etiqueta unificada.
   - Fase 4/5: clonar e replicar anúncios entre canais; reclamações e devoluções do ML.
   - Comercial: teste de 14 dias sem cartão e "auditoria" da conta a partir do modo observação.
+
+---
+
+## 14. Login próprio do DACH Hub (pedido de 09/11/2026)
+
+**Objetivo:** o DACH Hub tem a própria página de entrada, com a marca do Hub, sem passar pela tela de login da suíte. Por enquanto, quem decide quem entra é o **hub de acessos** (repositório `hub pagamento`), o mesmo que já autentica a suíte.
+
+**Como fica**
+- Página `https://dachbyte.tech/hub/login` (tema Violeta DACH), com e-mail, senha, "esqueci a senha" e saída em `/hub/sair`.
+- O servidor do Hub confere a senha no hub de acessos (`POST /v1/internal/portal/auth/verify`, com o token interno) e depois pergunta se a empresa e o usuário podem usar o produto (`POST /v1/access/check`, módulo `dach_hub`).
+- Sessão própria: cookie `dach_hub_session` (httpOnly, Secure, SameSite=Lax, caminho `/hub`), assinado com `HUB_SESSION_SECRET`, validade de 12 horas, com nova checagem de acesso em cache curto (45 s), como no DACH Magalu.
+- Quem já está logado na suíte pode entrar direto (o cookie da suíte continua aceito), mas a liberação passa a vir do hub de acessos e não mais só de `HUB_ALLOWED_TENANTS`, que fica como reserva enquanto o produto `dach_hub` não existe lá.
+- Usuário com mais de uma empresa escolhe a empresa depois da senha.
+- Falha fechada: hub de acessos fora do ar ou resposta estranha = não entra (com mensagem clara).
+
+**No hub de acessos:** cadastrar o produto/módulo `dach_hub` e a ação `ACCESS dach_hub`, para liberar empresas e usuários pelo painel de acessos. Recuperação de senha usa o fluxo atual da suíte até o Hub ter usuários próprios.
+
+**Depois (fora do escopo agora):** usuários próprios do Hub e permissões por área (seção 9), sem depender da suíte.
+
+---
+
+## 15. Gestor de anúncios (pedido de 09/11/2026)
+
+**Objetivo:** como na Tray, o produto é controlado no DACH Hub. O seller muda preço, título, descrição, fotos e ficha no Hub, e a mudança vai para todos os anúncios vinculados nos canais. Absorve a Fase 2 (preço) e a parte "sincronismo pós-publicação" da Fase 4. Criar anúncios novos continua na Fase 4.
+
+**Princípios (os mesmos do estoque)**
+- Modo observação primeiro: o Hub mostra "o que mudaria" em cada anúncio antes de escrever.
+- Sincronismo **por campo e por anúncio** (preço, título, descrição, fotos, ficha), liga/desliga, como na Tray.
+- Toda escrita é conferida relendo o anúncio no canal; mudança feita por fora vira divergência (mesma tela da reconciliação).
+- Escrita só nas empresas do piloto (`HUB_WRITE_TENANTS`), com pausa geral.
+
+**Etapas**
+1. **G1 — Produto mestre completo e importação do conteúdo:** título, descrição, fotos (ordem e capa), marca, modelo, EAN, dimensões e peso, garantia e atributos. Para não começar do zero, o Hub puxa o conteúdo dos anúncios já vinculados e o seller escolhe o anúncio "fonte" de cada produto.
+2. **G2 — Preço:** preço do produto (de/por) e regra por conta e por anúncio: igual, acréscimo ou desconto em % ou R$, arredondamento, mínimo e máximo. Prévia "preço atual → novo" e envio com verificação nos três canais (ML `PUT /items/{id}`, Magalu preço do portfólio, Shopee `update_price`). Margem alvo e tabela de tarifas entram depois, reaproveitando as calculadoras de ML e Magalu.
+3. **G3 — Conteúdo:** título, descrição, fotos e ficha para os anúncios vinculados, respeitando as travas de cada canal:
+   - ML: título não muda em anúncio com venda; anúncio de catálogo não troca fotos nem título; descrição vai em `/items/{id}/description`.
+   - Magalu: alteração de SKU pode passar por moderação; o Hub acompanha até aprovar ou recusar.
+   - Shopee: foto precisa ser enviada antes pela API de upload de imagem; título e descrição pelo `update_item`.
+4. **G4 — Divergências de preço e conteúdo:** releitura periódica; mudança feita no canal aparece para o seller escolher "manter a do canal" ou "voltar a do Hub".
+
+**Dados:** `hub.item_media` (fotos do produto, ordem), `hub.item_content` (campos mestres e anúncio fonte), `hub.item_prices`, `hub.price_rules`, `hub.listing_sync_settings` (campo × anúncio), `hub.content_pushes` e `hub.price_pushes` (mesmo padrão de `stock_pushes`).
+
+**Decisão em aberto:** onde guardar as fotos. O ML busca a foto por URL pública, então o Hub precisa servi-las por HTTPS. Opções: disco do servidor servido pelo próprio Hub (mais simples para começar) ou armazenamento de objetos (Cloudflare R2 ou S3, melhor para volume).
