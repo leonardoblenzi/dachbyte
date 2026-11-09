@@ -12,6 +12,11 @@ function filters(input={}){
   const activity=String(input.activity||"");
   if(activity&&! ["active","inactive"].includes(activity))throw invalid("Atividade inválida.");
   if(activity)where.push(`s.active=${activity==="active"?"true":"false"}`);
+  // "Apenas estoque > 0": usa o estoque gravado na última sincronização do catálogo.
+  // Reduz o recorte (e as consultas à Magalu) aos SKUs que podem vender.
+  const stock=String(input.stock||"");
+  if(stock&&stock!=="positive")throw invalid("Filtro de estoque inválido.");
+  if(stock==="positive")where.push(`exists(select 1 from magalu.stocks st where st.account_id=s.account_id and st.sku=s.sku and st.is_present=true and st.quantity>0)`);
   const category=String(input.category||"").trim();
   if(category.length>128)throw invalid("Categoria muito longa.");
   if(category){params.push(category);where.push(`s.category_id=$${params.length}`);}
