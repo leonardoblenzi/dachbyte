@@ -48,7 +48,7 @@ function renderPage(path, viewer) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${esc(page.title)} · DACH Hub</title>
-  <link rel="icon" href="/brand/dachbyte/hub/mark.svg" type="image/svg+xml">
+  <link rel="icon" href="/brand/dachbyte/hub/mark.svg?v=2" type="image/svg+xml">
   <script>try{var t=JSON.parse(localStorage.getItem("dachbyte:hub:shell:theme")||"null");document.documentElement.setAttribute("data-theme",t||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"));}catch(e){}</script>
   <link rel="stylesheet" href="/hub/ui/seller-shell.css?v=${ASSET_VERSION}">
   <link rel="stylesheet" href="/hub/assets/hub.css?v=${ASSET_VERSION}">
