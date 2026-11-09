@@ -107,3 +107,11 @@ html[data-dachbyte-app="seller-magalu"] .dx-switch button[aria-pressed="true"], 
 @media (min-width:851px) { .seller-feature > p { min-height:calc(15px * 1.45 * 2); } }
 @media (max-width:1050px) { .seller-features { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:850px) { .seller-features, .seller-grid { grid-template-columns:1fr; } }
+/* Acessibilidade: letra mínima de 12px, alvos de toque de 44px e atalho para o conteúdo. */
+.seller-demo__badge, .seller-demo__kpi span, .seller-demo__live, .seller-console__live, .seller-footer__copy, .seller-footer__links a, .dx-field small { font-size: 12px; }
+.seller-demo__tab { min-height: 44px; }
+.seller-footer__links a { display: inline-flex; align-items: center; min-height: 44px; }
+.dx-contact-split__client a { display: inline-block; padding: 12px 0; }
+.seller-skip { position: absolute; top: -100px; left: 16px; z-index: 1000; padding: 12px 16px; border-radius: 8px; background: var(--seller-primary); color: #09101a; font: 700 15px/1 Inter, system-ui, sans-serif; text-decoration: none; }
+.seller-skip:focus { top: 12px; }
+main:focus { outline: none; }

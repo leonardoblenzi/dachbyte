@@ -101,5 +101,5 @@ test("Magalu landing resolves the Seller login and cache-busts its navigation as
   const magalu = read("apps", "gateway", "views", "seller", "landing-magalu.html");
 
   assert.equal(loginDestination("seller", "Magalu"), "/go/magalu");
-  assert.match(magalu, /landing-experience\.js\?v=20261109\.3/);
+  assert.match(magalu, /landing-experience\.js\?v=20261109\.4/);
 });

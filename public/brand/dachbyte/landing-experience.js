@@ -21,9 +21,14 @@
       { label: 'DACH Ads', href: '/ads', login: '/ads/app', key: 'ads' }
     ]
   };
-  function margin(price, discount, ads) {
+  // Taxas do exemplo por canal. Magalu usa os valores padrão do módulo (comissão 13% + tarifa fixa de R$ 5).
+  const channelRates = {
+    default: { fee: .16, fixedFee: 0, label: 'comissão de 16%' },
+    magalu: { fee: .13, fixedFee: 5, label: 'comissão de 13% + tarifa de R$ 5' }
+  };
+  function margin(price, discount, ads, rates = channelRates.default) {
     const revenue = price * (1 - discount / 100);
-    const fees = revenue * .16;
+    const fees = revenue * rates.fee + rates.fixedFee;
     const fixed = 45 + 12 + ads;
     const profit = revenue - fees - fixed;
     return {
@@ -31,7 +36,7 @@
       fees: +fees.toFixed(2),
       profit: +profit.toFixed(2),
       margin: +(revenue ? profit / revenue * 100 : 0).toFixed(2),
-      breakEven: +(fixed / (.84 * (1 - discount / 100))).toFixed(2)
+      breakEven: +((fixed + rates.fixedFee) / ((1 - rates.fee) * (1 - discount / 100))).toFixed(2)
     };
   }
   // Estoque e reposição, na mesma linha das telas de Estoque dos módulos: cobertura = estoque ÷ vendas por dia;
@@ -69,7 +74,7 @@
     return active ? active.login : '/login';
   };
   const nextStep = (step, total) => total > 0 ? Math.min(step + 1, total - 1) : 0;
-  if (typeof module !== 'undefined' && module.exports) module.exports = { margin, nextStep, stockPlan, businessSteps, loginDestination };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { margin, channelRates, nextStep, stockPlan, businessSteps, loginDestination };
   if (!root.document) return;
   const money = value => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const linkList = (family, activeKey) => (products[family] || []).map(({ label, href, key }) => `<a href="${href}"${key === activeKey ? ' aria-current="page"' : ''}>${label}</a>`).join('');
@@ -181,11 +186,11 @@
     el.dataset.dxExperienceMounted = 'true';
     el.classList.add('dx-experience');
     const title = type === 'business' ? 'Uma exceção. Três equipes conectadas.' : type === 'ml' ? 'Você vendeu. Quanto ficou?' : type === 'magalu' ? 'Você vendeu no Magalu. Quanto ficou?' : type === 'shopee' ? 'Quando o seu estoque acaba?' : 'Margem e estoque: experimente a decisão.';
-    const intro = type === 'business' ? 'Avance pelo cenário de reposição e veja como cada produto participa da rotina.' : 'Mude os controles e acompanhe o efeito. Uma prévia para explorar antes de conversar com a equipe.';
-    el.innerHTML = `<header class="dx-section-head"><span class="dx-eyebrow">${type === 'business' ? 'Fluxo Business' : 'Laboratório Seller'} · interativo</span><h2>${title}</h2><p>${intro}</p><span class="dx-demo-label">Simulação local · dados fictícios · nenhuma ação na sua conta</span></header><div class="dx-workbench"></div>`;
+    const intro = type === 'business' ? 'Avance pelo cenário de reposição e veja como cada produto participa da rotina.' : 'Mude os controles e veja o efeito. Números fictícios; nada é alterado na sua conta.';
+    el.innerHTML = `<header class="dx-section-head"><span class="dx-eyebrow">${type === 'business' ? 'Fluxo Business · interativo' : 'Simulação'}</span><h2>${title}</h2><p>${intro}</p>${type === 'business' ? '<span class="dx-demo-label">Simulação local · dados fictícios · nenhuma ação na sua conta</span>' : ''}</header><div class="dx-workbench"></div>`;
     const bench = el.querySelector('.dx-workbench');
     if (type === 'business') return business(bench);
-    const scene = ({ ml: calculator, magalu: calculator, shopee: stock })[type];
+    const scene = ({ ml: calculator, magalu: p => calculator(p, channelRates.magalu), shopee: stock })[type];
     if (scene) return scene(bench);
     const buttons = document.createElement('div');
     buttons.className = 'dx-switch';
@@ -198,13 +203,15 @@
     });
     bench.append(buttons, panel); calculator(panel);
   }
-  function calculator(panel) {
-    panel.innerHTML = `<div class="dx-grid"><div class="dx-controls"><h3>Uma venda de R$ 100 pode ter muitos resultados.</h3><p>Teste preço, desconto e mídia. Compare o que entra com o que sobra depois dos custos do exemplo.</p><label>Preço anunciado <output data-price-label></output><input aria-label="Preço anunciado" data-price type="range" min="70" max="200" value="100" step="1"></label><label>Desconto <output data-discount-label></output><input aria-label="Desconto" data-discount type="range" min="0" max="35" value="0" step="1"></label><label>Ads por venda <output data-ads-label></output><input aria-label="Ads por venda" data-ads type="range" min="0" max="30" value="8" step="1"></label><small>Hipóteses didáticas: produto R$ 45, frete R$ 12, taxa de 16% sobre a venda. Não é uma cotação do marketplace; impostos e outros custos não estão incluídos.</small></div><div class="dx-scene"><div class="dx-receipt"><span class="dx-eyebrow">Resultado estimado do cenário</span><strong class="dx-profit" data-profit></strong><p data-percent></p><div class="dx-waterfall" role="img" aria-label="Composição do valor da venda"><div><i data-cost-bar></i><span>Produto + frete</span></div><div><i data-fees-bar></i><span>Taxa + Ads</span></div><div><i data-profit-bar></i><span>Resultado</span></div></div><dl><div><dt>Venda após desconto</dt><dd data-revenue></dd></div><div><dt>Preço mínimo para empatar</dt><dd data-break-even></dd></div></dl><p class="dx-insight" role="status" data-insight></p></div></div></div>`;
+  const syncValueText = panel => panel.querySelectorAll('label').forEach(label => { const out = label.querySelector('output'), input = label.querySelector('input[type="range"]'); if (out && input) input.setAttribute('aria-valuetext', out.textContent); });
+  function calculator(panel, rates = channelRates.default) {
+    panel.innerHTML = `<div class="dx-grid"><div class="dx-controls"><h3>Uma venda de R$ 100 pode ter muitos resultados.</h3><p>Teste preço, desconto e mídia. Compare o que entra com o que sobra depois dos custos do exemplo.</p><label>Preço anunciado <output data-price-label></output><input aria-label="Preço anunciado" data-price type="range" min="70" max="200" value="100" step="1"></label><label>Desconto <output data-discount-label></output><input aria-label="Desconto" data-discount type="range" min="0" max="35" value="0" step="1"></label><label>Ads por venda <output data-ads-label></output><input aria-label="Ads por venda" data-ads type="range" min="0" max="30" value="8" step="1"></label><small>Exemplo: produto R$ 45, frete R$ 12 e ${rates.label}. Impostos e outros custos ficam de fora.</small></div><div class="dx-scene"><div class="dx-receipt"><span class="dx-eyebrow">Resultado estimado do cenário</span><strong class="dx-profit" data-profit></strong><p data-percent></p><div class="dx-waterfall" role="img" aria-label="Composição do valor da venda"><div><i data-cost-bar></i><span>Produto + frete</span></div><div><i data-fees-bar></i><span>Taxas + Ads</span></div><div><i data-profit-bar></i><span>Resultado</span></div></div><dl><div><dt>Venda após desconto</dt><dd data-revenue></dd></div><div><dt>Preço mínimo para empatar</dt><dd data-break-even></dd></div></dl><p class="dx-insight" role="status" data-insight></p></div></div></div>`;
     const update = () => {
       const p = +panel.querySelector('[data-price]').value, d = +panel.querySelector('[data-discount]').value, a = +panel.querySelector('[data-ads]').value;
-      const r = margin(p, d, a);
+      const r = margin(p, d, a, rates);
       for (const [key, value] of Object.entries({ 'price-label': money(p), 'discount-label': d + '%', 'ads-label': money(a), profit: money(r.profit), percent: r.margin.toFixed(1).replace('.', ',') + '% de margem estimada', revenue: money(r.revenue), 'break-even': money(r.breakEven), insight: r.profit < 0 ? 'Neste cenário, cada venda dá prejuízo. Reveja desconto, preço ou custos.' : r.margin < 15 ? 'O desconto está consumindo o resultado. Compare uma condição diferente.' : 'Resultado positivo neste exemplo. Antes de decidir, considere todos os seus custos.' })) panel.querySelector(`[data-${key}]`).textContent = value;
       panel.querySelector('.dx-receipt').classList.toggle('dx-negative', r.profit < 0);
+      syncValueText(panel);
       [['cost', 57], ['fees', r.fees + a], ['profit', Math.max(0, r.profit)]].forEach(([key, value]) => panel.querySelector(`[data-${key}-bar]`).style.height = Math.max(2, Math.min(100, value / Math.max(r.revenue, 1) * 100)) + '%');
     };
     panel.querySelectorAll('input').forEach(input => input.addEventListener('input', update)); update();
@@ -237,6 +244,7 @@
       const gap = panel.querySelector('[data-gap]');
       gap.style.left = pct(r.coverage) + '%'; gap.style.width = Math.max(0, pct(l) - pct(r.coverage)) + '%';
       panel.querySelector('[data-lead-mark]').style.left = pct(l) + '%';
+      syncValueText(panel);
       panel.querySelector('[data-line]').setAttribute('aria-label', `O estoque dura ${days(r.days)}; a reposição chega em ${days(l)} se o pedido sair hoje.`);
     };
     panel.querySelectorAll('input').forEach(input => input.addEventListener('input', update)); update();

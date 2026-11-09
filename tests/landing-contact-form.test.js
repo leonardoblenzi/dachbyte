@@ -30,7 +30,7 @@ test("landings do Seller: contato pelo formulário, sem e-mail antigo nem mailto
 
 test("simulação do Magalu existe e tipo desconhecido não quebra a página", () => {
   const js = read("public", "brand", "dachbyte", "landing-experience.js");
-  assert.match(js, /magalu: calculator/);
+  assert.match(js, /magalu: p => calculator\(p, channelRates\.magalu\)/);
   assert.match(js, /if \(scene\) return scene\(bench\)/);
   assert.match(js, /Você vendeu no Magalu/);
 });
@@ -123,4 +123,16 @@ test("cada página de canal tem a própria cor (ML amarelo, Shopee vermelho, Mag
   assert.match(css, /html\[data-dachbyte-app="seller-magalu"\] \{ --seller-primary: var\(--seller-magalu\)/);
   assert.doesNotMatch(css, /rgba\(255,138,63/);
   for (const name of landings) assert.match(read("apps", "gateway", "views", "seller", name), /dx-contact-split/, name);
+});
+
+test("revisão de UX: Magalu com as taxas do módulo, simulação depois das funções e acessibilidade", () => {
+  const { margin, channelRates } = require("../public/brand/dachbyte/landing-experience.js");
+  assert.deepEqual(margin(100, 0, 8, channelRates.magalu), { revenue: 100, fees: 18, profit: 17, margin: 17, breakEven: 80.46 });
+  const sellerJs = read("public", "brand", "dachbyte", "seller", "landing.js");
+  assert.match(sellerJs, /querySelector\('#funcoes, #modulos'\)/);
+  assert.match(sellerJs, /ArrowRight/);
+  assert.match(sellerJs, /Pular para o conteúdo/);
+  const js = read("public", "brand", "dachbyte", "landing-experience.js");
+  assert.match(js, /aria-valuetext/);
+  for (const name of landings) assert.match(read("apps", "gateway", "views", "seller", name), /class="seller-ticker" aria-hidden="true"/, name);
 });
