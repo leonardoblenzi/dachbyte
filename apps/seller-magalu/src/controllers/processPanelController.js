@@ -24,4 +24,14 @@ async function promoJobRow(job,owner){
 async function promoJobs(owner){const q=await getQueue(queueNames.promoPriceRefresh),jobs=await q.getJobs(["active","waiting","delayed","completed","failed"],0,99);return(await Promise.all(jobs.map(job=>promoJobRow(job,owner)))).filter(Boolean);}
 async function list(req,res) { try { const account = await accountFor(req),owner={accountId:account.id,tenantId:req.magaluIdentity.dachTenantId,userId:req.magaluIdentity.dachUserId};const [stored,promo]=await Promise.all([processes.list(account.id,owner.tenantId),promoJobs(owner)]);return res.json({ok:true,rows:[...stored,...promo].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,100)}); } catch(error) { return fail(res,error); } }
 async function detail(req,res) { try { const account = await accountFor(req);if(req.params.kind==="promo"){const q=await getQueue(queueNames.promoPriceRefresh),job=await q.getJob(req.params.id),owner={accountId:account.id,tenantId:req.magaluIdentity.dachTenantId,userId:req.magaluIdentity.dachUserId};if(!job||!await promoJobRow(job,owner))return res.status(404).json({ok:false,message:"Processo não encontrado nesta conta."});return res.json({ok:true,rows:(job.returnvalue?.errors||job.progress?.errors||[]).map(item=>({sku:item.sku,status:"failed",error_message:item.message}))});}const rows = await processes.detail(account.id, req.magaluIdentity.dachTenantId, req.params.kind, req.params.id); if (!rows) return res.status(404).json({ok:false,message:"Processo não encontrado nesta conta."}); return res.json({ok:true,rows}); } catch(error) { return fail(res,error); } }
-module.exports = { list, detail,promoJobRow };
+const { streamReport } = require("../services/processReportService");
+async function report(req,res){try{
+  const account=await accountFor(req),kind=String(req.params.kind||""),id=String(req.params.id||"");
+  if(!processes.REPORT_KINDS[kind]||!await processes.reportExists(account.id,req.magaluIdentity.dachTenantId,kind,id))return res.status(404).json({ok:false,message:"Processo não encontrado nesta conta."});
+  const file=kind==="write"?"relatorio-precos-estoque":"relatorio-gestao-skus";
+  res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition",`attachment; filename="${file}-${id.slice(0,8)}.xlsx"`);
+  await streamReport(res,{resource:processes.REPORT_KINDS[kind],fetchPage:afterId=>processes.reportPage(account.id,req.magaluIdentity.dachTenantId,kind,id,afterId)});
+  return res;
+}catch(error){if(res.headersSent){res.destroy(error);return res;}return fail(res,error);}}
+module.exports = { list, detail, report, promoJobRow };

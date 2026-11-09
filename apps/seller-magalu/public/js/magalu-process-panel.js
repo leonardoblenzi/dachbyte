@@ -8,6 +8,26 @@
   const fmt = value => new Intl.NumberFormat("pt-BR").format(Number(value) || 0);
   const currentAccount = () => Number(shell()?.getSelectedAccountId?.()) || null;
   const key = row => `${row.kind}:${row.id}`;
+  // Relatório do procedimento (XLSX, um SKU por linha com resultado e motivo), no padrão do painel de jobs do ML.
+  const REPORT_KINDS = new Set(["group", "catalog", "write"]);
+  function reportAction(row, t) {
+    if (!REPORT_KINDS.has(row.kind)) return "";
+    const done = t.total - t.pending;
+    if (t.pending && done <= 0) return "";
+    const href = `/magalu/api/processes/${encodeURIComponent(row.kind)}/${encodeURIComponent(row.id)}/report.xlsx?account_id=${encodeURIComponent(currentAccount() || "")}`;
+    return `<a class="mg-process-card__report" href="${esc(href)}" download>${t.pending ? "Baixar relatório parcial" : "Baixar relatório"}</a>`;
+  }
+  function reportNotice(row, t) {
+    if (!REPORT_KINDS.has(row.kind) || t.pending) return "";
+    const problems = t.failed + t.stale + t.canceled, recheck = t.uncertain + t.divergent;
+    const parts = [problems ? `${fmt(problems)} SKU(s) não alterados` : "", recheck ? `${fmt(recheck)} aguardando confirmação da Magalu` : ""].filter(Boolean);
+    return parts.length ? `<p class="mg-process-card__notice">${esc(parts.join(" · "))}. O relatório traz o motivo de cada um.</p>` : "";
+  }
+  function detailAction(row, t) {
+    if (!REPORT_KINDS.has(row.kind)) return `<button type="button" data-process-detail="${esc(key(row))}">Ver detalhes</button>`;
+    const recheck = t.uncertain + t.divergent;
+    return recheck && !t.pending ? `<button type="button" data-process-detail="${esc(key(row))}">Reverificar itens (${fmt(recheck)})</button>` : "";
+  }
   const syncStages = { sku_list: "Iniciando leitura", "list:PUBLISHED": "Lendo SKUs publicados", "list:UNPUBLISHED": "Lendo SKUs não publicados", "list:BLOCKED": "Lendo SKUs bloqueados", known_sku_refresh: "Conferindo SKUs fora da listagem", complete: "Finalizada" };
   const syncStatus = { running: "Em andamento", success: "Concluído", partial: "Parcial", failed: "Falhou", canceled: "Interrompida" };
   const label = row => row.kind === "sync" ? "Sincronizar catálogo" : row.kind === "promo" ? (row.action === "promo-preview" ? "Calcular preços promocionais" : "Consultar preços Magalu") : ["catalog","group"].includes(row.kind) ? (row.action === "activate" ? "Publicar SKUs" : "Despublicar SKUs") : row.resource === "price" ? "Atualizar preços" : "Atualizar estoque";
@@ -38,7 +58,7 @@
         const counts = [t.failed ? `${fmt(t.failed)} leituras com falha` : "", row.details_skipped ? `${fmt(row.details_skipped)} não publicados sem preço/estoque` : ""].filter(Boolean).join(" · ");
         return `<article class="mg-process-card" data-tone="${tone}"><span class="mg-process-card__icon" aria-hidden="true">${tone==="processing" ? "" : tone === "ok" ? "✓" : "!"}</span><div class="mg-process-card__content"><div class="mg-process-card__id">#${esc(row.id)}</div><strong class="mg-process-card__name">${esc(label(row))}</strong><div class="mg-process-card__meta">${meta}</div><div class="mg-process-card__state"><span>${esc(stateText)}</span></div>${t.pending ? `<div class="mg-process-card__progress"><div class="mg-process-card__bar" role="progressbar" aria-valuenow="${t.progress}" aria-valuemin="0" aria-valuemax="100"><i style="width:${t.progress}%"></i></div><b>${t.progress}%</b></div>` : ""}${counts ? `<div class="mg-process-card__counts">${counts}</div>` : ""}${row.error_message?`<p>${esc(row.error_message)}</p>`:""}<button type="button" data-process-detail="${esc(key(row))}">Ver detalhes</button></div></article>`;
       }
-      return `<article class="mg-process-card" data-tone="${tone}"><span class="mg-process-card__icon" aria-hidden="true">${tone==="processing" ? "" : tone === "ok" ? "✓" : "!"}</span><div class="mg-process-card__content"><div class="mg-process-card__id">#${esc(String(row.id).slice(0, 18))}</div><strong class="mg-process-card__name">${esc(label(row))}</strong><div class="mg-process-card__meta">${fmt(t.total)} SKU(s) · ${esc(row.resource)}</div><div class="mg-process-card__state"><span>${esc(stateText)}</span>${t.success ? `<small>${fmt(t.success)} concluídos</small>` : ""}</div><div class="mg-process-card__progress"><div class="mg-process-card__bar" role="progressbar" aria-valuenow="${t.progress}" aria-valuemin="0" aria-valuemax="100"><i style="width:${t.progress}%"></i></div><b>${t.progress}%</b></div><div class="mg-process-card__counts">${t.pending ? `${fmt(t.pending)} pendentes` : ""}${t.failed + t.stale ? ` · ${fmt(t.failed + t.stale)} falhas` : ""}${t.uncertain + t.divergent ? ` · ${fmt(t.uncertain + t.divergent)} para reverificar` : ""}</div>${row.error_message?`<p>${esc(row.error_message)}</p>`:""}<button type="button" data-process-detail="${esc(key(row))}">Ver detalhes</button></div></article>`;
+      return `<article class="mg-process-card" data-tone="${tone}"><span class="mg-process-card__icon" aria-hidden="true">${tone==="processing" ? "" : tone === "ok" ? "✓" : "!"}</span><div class="mg-process-card__content"><div class="mg-process-card__id">#${esc(String(row.id).slice(0, 18))}</div><strong class="mg-process-card__name">${esc(label(row))}</strong><div class="mg-process-card__meta">${fmt(t.total)} SKU(s) · ${esc(({sku:"catálogo",price:"preço",stock:"estoque",promotion:"promoção"})[row.resource]||row.resource||"")}</div><div class="mg-process-card__state"><span>${esc(stateText)}</span>${t.success ? `<small>${fmt(t.success)} concluídos</small>` : ""}</div><div class="mg-process-card__progress"><div class="mg-process-card__bar" role="progressbar" aria-valuenow="${t.progress}" aria-valuemin="0" aria-valuemax="100"><i style="width:${t.progress}%"></i></div><b>${t.progress}%</b></div><div class="mg-process-card__counts">${t.pending ? `${fmt(t.pending)} pendentes` : ""}${t.failed + t.stale ? ` · ${fmt(t.failed + t.stale)} falhas` : ""}${t.uncertain + t.divergent ? ` · ${fmt(t.uncertain + t.divergent)} para reverificar` : ""}</div>${row.error_message?`<p>${esc(row.error_message)}</p>`:""}${reportNotice(row,t)}<div class="mg-process-card__actions">${reportAction(row,t)}${detailAction(row,t)}</div></div></article>`;
     };
     const isRunning = row => row.kind === "sync" ? row.status === "running" : status(row)!=="Falhou"&&totals(row).pending && totals(row).progress;
     const queued = rows.filter(row => row.kind !== "sync" && status(row)!=="Falhou"&&totals(row).pending && !totals(row).progress), running = rows.filter(isRunning), completed = rows.filter(row => status(row)==="Falhou"||!totals(row).pending);

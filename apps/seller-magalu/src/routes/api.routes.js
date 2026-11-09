@@ -75,6 +75,7 @@ router.post("/writes/operations/:operationId/reverify", writeController.reverify
 router.get("/writes/operations/:operationId", writeController.operation);
 router.get("/processes", processPanelController.list);
 router.get("/processes/:kind/:id", processPanelController.detail);
+router.get("/processes/:kind/:id/report.xlsx", processPanelController.report);
 router.get("/promo-prices",promoPriceController.list);
 router.post("/promo-prices/search",promoPriceController.list);
 router.post("/promo-prices/export",promoPriceController.exportList);

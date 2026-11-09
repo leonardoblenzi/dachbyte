@@ -90,4 +90,37 @@ async function detail(accountId, tenantId, kind, id) {
     [id, Number(accountId), String(tenantId)]);
   return rows.length ? rows : null;
 }
-module.exports = { list, detail, _test: { syncRow } };
+// Relatório por SKU (página por id crescente), sempre restrito à conta e ao tenant.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const REPORT_KINDS = { group: "sku", catalog: "sku", write: "write" };
+async function reportExists(accountId, tenantId, kind, id) {
+  if (!REPORT_KINDS[kind] || !UUID_RE.test(String(id))) return false;
+  const params = [String(id), Number(accountId), String(tenantId)];
+  const sql = kind === "group"
+    ? "select 1 from magalu.sku_bulk_groups where id=$1 and account_id=$2 and dach_tenant_id=$3"
+    : kind === "catalog"
+      ? "select 1 from magalu.mass_operation_batches where id=$1 and account_id=$2 and dach_tenant_id=$3"
+      : "select 1 from magalu.write_operations where preview_id=$1 and account_id=$2 and dach_tenant_id=$3 limit 1";
+  return Boolean(await db.queryOne(sql, params));
+}
+async function reportPage(accountId, tenantId, kind, id, afterId = 0, limit = 2000) {
+  const params = [String(id), Number(accountId), String(tenantId), Number(afterId) || 0, Math.min(5000, Math.max(1, Number(limit) || 2000))];
+  if (kind === "write") {
+    const { rows } = await db.query(`select w.id,w.sku,w.resource_type,w.status,w.before_payload,w.requested_payload,w.after_payload,
+      w.response_status,w.request_id,w.error_code,w.error_message,w.completed_at,s.title,'' as batch_label
+      from magalu.write_operations w left join magalu.skus s on s.account_id=w.account_id and s.sku=w.sku
+      where w.preview_id=$1 and w.account_id=$2 and w.dach_tenant_id=$3 and w.id>$4 order by w.id limit $5`, params);
+    return rows;
+  }
+  const batchFilter = kind === "group" ? "b.group_id=$1" : "b.id=$1";
+  const { rows } = await db.query(`with batches as (
+      select b.id,row_number() over(order by b.created_at,b.id) as n from magalu.mass_operation_batches b
+      where ${batchFilter} and b.account_id=$2 and b.dach_tenant_id=$3)
+    select i.id,i.sku,i.action,i.status,i.before_payload,i.requested_payload,i.after_payload,i.response_status,i.request_id,
+      i.error_code,i.error_message,i.completed_at,s.title,'Lote '||b.n as batch_label
+    from magalu.mass_operation_items i join batches b on b.id=i.batch_id
+    left join magalu.skus s on s.account_id=i.account_id and s.sku=i.sku
+    where i.account_id=$2 and i.dach_tenant_id=$3 and i.id>$4 order by i.id limit $5`, params);
+  return rows;
+}
+module.exports = { list, detail, reportExists, reportPage, REPORT_KINDS, _test: { syncRow } };
