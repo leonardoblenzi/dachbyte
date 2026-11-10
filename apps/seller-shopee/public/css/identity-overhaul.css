@@ -1118,13 +1118,23 @@ body.neo .ml-sidebar .sidebar-category__meta {
   min-width: 0;
 }
 
-body.neo .ml-sidebar .sidebar-category__meta strong,
+/* o nome do grupo pode quebrar linha; descricao e subitens cortam com "..." */
+body.neo .ml-sidebar .sidebar-category__meta strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
 body.neo .ml-sidebar .sidebar-category__meta small,
 body.neo .ml-sidebar .ml-nav-item--sub .ml-nav-item__label {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* rotulo antigo do menu que sobra no fim depois que o JS agrupa as abas */
+body.neo .ml-sidebar .ml-sidebar__section[data-categorized="1"] > .ml-sidebar__title {
+  display: none !important;
 }
 
 body.neo .ml-sidebar .ml-nav-item--sub .ml-nav-item__content {
