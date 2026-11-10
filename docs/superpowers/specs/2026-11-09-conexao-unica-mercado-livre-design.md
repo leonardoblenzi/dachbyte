@@ -135,5 +135,5 @@ O mesmo vale para os outros canais: o dono da conexão de cada canal é quem rec
 
 - `GET /api/meli/contas-dachbyte`: contas da empresa conectadas na DACHBYTE e fora do módulo ML (ex.: só no Hub), com a situação da conexão.
 - `POST /api/meli/contas-dachbyte/:id/ativar` (usuário que edita): confirma o recurso `ml` no hub de acessos antes de ativar, depois ativa `ml`, define conta padrão/cookie e enfileira a medição da faixa, igual a uma conta nova. Conta com autorização expirada pede "Vincular nova conta".
-- Painel "Contas já conectadas na DACHBYTE" na seleção de contas (`/select-conta`) e na tela de vincular (`/vincular-conta`).
+- Painel "Contas já conectadas na DACHBYTE" em Conta > Contas vinculadas (`/conta/contas`, caminho de quem já usa o ML), na tela de vincular (`/vincular-conta`, para quem entra sem conta) e na seleção global (`/select-conta`, admin master).
 - Migração `081_meli_account_activated_audit.sql`: retenção do evento `meli_account_activated`.

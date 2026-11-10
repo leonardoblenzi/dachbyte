@@ -243,3 +243,11 @@ test("etapa 3: telas de contas do ML mostram as contas já conectadas na DACHBYT
   assert.match(link, /id="dachbyte-accounts" hidden/);
   assert.match(link, /Ativar neste módulo/);
 });
+
+test("etapa 3: Contas vinculadas (menu Conta) também mostra e ativa contas da DACHBYTE", () => {
+  const js = read("public/js/conta-contas.js");
+  assert.match(js, /api\("\/api\/meli\/contas-dachbyte"\)/);
+  assert.match(js, /\/api\/meli\/contas-dachbyte\/\$\{encodeURIComponent/);
+  assert.match(js, /await Promise\.all\(\[loadAccounts\(\), loadDachbyteAccounts\(\)\]\)/, "depois de ativar, a conta aparece na lista");
+  assert.match(read("views/conta-contas.html"), /id="dachbyte-panel" hidden/);
+});

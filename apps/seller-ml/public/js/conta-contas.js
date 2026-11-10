@@ -307,8 +307,50 @@
     }
   }
 
+  // Conexao unica: contas da empresa ja conectadas na DACHBYTE (ex.: pelo DACH Hub) e fora deste modulo.
+  async function loadDachbyteAccounts() {
+    const panel = $("dachbyte-panel");
+    const list = $("dachbyte-list");
+    if (!panel || !list) return;
+    try {
+      const payload = await api("/api/meli/contas-dachbyte");
+      const contas = Array.isArray(payload.contas) ? payload.contas : [];
+      if (!contas.length) { panel.hidden = true; return; }
+      list.innerHTML = contas.map((c) => `<div class="dachbyte-row">
+          <span><strong>${escapeHtml(c.label)}</strong><small>ML User ID ${escapeHtml(c.meli_user_id)}${c.connection === "ok" ? "" : " - autorizacao expirada: use Vincular nova conta"}</small></span>
+          ${c.connection === "ok" ? `<button class="au-btn au-btn-primary" type="button" data-activate-dachbyte="${escapeHtml(c.id)}">Ativar neste modulo</button>` : ""}
+        </div>`).join("");
+      panel.hidden = false;
+    } catch {
+      panel.hidden = true;
+    }
+  }
+
+  async function activateDachbyteAccount(button) {
+    const status = $("dachbyte-status");
+    button.disabled = true;
+    button.textContent = "Ativando...";
+    try {
+      await api(`/api/meli/contas-dachbyte/${encodeURIComponent(button.getAttribute("data-activate-dachbyte"))}/ativar`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+      if (status) { status.hidden = false; status.textContent = "Conta ativada neste modulo. Ela ja aparece em Contas da empresa."; }
+      await Promise.all([loadAccounts(), loadDachbyteAccounts()]);
+    } catch (error) {
+      alert(error.message || "Nao foi possivel ativar a conta.");
+      button.disabled = false;
+      button.textContent = "Ativar neste modulo";
+    }
+  }
+
   function bindEvents() {
-    $("btn-refresh-accounts")?.addEventListener("click", loadAccounts);
+    $("dachbyte-list")?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-activate-dachbyte]");
+      if (button) activateDachbyteAccount(button);
+    });
+    $("btn-refresh-accounts")?.addEventListener("click", () => { loadAccounts(); loadDachbyteAccounts(); });
     $("btn-link-account")?.addEventListener("click", startAccountLink);
     $("show-unlinked")?.addEventListener("change", renderAccounts);
     $("account-search")?.addEventListener("input", (event) => {
@@ -342,6 +384,7 @@
 
   document.addEventListener("DOMContentLoaded", async () => {
     bindEvents();
+    loadDachbyteAccounts();
     try {
       await loadAccounts();
     } catch (error) {
