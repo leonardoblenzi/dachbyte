@@ -289,6 +289,8 @@ async function listExistingOrdersByShopAndOrderSns(shopId, orderSns = []) {
   );
 
   if (!normalized.length) return [];
+  // A consulta abaixo le "orderId"; num banco novo a coluna so existe depois disso.
+  await ensureOrderPackageColumns();
 
   const result = await query(
     `
