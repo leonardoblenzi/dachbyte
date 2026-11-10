@@ -1,6 +1,6 @@
 # Conexão única do Mercado Livre (módulo ML + DACH Hub)
 
-Status: aprovado. Etapas 1 (módulo ML) e 2 (Hub) implementadas em 09-10/11/2026; etapas 3 e 4 pendentes.
+Status: aprovado. Etapas 1 a 3 implementadas em 09-10/11/2026; etapa 4 (publicação) pendente.
 
 ## Objetivo
 
@@ -130,3 +130,10 @@ O mesmo vale para os outros canais: o dono da conexão de cada canal é quem rec
 - Contas: "Conectar Mercado Livre" autoriza pelo módulo e volta a `/hub/contas`; ao abrir Contas, o Hub traz as contas ativas no Hub e lista as "Já conectadas na DACHBYTE" com "Usar no Hub" (ocupa vaga, sem nova autorização); desconectar tira o `dach_hub` no módulo antes (se o módulo estiver fora, não desconecta).
 - Link de autorização: volta por `/hub/conectar/<token>/concluido`, confere no módulo que a conta está ativa no Hub para a empresa do link.
 - Avisos: `POST /hub/internal/notifications/mercadolivre` (Bearer) entra na mesma fila dos avisos diretos.
+
+## Etapa 3 entregue (módulo ML)
+
+- `GET /api/meli/contas-dachbyte`: contas da empresa conectadas na DACHBYTE e fora do módulo ML (ex.: só no Hub), com a situação da conexão.
+- `POST /api/meli/contas-dachbyte/:id/ativar` (usuário que edita): confirma o recurso `ml` no hub de acessos antes de ativar, depois ativa `ml`, define conta padrão/cookie e enfileira a medição da faixa, igual a uma conta nova. Conta com autorização expirada pede "Vincular nova conta".
+- Painel "Contas já conectadas na DACHBYTE" na seleção de contas (`/select-conta`) e na tela de vincular (`/vincular-conta`).
+- Migração `081_meli_account_activated_audit.sql`: retenção do evento `meli_account_activated`.

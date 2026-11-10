@@ -218,3 +218,28 @@ test("API interna fica antes da autenticação do navegador e fora do acesso pú
   const block = caddy.indexOf("@internal-only path /ml/internal/* /hub/internal/*");
   assert.ok(block > 0 && block < caddy.indexOf("@seller-ml-web path"), "bloqueio vem antes do proxy do ML");
 });
+
+test("etapa 3: ativar no ML conta já conectada na DACHBYTE passa pela cobrança antes de entrar", () => {
+  const source = read("routes/meliOAuthRoutes.js");
+  const route = source.slice(source.indexOf('"/contas-dachbyte/:id/ativar"'));
+  assert.ok(route.indexOf("companyAccessGuards.requireWriterUser()") > 0, "somente leitura não ativa");
+  const confirm = route.indexOf("await confirmMlHubResourceAfterOAuth(outcome)");
+  const activate = route.indexOf('await activateProduct(db, account.id, "ml"');
+  assert.ok(confirm > 0 && activate > confirm, "recurso confirmado no hub de acessos antes de ativar");
+  assert.ok(route.indexOf("queueClosedMonthMeasurement(db, account.id)") > activate, "medição da faixa como conta nova");
+  assert.match(route, /account\.connection !== "ok"/);
+  const list = source.slice(source.indexOf("async function findDachbyteAccounts"));
+  assert.match(list, /and not \$\{activeInProductSql\("mc"\)\}/);
+  assert.match(list, /mc\.empresa_id = \$1/);
+  assert.match(read("db/081_meli_account_activated_audit.sql"), /'meli_account_activated'/);
+});
+
+test("etapa 3: telas de contas do ML mostram as contas já conectadas na DACHBYTE", () => {
+  const select = read("public/js/select-conta.js");
+  assert.match(select, /fetchJson\("\/api\/meli\/contas-dachbyte"\)/);
+  assert.match(select, /\/api\/meli\/contas-dachbyte\/\$\{encodeURIComponent/);
+  assert.match(read("views/select-conta.html"), /id="dachbyte-panel" hidden/);
+  const link = read("views/vincular-conta.html");
+  assert.match(link, /id="dachbyte-accounts" hidden/);
+  assert.match(link, /Ativar neste módulo/);
+});

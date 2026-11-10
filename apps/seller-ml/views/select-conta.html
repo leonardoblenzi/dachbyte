@@ -13,7 +13,14 @@
   <link rel="stylesheet" href="/ml/css/select-conta.css?v=9" />
   <script src="/ml/js/ml-base.js?v=8"></script>
   <link rel="stylesheet" href="/ml/css/ml-master-theme.css?v=2026081301" />
-  <script src="/ml/js/select-conta.js?v=9" defer></script>
+  <script src="/ml/js/select-conta.js?v=10" defer></script>
+  <style>
+    .dachbyte-panel[hidden] { display: none; }
+    .dachbyte-panel .dachbyte-note { margin: 0 0 12px; font-size: 13px; opacity: .8; }
+    .dachbyte-list { display: grid; gap: 10px; }
+    .dachbyte-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; }
+    .dachbyte-row small { display: block; opacity: .7; font-size: 12px; }
+  </style>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
 <body class="ml-oauth-page" data-master-page="global-selection">
@@ -56,6 +63,18 @@
       </section>
 
       <div id="alert" class="master-alert" hidden></div>
+
+      <section class="master-panel dachbyte-panel" id="dachbyte-panel" hidden aria-labelledby="dachbyte-title">
+        <div class="master-panel__head">
+          <div>
+            <span class="master-kicker">Conexao DACHBYTE</span>
+            <h2 id="dachbyte-title">Contas ja conectadas na DACHBYTE</h2>
+          </div>
+          <div class="master-panel__meta">Sem autorizar de novo</div>
+        </div>
+        <p class="dachbyte-note">Sua empresa ja autorizou estas contas em outro produto da DACHBYTE (como o DACH Hub). Ative aqui para usar no modulo; cada conta ativada entra na cobranca do modulo.</p>
+        <div class="dachbyte-list" id="dachbyte-list"></div>
+      </section>
 
       <section class="master-panel oauth-accounts-panel" aria-label="Selecionar conta">
         <div class="master-panel__head">

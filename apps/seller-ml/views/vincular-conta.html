@@ -33,6 +33,15 @@
   </script>
   <script src="./js/ml-base.js?v=7"></script>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
+  <style>
+    .dachbyte-accounts { display: grid; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.12); }
+    .dachbyte-accounts[hidden] { display: none; }
+    .dachbyte-accounts h2 { margin: 0; font-size: 16px; }
+    .dachbyte-accounts p { margin: 0; font-size: 13px; opacity: .8; }
+    .dachbyte-account { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; }
+    .dachbyte-account small { display: block; opacity: .7; font-size: 12px; }
+    .dachbyte-account .oauth-btn { min-height: 40px; padding: 0 14px; }
+  </style>
 </head>
 
 <body class="auth-page theme-ml ml-oauth-page ml-oauth-link-page" data-ml-shell="off">
@@ -65,6 +74,12 @@
               Ver contas conectadas
             </button>
           </div>
+
+          <section class="dachbyte-accounts" id="dachbyte-accounts" hidden aria-labelledby="dachbyte-accounts-title">
+            <h2 id="dachbyte-accounts-title">Contas já conectadas na DACHBYTE</h2>
+            <p>Sua empresa já autorizou estas contas em outro produto da DACHBYTE (como o DACH Hub). Ative aqui sem autorizar de novo; cada conta ativada entra na cobrança do módulo.</p>
+            <div id="dachbyte-accounts-list"></div>
+          </section>
         </article>
 
         <aside class="oauth-flow-card" aria-label="Como a vinculacao funciona">
@@ -126,6 +141,54 @@
       btnIr.addEventListener("click", () => {
         window.location.href = withBase("/select-conta");
       });
+
+      // Conexão única: contas da empresa conectadas na DACHBYTE e ainda fora do módulo ML.
+      const dachbyteBox = document.getElementById("dachbyte-accounts");
+      const dachbyteList = document.getElementById("dachbyte-accounts-list");
+      const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+
+      async function loadDachbyteAccounts() {
+        try {
+          const resp = await fetch(withBase("/api/meli/contas-dachbyte"), { credentials: "include" });
+          const data = await resp.json().catch(() => null);
+          const contas = resp.ok && data && Array.isArray(data.contas) ? data.contas : [];
+          if (!contas.length) { dachbyteBox.hidden = true; return; }
+          dachbyteList.innerHTML = contas.map((c) => `<div class="dachbyte-account">
+              <span><strong>${esc(c.label)}</strong><small>${esc(c.meli_user_id)}${c.connection === "ok" ? "" : " · autorização expirada: use Autorizar no Mercado Livre"}</small></span>
+              ${c.connection === "ok" ? `<button class="oauth-btn oauth-btn--primary" type="button" data-ativar="${esc(c.id)}">Ativar neste módulo</button>` : ""}
+            </div>`).join("");
+          dachbyteBox.hidden = false;
+        } catch (_) {
+          dachbyteBox.hidden = true;
+        }
+      }
+
+      dachbyteList.addEventListener("click", async (event) => {
+        const button = event.target.closest("[data-ativar]");
+        if (!button) return;
+        button.disabled = true;
+        button.textContent = "Ativando...";
+        try {
+          const resp = await fetch(withBase(`/api/meli/contas-dachbyte/${encodeURIComponent(button.getAttribute("data-ativar"))}/ativar`), {
+            method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: "{}",
+          });
+          const data = await resp.json().catch(() => null);
+          if (!resp.ok || !data || data.ok !== true) {
+            showMsg((data && data.error) || "Não foi possível ativar a conta.", "err");
+            button.disabled = false;
+            button.textContent = "Ativar neste módulo";
+            return;
+          }
+          showMsg("Conta ativada neste módulo.", "ok");
+          window.location.href = data.destination || withBase("/select-conta");
+        } catch (_) {
+          showMsg("Erro de rede ao ativar a conta. Tente novamente.", "err");
+          button.disabled = false;
+          button.textContent = "Ativar neste módulo";
+        }
+      });
+
+      loadDachbyteAccounts();
 
       btn.addEventListener("click", async () => {
         msg.className = "login-msg";
