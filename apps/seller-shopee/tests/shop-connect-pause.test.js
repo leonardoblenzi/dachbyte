@@ -118,3 +118,11 @@ test("status da conexao informa pausa e mensagem sem gerar link", async () => {
   assert.equal(issued.length, 0);
   delete process.env.SHOPEE_SHOP_CONNECT_PAUSED;
 });
+
+test("depois do OAuth da loja o usuario cai no Painel de Controle", () => {
+  const controller = fs.readFileSync(path.join(__dirname, "..", "src", "controllers", "AuthController.js"), "utf8");
+  assert.match(controller, /"\/shopee\/\?tab=control-panel"/);
+  assert.doesNotMatch(controller, /: "\/shopee\/\?tab=auth"\)/);
+  const index = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8");
+  assert.match(index, /id="tab-control-panel"/);
+});

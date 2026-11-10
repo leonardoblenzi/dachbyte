@@ -183,7 +183,7 @@ async function getAuthUrl(req, res) {
       flow: "shop",
       userId: req.auth?.userId || null,
       accountId: req.auth?.accountId || null,
-      returnTo: "/shopee/?tab=auth",
+      returnTo: "/shopee/?tab=control-panel",
       status: "ISSUED",
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
       metadata: {
@@ -394,7 +394,8 @@ async function callback(req, res) {
       "Loja autorizada na Shopee e salva localmente, mas o Hub nao confirmou a reativacao. Tente Reconectar novamente ou contate o suporte.",
     );
   }
-  return res.redirect(authFlow === "ads" ? "/shopee/?tab=ads" : "/shopee/?tab=auth");
+  // Loja conectada: abre direto o Painel de Controle.
+  return res.redirect(authFlow === "ads" ? "/shopee/?tab=ads" : "/shopee/?tab=control-panel");
 }
 
 async function refresh(req, res) {
