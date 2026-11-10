@@ -12,6 +12,7 @@ const { createSupportWidgetInjector } = require("../../lib/supportWidgetInjector
 const { DACHBYTE_BRAND } = require("../../lib/dachbyteBrand");
 const { createSuiteSessionSnapshotService } = require("./services/suiteSessionSnapshot");
 const { createSellerPortalService } = require("./services/sellerPortalService");
+const { createMlConnectionsPortalService } = require("./services/mlConnectionsPortalService");
 
 loadRuntimeEnv({
   defaultCandidates: [
@@ -174,6 +175,26 @@ function suiteSessionSnapshotService() {
 function sellerPortalService() {
   const { baseUrl, token } = hubConfig();
   return createSellerPortalService({ baseUrl, internalToken: token });
+}
+
+// Contas do Mercado Livre na seleção de plataforma (conexão única: o módulo ML é o dono).
+function mlConnectionsPortalService() {
+  return createMlConnectionsPortalService({
+    connectionsUrl: process.env.SELLER_ML_CONNECTIONS_URL,
+    connectionsToken: process.env.SELLER_CONNECTIONS_TOKEN,
+    portal: sellerPortalService(),
+  });
+}
+
+/** Domínio público para o retorno da autorização do Mercado Livre. */
+function publicOriginFor(req) {
+  const configured = String(process.env.DACHBYTE_PUBLIC_ORIGIN || "").trim();
+  if (configured) {
+    try { return new URL(configured).origin; } catch (_error) { /* usa a requisição */ }
+  }
+  const proto = String(req.headers["x-forwarded-proto"] || req.protocol || "https").split(",")[0].trim() || "https";
+  const host = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].trim();
+  return host ? `${proto}://${host}` : "";
 }
 
 async function checkSuiteModuleAccess(payload, moduleId) {
@@ -832,6 +853,32 @@ async function main() {
     res.set("cache-control", "no-store, max-age=0");
     if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
     const result = await sellerPortalService().deactivatePostpaidAccount(payload, req.body || {});
+    return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
+  });
+
+  // Seleção de plataforma: contas do Mercado Livre já conectadas na DACHBYTE, registrar uma
+  // para contratar e autorizar conta nova (volta para a seleção). Só quem gerencia a cobrança.
+  app.get("/api/portal/ml/dachbyte-accounts", async (req, res) => {
+    const payload = readSuitePayload(req);
+    res.set("cache-control", "no-store, max-age=0");
+    if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
+    const result = await mlConnectionsPortalService().dachbyteAccounts(payload);
+    return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
+  });
+
+  app.post("/api/portal/ml/register", async (req, res) => {
+    const payload = readSuitePayload(req);
+    res.set("cache-control", "no-store, max-age=0");
+    if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
+    const result = await mlConnectionsPortalService().register(payload, req.body || {});
+    return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
+  });
+
+  app.post("/api/portal/ml/connect", async (req, res) => {
+    const payload = readSuitePayload(req);
+    res.set("cache-control", "no-store, max-age=0");
+    if (!payload) return res.status(401).json({ ok: false, error: "unauthorized", redirect: "/login" });
+    const result = await mlConnectionsPortalService().connect(payload, { publicOrigin: publicOriginFor(req) });
     return res.status(Number(result.status || (result.ok ? 200 : 503))).json(result.payload || {});
   });
 

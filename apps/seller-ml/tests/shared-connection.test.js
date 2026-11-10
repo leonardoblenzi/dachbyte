@@ -175,14 +175,16 @@ test("migração 080: contas atuais ficam no ML e contas novas nascem no produto
   assert.match(sql, /ALTER COLUMN usuario_id DROP NOT NULL/);
 });
 
-test("callback: autorização do Hub não gera cobrança, cookie nem conta padrão no ML", () => {
+test("callback: só o Hub ativa na hora; conta nova para o ML espera a contratação", () => {
   const source = read("routes/meliOAuthRoutes.js");
-  assert.match(source, /set_config\('ml\.connection_product', \$1, true\)/);
-  assert.match(source, /await activateProduct\(\s*client,\s*contaId,\s*row\.produto/);
-  const hubBranch = source.indexOf('if (outcome?.produto && outcome.produto !== "ml")');
+  assert.match(source, /set_config\('ml\.connection_product', \$1, true\)", \[row\.produto === "dach_hub" \? "dach_hub" : "none"\]/);
+  assert.match(source, /if \(row\.produto === "dach_hub"\) \{\s*await activateProduct\(client, contaId, "dach_hub"/);
+  assert.doesNotMatch(source, /activateProduct\([^)]*"ml"/, "o retorno da autorização nunca coloca a conta no ML");
+  const hubBranch = source.indexOf('if (outcome?.produto === "dach_hub")');
   const billing = source.indexOf("confirmMlHubResourceAfterOAuth(outcome).catch");
-  assert.ok(hubBranch > 0 && hubBranch < billing, "retorno ao Hub acontece antes da cobrança do ML");
-  assert.match(source, /\^\\\/hub\\\/\[A-Za-z0-9\/_-\]\*\$/);
+  assert.ok(hubBranch > 0 && hubBranch < billing, "retorno ao Hub acontece antes do registro de cobrança do ML");
+  assert.match(source, /if \(outcome\.mlActive && outcome\.usuarioId\)/, "cookie e conta padrão só para conta que já estava no ML");
+  assert.match(read("db/080_meli_conta_produtos.sql"), /IF origem = 'none' THEN\s*RETURN NEW;/);
 });
 
 test("módulo ML só enxerga contas ativas nele (telas, rotinas e cobrança)", () => {
@@ -219,35 +221,69 @@ test("API interna fica antes da autenticação do navegador e fora do acesso pú
   assert.ok(block > 0 && block < caddy.indexOf("@seller-ml-web path"), "bloqueio vem antes do proxy do ML");
 });
 
-test("etapa 3: ativar no ML conta já conectada na DACHBYTE passa pela cobrança antes de entrar", () => {
-  const source = read("routes/meliOAuthRoutes.js");
-  const route = source.slice(source.indexOf('"/contas-dachbyte/:id/ativar"'));
-  assert.ok(route.indexOf("companyAccessGuards.requireWriterUser()") > 0, "somente leitura não ativa");
-  const confirm = route.indexOf("await confirmMlHubResourceAfterOAuth(outcome)");
-  const activate = route.indexOf('await activateProduct(db, account.id, "ml"');
-  assert.ok(confirm > 0 && activate > confirm, "recurso confirmado no hub de acessos antes de ativar");
-  assert.ok(route.indexOf("queueClosedMonthMeasurement(db, account.id)") > activate, "medição da faixa como conta nova");
-  assert.match(route, /account\.connection !== "ok"/);
-  const list = source.slice(source.indexOf("async function findDachbyteAccounts"));
-  assert.match(list, /and not \$\{activeInProductSql\("mc"\)\}/);
-  assert.match(list, /mc\.empresa_id = \$1/);
-  assert.match(read("db/081_meli_account_activated_audit.sql"), /'meli_account_activated'/);
+test("autorização pela seleção de plataforma: produto none volta só para /selecao-plataforma", async () => {
+  const { svc } = service(account());
+  const ok = await svc.authorize({ tenant_id: "t-1", product: "none", return_to: "/selecao-plataforma", public_origin: "https://dachbyte.tech" });
+  assert.equal(ok.input.product, "none");
+  await assert.rejects(svc.authorize({ tenant_id: "t-1", product: "none", return_to: "/hub/contas" }), { message: "invalid_return_to" });
+  await assert.rejects(svc.authorize({ tenant_id: "t-1", product: "dach_hub", return_to: "/selecao-plataforma" }), { message: "invalid_return_to" });
+  await assert.rejects(svc.authorize({ tenant_id: "t-1", product: "ml", return_to: "/selecao-plataforma" }), { message: "product_not_allowed" });
 });
 
-test("etapa 3: telas de contas do ML mostram as contas já conectadas na DACHBYTE", () => {
-  const select = read("public/js/select-conta.js");
-  assert.match(select, /fetchJson\("\/api\/meli\/contas-dachbyte"\)/);
-  assert.match(select, /\/api\/meli\/contas-dachbyte\/\$\{encodeURIComponent/);
-  assert.match(read("views/select-conta.html"), /id="dachbyte-panel" hidden/);
-  const link = read("views/vincular-conta.html");
-  assert.match(link, /id="dachbyte-accounts" hidden/);
-  assert.match(link, /Ativar neste módulo/);
+test("registrar conta da DACHBYTE para contratar no ML: hub de acessos e medição, sem entrar no módulo", async () => {
+  const registered = [], measured = [];
+  const db = fakeDb(account({ produtos: ["dach_hub"], empresa_id: 4 }));
+  const svc = createInternalConnectionsService({
+    db, tokens: {}, authorize: async () => ({}),
+    registerHubResource: async (input) => { registered.push(input); },
+    queueMeasurement: async (id) => { measured.push(id); },
+  });
+  assert.deepEqual(await svc.registerForMl({ tenant_id: "t-1", meli_user_id: 555 }), { resource_key: "ml:555" });
+  assert.deepEqual(registered, [{ tenantId: "t-1", empresaId: 4, meliUserId: 555, label: "Loja Sul", accountId: 7 }]);
+  assert.deepEqual(measured, [7]);
+  assert.ok(!db.calls.some((c) => /insert into ml\.meli_conta_produtos/i.test(c.sql)), "não ativa o ML antes da contratação");
+  const already = createInternalConnectionsService({ db: fakeDb(account()), tokens: {}, authorize: async () => ({}) });
+  await assert.rejects(already.registerForMl({ tenant_id: "t-1", meli_user_id: 555 }), { message: "account_already_in_ml", status: 409 });
+  const expired = createInternalConnectionsService({ db: fakeDb(account({ produtos: ["dach_hub"], status: "erro" })), tokens: {}, authorize: async () => ({}) });
+  await assert.rejects(expired.registerForMl({ tenant_id: "t-1", meli_user_id: 555 }), { message: "reconnect_required" });
 });
 
-test("etapa 3: Contas vinculadas (menu Conta) também mostra e ativa contas da DACHBYTE", () => {
-  const js = read("public/js/conta-contas.js");
-  assert.match(js, /api\("\/api\/meli\/contas-dachbyte"\)/);
-  assert.match(js, /\/api\/meli\/contas-dachbyte\/\$\{encodeURIComponent/);
-  assert.match(js, /await Promise\.all\(\[loadAccounts\(\), loadDachbyteAccounts\(\)\]\)/, "depois de ativar, a conta aparece na lista");
-  assert.match(read("views/conta-contas.html"), /id="dachbyte-panel" hidden/);
+test("aviso de contratação do hub de acessos: conta entra no ML liberada, com plano e faixa", async () => {
+  const { createMlActivationService } = require("../services/internalActivationService");
+  const statements = [];
+  const client = { query: async (sql, values) => {
+    statements.push({ sql, values });
+    if (sql.includes("from meli_contas mc join empresas e")) return { rows: [{ id: 7, empresa_id: 4, status: "ativa" }] };
+    return { rows: [], rowCount: 1 };
+  } };
+  const activate = createMlActivationService({ withClient: async (fn) => fn(client) });
+  const result = await activate({ action: "activate", tenant_id: "t-1", external_account_id: "555", resource_key: "ml:555", plan_code: "ml_pro", range_code: "ate_500", operation_id: "postpaid_term:pt_1" });
+  assert.deepEqual(result, { ok: true, state: "active", meli_conta_id: 7 });
+  assert.ok(statements.some((s) => /insert into ml\.meli_conta_produtos/.test(s.sql) && s.values[0] === 7));
+  const update = statements.find((s) => /billing_status = 'active'/.test(s.sql));
+  assert.deepEqual(update.values, [7, "ml_pro", "ate_500"]);
+  await assert.rejects(activate({ action: "activate", tenant_id: "t-1", external_account_id: "555", resource_key: "ml:999", operation_id: "x" }), { message: "activation_invalid_payload" });
+  await assert.rejects(activate({ action: "activate", tenant_id: "t-1", external_account_id: "555", resource_key: "ml:555", operation_id: "x", plan_code: "x;drop" }), { message: "activation_invalid_payload" });
+});
+
+test("aviso de contratação: só com a chave do hub, também na raiz do container", () => {
+  const app = read("app.js");
+  assert.ok(app.indexOf('app.use("/internal/hub/activation"') > 0 && app.indexOf('app.use("/internal/hub/activation"') < app.indexOf("app.use(authGate)"));
+  assert.match(app, /secret: process\.env\.SELLER_RETIREMENT_TOKEN,\s*activate:/);
+  const host = fs.readFileSync(path.join(__dirname, "../../../platform/runtime/startExpressApp.js"), "utf8");
+  assert.match(host, /req\.path === "\/internal\/hub\/activation"/);
+});
+
+test("contratação centralizada na seleção de plataforma: nada de assinar conta por dentro do ML", () => {
+  assert.match(read("app.js"), /app\.get\("\/vincular-conta"[\s\S]{0,120}res\.redirect\(302, "\/selecao-plataforma\?conectar=ml"\)/);
+  assert.match(read("views/conta-contas.html"), /href="\/selecao-plataforma\?conectar=ml">Adicionar conta</);
+  assert.doesNotMatch(read("public/js/conta-contas.js"), /oauth\/start/);
+  assert.match(read("public/js/conta-regularizar.js"), /\/selecao-plataforma\?resource_key=/);
+  assert.doesNotMatch(read("routes/meliOAuthRoutes.js"), /contas-dachbyte/);
+  const portal = read("views/selecao-plataforma.html");
+  assert.match(portal, /id="ml-link-drawer"/);
+  assert.match(portal, /api\("\/api\/portal\/ml\/dachbyte-accounts"\)/);
+  assert.match(portal, /api\("\/api\/portal\/ml\/register"/);
+  assert.match(portal, /api\("\/api\/portal\/ml\/connect"/);
+  assert.match(portal, /get\("conectar"\)==="ml"/);
 });

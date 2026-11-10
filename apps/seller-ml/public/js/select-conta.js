@@ -613,57 +613,11 @@ function withBase(path) {
     });
   }
 
-  // Conexao unica: contas da empresa ja conectadas na DACHBYTE (ex.: pelo DACH Hub) e fora deste modulo.
-  async function loadDachbyteAccounts() {
-    const panel = $("#dachbyte-panel");
-    const list = $("#dachbyte-list");
-    if (!panel || !list) return;
-    try {
-      const { response, payload } = await fetchJson("/api/meli/contas-dachbyte");
-      const contas = response.ok && Array.isArray(payload?.contas) ? payload.contas : [];
-      if (!contas.length) { panel.hidden = true; return; }
-      list.innerHTML = contas.map((c) => `<div class="dachbyte-row">
-          <span><strong>${escapeHtml(c.label)}</strong><small>${escapeHtml(c.meli_user_id)}${c.connection === "ok" ? "" : " - autorizacao expirada: use Vincular nova conta"}</small></span>
-          ${c.connection === "ok" ? `<button class="oauth-btn oauth-btn--primary" type="button" data-activate-dachbyte="${escapeHtml(c.id)}">Ativar neste modulo</button>` : ""}
-        </div>`).join("");
-      panel.hidden = false;
-    } catch {
-      panel.hidden = true;
-    }
-  }
-
-  function bindDachbyte() {
-    const list = $("#dachbyte-list");
-    if (!list) return;
-    list.addEventListener("click", async (event) => {
-      const button = event.target.closest("[data-activate-dachbyte]");
-      if (!button) return;
-      button.disabled = true;
-      button.textContent = "Ativando...";
-      try {
-        const { response, payload } = await fetchJson(`/api/meli/contas-dachbyte/${encodeURIComponent(button.getAttribute("data-activate-dachbyte"))}/ativar`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: "{}",
-        });
-        if (!response.ok || payload?.ok !== true) throw new Error(payload?.error || "Nao foi possivel ativar a conta.");
-        showAlert("Conta ativada neste modulo.", "ok");
-        window.location.href = payload.destination || withBase("/select-conta");
-      } catch (error) {
-        showAlert(error.message || "Nao foi possivel ativar a conta.", "err");
-        button.disabled = false;
-        button.textContent = "Ativar neste modulo";
-      }
-    });
-  }
-
   document.addEventListener("DOMContentLoaded", async () => {
     if (!(await loadMe())) return;
     if (document.body?.dataset?.masterPage === "global-selection") {
       bindSelection();
-      bindDachbyte();
       await loadAccounts();
-      await loadDachbyteAccounts();
       return;
     }
     await loadDashboardStats();

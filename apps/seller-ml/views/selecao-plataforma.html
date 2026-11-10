@@ -218,6 +218,10 @@
     .drawer__head h2{margin:4px 0 0;font:700 1.45rem "Rajdhani",sans-serif}
     .drawer__body{padding:18px 22px;overflow:auto;display:grid;gap:15px}
     .drawer__foot{margin-top:auto;border-top:1px solid var(--line);padding:15px 22px;display:flex;justify-content:flex-end;gap:9px}
+    .ml-link-list{display:grid;gap:9px}
+    .ml-link-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius)}
+    .ml-link-row small{display:block;color:var(--muted);font-size:.74rem;margin-top:2px}
+    .ml-link-note{color:var(--muted);font-size:.8rem;margin:0}
     .close{appearance:none;border:1px solid var(--line);background:#171c24;color:#b8c0ca;border-radius:8px;width:34px;height:34px;cursor:pointer}
     .field{display:grid;gap:6px}.field label{font:700 .64rem "Share Tech Mono",monospace;color:#98a2af;text-transform:uppercase;letter-spacing:.06em}
     .field input,.field select{width:100%;border:1px solid #303947;border-radius:8px;background:#12171f;color:#f2f1ed;padding:10px 11px;outline:none}
@@ -500,6 +504,29 @@
     </section>
   </div>
 
+  <div class="drawer" id="ml-link-drawer" aria-hidden="true">
+    <div class="drawer__backdrop" data-close-ml-link></div>
+    <section class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="ml-link-title">
+      <div class="drawer__head">
+        <div><div class="kicker">Mercado Livre</div><h2 id="ml-link-title">Adicionar conta</h2></div>
+        <button class="close" type="button" data-close-ml-link aria-label="Fechar">×</button>
+      </div>
+      <div class="drawer__body">
+        <section id="ml-link-dachbyte" hidden>
+          <h3 style="margin:0 0 6px">Contas já conectadas na DACHBYTE</h3>
+          <p class="ml-link-note">Sua empresa já autorizou estas contas em outro produto (como o DACH Hub). Escolha uma para contratar o módulo, sem autorizar de novo.</p>
+          <div class="ml-link-list" id="ml-link-list"></div>
+        </section>
+        <section>
+          <h3 style="margin:0 0 6px">Conectar outra conta</h3>
+          <p class="ml-link-note">Você autoriza a conta na tela oficial do Mercado Livre e volta para cá para contratar o plano.</p>
+          <div style="margin-top:10px"><button class="btn" type="button" id="ml-link-connect">Conectar conta no Mercado Livre</button></div>
+        </section>
+        <p class="ml-link-note">A conta entra no módulo depois que a contratação for confirmada.</p>
+      </div>
+    </section>
+  </div>
+
   <div class="drawer" id="purchase-drawer" aria-hidden="true">
     <div class="drawer__backdrop" data-close-drawer></div>
     <section class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
@@ -631,7 +658,11 @@
               ? '<button class="btn btn--ghost" type="button" data-jump-accounts="'+esc(module.slug)+'">Gerenciar</button>'
               : '<button class="btn btn--ghost" type="button" data-jump-plans="'+esc(module.slug)+'">Plano</button>')
             : "";
-          const setup = module.status==="setup_required" ? '<a class="btn" href="'+esc(goRoutes[module.slug]||("#"+module.slug))+'">Vincular conta</a>' : "";
+          const setup = module.status==="setup_required"
+            ? (module.slug==="ml"
+              ? '<button class="btn" type="button" data-ml-link>Vincular conta</button>'
+              : '<a class="btn" href="'+esc(goRoutes[module.slug]||("#"+module.slug))+'">Vincular conta</a>')
+            : "";
           const locked = !module.can_enter && module.status==="expired" ? '<button class="btn" type="button" data-jump-plans="'+esc(module.slug)+'">Renovar</button>' : "";
           return enter+setup+locked+manage;
         }
@@ -902,8 +933,51 @@
         document.querySelectorAll("[data-jump-plans]").forEach(btn=>btn.onclick=()=>setView("plans"));
         document.querySelectorAll("[data-account-filter]").forEach(btn=>btn.onclick=()=>{state.accountFilter=btn.dataset.accountFilter;renderAccounts();bindDynamicActions()});
         document.querySelectorAll("[data-renew-check]").forEach(input=>input.onchange=()=>{const key=input.dataset.renewCheck;input.checked?state.selectedRenewals.add(key):state.selectedRenewals.delete(key);updateRenewButton()});
-        const link=$("#link-account"); if(link) link.onclick=()=>{const candidates=(state.overview.modules||[]).filter(m=>m.installed&&m.resource_required); if(candidates.length===1) window.location.href=goRoutes[candidates[0].slug]||"/selecao-plataforma"; else {setView("modules");showToast(canBill()?"Escolha o marketplace e use Gerenciar/Vincular conta.":"Escolha o marketplace e use Entrar para conectar a conta dentro do módulo.")}};
+        document.querySelectorAll("[data-ml-link]").forEach(btn=>btn.onclick=()=>openMlLink());
+        const link=$("#link-account"); if(link) link.onclick=()=>{const candidates=(state.overview.modules||[]).filter(m=>m.installed&&m.resource_required); const hasMl=candidates.some(m=>m.slug==="ml"); if(hasMl&&(candidates.length===1||state.accountFilter==="ml")) openMlLink(); else if(candidates.length===1) window.location.href=goRoutes[candidates[0].slug]||"/selecao-plataforma"; else {setView("modules");showToast(canBill()?"Escolha o marketplace e use Gerenciar/Vincular conta.":"Escolha o marketplace e use Entrar para conectar a conta dentro do módulo.")}};
         const retryInvoices=$("#retry-invoices"); if(retryInvoices)retryInvoices.onclick=refreshInvoices;
+      }
+
+      // Mercado Livre: conectar e contratar contas fica centralizado aqui (conexão única da DACHBYTE).
+      function closeMlLink(){ $("#ml-link-drawer").classList.remove("is-open"); $("#ml-link-drawer").setAttribute("aria-hidden","true"); }
+      async function openMlLink(){
+        if(!canBill()){ showToast("Somente o proprietário ou administrador da empresa adiciona e contrata contas.",true); return; }
+        setView("accounts");
+        $("#ml-link-drawer").classList.add("is-open"); $("#ml-link-drawer").setAttribute("aria-hidden","false");
+        const box=$("#ml-link-dachbyte"), list=$("#ml-link-list");
+        box.hidden=true; list.innerHTML="";
+        try{
+          const { accounts } = await api("/api/portal/ml/dachbyte-accounts");
+          if(!accounts?.length) return;
+          list.innerHTML=accounts.map(a=>'<div class="ml-link-row"><span><strong>'+esc(a.label)+'</strong><small>ML '+esc(a.meli_user_id)+(a.connection==="ok"?"":" · autorização expirada: use Conectar conta no Mercado Livre")+'</small></span>'+
+            (a.connection==="ok"?'<button class="btn btn--soft" type="button" data-ml-use="'+esc(a.meli_user_id)+'">Usar esta conta</button>':"")+'</div>').join("");
+          list.querySelectorAll("[data-ml-use]").forEach(btn=>btn.onclick=()=>useDachbyteAccount(btn));
+          box.hidden=false;
+        }catch(error){ /* sem lista: continua possível conectar no Mercado Livre */ }
+      }
+      async function useDachbyteAccount(btn){
+        btn.disabled=true; btn.textContent="Preparando...";
+        try{
+          const { resource_key } = await api("/api/portal/ml/register",{method:"POST",body:JSON.stringify({meli_user_id:Number(btn.dataset.mlUse)})});
+          closeMlLink();
+          await refreshOverview();
+          state.accountFilter="ml"; renderAccounts(); bindDynamicActions(); setView("accounts");
+          if(allResources().some(r=>r.resource_key===resource_key)) openAccountDrawer(resource_key);
+          showToast("Conta pronta para contratar. Os pedidos do último mês estão sendo apurados para definir a faixa.");
+        }catch(error){
+          showToast(error.payload?.error==="reconnect_required"?"A autorização desta conta expirou. Use Conectar conta no Mercado Livre.":(error.message||"Não foi possível preparar a conta."),true);
+          btn.disabled=false; btn.textContent="Usar esta conta";
+        }
+      }
+      async function connectNewMlAccount(){
+        const btn=$("#ml-link-connect"); btn.disabled=true; btn.textContent="Abrindo Mercado Livre...";
+        try{
+          const { url } = await api("/api/portal/ml/connect",{method:"POST",body:"{}"});
+          window.location.href=url;
+        }catch(error){
+          showToast(error.message||"Não foi possível abrir o Mercado Livre.",true);
+          btn.disabled=false; btn.textContent="Conectar conta no Mercado Livre";
+        }
       }
 
       function managedResource(){
@@ -1247,6 +1321,8 @@
       document.addEventListener("keydown",(event)=>{ if(event.key==="Escape") setMenuOpen(false); });
       document.querySelectorAll("[data-close-drawer]").forEach(btn=>btn.addEventListener("click",closePurchase));
       document.querySelectorAll("[data-close-account-drawer]").forEach(btn=>btn.addEventListener("click",closeAccountDrawer));
+      document.querySelectorAll("[data-close-ml-link]").forEach(btn=>btn.addEventListener("click",closeMlLink));
+      $("#ml-link-connect").addEventListener("click",connectNewMlAccount);
       $("#unlink-start").addEventListener("click",()=>{$("#unlink-confirm").hidden=false});
       $("#unlink-confirm-button").addEventListener("click",confirmUnlink);
       $("#purchase-confirm").addEventListener("click",confirmPurchase);
@@ -1261,7 +1337,7 @@
       $("#user-menu-logout").addEventListener("click",logout);
       document.addEventListener("click",(event)=>{ if(!event.target.closest(".userbox")) setUserMenu(false); });
       document.addEventListener("keydown",(event)=>{ if(event.key==="Escape") setUserMenu(false); });
-      document.addEventListener("keydown",event=>{if(event.key==="Escape"){closePurchase();closeAccountDrawer()}});
+      document.addEventListener("keydown",event=>{if(event.key==="Escape"){closePurchase();closeAccountDrawer();closeMlLink()}});
 
       (async()=>{
         try{
@@ -1273,6 +1349,10 @@
           }
           const hash=location.hash.replace("#","");
           if(!linkedResourceKey&&["modules","accounts","plans","company"].includes(hash)) setView(hash);
+          if(new URLSearchParams(location.search).get("conectar")==="ml"){
+            state.accountFilter="ml"; renderAccounts(); bindDynamicActions();
+            await openMlLink();
+          }
         }catch(error){
           if(error.message!=="unauthorized"){
             showToast("Não foi possível carregar o portal. Tente novamente em instantes.",true);

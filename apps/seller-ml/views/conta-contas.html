@@ -9,13 +9,6 @@
   <link rel="stylesheet" href="/ml/css/conta-contas.css?v=1" />
   <script src="/ml/js/ml-base.js?v=8"></script>
   <script src="/ml/js/conta-contas.js?v=2" defer></script>
-  <style>
-    .dachbyte-shell[hidden] { display: none; }
-    .dachbyte-shell .dachbyte-list { display: grid; gap: 10px; }
-    .dachbyte-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--line, rgba(255,255,255,.12)); border-radius: 14px; }
-    .dachbyte-row small { display: block; opacity: .7; font-size: 12px; margin-top: 2px; }
-    .dachbyte-shell p.dachbyte-status { margin: 0 0 10px; padding: 0 14px; font-size: 13px; font-weight: 600; color: var(--ok, #15803d); }
-  </style>
   <link rel="stylesheet" href="/brand/dachbyte/theme.css?v=20260904" />
 </head>
 <body class="account-app account-linked-accounts-app">
@@ -25,25 +18,15 @@
         <span class="account-users-kicker">Conta / Contas vinculadas</span>
         <h1>Gerencie as contas Mercado Livre.</h1>
         <p>
-          Vincule novas contas, escolha a conta padrao de trabalho e desvincule
-          contas antigas sem apagar historico financeiro ou operacional.
+          Escolha a conta padrao de trabalho e desvincule contas antigas sem apagar
+          historico financeiro ou operacional. Novas contas sao conectadas e contratadas
+          na selecao de plataforma.
         </p>
       </div>
       <div class="linked-accounts-actions">
         <button class="au-btn au-btn-secondary" id="btn-refresh-accounts" type="button">Atualizar</button>
-        <button class="au-btn au-btn-primary" id="btn-link-account" type="button">Vincular nova conta</button>
+        <a class="au-btn au-btn-primary" id="btn-link-account" href="/selecao-plataforma?conectar=ml">Adicionar conta</a>
       </div>
-    </section>
-
-    <section class="au-list-shell dachbyte-shell" id="dachbyte-panel" hidden aria-labelledby="dachbyte-title">
-      <div class="au-list-head">
-        <div>
-          <h2 id="dachbyte-title">Contas ja conectadas na DACHBYTE</h2>
-          <p>Sua empresa ja autorizou estas contas em outro produto da DACHBYTE (como o DACH Hub). Ative aqui sem autorizar de novo no Mercado Livre; cada conta ativada entra na cobranca do modulo.</p>
-        </div>
-      </div>
-      <p class="dachbyte-status" id="dachbyte-status" hidden></p>
-      <div class="dachbyte-list" id="dachbyte-list"></div>
     </section>
 
     <section class="au-summary" aria-label="Resumo de contas vinculadas">

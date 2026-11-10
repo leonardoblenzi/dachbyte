@@ -33,6 +33,7 @@ function createInternalConnectionsRouter({ secret, service }) {
   router.post("/authorize", handle((req) => service.authorize(req.body)));
   router.post("/token", handle((req) => service.token(req.body)));
   router.post("/activate", handle((req) => service.activate(req.body)));
+  router.post("/register-ml", handle((req) => service.registerForMl(req.body)));
   router.post("/deactivate", handle((req) => service.deactivate(req.body)));
   return router;
 }

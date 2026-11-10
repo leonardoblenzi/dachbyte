@@ -19,15 +19,19 @@ SELECT id, 'ml', 'migration_080'
   FROM ml.meli_contas
 ON CONFLICT DO NOTHING;
 
--- Toda conta nova nasce ativa no produto que iniciou a autorização. Os fluxos
--- antigos (OAuth do módulo, teste grátis, painel admin) não definem nada e caem
--- em 'ml'. A autorização iniciada pelo Hub define ml.connection_product = 'dach_hub'
--- com SET LOCAL na mesma transação.
+-- Conta nova: a autorização define ml.connection_product na mesma transação.
+--   'dach_hub' -> nasce ativa no DACH Hub.
+--   'none'     -> nasce sem produto (autorizada para contratar no ML; entra no ML
+--                 só quando o hub de acessos confirma a contratação).
+--   não definido (teste grátis, painel admin) -> 'ml', como antes.
 CREATE OR REPLACE FUNCTION ml.meli_contas_produto_inicial() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE
   origem TEXT := NULLIF(current_setting('ml.connection_product', true), '');
 BEGIN
+  IF origem = 'none' THEN
+    RETURN NEW;
+  END IF;
   INSERT INTO ml.meli_conta_produtos (meli_conta_id, produto, ativado_por)
   VALUES (NEW.id, CASE WHEN origem = 'dach_hub' THEN 'dach_hub' ELSE 'ml' END, COALESCE(origem, 'ml'))
   ON CONFLICT DO NOTHING;

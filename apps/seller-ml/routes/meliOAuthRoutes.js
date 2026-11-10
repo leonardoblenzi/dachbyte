@@ -1373,8 +1373,9 @@ router.get(
           throw err;
         }
 
-        // Conta nova nasce ativa no produto que pediu a autorização (gatilho da 080).
-        await client.query("select set_config('ml.connection_product', $1, true)", [row.produto]);
+        // Conta nova: no DACH Hub nasce ativa; para o ML nasce sem produto e só entra
+        // no módulo quando o hub de acessos confirma a contratação (gatilho da 080).
+        await client.query("select set_config('ml.connection_product', $1, true)", [row.produto === "dach_hub" ? "dach_hub" : "none"]);
 
         const apelidoDefault = `Conta ${meli_user_id}`;
         let apelido = await tryGetMlNickname(access_token, meli_user_id);
@@ -1440,12 +1441,14 @@ router.get(
           ],
         );
 
-        await activateProduct(
-          client,
-          contaId,
-          row.produto,
-          row.usuario_id ? `ml_user:${row.usuario_id}` : `hub_user:${row.origem_usuario_global_id || "?"}`,
-        );
+        if (row.produto === "dach_hub") {
+          await activateProduct(client, contaId, "dach_hub", `hub_user:${row.origem_usuario_global_id || "?"}`);
+        }
+        // Reconectar conta que já está no ML não muda nada na contratação.
+        const mlActive = (await client.query(
+          `select 1 from ml.meli_conta_produtos where meli_conta_id = $1 and produto = 'ml' limit 1`,
+          [contaId],
+        )).rows.length > 0;
 
         await client.query(`delete from oauth_states where state = $1`, [
           state,
@@ -1455,6 +1458,7 @@ router.get(
 
         return {
           produto: row.produto,
+          mlActive,
           return_to: row.return_to || "/vincular-conta",
           empresaId: row.empresa_id,
           usuarioId: row.usuario_id,
@@ -1469,9 +1473,9 @@ router.get(
       }
     });
 
-    // Autorização pedida por outro produto (DACH Hub): a conta fica só nele.
+    // Autorização pedida pelo DACH Hub: a conta fica só nele.
     // Nada de cobrança, cookie ou conta padrão do módulo ML.
-    if (outcome?.produto && outcome.produto !== "ml") {
+    if (outcome?.produto === "dach_hub") {
       return res.redirect(otherProductReturnUrl(outcome));
     }
 
@@ -1481,12 +1485,16 @@ router.get(
         hubRelinkError = error;
         console.warn("[ML][OAuth] Hub did not confirm account relink", { accountId: outcome.contaId, error: error?.message || "hub_unavailable" });
       });
-      await setDefaultIfMissingForMembership(
-        outcome.usuarioId,
-        outcome.empresaId,
-        outcome.contaId,
-      ).catch(() => null);
-      res.cookie(COOKIE_MELI_CONTA, String(outcome.contaId), cookieOptions());
+      // Conta que já estava no ML (reconexão) continua a de trabalho; conta nova
+      // só aparece no módulo depois de contratada na seleção de plataforma.
+      if (outcome.mlActive && outcome.usuarioId) {
+        await setDefaultIfMissingForMembership(
+          outcome.usuarioId,
+          outcome.empresaId,
+          outcome.contaId,
+        ).catch(() => null);
+        res.cookie(COOKIE_MELI_CONTA, String(outcome.contaId), cookieOptions());
+      }
       if (hubRelinkError) {
         return res.status(502).send(
           "Conta autorizada no Mercado Livre e salva localmente, mas o Hub nao confirmou a reativacao. Tente Reconectar novamente ou contate o suporte.",
@@ -1557,112 +1565,6 @@ router.get(
       .status(500)
       .send(`Erro ao vincular conta: ${err?.message || "erro desconhecido"}`);
   }
-  },
-);
-
-// ===============================
-// Conexão única: contas da empresa já conectadas na DACHBYTE (ex.: pelo DACH Hub)
-// que ainda não estão no módulo ML. Ativar não pede nova autorização ao Mercado
-// Livre, mas passa pela mesma cobrança de uma conta nova (recurso no hub de acessos,
-// medição da faixa).
-// ===============================
-const UNLINKED_STATUSES = ["desvinculada", "revogada", "unlinked", "revoked"];
-
-async function findDachbyteAccounts(empresaId, accountId = null) {
-  const params = [empresaId, UNLINKED_STATUSES];
-  if (accountId) params.push(accountId);
-  const { rows } = await db.query(
-    `select mc.id, mc.meli_user_id, mc.apelido, mc.status,
-            (mt.meli_conta_id is not null) as has_tokens,
-            array(select p.produto from ml.meli_conta_produtos p where p.meli_conta_id = mc.id order by p.produto) as produtos
-       from meli_contas mc
-  left join meli_tokens mt on mt.meli_conta_id = mc.id
-      where mc.empresa_id = $1
-        and lower(coalesce(mc.status, '')) <> all($2::text[])
-        and not ${activeInProductSql("mc")}
-        ${accountId ? "and mc.id = $3" : ""}
-      order by mc.id`,
-    params,
-  );
-  return rows.map((row) => ({
-    id: Number(row.id),
-    meli_user_id: Number(row.meli_user_id),
-    label: row.apelido || `Conta ${row.meli_user_id}`,
-    connection: row.has_tokens && String(row.status) === "ativa" ? "ok" : "reconnect_required",
-    products: Array.isArray(row.produtos) ? row.produtos : [],
-  }));
-}
-
-router.get("/contas-dachbyte", async (req, res) => {
-  try {
-    const uid = mustBeLogged(req);
-    if (!uid) return res.status(401).json({ ok: false, error: "Não autenticado." });
-    const empresa = await db.withClient((client) => getEmpresaDoUsuario(client, uid));
-    if (!empresa) return res.status(403).json(userWithoutCompanyPayload());
-    return res.json({ ok: true, contas: await findDachbyteAccounts(empresa.empresa_id) });
-  } catch (err) {
-    if (isMissingMlSchemaError(err)) return res.status(503).json(missingSchemaPayload());
-    console.error("GET /api/meli/contas-dachbyte erro:", err?.message || err);
-    return res.status(500).json({ ok: false, error: "Erro ao listar contas da DACHBYTE." });
-  }
-});
-
-router.post(
-  "/contas-dachbyte/:id/ativar",
-  // Usuario somente leitura nao ativa contas (gera cobranca), igual a vincular.
-  companyAccessGuards.requireWriterUser(),
-  createAuditAction({
-    evento: "meli_account_activated",
-    metadata: (req) => ({ meli_conta_id: Number(req.params?.id) || null }),
-  }),
-  async (req, res) => {
-    try {
-      const uid = mustBeLogged(req);
-      if (!uid) return res.status(401).json({ ok: false, error: "Não autenticado." });
-      const accountId = Number(req.params?.id);
-      if (!Number.isSafeInteger(accountId) || accountId <= 0) {
-        return res.status(400).json({ ok: false, error: "Conta inválida." });
-      }
-      const empresa = await db.withClient((client) => getEmpresaDoUsuario(client, uid));
-      if (!empresa) return res.status(403).json(userWithoutCompanyPayload());
-      const [account] = await findDachbyteAccounts(empresa.empresa_id, accountId);
-      if (!account) {
-        return res.status(404).json({ ok: false, error: "Conta não encontrada ou já ativa neste módulo." });
-      }
-      if (account.connection !== "ok") {
-        return res.status(409).json({ ok: false, code: "RECONNECT_REQUIRED", error: "A autorização desta conta expirou. Use \"Autorizar no Mercado Livre\" para reconectar." });
-      }
-
-      const outcome = {
-        empresaId: empresa.empresa_id,
-        usuarioId: uid,
-        meli_user_id: account.meli_user_id,
-        label: account.label,
-        contaId: account.id,
-      };
-      // Cobrança primeiro: sem o recurso confirmado no hub de acessos, a conta não entra no módulo.
-      try {
-        await confirmMlHubResourceAfterOAuth(outcome);
-      } catch (error) {
-        console.warn("[ML][DACHBYTE] Hub nao confirmou a conta", { accountId, error: error?.message || "hub_unavailable" });
-        return res.status(502).json({ ok: false, code: "HUB_UNAVAILABLE", error: "O hub de acessos não confirmou a conta agora. Tente de novo em instantes." });
-      }
-      await activateProduct(db, account.id, "ml", `ml_user:${uid}`);
-      await setDefaultIfMissingForMembership(uid, empresa.empresa_id, account.id).catch(() => null);
-      res.cookie(COOKIE_MELI_CONTA, String(account.id), cookieOptions());
-      await queueClosedMonthMeasurement(db, account.id).catch((error) => {
-        console.warn("[ML][DACHBYTE] Medicao da faixa nao enfileirada", { accountId, error: error?.message || "measurement_queue_failed" });
-      });
-      return res.json({
-        ok: true,
-        meli_conta_id: account.id,
-        destination: withBase(req, postOAuthSelectionDestination({ moduleSlug: "ml", externalAccountId: account.meli_user_id })),
-      });
-    } catch (err) {
-      if (isMissingMlSchemaError(err)) return res.status(503).json(missingSchemaPayload());
-      console.error("POST /api/meli/contas-dachbyte/:id/ativar erro:", err?.message || err);
-      return res.status(500).json({ ok: false, error: "Erro ao ativar a conta." });
-    }
   },
 );
 

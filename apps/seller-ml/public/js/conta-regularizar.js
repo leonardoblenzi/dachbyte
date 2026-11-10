@@ -82,8 +82,9 @@
     status.className = `regularize-status ${toneClass(billing.tone)}`.trim();
 
     const pay = $("regularize-pay");
-    if (billing.renewal_checkout_url) {
-      pay.href = billing.renewal_checkout_url;
+    if (account?.meli_user_id) {
+      // Contratação e renovação centralizadas na seleção de plataforma (painel da conta).
+      pay.href = `/selecao-plataforma?resource_key=${encodeURIComponent(`ml:${account.meli_user_id}`)}`;
       pay.setAttribute("aria-disabled", "false");
     } else {
       pay.href = "#";

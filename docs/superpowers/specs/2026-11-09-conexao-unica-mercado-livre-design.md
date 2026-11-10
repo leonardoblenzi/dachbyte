@@ -131,9 +131,14 @@ O mesmo vale para os outros canais: o dono da conexão de cada canal é quem rec
 - Link de autorização: volta por `/hub/conectar/<token>/concluido`, confere no módulo que a conta está ativa no Hub para a empresa do link.
 - Avisos: `POST /hub/internal/notifications/mercadolivre` (Bearer) entra na mesma fila dos avisos diretos.
 
-## Etapa 3 entregue (módulo ML)
+## Etapa 3 (revista em 10/11/2026): contratação centralizada na seleção de plataforma
 
-- `GET /api/meli/contas-dachbyte`: contas da empresa conectadas na DACHBYTE e fora do módulo ML (ex.: só no Hub), com a situação da conexão.
-- `POST /api/meli/contas-dachbyte/:id/ativar` (usuário que edita): confirma o recurso `ml` no hub de acessos antes de ativar, depois ativa `ml`, define conta padrão/cookie e enfileira a medição da faixa, igual a uma conta nova. Conta com autorização expirada pede "Vincular nova conta".
-- Painel "Contas já conectadas na DACHBYTE" em Conta > Contas vinculadas (`/conta/contas`, caminho de quem já usa o ML), na tela de vincular (`/vincular-conta`, para quem entra sem conta) e na seleção global (`/select-conta`, admin master).
-- Migração `081_meli_account_activated_audit.sql`: retenção do evento `meli_account_activated`.
+Decisão: conectar e contratar contas do ML acontece só na seleção de plataforma, e a conta entra no módulo só depois que a contratação é confirmada.
+
+- Seleção de plataforma → Mercado Livre → "Vincular conta" / "+ Vincular conta" abre o painel "Adicionar conta": contas já conectadas na DACHBYTE (ex.: pelo Hub) com "Usar esta conta", ou "Conectar conta no Mercado Livre".
+- "Usar esta conta": o gateway (`/api/portal/ml/register`) pede ao módulo (`/ml/internal/connections/register-ml`) que registre a conta no hub de acessos (inativa, aguardando contratação) e enfileire a medição de pedidos. Abre o painel da conta para "Contratar plano".
+- "Conectar conta no Mercado Livre": `/api/portal/ml/connect` → autorização com produto `none` → a conta nasce sem produto (gatilho da 080) → registro no hub e medição → volta para `/selecao-plataforma?resource_key=ml:<id>`.
+- Hub de acessos confirma (aceite do pós-pago ou pagamento do checkout) → `POST /internal/hub/activation` no módulo (Bearer `SELLER_RETIREMENT_TOKEN`) → conta entra no ML com `billing_status='active'`, plano e faixa. Também corrige a falha anterior: conta paga nunca saía de "Aguardando assinatura".
+- Dentro do ML: "Vincular nova conta" virou "Adicionar conta" (leva à seleção com `?conectar=ml`); `/vincular-conta` redireciona para lá; "Regularizar" leva ao painel da conta na seleção. Gestão das contas já contratadas (padrão, apelido, desvincular) continua no ML.
+- Retorno da autorização nunca coloca conta no ML; reconexão de conta que já está no ML continua igual.
+- Pendências: o aviso ao módulo é tentado uma vez (falha fica no log); falta reenvio automático. Shopee e Magalu ainda não recebem o aviso.

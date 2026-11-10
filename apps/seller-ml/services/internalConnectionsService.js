@@ -8,10 +8,15 @@
 const { decryptToken } = require("./tokenCrypto");
 
 const UNLINKED = ["desvinculada", "revogada", "unlinked", "revoked"];
-// Pela API interna só se ativa produtos que não são o próprio módulo ML: ativar
-// o ML envolve cobrança e passa pelas telas do módulo.
+// Pela API interna só se ativa produtos que não são o próprio módulo ML: a conta
+// entra no ML só quando o hub de acessos confirma a contratação (aviso de liberação).
 const EXTERNAL_PRODUCTS = new Set(["dach_hub"]);
-const RETURN_PATH = /^\/hub\/[A-Za-z0-9/_-]*$/;
+// Autorização: para o DACH Hub (volta em /hub/...) ou para contratar no ML pela
+// seleção de plataforma ("none": a conta nasce sem produto e volta para a seleção).
+const AUTHORIZE_RETURN = {
+  dach_hub: /^\/hub\/[A-Za-z0-9/_-]*$/,
+  none: /^\/selecao-plataforma$/,
+};
 
 function fail(code, status) {
   return Object.assign(new Error(code), { status });
@@ -52,10 +57,10 @@ function mlEnvCreds() {
  *           tokens: { renovarTokenSeNecessario: Function, renovarToken: Function },
  *           authorize: Function }} deps
  */
-function createInternalConnectionsService({ db, tokens, authorize }) {
+function createInternalConnectionsService({ db, tokens, authorize, registerHubResource = async () => {}, queueMeasurement = async () => {} }) {
   async function findAccount(tenantId, meliUserId) {
     const { rows } = await db.query(
-      `select mc.id, mc.meli_user_id, mc.apelido, mc.site_id, mc.status,
+      `select mc.id, mc.empresa_id, mc.meli_user_id, mc.apelido, mc.site_id, mc.status,
               mt.access_token, mt.access_expires_at, mt.refresh_token, mt.scope,
               coalesce(array_agg(p.produto order by p.produto) filter (where p.produto is not null), '{}') as produtos
          from meli_contas mc
@@ -107,9 +112,10 @@ function createInternalConnectionsService({ db, tokens, authorize }) {
     /** URL de autorização no ML; a conta volta ativa no produto que pediu. */
     async authorize(input) {
       const tenantId = requireTenant(input);
-      const product = requireProduct(input);
+      const product = text(input?.product);
+      if (!AUTHORIZE_RETURN[product]) throw fail("product_not_allowed", 400);
       const returnTo = text(input?.return_to, 300);
-      if (!RETURN_PATH.test(returnTo)) throw fail("invalid_return_to", 400);
+      if (!AUTHORIZE_RETURN[product].test(returnTo)) throw fail("invalid_return_to", 400);
       return authorize({
         tenantId,
         product,
@@ -170,6 +176,25 @@ function createInternalConnectionsService({ db, tokens, authorize }) {
         access_token: accessToken,
         expires_at: fresh.rows[0]?.access_expires_at ? new Date(fresh.rows[0].access_expires_at).toISOString() : null,
       };
+    },
+
+    /**
+     * Seleção de plataforma: usar no ML uma conta já conectada na DACHBYTE (ex.: pelo Hub).
+     * Registra a conta no hub de acessos (aguardando contratação) e começa a medição de
+     * pedidos para a faixa. A conta só entra no módulo quando a contratação é confirmada.
+     */
+    async registerForMl(input) {
+      const tenantId = requireTenant(input);
+      const meliUserId = requireMeliUserId(input);
+      const account = await findAccount(tenantId, meliUserId);
+      if (!account) throw fail("account_not_found", 404);
+      if (account.produtos.includes("ml")) throw fail("account_already_in_ml", 409);
+      if (!account.refresh_token || String(account.status) !== "ativa") throw fail("reconnect_required", 409);
+      await registerHubResource({
+        tenantId, empresaId: Number(account.empresa_id), meliUserId, label: account.apelido || `Conta ${meliUserId}`, accountId: Number(account.id),
+      });
+      await queueMeasurement(Number(account.id));
+      return { resource_key: `ml:${meliUserId}` };
     },
 
     /** Ativa uma conta já conectada da empresa no produto (ex.: importar no Hub). */

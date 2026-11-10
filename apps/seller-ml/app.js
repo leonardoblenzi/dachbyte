@@ -11,6 +11,10 @@ const { createMlRetirementService } = require("./services/internalRetirementServ
 const { createMlRetirementRouter } = require("./routes/internalRetirementRoutes");
 const { createInternalConnectionsService } = require("./services/internalConnectionsService");
 const { createInternalConnectionsRouter } = require("./routes/internalConnectionsRoutes");
+const { createMlActivationService } = require("./services/internalActivationService");
+const { createMlActivationRouter } = require("./routes/internalActivationRoutes");
+const { createMlHubRelink } = require("./services/hubResourceRelinkService");
+const { queueClosedMonthMeasurement } = require("./services/mlTrialOrderMeasurementJob");
 const { syncHubIdentity } = require("../../lib/hubIdentitySync");
 const {
   corsOptionsDelegate,
@@ -148,7 +152,15 @@ module.exports = function createMlApp() {
       db,
       tokens: require("./services/tokenService"),
       authorize: (input) => require("./routes/meliOAuthRoutes").createExternalAuthorization(input),
+      // Seleção de plataforma: conta da DACHBYTE registrada para contratar no ML.
+      registerHubResource: ({ tenantId, meliUserId, label }) => createMlHubRelink({ baseUrl: process.env.HUB_BASE_URL, token: process.env.HUB_INTERNAL_TOKEN })({ tenantId, accountId: meliUserId, label }),
+      queueMeasurement: (accountId) => queueClosedMonthMeasurement(db, accountId),
     }),
+  }));
+  // Hub de acessos confirmou a contratação de uma conta do ML: ela entra no módulo liberada.
+  app.use("/internal/hub/activation", createMlActivationRouter({
+    secret: process.env.SELLER_RETIREMENT_TOKEN,
+    activate: createMlActivationService({ withClient: db.withClient }),
   }));
   app.use(
     createOriginGuard({
@@ -850,8 +862,9 @@ module.exports = function createMlApp() {
     return res.sendFile(path.join(__dirname, "views", "select-conta.html"));
   });
 
+  // Conectar e contratar contas do ML fica centralizado na seleção de plataforma.
   app.get("/vincular-conta", noCache, (_req, res) => {
-    return res.sendFile(path.join(__dirname, "views", "vincular-conta.html"));
+    return res.redirect(302, "/selecao-plataforma?conectar=ml");
   });
 
   app.get("/nao-autorizado", noCache, (_req, res) => {
