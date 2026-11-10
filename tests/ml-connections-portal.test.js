@@ -34,12 +34,23 @@ test("lista só contas da empresa que ainda não estão no ML", async () => {
   assert.deepEqual(result.payload.accounts.map((a) => a.meli_user_id), [2, 3]);
 });
 
-test("só quem gerencia a cobrança, com o ML instalado", async () => {
+test("só quem gerencia a cobrança; sem o ML instalado segue (pode ganhar o teste de 7 dias)", async () => {
   const notManager = setup({ overview: { ...manager, payload: { ...manager.payload, user: { can_manage_billing: false } } } });
   assert.equal((await notManager.service.register(identity, { meli_user_id: 2 })).status, 403);
   assert.equal(notManager.calls.length, 0);
-  const noMl = setup({ overview: { ...manager, payload: { ...manager.payload, modules: [] } } });
-  assert.equal((await noMl.service.connect(identity, { publicOrigin: "https://dachbyte.tech" })).payload.error, "ml_not_installed");
+  const granted = [];
+  const calls = [];
+  const service = createMlConnectionsPortalService({
+    connectionsUrl: "http://seller-ml-web:3000/ml/internal/connections", connectionsToken: "s3cret",
+    portal: {
+      overview: async () => ({ ...manager, payload: { ...manager.payload, user: { can_manage_billing: true, name: "Ana", email: "ana@x.com", role: "owner" }, modules: [] } }),
+      grantModuleAccess: async (_identity, input) => { granted.push(input); return { ok: true }; },
+    },
+    fetchImpl: async (url) => { calls.push(url); return { ok: true, status: 200, json: async () => ({ ok: true, url: "https://auth" }) }; },
+  });
+  const result = await service.connect(identity, { publicOrigin: "https://dachbyte.tech" });
+  assert.equal(result.ok, true);
+  assert.deepEqual(granted, [{ module: "ml", tenantName: "ACME", userName: "Ana", userEmail: "ana@x.com", userRole: "owner" }], "quem adiciona a conta passa a poder entrar no ML");
   assert.equal((await setup().service.dachbyteAccounts({})).status, 401);
 });
 

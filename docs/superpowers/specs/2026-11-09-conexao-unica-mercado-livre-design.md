@@ -142,3 +142,13 @@ Decisão: conectar e contratar contas do ML acontece só na seleção de platafo
 - Dentro do ML: "Vincular nova conta" virou "Adicionar conta" (leva à seleção com `?conectar=ml`); `/vincular-conta` redireciona para lá; "Regularizar" leva ao painel da conta na seleção. Gestão das contas já contratadas (padrão, apelido, desvincular) continua no ML.
 - Retorno da autorização nunca coloca conta no ML; reconexão de conta que já está no ML continua igual.
 - Pendências: o aviso ao módulo é tentado uma vez (falha fica no log); falta reenvio automático. Shopee e Magalu ainda não recebem o aviso.
+
+## Teste grátis de 7 dias do ML (revisto em 10/11/2026)
+
+- Entrada: landing do Mercado Livre → "Testar grátis por 7 dias" (só aparece com `SELLER_TRIAL_ONBOARDING_ENABLED=true`) → `/ml/teste-gratis`.
+- Formulário (e-mail, nome, empresa, CNPJ) antes da autorização. O início confere: e-mail já cadastrado (vai para login + seleção de plataforma) e elegibilidade do CNPJ no hub de acessos (`/v1/internal/portal/module-trials/eligibility`: um teste por CNPJ; empresa cliente do ML não ganha).
+- Retorno da autorização: cria empresa e usuário, ativa o teste no hub (CNPJ conferido na Receita e de novo contra testes de outras empresas), cria a conta no ML em teste, mede a faixa na hora (8 s; se falhar, o worker tenta até 3 vezes) e manda o convite do hub de acessos para criar a senha (login único) → seleção de plataforma.
+- Conta em teste no ML: `awaiting_subscription` + prazo = fim do teste (`billing_grace_expires_at`), rótulo "Teste gratis". No dia 8 bloqueia sozinha dentro do ML.
+- Contratação: o produto da empresa deixa de ser teste (`seller_trial_converted`, sem validade) no aceite do pós-pago e no pagamento do checkout; a conta deixa de ser "sem limite".
+- Empresa que já tem cadastro (ex.: só o Hub): na seleção de plataforma, "Testar 7 dias grátis" / "Adicionar conta" tenta o teste na primeira conta; quem adiciona recebe a permissão do ML. Sem teste possível e sem o ML contratado: "fale com a DACHBYTE para contratar".
+- Pontos em aberto: o e-mail só é confirmado quando a pessoa cria a senha pelo convite (o teste já começou); as rotas antigas do fluxo e-mail→link (`/oauth/trial/email`, `/activate`, `link-options`, `link-existing`) ficaram sem uso.

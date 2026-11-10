@@ -91,4 +91,36 @@ async function activateMlTrialInHub(input, options = {}) {
   return activation;
 }
 
-module.exports = { activateMlTrialInHub };
+/** Antes da autorização: o CNPJ pode ter o teste do ML? (um teste por CNPJ, cliente não ganha). */
+async function checkMlTrialEligibility(input, options = {}) {
+  const client = config(options);
+  const payload = await postInternal(client, "/v1/internal/portal/module-trials/eligibility", {
+    module_slug: "ml", document_number: String(input.documentNumber || ""),
+  }, "trial_eligibility_unavailable");
+  return payload?.eligible === true ? { eligible: true } : { eligible: false, reason: String(payload?.reason || "trial_not_eligible") };
+}
+
+/**
+ * E-mail para definir a senha do login único: convite do hub de acessos (página /convite),
+ * que depois leva para a seleção de plataforma.
+ */
+async function sendMlTrialPasswordInvite(input, options = {}) {
+  const client = config(options);
+  const payload = await postInternal(client, "/v1/internal/identity/sync", {
+    tenant_id: String(input.tenantId || ""),
+    company_name: String(input.companyName || ""),
+    user_id: String(input.userId || ""),
+    full_name: String(input.fullName || ""),
+    email: String(input.email || "").trim().toLowerCase(),
+    role: "owner",
+    module: "ml",
+    modules: ["ml"],
+    invite: true,
+    origin_module: "ml",
+    resource_key: `ml:${Number(input.mlUserId)}`,
+  }, "trial_password_invite_failed");
+  if (payload?.ok !== true) throw new Error("trial_password_invite_failed");
+  return { sent: payload?.email_delivery?.sent === true };
+}
+
+module.exports = { activateMlTrialInHub, checkMlTrialEligibility, sendMlTrialPasswordInvite };

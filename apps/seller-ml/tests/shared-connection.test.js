@@ -238,7 +238,7 @@ test("registrar conta da DACHBYTE para contratar no ML: hub de acessos e mediç�
     registerHubResource: async (input) => { registered.push(input); },
     queueMeasurement: async (id) => { measured.push(id); },
   });
-  assert.deepEqual(await svc.registerForMl({ tenant_id: "t-1", meli_user_id: 555 }), { resource_key: "ml:555" });
+  assert.deepEqual(await svc.registerForMl({ tenant_id: "t-1", meli_user_id: 555 }), { resource_key: "ml:555", trial: null });
   assert.deepEqual(registered, [{ tenantId: "t-1", empresaId: 4, meliUserId: 555, label: "Loja Sul", accountId: 7 }]);
   assert.deepEqual(measured, [7]);
   assert.ok(!db.calls.some((c) => /insert into ml\.meli_conta_produtos/i.test(c.sql)), "não ativa o ML antes da contratação");
@@ -286,4 +286,49 @@ test("contratação centralizada na seleção de plataforma: nada de assinar con
   assert.match(portal, /api\("\/api\/portal\/ml\/register"/);
   assert.match(portal, /api\("\/api\/portal\/ml\/connect"/);
   assert.match(portal, /get\("conectar"\)==="ml"/);
+});
+
+test("seleção de plataforma: empresa que ainda não usou o teste do ML ganha 7 dias na primeira conta", async () => {
+  const activated = [], registered = [], measured = [];
+  const db = fakeDb(account({ produtos: ["dach_hub"], empresa_id: 4 }));
+  const svc = createInternalConnectionsService({
+    db, tokens: {}, authorize: async () => ({}),
+    startTrial: async () => ({ trial: true, endsAt: "2026-11-17T12:00:00.000Z" }),
+    activateTrial: async (input) => { activated.push(input); },
+    registerHubResource: async (input) => { registered.push(input); },
+    queueMeasurement: async (id) => { measured.push(id); },
+  });
+  assert.deepEqual(await svc.registerForMl({ tenant_id: "t-1", meli_user_id: 555 }), { resource_key: "ml:555", trial: { ends_at: "2026-11-17T12:00:00.000Z" } });
+  assert.deepEqual(activated, [{ accountId: 7, endsAt: "2026-11-17T12:00:00.000Z", actor: "portal_trial" }]);
+  assert.equal(registered.length, 0, "em teste, não precisa ficar aguardando contratação");
+  assert.deepEqual(measured, [7]);
+});
+
+test("seleção de plataforma: sem teste e sem o ML instalado, a resposta pede contratação", async () => {
+  const svc = createInternalConnectionsService({
+    db: fakeDb(account({ produtos: ["dach_hub"], empresa_id: 4 })), tokens: {}, authorize: async () => ({}),
+    startTrial: async () => ({ trial: false, reason: "trial_document_already_used" }),
+    registerHubResource: async () => { throw new Error("ml_product_not_installed"); },
+  });
+  await assert.rejects(svc.registerForMl({ tenant_id: "t-1", meli_user_id: 555 }), { message: "ml_contract_required", status: 409 });
+});
+
+test("teste no ML: opera até o fim do teste e depois pede contratação, também dentro do módulo", () => {
+  const { canOperateAccount, buildAccountBillingPayload } = require("../services/accountBillingStatus");
+  const future = new Date(Date.now() + 3 * 86400e3).toISOString();
+  const past = new Date(Date.now() - 86400e3).toISOString();
+  const inTrial = { billing_status: "awaiting_subscription", billing_mode: "trial", usage_policy: "metered", billing_grace_expires_at: future };
+  assert.equal(canOperateAccount(inTrial), true);
+  assert.equal(buildAccountBillingPayload(inTrial).label, "Teste gratis");
+  assert.equal(canOperateAccount({ ...inTrial, billing_grace_expires_at: past }), false, "dia 8: bloqueia sem depender do hub");
+  const portal = read("services/mlPortalTrial.js");
+  assert.match(portal, /billing_status = 'awaiting_subscription', billing_mode = 'trial',\s*usage_policy = 'metered', billing_grace_expires_at = \$2/);
+  assert.match(read("services/internalActivationService.js"), /usage_policy = 'metered'/, "contratação deixa de ser sem limite");
+});
+
+test("medição da faixa tenta de novo até 3 vezes depois de falhar", () => {
+  const job = read("services/mlTrialOrderMeasurementJob.js");
+  assert.match(job, /attempts = attempts \+ 1/);
+  assert.match(job, /WHERE status = 'failed' AND attempts < 3 AND updated_at < NOW\(\) - INTERVAL '10 minutes'/);
+  assert.match(read("db/081_public_trial_form.sql"), /ADD COLUMN IF NOT EXISTS attempts INTEGER/);
 });

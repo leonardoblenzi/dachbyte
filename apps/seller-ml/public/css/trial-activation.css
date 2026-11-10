@@ -58,3 +58,7 @@
   font-weight: 800;
   justify-content: center;
 }
+
+/* O painel do formulário é claro: rótulos e dicas em tons escuros para leitura. */
+.auth-panel .trial-field { color: #1f2a3d; }
+.auth-panel .trial-hint { color: #5b6880; }

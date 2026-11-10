@@ -39,8 +39,10 @@ test("confirmed Hub trial finalizes account, tokens and user in one transaction"
   }, release() {} };
   const result = await finalizeConfirmedMlTrial({ connect: async () => client }, input);
   assert.equal(result.accountId, 30);
-  assert.ok(statements.some(({ statement, values }) =>
-    /INSERT INTO meli_contas[\s\S]*'trial'/i.test(statement) && values.includes("active")));
+  // Teste: aguardando assinatura com prazo até o fim do teste (opera até lá; no dia 8 pede contratação).
+  const accountWrite = statements.find(({ statement }) => /INSERT INTO meli_contas/i.test(statement));
+  assert.match(accountWrite.statement, /'awaiting_subscription', 'trial', 'metered'/);
+  assert.ok(accountWrite.values.includes("2099-10-27T12:00:00.000Z"), "prazo = fim do teste");
   assert.ok(statements.some(({ statement }) => /INSERT INTO meli_tokens/i.test(statement)));
   assert.ok(statements.some(({ statement }) => /INSERT INTO ml_closed_month_order_measurements/i.test(statement)));
   assert.ok(statements.some(({ statement }) => /UPDATE usuarios[\s\S]*status = 'ativo'/i.test(statement)));
@@ -104,5 +106,6 @@ test("an already expired company trial links the account without presenting acti
   });
   assert.equal(result.trialActive, false);
   const accountWrite = statements.find(({ statement }) => /INSERT INTO meli_contas/i.test(statement));
-  assert.ok(accountWrite?.values.includes("awaiting_subscription"));
+  assert.match(accountWrite.statement, /'awaiting_subscription'/);
+  assert.equal(accountWrite.values.at(-1), null, "teste já vencido: sem prazo, pede contratação");
 });

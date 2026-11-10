@@ -126,4 +126,85 @@ async function stageVerifiedMlTrialIdentity(pool, input) {
   }
 }
 
-module.exports = { stageVerifiedMlTrialIdentity };
+/**
+ * Fluxo novo: os dados vieram do formulário antes da autorização. No retorno do
+ * Mercado Livre cria empresa, usuário (pendente; a senha é definida pelo convite
+ * do hub de acessos) e vínculo de dono. Mesmo formato de retorno do fluxo antigo.
+ */
+async function stageMlTrialIdentityFromForm(pool, input) {
+  const sessionId = requiredText(input.sessionId, "trial_session_required");
+  const passwordHash = requiredText(input.passwordHash, "trial_password_hash_required");
+  if (!/^\$2[aby]\$\d{2}\$/.test(passwordHash)) throw new Error("trial_password_hash_invalid");
+  const now = input.now instanceof Date ? input.now : new Date();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const sessions = await client.query(
+      `SELECT id, email, ml_user_id, status, full_name, company_name, document_number
+         FROM public_trial_oauth_sessions
+        WHERE id = $1 AND status = 'oauth_confirmed'
+        FOR UPDATE`,
+      [sessionId]
+    );
+    const session = sessions.rows[0];
+    if (!session) throw new Error("trial_activation_invalid_or_expired");
+    const fullName = requiredText(session.full_name, "trial_full_name_required");
+    const companyName = requiredText(session.company_name, "trial_company_name_required");
+    const email = requiredText(session.email, "trial_email_required");
+    const document = normalizeCompanyCnpj(session.document_number);
+    const mlUserId = Number(session.ml_user_id);
+    if (!Number.isSafeInteger(mlUserId) || mlUserId <= 0) throw new Error("trial_ml_account_invalid");
+
+    const [existingUser, existingAccount] = await Promise.all([
+      client.query("SELECT id FROM usuarios WHERE LOWER(TRIM(email)) = LOWER(TRIM($1)) LIMIT 1", [email]),
+      client.query("SELECT id FROM meli_contas WHERE meli_user_id = $1 LIMIT 1", [mlUserId])
+    ]);
+    if (existingUser.rows[0]) throw new Error("trial_email_login_required");
+    if (existingAccount.rows[0]) throw new Error("trial_ml_account_already_linked");
+
+    const tenantId = crypto.randomUUID();
+    const globalUserId = crypto.randomUUID();
+    const company = await client.query(
+      "INSERT INTO empresas (nome, tenant_global_id, document_type, document_number) VALUES ($1, $2, $3, $4) RETURNING id",
+      [companyName, tenantId, document.type, document.number]
+    );
+    const user = await client.query(
+      `INSERT INTO usuarios (nome, email, senha_hash, nivel, status, user_global_id)
+       VALUES ($1, $2, $3, 'usuario', 'pendente_ativacao', $4) RETURNING id`,
+      [fullName, email, passwordHash, globalUserId]
+    );
+    const companyId = Number(company.rows[0]?.id);
+    const userId = Number(user.rows[0]?.id);
+    if (!Number.isSafeInteger(companyId) || !Number.isSafeInteger(userId)) {
+      throw new Error("trial_identity_stage_failed");
+    }
+    await client.query(
+      "INSERT INTO empresa_usuarios (empresa_id, usuario_id, papel) VALUES ($1, $2, 'owner')",
+      [companyId, userId]
+    );
+    const update = await client.query(
+      `UPDATE public_trial_oauth_sessions
+          SET status = 'identity_staged', empresa_id = $2, usuario_id = $3,
+              tenant_global_id = $4, user_global_id = $5,
+              recovery_expires_at = $6, updated_at = NOW()
+        WHERE id = $1 AND status = 'oauth_confirmed'
+        RETURNING id`,
+      [session.id, companyId, userId, tenantId, globalUserId,
+        new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()]
+    );
+    if (!update.rows[0]) throw new Error("trial_identity_stage_conflict");
+    await client.query("COMMIT");
+    return {
+      sessionId: session.id, companyId, userId, tenantId, globalUserId,
+      email, mlUserId, fullName, companyName,
+      documentType: document.type, documentNumber: document.number
+    };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { stageVerifiedMlTrialIdentity, stageMlTrialIdentityFromForm };

@@ -11,7 +11,7 @@ function secret() {
   return crypto.randomBytes(32).toString("base64url");
 }
 
-async function createTrialOAuthSession(client, { codeVerifier, now = new Date() }) {
+async function createTrialOAuthSession(client, { codeVerifier, form = null, now = new Date() }) {
   if (!String(codeVerifier || "").trim()) throw new Error("trial_oauth_verifier_required");
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
     throw new Error("trial_oauth_time_invalid");
@@ -20,11 +20,17 @@ async function createTrialOAuthSession(client, { codeVerifier, now = new Date() 
   const state = `trial_${secret()}`;
   const browserNonce = secret();
   const oauthExpiresAt = new Date(now.getTime() + 10 * 60 * 1000);
+  // Formulário (e-mail, CNPJ, nome, empresa) preenchido antes da autorização.
+  const email = form ? normalizeEmail(form.email) : null;
   await client.query(
     `INSERT INTO public_trial_oauth_sessions
-       (id, state_hash, browser_nonce_hash, code_verifier, oauth_expires_at, status)
-     VALUES ($1, $2, $3, $4, $5, 'issued')`,
-    [id, digest(state), digest(browserNonce), codeVerifier, oauthExpiresAt.toISOString()]
+       (id, state_hash, browser_nonce_hash, code_verifier, oauth_expires_at, status,
+        email, full_name, company_name, document_number)
+     VALUES ($1, $2, $3, $4, $5, 'issued', $6, $7, $8, $9)`,
+    [id, digest(state), digest(browserNonce), codeVerifier, oauthExpiresAt.toISOString(),
+      email, form ? String(form.fullName || "").trim() || null : null,
+      form ? String(form.companyName || "").trim() || null : null,
+      form ? String(form.documentNumber || "").trim() || null : null]
   );
   return { id, state, browserNonce, oauthExpiresAt };
 }

@@ -28,12 +28,15 @@ const {
 } = require("../services/publicTrialOAuthSession");
 const { resolveTrialEmail, lookupHubEmail } = require("../services/publicTrialEmailResolution");
 const { sendTrialVerificationEmail } = require("../services/inviteEmailService");
-const { stageVerifiedMlTrialIdentity } = require("../services/publicTrialIdentityStage");
-const { activateMlTrialInHub } = require("../services/hubTrialActivation");
+const { stageVerifiedMlTrialIdentity, stageMlTrialIdentityFromForm } = require("../services/publicTrialIdentityStage");
+const { activateMlTrialInHub, checkMlTrialEligibility, sendMlTrialPasswordInvite } = require("../services/hubTrialActivation");
+const { processClosedMonthMeasurement, syncPendingHubMeasurements } = require("../services/mlTrialOrderMeasurementJob");
+const { previousClosedMonthWindow } = require("../services/closedMonthOrderMeasurement");
 const { finalizeConfirmedMlTrial } = require("../services/publicTrialFinalization");
 const { listExistingTrialCompanies, stageExistingMlTrialLink } = require("../services/publicTrialExistingLink");
 const { queueClosedMonthMeasurement } = require("../services/mlTrialOrderMeasurementJob");
 const { postOAuthSelectionDestination } = require("../services/postOAuthDestination");
+const { tryStartMlTrial, activateLocalTrial } = require("../services/mlPortalTrial");
 
 const router = express.Router();
 
@@ -881,8 +884,16 @@ router.post(
   },
 );
 
-// Public trial OAuth is staged separately from meli_contas. It does not grant
-// access or start the seven-day clock before email activation.
+// Teste grátis de 7 dias (usuário novo): o formulário (e-mail, CNPJ, nome, empresa)
+// vem ANTES da autorização. Antes de mandar para o Mercado Livre, confere se o e-mail
+// já tem cadastro e se o CNPJ pode ter o teste (um teste por CNPJ; cliente não ganha).
+// O relógio de 7 dias começa no retorno da autorização.
+// Landing do Mercado Livre: mostra o botão do teste só quando ele está ligado.
+router.get("/oauth/trial/availability", (_req, res) => {
+  res.set("cache-control", "no-store");
+  return res.json({ ok: true, available: trialOnboardingEnabled() && Boolean(ML_APP_ID && ML_CLIENT_SECRET) });
+});
+
 router.post(
   "/oauth/trial/start",
   oauthRateLimiter,
@@ -895,8 +906,36 @@ router.post(
       }
       const redirectUri = resolveRedirectUri(req);
       if (!redirectUri) return res.status(503).json({ ok: false, error: "trial_oauth_callback_unavailable" });
+
+      const fullName = String(req.body?.full_name || "").trim().slice(0, 160);
+      const companyName = String(req.body?.company_name || "").trim().slice(0, 160);
+      if (!fullName || !companyName) return res.status(400).json({ ok: false, error: "trial_activation_fields_required" });
+      let document;
+      try { document = require("../../shared/brazilianDocument").normalizeCompanyCnpj(req.body?.document_number); }
+      catch { return res.status(400).json({ ok: false, error: "cnpj_required" }); }
+      let resolution;
+      try {
+        resolution = await resolveTrialEmail(req.body?.email, {
+          findLocalUser: async (email) => (await db.query(
+            `SELECT id FROM usuarios WHERE LOWER(TRIM(email)) = $1 LIMIT 1`, [email]
+          )).rows[0] || null,
+          lookupHubEmail,
+        });
+      } catch (error) {
+        if (String(error?.message) === "trial_email_invalid") return res.status(400).json({ ok: false, error: "trial_email_invalid" });
+        throw error;
+      }
+      // E-mail já cadastrado: entra e adiciona a conta pela seleção de plataforma
+      // (lá o teste também vale para quem ainda não tem o ML).
+      if (resolution.action === "login_required") return res.status(409).json({ ok: false, error: "trial_email_login_required" });
+      const eligibility = await checkMlTrialEligibility({ documentNumber: document.number });
+      if (!eligibility.eligible) return res.status(409).json({ ok: false, error: eligibility.reason });
+
       const codeVerifier = randomVerifier();
-      const session = await createTrialOAuthSession(db, { codeVerifier });
+      const session = await createTrialOAuthSession(db, {
+        codeVerifier,
+        form: { email: resolution.email, fullName, companyName, documentNumber: document.number },
+      });
       const url = new URL(AUTH_BASE);
       url.searchParams.set("response_type", "code");
       url.searchParams.set("client_id", String(ML_APP_ID));
@@ -907,7 +946,11 @@ router.post(
       res.cookie(COOKIE_TRIAL_OAUTH_NONCE, session.browserNonce, trialCookieOptions());
       return res.json({ ok: true, url: url.toString() });
     } catch (error) {
-      console.error("ML public trial OAuth start failed:", error?.message || error);
+      const code = String(error?.message || "");
+      if (code === "trial_eligibility_unavailable" || code === "trial_hub_unavailable") {
+        return res.status(503).json({ ok: false, error: "trial_eligibility_unavailable" });
+      }
+      console.error("ML public trial OAuth start failed:", code || error);
       return res.status(500).json({ ok: false, error: "trial_oauth_start_failed" });
     }
   },
@@ -1118,7 +1161,70 @@ async function handleTrialOAuthCallback(req, res, { code, state, redirectUri }) 
     scope: token.scope,
     encrypt: encryptToken,
   });
-  return res.redirect(withBase(req, "/ativar-teste"));
+  return completeTrialFromForm(req, res, session.id);
+}
+
+/**
+ * Teste grátis: depois da autorização, com os dados do formulário.
+ * 1. empresa e usuário (senha definida depois, pelo convite do hub de acessos);
+ * 2. teste de 7 dias no hub de acessos (CNPJ e elegibilidade conferidos de novo lá);
+ * 3. conta no ML em teste; 4. medição da faixa na hora (se falhar, o worker tenta de novo);
+ * 5. e-mail para definir a senha, que leva à seleção de plataforma.
+ */
+async function completeTrialFromForm(req, res, sessionId) {
+  const fail = (code) => res.redirect(withBase(req, `/ativar-teste?erro=${encodeURIComponent(code)}`));
+  let staged;
+  try {
+    staged = await stageMlTrialIdentityFromForm(db.pool, {
+      sessionId,
+      passwordHash: await bcrypt.hash(crypto.randomBytes(24).toString("base64url"), 10),
+    });
+  } catch (error) {
+    const code = String(error?.message || "");
+    if (["trial_email_login_required", "trial_ml_account_already_linked"].includes(code)) return fail(code);
+    console.error("ML trial identity stage failed:", code);
+    return fail("trial_activation_pending_retry");
+  }
+  let finalized;
+  try {
+    const activation = await activateMlTrialInHub({
+      tenantId: staged.tenantId, companyName: staged.companyName,
+      documentNumber: staged.documentNumber,
+      userId: staged.globalUserId, fullName: staged.fullName,
+      email: staged.email, mlUserId: staged.mlUserId, newIdentity: true,
+    });
+    finalized = await finalizeConfirmedMlTrial(db.pool, {
+      sessionId: staged.sessionId, tenantId: staged.tenantId,
+      mlUserId: staged.mlUserId, activation,
+    });
+  } catch (error) {
+    const code = String(error?.message || "");
+    if (["cnpj_not_found", "identity_sync_document_invalid", "identity_sync_cnpj_required", "cnpj_lookup_unavailable"].includes(code)) return fail(code);
+    console.error("ML trial hub activation failed:", code);
+    return fail("trial_activation_pending_retry");
+  }
+  // Faixa sugerida já calculada quando a pessoa entrar (limite de 8s; o worker cobre falhas).
+  try {
+    const window = previousClosedMonthWindow(new Date());
+    await Promise.race([
+      processClosedMonthMeasurement(db, finalized.accountId, window.periodStart)
+        .then(() => syncPendingHubMeasurements(db)),
+      new Promise((resolve) => setTimeout(resolve, 8000)),
+    ]);
+  } catch (error) {
+    console.warn("ML trial measurement deferred to worker:", error?.message || error);
+  }
+  let invite = { sent: false };
+  try {
+    invite = await sendMlTrialPasswordInvite({
+      tenantId: staged.tenantId, companyName: staged.companyName, userId: staged.globalUserId,
+      fullName: staged.fullName, email: staged.email, mlUserId: staged.mlUserId,
+    });
+  } catch (error) {
+    console.error("ML trial password invite failed:", error?.message || error);
+  }
+  res.clearCookie(COOKIE_TRIAL_OAUTH_NONCE, { path: "/" });
+  return res.redirect(withBase(req, `/ativar-teste?enviado=1${invite.sent ? "" : "&email=pendente"}`));
 }
 
 /** Volta para o produto que pediu a autorização (só caminhos do próprio produto). */
@@ -1477,6 +1583,23 @@ router.get(
     // Nada de cobrança, cookie ou conta padrão do módulo ML.
     if (outcome?.produto === "dach_hub") {
       return res.redirect(otherProductReturnUrl(outcome));
+    }
+
+    // Conta nova pela seleção de plataforma: empresa sem o ML (ex.: só Hub) ganha os 7 dias.
+    if (outcome?.contaId && outcome.produto === "none" && !outcome.mlActive) {
+      const tenantRow = await db.query("select tenant_global_id from empresas where id=$1", [outcome.empresaId]);
+      const tenantId = String(tenantRow.rows[0]?.tenant_global_id || "").trim();
+      const trial = tenantId
+        ? await tryStartMlTrial({ tenantId, meliUserId: outcome.meli_user_id }).catch((error) => {
+          console.warn("[ML][OAuth] trial check failed", error?.message || error);
+          return { trial: false };
+        })
+        : { trial: false };
+      if (trial.trial) {
+        await activateLocalTrial(db, { accountId: outcome.contaId, endsAt: trial.endsAt, actor: "portal_trial" });
+        await queueClosedMonthMeasurement(db, outcome.contaId).catch(() => null);
+        return res.redirect(withBase(req, postOAuthSelectionDestination({ moduleSlug: "ml", externalAccountId: outcome.meli_user_id })));
+      }
     }
 
     if (outcome?.contaId) {

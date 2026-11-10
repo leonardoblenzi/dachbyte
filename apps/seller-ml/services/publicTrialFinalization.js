@@ -13,14 +13,14 @@ function confirmHubActivation(input) {
       resource?.access_policy !== "temporary" || !Number.isFinite(Date.parse(trial?.endsAt))) {
     throw new Error("trial_hub_confirmation_invalid");
   }
-  return { sessionId, tenantId, mlUserId, trialActive: Date.parse(trial.endsAt) > Date.now() };
+  return { sessionId, tenantId, mlUserId, trialEndsAt: new Date(trial.endsAt).toISOString(), trialActive: Date.parse(trial.endsAt) > Date.now() };
 }
 
 // Hub's trial resource must already be committed. The local account, its OAuth
 // tokens and the login become operational together; a failed transaction can
 // be retried against the original Hub clock.
 async function finalizeConfirmedMlTrial(pool, input) {
-  const { sessionId, tenantId, mlUserId, trialActive } = confirmHubActivation(input);
+  const { sessionId, tenantId, mlUserId, trialActive, trialEndsAt } = confirmHubActivation(input);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -50,14 +50,15 @@ async function finalizeConfirmedMlTrial(pool, input) {
       "SELECT id FROM meli_contas WHERE meli_user_id = $1 LIMIT 1", [mlUserId]
     );
     if (existing.rows[0]) throw new Error("trial_ml_account_already_linked");
+    // Teste: "aguardando assinatura" com prazo até o fim do teste. Opera até lá e,
+    // no dia 8, pede a contratação sozinho (sem rotina e sem depender do hub).
     const created = await client.query(
       `INSERT INTO meli_contas
          (empresa_id, meli_user_id, apelido, site_id, status,
-          billing_status, billing_mode, usage_policy, range_enforcement)
-       VALUES ($1, $2, $3, 'MLB', 'ativa', $4, 'trial', 'unlimited', false)
+          billing_status, billing_mode, usage_policy, range_enforcement, billing_grace_expires_at)
+       VALUES ($1, $2, $3, 'MLB', 'ativa', 'awaiting_subscription', 'trial', 'metered', false, $4)
        RETURNING id`,
-      [session.empresa_id, mlUserId, `Conta ${mlUserId}`,
-        trialActive ? "active" : "awaiting_subscription"]
+      [session.empresa_id, mlUserId, `Conta ${mlUserId}`, trialActive ? trialEndsAt : null]
     );
     const accountId = Number(created.rows[0]?.id);
     if (!Number.isSafeInteger(accountId)) throw new Error("trial_local_account_creation_failed");

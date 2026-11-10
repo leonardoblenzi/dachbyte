@@ -48,6 +48,7 @@ function createMlActivationService({ withClient }) {
           `update meli_contas
               set billing_status = 'active',
                   billing_mode = 'paid',
+                  usage_policy = 'metered',
                   plan_code = coalesce($2, plan_code),
                   order_range_code = coalesce($3, order_range_code),
                   billing_grace_expires_at = null,

@@ -39,9 +39,25 @@ function createMlConnectionsPortalService({ connectionsUrl, connectionsToken, po
     if (data.user?.can_manage_billing !== true) {
       return { error: { ok: false, status: 403, payload: { ok: false, error: "billing_manager_required" } } };
     }
-    const ml = (data.modules || []).find((m) => m.slug === "ml");
-    if (!ml?.installed) return { error: { ok: false, status: 409, payload: { ok: false, error: "ml_not_installed" } } };
-    return { tenantId, userId, companyName: String(data.tenant?.name || "").trim() || null };
+    // ML não instalado: o teste de 7 dias pode valer (o módulo ML decide com o hub de acessos).
+    return {
+      tenantId, userId,
+      companyName: String(data.tenant?.name || "").trim() || null,
+      user: data.user || {},
+    };
+  }
+
+  /** Quem adiciona a conta do ML passa a poder entrar no módulo (se teste ou contrato liberarem). */
+  async function grantMlAccess(identity, who) {
+    if (typeof portal.grantModuleAccess !== "function") return;
+    const result = await portal.grantModuleAccess(identity, {
+      module: "ml",
+      tenantName: who.companyName,
+      userName: who.user?.name,
+      userEmail: who.user?.email,
+      userRole: who.user?.role,
+    });
+    if (!result?.ok) console.warn("[portal] permissão do ML não registrada", result?.payload?.error || result?.status);
   }
 
   return {
@@ -61,12 +77,14 @@ function createMlConnectionsPortalService({ connectionsUrl, connectionsToken, po
       if (who.error) return who.error;
       const meliUserId = Number(input.meli_user_id);
       if (!Number.isSafeInteger(meliUserId) || meliUserId <= 0) return { ok: false, status: 400, payload: { ok: false, error: "meli_user_id_required" } };
+      await grantMlAccess(identity, who);
       return call("POST", "/register-ml", { tenant_id: who.tenantId, meli_user_id: meliUserId });
     },
 
     async connect(identity, { publicOrigin } = {}) {
       const who = await authorizeManager(identity);
       if (who.error) return who.error;
+      await grantMlAccess(identity, who);
       return call("POST", "/authorize", {
         tenant_id: who.tenantId,
         user_global_id: who.userId,

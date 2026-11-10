@@ -173,7 +173,14 @@ function buildAccountBillingPayload(account = {}, options = {}) {
     tone: "neutral",
     reason: "Status comercial ainda nao mapeado.",
   };
-  const meta = graceActive
+  const trialActive = graceActive && mode === "trial";
+  const meta = trialActive
+    ? {
+        label: "Teste gratis",
+        tone: "ok",
+        reason: "Teste gratis de 7 dias. Contrate o plano na selecao de plataforma para continuar depois do prazo.",
+      }
+    : graceActive
     ? {
         label: "Prazo de regularizacao",
         tone: "warn",

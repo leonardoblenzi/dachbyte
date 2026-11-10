@@ -57,7 +57,13 @@ function mlEnvCreds() {
  *           tokens: { renovarTokenSeNecessario: Function, renovarToken: Function },
  *           authorize: Function }} deps
  */
-function createInternalConnectionsService({ db, tokens, authorize, registerHubResource = async () => {}, queueMeasurement = async () => {} }) {
+function createInternalConnectionsService({
+  db, tokens, authorize,
+  registerHubResource = async () => {},
+  queueMeasurement = async () => {},
+  startTrial = async () => ({ trial: false }),
+  activateTrial = async () => {},
+}) {
   async function findAccount(tenantId, meliUserId) {
     const { rows } = await db.query(
       `select mc.id, mc.empresa_id, mc.meli_user_id, mc.apelido, mc.site_id, mc.status,
@@ -190,11 +196,28 @@ function createInternalConnectionsService({ db, tokens, authorize, registerHubRe
       if (!account) throw fail("account_not_found", 404);
       if (account.produtos.includes("ml")) throw fail("account_already_in_ml", 409);
       if (!account.refresh_token || String(account.status) !== "ativa") throw fail("reconnect_required", 409);
-      await registerHubResource({
-        tenantId, empresaId: Number(account.empresa_id), meliUserId, label: account.apelido || `Conta ${meliUserId}`, accountId: Number(account.id),
-      });
+      // Empresa que ainda não usou o teste do ML (ex.: cliente só do Hub): 7 dias grátis.
+      let trial;
+      try {
+        trial = await startTrial({ tenantId, meliUserId });
+      } catch (_error) {
+        throw fail("trial_unavailable", 503);
+      }
+      if (trial?.trial) {
+        await activateTrial({ accountId: Number(account.id), endsAt: trial.endsAt, actor: "portal_trial" });
+        await queueMeasurement(Number(account.id));
+        return { resource_key: `ml:${meliUserId}`, trial: { ends_at: trial.endsAt } };
+      }
+      try {
+        await registerHubResource({
+          tenantId, empresaId: Number(account.empresa_id), meliUserId, label: account.apelido || `Conta ${meliUserId}`, accountId: Number(account.id),
+        });
+      } catch (error) {
+        if (String(error?.message) === "ml_product_not_installed") throw fail("ml_contract_required", 409);
+        throw fail("hub_registration_failed", 503);
+      }
       await queueMeasurement(Number(account.id));
-      return { resource_key: `ml:${meliUserId}` };
+      return { resource_key: `ml:${meliUserId}`, trial: null };
     },
 
     /** Ativa uma conta já conectada da empresa no produto (ex.: importar no Hub). */

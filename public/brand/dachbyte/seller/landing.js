@@ -56,6 +56,19 @@
     document.body.prepend(skip);
   }
 
+  // Mercado Livre: com o teste grátis ligado no servidor, o botão leva ao formulário do teste.
+  const mlTrialLink = document.querySelector('[data-ml-trial-start]');
+  if (mlTrialLink && experience === 'ml') {
+    fetch('/ml/api/meli/oauth/trial/availability', { credentials: 'same-origin', cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : { available: false })
+      .then((state) => {
+        if (state.available !== true) return;
+        mlTrialLink.textContent = 'Testar grátis por 7 dias';
+        mlTrialLink.setAttribute('href', '/ml/teste-gratis');
+      })
+      .catch(() => {});
+  }
+
   const shopeeTrialLink = document.querySelector('[data-shopee-trial-start]');
   if (shopeeTrialLink && experience === 'shopee') {
     fetch('/shopee/auth/trial/availability', { credentials: 'same-origin', cache: 'no-store' })

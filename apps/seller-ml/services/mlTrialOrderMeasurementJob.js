@@ -85,7 +85,7 @@ async function processClosedMonthMeasurement(db, accountId, periodStart, deps = 
     const code = String(error?.message || "ml_orders_measurement_failed").slice(0, 300);
     await db.query(
       `UPDATE ml_closed_month_order_measurements
-          SET status = 'failed', error_message = $3, updated_at = NOW()
+          SET status = 'failed', error_message = $3, attempts = attempts + 1, updated_at = NOW()
         WHERE account_id = $1 AND period_start = $2::date AND status = 'running'`,
       [row.account_id, periodStart, code]
     );
@@ -99,6 +99,12 @@ async function runPendingClosedMonthMeasurements(db, options = {}) {
     `UPDATE ml_closed_month_order_measurements
         SET status = 'queued', updated_at = NOW()
       WHERE status = 'running' AND started_at < NOW() - INTERVAL '10 minutes'`
+  );
+  // Falha passageira (Mercado Livre fora, chave renovando): tenta de novo até 3 vezes.
+  await db.query(
+    `UPDATE ml_closed_month_order_measurements
+        SET status = 'queued', updated_at = NOW()
+      WHERE status = 'failed' AND attempts < 3 AND updated_at < NOW() - INTERVAL '10 minutes'`
   );
   const pending = await db.query(
     `SELECT account_id, period_start

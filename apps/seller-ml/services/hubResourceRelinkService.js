@@ -13,7 +13,11 @@ function createMlHubRelink({ baseUrl, token, fetchImpl = fetch }) {
       }),
       signal: AbortSignal.timeout(5000),
     });
-    if (!response.ok) throw new Error("ml_hub_relink_failed");
+    if (!response.ok) {
+      const failure = await response.json().catch(() => null);
+      if (String(failure?.error || "") === "product_not_installed") throw new Error("ml_product_not_installed");
+      throw new Error("ml_hub_relink_failed");
+    }
     const result = await response.json().catch(() => null);
     if (result?.ok !== true || !String(result?.resource?.resource_key || "").trim()) {
       throw new Error("ml_hub_relink_invalid_response");

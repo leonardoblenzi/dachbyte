@@ -15,6 +15,7 @@ const { createMlActivationService } = require("./services/internalActivationServ
 const { createMlActivationRouter } = require("./routes/internalActivationRoutes");
 const { createMlHubRelink } = require("./services/hubResourceRelinkService");
 const { queueClosedMonthMeasurement } = require("./services/mlTrialOrderMeasurementJob");
+const { tryStartMlTrial, activateLocalTrial } = require("./services/mlPortalTrial");
 const { syncHubIdentity } = require("../../lib/hubIdentitySync");
 const {
   corsOptionsDelegate,
@@ -155,6 +156,8 @@ module.exports = function createMlApp() {
       // Seleção de plataforma: conta da DACHBYTE registrada para contratar no ML.
       registerHubResource: ({ tenantId, meliUserId, label }) => createMlHubRelink({ baseUrl: process.env.HUB_BASE_URL, token: process.env.HUB_INTERNAL_TOKEN })({ tenantId, accountId: meliUserId, label }),
       queueMeasurement: (accountId) => queueClosedMonthMeasurement(db, accountId),
+      startTrial: (input) => tryStartMlTrial(input),
+      activateTrial: (input) => activateLocalTrial(db, input),
     }),
   }));
   // Hub de acessos confirmou a contratação de uma conta do ML: ela entra no módulo liberada.
@@ -283,7 +286,9 @@ module.exports = function createMlApp() {
     if (p === "/login") return true;
     if (p === "/cadastro") return true;
     if (p === "/ativar") return true;
-    if (p === "/ativar-teste" ||
+    // Disponibilidade do teste: pública sempre (responde available=false com o teste desligado).
+    if (p === "/api/meli/oauth/trial/availability") return true;
+    if (p === "/ativar-teste" || p === "/teste-gratis" ||
         ["/api/meli/oauth/trial/start", "/api/meli/oauth/trial/email", "/api/meli/oauth/trial/activate"].includes(p)) {
       return String(process.env.SELLER_TRIAL_ONBOARDING_ENABLED || "").toLowerCase() === "true";
     }
@@ -844,6 +849,13 @@ module.exports = function createMlApp() {
   });
 
   app.get("/ativar-teste", noCache, (_req, res) => {
+    if (String(process.env.SELLER_TRIAL_ONBOARDING_ENABLED || "").toLowerCase() !== "true") {
+      return res.status(404).send("Pagina nao encontrada.");
+    }
+    return res.sendFile(path.join(__dirname, "views", "ativar-teste.html"));
+  });
+  // Entrada pública do teste grátis (botão da landing do Mercado Livre).
+  app.get("/teste-gratis", noCache, (_req, res) => {
     if (String(process.env.SELLER_TRIAL_ONBOARDING_ENABLED || "").toLowerCase() !== "true") {
       return res.status(404).send("Pagina nao encontrada.");
     }

@@ -522,7 +522,7 @@
           <p class="ml-link-note">Você autoriza a conta na tela oficial do Mercado Livre e volta para cá para contratar o plano.</p>
           <div style="margin-top:10px"><button class="btn" type="button" id="ml-link-connect">Conectar conta no Mercado Livre</button></div>
         </section>
-        <p class="ml-link-note">A conta entra no módulo depois que a contratação for confirmada.</p>
+        <p class="ml-link-note">Se a empresa ainda não usou o teste do DACH ML, a primeira conta ganha 7 dias grátis. Depois, a conta entra no módulo quando a contratação for confirmada.</p>
       </div>
     </section>
   </div>
@@ -665,6 +665,10 @@
             : "";
           const locked = !module.can_enter && module.status==="expired" ? '<button class="btn" type="button" data-jump-plans="'+esc(module.slug)+'">Renovar</button>' : "";
           return enter+setup+locked+manage;
+        }
+        // Mercado Livre ainda não contratado: começa pela conta, com 7 dias grátis se a empresa nunca usou o teste.
+        if(module.slug==="ml" && state.overview?.user?.can_manage_billing){
+          return '<button class="btn" type="button" data-ml-link>Testar 7 dias grátis</button>';
         }
         if(module.can_purchase && Array.isArray(module.catalog_plans) && module.catalog_plans.length){
           return '<button class="btn btn--outline" type="button" data-purchase="'+esc(module.slug)+'">Contratar</button>';
@@ -958,14 +962,19 @@
       async function useDachbyteAccount(btn){
         btn.disabled=true; btn.textContent="Preparando...";
         try{
-          const { resource_key } = await api("/api/portal/ml/register",{method:"POST",body:JSON.stringify({meli_user_id:Number(btn.dataset.mlUse)})});
+          const { resource_key, trial } = await api("/api/portal/ml/register",{method:"POST",body:JSON.stringify({meli_user_id:Number(btn.dataset.mlUse)})});
           closeMlLink();
           await refreshOverview();
           state.accountFilter="ml"; renderAccounts(); bindDynamicActions(); setView("accounts");
           if(allResources().some(r=>r.resource_key===resource_key)) openAccountDrawer(resource_key);
-          showToast("Conta pronta para contratar. Os pedidos do último mês estão sendo apurados para definir a faixa.");
+          showToast(trial?.ends_at
+            ? "Teste grátis de 7 dias iniciado, até "+formatDate(trial.ends_at)+". Use Entrar no Mercado Livre."
+            : "Conta pronta para contratar. Os pedidos do último mês estão sendo apurados para definir a faixa.");
         }catch(error){
-          showToast(error.payload?.error==="reconnect_required"?"A autorização desta conta expirou. Use Conectar conta no Mercado Livre.":(error.message||"Não foi possível preparar a conta."),true);
+          const code=error.payload?.error;
+          showToast(code==="reconnect_required"?"A autorização desta conta expirou. Use Conectar conta no Mercado Livre."
+            :code==="ml_contract_required"?"A empresa já usou o teste do DACH ML. Fale com a DACHBYTE para contratar o módulo."
+            :(error.message||"Não foi possível preparar a conta."),true);
           btn.disabled=false; btn.textContent="Usar esta conta";
         }
       }

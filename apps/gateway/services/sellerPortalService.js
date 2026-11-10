@@ -290,6 +290,28 @@ function createSellerPortalService({ baseUrl, internalToken, fetchImpl = fetch }
       });
     },
 
+    /**
+     * Permissão do módulo para quem adiciona a conta (dono/administrador). A liberação
+     * de verdade continua sendo o produto e a conta (teste ou contratação).
+     */
+    async grantModuleAccess(identity, { module, tenantName, userName, userEmail, userRole }) {
+      const resolved = normalizeIdentity(identity);
+      if (!resolved.tenant_id || !resolved.user_id) {
+        return { ok: false, status: 401, payload: { ok: false, error: "suite_identity_incomplete" } };
+      }
+      return post("/v1/internal/identity/sync", {
+        tenant_id: resolved.tenant_id,
+        company_name: String(tenantName || ""),
+        user_id: resolved.user_id,
+        full_name: String(userName || ""),
+        email: String(userEmail || ""),
+        role: String(userRole || "owner"),
+        module,
+        modules: [module],
+        access_policy: "explicit",
+      });
+    },
+
     async postpaidInvoices(identity) {
       const resolved = normalizeIdentity(identity);
       if (!resolved.tenant_id || !resolved.user_id) {
