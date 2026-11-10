@@ -60,7 +60,8 @@ async function list(accountId, tenantId) {
     ...groups.map(row => ({ ...row, kind: "group", resource: "sku" })),
     ...batches.rows.filter(row=>!row.group_id).map(row => ({ ...row, kind: "catalog", resource: "sku" })),
     ...writes.map(row => ({ ...row, kind: "write" })),
-    ...syncRuns.map(run => syncRow(run)),
+    // Só a sincronização mais recente tem relatório fiel: a seguinte sobrescreve o estado dos SKUs.
+    ...syncRuns.map((run, index) => ({ ...syncRow(run), report_available: index === 0 })),
   ].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
   return all.slice(0, 100);
 }
@@ -90,4 +91,69 @@ async function detail(accountId, tenantId, kind, id) {
     [id, Number(accountId), String(tenantId)]);
   return rows.length ? rows : null;
 }
-module.exports = { list, detail, _test: { syncRow } };
+// Relatório por SKU (página por id crescente), sempre restrito à conta e ao tenant.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const REPORT_KINDS = { group: "sku", catalog: "sku", write: "write" };
+async function reportExists(accountId, tenantId, kind, id) {
+  if (!REPORT_KINDS[kind] || !UUID_RE.test(String(id))) return false;
+  const params = [String(id), Number(accountId), String(tenantId)];
+  const sql = kind === "group"
+    ? "select 1 from magalu.sku_bulk_groups where id=$1 and account_id=$2 and dach_tenant_id=$3"
+    : kind === "catalog"
+      ? "select 1 from magalu.mass_operation_batches where id=$1 and account_id=$2 and dach_tenant_id=$3"
+      : "select 1 from magalu.write_operations where preview_id=$1 and account_id=$2 and dach_tenant_id=$3 limit 1";
+  return Boolean(await db.queryOne(sql, params));
+}
+async function reportPage(accountId, tenantId, kind, id, afterId = 0, limit = 2000) {
+  const params = [String(id), Number(accountId), String(tenantId), Number(afterId) || 0, Math.min(5000, Math.max(1, Number(limit) || 2000))];
+  if (kind === "write") {
+    const { rows } = await db.query(`select w.id,w.sku,w.resource_type,w.status,w.before_payload,w.requested_payload,w.after_payload,
+      w.response_status,w.request_id,w.error_code,w.error_message,w.completed_at,s.title,'' as batch_label
+      from magalu.write_operations w left join magalu.skus s on s.account_id=w.account_id and s.sku=w.sku
+      where w.preview_id=$1 and w.account_id=$2 and w.dach_tenant_id=$3 and w.id>$4 order by w.id limit $5`, params);
+    return rows;
+  }
+  const batchFilter = kind === "group" ? "b.group_id=$1" : "b.id=$1";
+  const { rows } = await db.query(`with batches as (
+      select b.id,row_number() over(order by b.created_at,b.id) as n from magalu.mass_operation_batches b
+      where ${batchFilter} and b.account_id=$2 and b.dach_tenant_id=$3)
+    select i.id,i.sku,i.action,i.status,i.before_payload,i.requested_payload,i.after_payload,i.response_status,i.request_id,
+      i.error_code,i.error_message,i.completed_at,s.title,'Lote '||b.n as batch_label
+    from magalu.mass_operation_items i join batches b on b.id=i.batch_id
+    left join magalu.skus s on s.account_id=i.account_id and s.sku=i.sku
+    where i.account_id=$2 and i.dach_tenant_id=$3 and i.id>$4 order by i.id limit $5`, params);
+  return rows;
+}
+// Relatório da sincronização do catálogo: estado de cada SKU (presentes ou removidos nesta execução).
+async function latestSyncRun(accountId, id) {
+  const run = await syncRunRepository.getRun(accountId, id);
+  if (!run || !SYNC_TYPES.includes(run.sync_type)) return null;
+  const [latest] = await syncRunRepository.recentRuns(accountId, SYNC_TYPES, 1);
+  return latest && String(latest.id) === String(run.id) ? run : { ...run, not_latest: true };
+}
+async function syncReportPage(accountId, run, afterId = 0, limit = 2000) {
+  const { rows } = await db.query(`select s.id,s.sku,s.title,s.status,s.active,s.is_present,s.last_synced_at,
+      p.price,p.list_price,p.last_error as price_error,p.last_synced_at as price_synced_at,
+      st.quantity,st.last_error as stock_error,st.last_synced_at as stock_synced_at
+    from magalu.skus s
+    left join magalu.prices p on p.account_id=s.account_id and p.sku=s.sku
+    left join magalu.stocks st on st.account_id=s.account_id and st.sku=s.sku
+    where s.account_id=$1 and s.id>$2 and (s.is_present=true or s.last_synced_at>=$3::timestamptz)
+    order by s.id limit $4`, [Number(accountId), Number(afterId) || 0, run.started_at, Math.min(5000, Math.max(1, Number(limit) || 2000))]);
+  return rows;
+}
+// Prévia de preços promocionais: só o dono da prévia (mesma conta, tenant e usuário).
+async function previewReportPage(identity, previewId, afterSku = "", limit = 2000) {
+  if (!UUID_RE.test(String(previewId))) return [];
+  const { rows } = await db.query(`select r.sku,r.source,r.result,r.price_override
+    from magalu.promo_pricing_preview_rows r join magalu.promo_pricing_previews p on p.id=r.preview_id
+    where r.preview_id=$1 and p.account_id=$2 and p.dach_tenant_id=$3 and p.dach_user_id=$4 and r.sku>$5
+    order by r.sku limit $6`, [String(previewId), Number(identity.accountId), String(identity.tenantId), String(identity.userId), String(afterSku || ""), Math.min(5000, Math.max(1, Number(limit) || 2000))]);
+  return rows;
+}
+async function previewExists(identity, previewId) {
+  if (!UUID_RE.test(String(previewId))) return false;
+  return Boolean(await db.queryOne(`select 1 from magalu.promo_pricing_previews where id=$1 and account_id=$2 and dach_tenant_id=$3 and dach_user_id=$4`,
+    [String(previewId), Number(identity.accountId), String(identity.tenantId), String(identity.userId)]));
+}
+module.exports = { list, detail, reportExists, reportPage, latestSyncRun, syncReportPage, previewReportPage, previewExists, REPORT_KINDS, _test: { syncRow } };
