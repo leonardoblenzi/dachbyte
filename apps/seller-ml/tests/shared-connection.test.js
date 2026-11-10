@@ -266,6 +266,41 @@ test("aviso de contratação do hub de acessos: conta entra no ML liberada, com 
   await assert.rejects(activate({ action: "activate", tenant_id: "t-1", external_account_id: "555", resource_key: "ml:555", operation_id: "x", plan_code: "x;drop" }), { message: "activation_invalid_payload" });
 });
 
+test("aviso de suspensão do hub de acessos: desliga só conta paga, com o motivo", async () => {
+  const { createMlActivationService } = require("../services/internalActivationService");
+  const run = async (row, command) => {
+    const statements = [];
+    const client = { query: async (sql, values) => {
+      statements.push({ sql, values });
+      if (sql.includes("from meli_contas mc join empresas e")) return { rows: [row] };
+      return { rows: [], rowCount: 1 };
+    } };
+    const result = await createMlActivationService({ withClient: async (fn) => fn(client) })(command);
+    return { result, update: statements.find((s) => /set billing_status = \$2/.test(s.sql)) };
+  };
+  const cmd = { action: "suspend", reason: "chargeback", tenant_id: "t-1", external_account_id: "555", resource_key: "ml:555", operation_id: "access_sync:ml:555:1" };
+  const paid = await run({ id: 7, status: "ativa", billing_status: "active", billing_mode: "paid", usage_policy: "metered" }, cmd);
+  assert.deepEqual(paid.result, { ok: true, state: "suspended", meli_conta_id: 7 });
+  assert.deepEqual(paid.update.values, [7, "chargeback"]);
+  for (const row of [
+    { id: 7, status: "ativa", billing_status: "awaiting_subscription", billing_mode: "trial", usage_policy: "metered" },
+    { id: 7, status: "ativa", billing_status: "legacy_active", billing_mode: "legacy", usage_policy: "unlimited" },
+    { id: 7, status: "ativa", billing_status: "courtesy_unlimited", billing_mode: "courtesy", usage_policy: "unlimited" },
+  ]) {
+    const kept = await run(row, cmd);
+    assert.equal(kept.result.state, "unchanged");
+    assert.equal(kept.update, undefined);
+  }
+  await assert.rejects(run({ id: 7, status: "ativa" }, { ...cmd, reason: "qualquer" }), { message: "activation_invalid_payload" });
+});
+
+test("migração 082 permite gravar os motivos de suspensão do hub", () => {
+  const sql = read("db/082_hub_access_suspension_statuses.sql");
+  for (const status of ["expired", "past_due", "refunded", "chargeback", "suspended_by_payment", "legacy_active"]) {
+    assert.match(sql, new RegExp(`'${status}'`));
+  }
+});
+
 test("aviso de contratação: só com a chave do hub, também na raiz do container", () => {
   const app = read("app.js");
   assert.ok(app.indexOf('app.use("/internal/hub/activation"') > 0 && app.indexOf('app.use("/internal/hub/activation"') < app.indexOf("app.use(authGate)"));
