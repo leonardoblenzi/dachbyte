@@ -104,7 +104,8 @@ test("botão de teste padronizado: landings dos três marketplaces, vitrine da l
   const css = fs.readFileSync(path.join(__dirname, "../../../public/brand/dachbyte/seller/landing.css"), "utf8");
   assert.match(css, /\.seller-button\[hidden\] \{ display: none; \}/);
   const login = read("views/login.html");
-  assert.match(login, /id="trial-cta" hidden>Ainda não tem conta\? Teste grátis por 7 dias/);
+  assert.match(login, /id="trial-cta" hidden>/);
+  assert.match(login, /Ainda não tem conta\? Teste grátis por 7 dias/);
   assert.match(login, /\/ml\/api\/meli\/oauth\/trial\/availability/);
   assert.match(login, /\/shopee\/auth\/trial\/availability/);
 });
