@@ -41,6 +41,13 @@ function loadConfig(env = process.env) {
     // Apps/credenciais próprios do DACH Hub em cada canal (independentes dos módulos DACH).
     // Cada canal declara as suas variáveis em src/connectors/channels.js.
     channels: channelSettingsFromEnv(env),
+    // Conexão única da DACHBYTE: canais cujas contas e chaves ficam com o módulo do canal (rede interna).
+    // Com a URL e o token definidos, o Hub conecta o canal por ali em vez do app próprio.
+    dachbyteConnections: {
+      mercadolivre: { baseUrl: String(env.HUB_ML_CONNECTIONS_URL || "").trim(), token: String(env.SELLER_CONNECTIONS_TOKEN || "").trim() },
+    },
+    // Avisos repassados pelos módulos (POST /internal/notifications/:canal).
+    internalToken: String(env.SELLER_CONNECTIONS_TOKEN || "").trim(),
   };
 }
 

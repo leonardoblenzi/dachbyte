@@ -140,6 +140,8 @@
     invalid_state: "O link de conexão expirou. Tente conectar de novo.",
     account_owned_by_other_tenant: "Esta conta do marketplace já está conectada a outra empresa no DACH Hub.",
     account_limit_reached: "O limite de contas do seu plano já foi atingido. Desconecte uma conta ou fale com a DACHBYTE para ampliar o plano.",
+    connections_unavailable: "A conexão da DACHBYTE com o marketplace está indisponível no momento. Tente de novo em instantes.",
+    connections_not_configured: "A conexão da DACHBYTE com este marketplace ainda não está configurada.",
   });
   const LINK_STATUS = /** @type {Record<string, [string, string]>} */ ({
     ready: ["Aguardando", "warning"], in_progress: ["Aberto", "accent"], used: ["Conta conectada", "success"],
@@ -147,6 +149,8 @@
   });
   /** @type {any} */
   let accountsUsage = null;
+  /** Contas já conectadas na DACHBYTE (ex.: no módulo ML) que ainda não estão no Hub. @type {any[]} */
+  let dachbyteAvailable = [];
   const STATUS = /** @type {Record<string, [string, string]>} */ ({
     connected: ["Conectada", "success"],
     reconnect_required: ["Reconectar", "danger"],
@@ -174,14 +178,16 @@
   }
 
   async function renderAccounts() {
-    const [channels, { accounts, usage, links }] = await Promise.all([loadChannels(), api("/accounts")]);
+    const [channels, { accounts, usage, links, dachbyte }] = await Promise.all([loadChannels(), api("/accounts")]);
     accountsUsage = usage;
+    dachbyteAvailable = dachbyte?.available || [];
     const byId = Object.fromEntries(channels.map((/** @type {any} */ c) => [c.id, c]));
     const params = new URLSearchParams(location.search);
     const connected = params.get("conectado"), error = params.get("erro");
     const flash = connected
       ? `<div class="hub-flash" data-tone="success">Conta ${esc(CHANNEL_LABELS[connected] || connected)} conectada. A importação dos anúncios começa em modo observação.</div>`
       : error ? `<div class="hub-flash" data-tone="danger">${esc(CONNECT_ERRORS[error] || "Não foi possível conectar a conta. Tente de novo.")}</div>` : "";
+    const brokerWarning = dachbyte?.error ? '<div class="hub-flash" data-tone="warning">Não foi possível consultar agora as contas do Mercado Livre na DACHBYTE. As contas abaixo continuam funcionando; tente atualizar em instantes.</div>' : "";
     const rows = accounts.map((/** @type {any} */ a) => {
       const [label, tone] = STATUS[a.status] || [a.status, "warning"];
       const importing = a.lastImport && (a.lastImport.status === "queued" || a.lastImport.status === "running");
@@ -198,8 +204,8 @@
     const linkRows = (links || []).map((/** @type {any} */ l) => { const [label, tone] = LINK_STATUS[l.status] || [l.status, ""]; return `<tr><td><span class="seller-badge">${esc(CHANNEL_LABELS[l.channel] || l.channel)}</span></td>
       <td>${esc(dateTime(l.createdAt))}</td><td><span class="seller-badge" ${tone ? `data-tone="${tone}"` : ""}>${esc(label)}</span>${l.account ? `<br><small>${esc(l.account)}</small>` : ""}</td>
       <td>${l.status === "ready" || l.status === "in_progress" ? `<button class="seller-btn hub-btn-xs" type="button" data-cancel-link="${esc(l.id)}">Cancelar</button>` : ""}</td></tr>`; }).join("");
-    root.innerHTML = `${flash}${usageLine}
-      <section class="seller-card"><h2>Contas conectadas</h2><p>Contas ligadas direto ao DACH Hub. A mesma conta pode estar também num módulo DACH; são conexões separadas.</p>
+    root.innerHTML = `${flash}${brokerWarning}${usageLine}
+      <section class="seller-card"><h2>Contas conectadas</h2><p>Contas em uso no DACH Hub. No Mercado Livre a conexão é única na DACHBYTE: a mesma conta serve ao Hub e ao módulo DACH ML, sem autorizar duas vezes.</p>
         ${accounts.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Canal</th><th>Conta</th><th>Situação</th><th>Anúncios</th><th>Importação</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
           : '<div class="seller-empty"><strong>Nenhuma conta conectada</strong><span>Conecte abaixo seus marketplaces e lojas virtuais.</span></div>'}
       </section>
@@ -238,7 +244,19 @@
         <button class="seller-btn seller-btn--primary" type="submit">Conectar ${esc(c.label)}</button><small data-connect-error></small></form>`;
     } else body = `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(c.id)}/start">Conectar ${esc(c.label)}</a>
       <button class="seller-btn" type="button" data-create-link="${esc(c.id)}">Gerar link de autorização</button>`;
-    return `<article class="hub-connect"><strong>${esc(c.label)}</strong>${body}</article>`;
+    return `<article class="hub-connect"><strong>${esc(c.label)}</strong>${body}${importList(c)}</article>`;
+  }
+
+  /**
+   * Contas que a empresa já conectou na DACHBYTE (ex.: no módulo DACH ML) e ainda não usa no Hub.
+   * Usar no Hub não pede nova autorização ao marketplace; ocupa uma vaga do plano. @param {any} c
+   */
+  function importList(c) {
+    const list = dachbyteAvailable.filter((a) => a.channel === c.id);
+    if (!isAdmin || c.connection !== "dachbyte" || !list.length) return "";
+    const full = accountsUsage && accountsUsage.limit != null && accountsUsage.total >= accountsUsage.limit;
+    return `<div class="hub-import-list"><small>Já conectadas na DACHBYTE</small>${list.map((a) => `<div class="hub-import-row"><span>${esc(a.label)}${a.connection === "ok" ? "" : ' <span class="seller-badge" data-tone="danger">Reconectar</span>'}</span>
+      <button class="seller-btn hub-btn-xs" type="button" data-use-dachbyte="${esc(a.channel)}" data-account="${esc(a.externalAccountId)}" ${full ? "disabled" : ""}>Usar no Hub</button></div>`).join("")}</div>`;
   }
 
   root.addEventListener("submit", async (event) => {
@@ -267,8 +285,15 @@
     const cancel = /** @type {HTMLButtonElement | null} */ (target.closest("[data-cancel-link]"));
     const nick = /** @type {HTMLButtonElement | null} */ (target.closest("[data-nickname]"));
     const copy = /** @type {HTMLButtonElement | null} */ (target.closest("[data-copy-link]"));
+    const useDachbyte = /** @type {HTMLButtonElement | null} */ (target.closest("[data-use-dachbyte]"));
     try {
-      if (create) {
+      if (useDachbyte) {
+        useDachbyte.disabled = true;
+        const channel = useDachbyte.getAttribute("data-use-dachbyte") || "";
+        await api("/accounts/import", { method: "POST", body: JSON.stringify({ channel, externalAccountId: useDachbyte.getAttribute("data-account") }) });
+        history.replaceState(null, "", `/hub/contas?conectado=${encodeURIComponent(channel)}`);
+        await renderAccounts();
+      } else if (create) {
         create.disabled = true;
         const { link } = await api("/accounts/links", { method: "POST", body: JSON.stringify({ channel: create.getAttribute("data-create-link") }) });
         await renderAccounts();

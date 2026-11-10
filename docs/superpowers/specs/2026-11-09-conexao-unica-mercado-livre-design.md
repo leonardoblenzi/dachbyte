@@ -1,6 +1,6 @@
 # Conexão única do Mercado Livre (módulo ML + DACH Hub)
 
-Status: aprovado. Etapa 1 (módulo ML) implementada em 09/11/2026; etapas 2 a 4 pendentes.
+Status: aprovado. Etapas 1 (módulo ML) e 2 (Hub) implementadas em 09-10/11/2026; etapas 3 e 4 pendentes.
 
 ## Objetivo
 
@@ -121,3 +121,12 @@ O mesmo vale para os outros canais: o dono da conexão de cada canal é quem rec
 - Renovação com `invalid_grant` marca a conta como `erro` (reconectar).
 - Repasse de avisos `orders_v2`/`orders`/`shipments` ao Hub (`HUB_ML_NOTIFICATIONS_URL`), conferindo app e caminho do recurso.
 - Ainda não feito: limpeza das chaves 30 dias depois de a conta ficar sem produto; seção "Contas já conectadas na DACHBYTE" nas Integrações do ML (etapa 3).
+
+## Etapa 2 entregue (DACH Hub)
+
+- Migração `012_dachbyte_connections.sql`: `channel_accounts.connection_source` (`own` | `dachbyte`). Conta `dachbyte` não guarda chave no Hub.
+- `src/platform/dachbyteConnections.js`: cliente da API interna (`HUB_ML_CONNECTIONS_URL` + `SELLER_CONNECTIONS_TOKEN`). Sem os dois, o ML continua no modo antigo (app próprio).
+- `TokenManager`: conta `dachbyte` pede a chave ao módulo e guarda em memória até 5 min antes de vencer; recusa do módulo por autorização perdida marca a conta "Reconectar"; queda do módulo não marca.
+- Contas: "Conectar Mercado Livre" autoriza pelo módulo e volta a `/hub/contas`; ao abrir Contas, o Hub traz as contas ativas no Hub e lista as "Já conectadas na DACHBYTE" com "Usar no Hub" (ocupa vaga, sem nova autorização); desconectar tira o `dach_hub` no módulo antes (se o módulo estiver fora, não desconecta).
+- Link de autorização: volta por `/hub/conectar/<token>/concluido`, confere no módulo que a conta está ativa no Hub para a empresa do link.
+- Avisos: `POST /hub/internal/notifications/mercadolivre` (Bearer) entra na mesma fila dos avisos diretos.

@@ -21,9 +21,32 @@ function fail(message, status, code) { return Object.assign(new Error(message), 
  *   tokens?: { getAccessToken: (accountId: number) => Promise<{ accessToken: string, externalAccountId: string }> },
  *   defaultAccountLimit?: number | null,
  *   resources?: { sync: (input: any) => Promise<any>, unlink: (input: any) => Promise<any> } | null,
+ *   brokers?: Record<string, ReturnType<typeof import("../../platform/dachbyteConnections").createDachbyteConnections>>,
  * }} deps
  */
-function createAccountsService({ repository, connectors, cipher, publicBaseUrl, tokens, defaultAccountLimit = null, resources = null }) {
+function createAccountsService({ repository, connectors, cipher, publicBaseUrl, tokens, defaultAccountLimit = null, resources = null, brokers = {} }) {
+  /** Canal conectado pela conexão única da DACHBYTE (módulo do canal é o dono das chaves)? @param {string} channel */
+  const brokerFor = (channel) => (brokers[channel]?.configured ? brokers[channel] : null);
+  const publicOrigin = (() => { try { return new URL(publicBaseUrl).origin; } catch (_error) { return ""; } })();
+  /** Caminho do Hub para onde a autorização volta (o módulo só aceita caminhos /hub/...). @param {string} suffix */
+  const hubPath = (suffix) => `${new URL(publicBaseUrl).pathname.replace(/\/+$/, "")}${suffix}`;
+
+  /**
+   * Espelha no Hub uma conta da conexão DACHBYTE (sem chaves). Conta de outra empresa no Hub: ignora.
+   * @param {{ tenantId: string, userId: string | null }} who @param {string} channel @param {any} remote
+   */
+  async function mirrorBrokered(who, channel, remote) {
+    const stored = await repository.upsertAccount({
+      tenantId: who.tenantId, channel, externalAccountId: String(remote.meli_user_id), label: remote.label || null,
+      userId: who.userId || "dachbyte", connectionSource: "dachbyte", status: remote.connection === "ok" ? "connected" : "reconnect_required",
+    });
+    if (!stored) { console.warn("[seller-hub] conta da DACHBYTE pertence a outra empresa no Hub", channel, remote.meli_user_id); return null; }
+    if (stored.created) {
+      await repository.audit({ tenantId: who.tenantId, userId: who.userId, action: "account_connected", details: { channel, account_id: stored.id, external_account_id: String(remote.meli_user_id), source: "dachbyte" } });
+      await reportResource("sync", { tenantId: who.tenantId, channel, externalAccountId: String(remote.meli_user_id), label: remote.label || null });
+    }
+    return stored;
+  }
   /**
    * Limite de contas do plano: o que o hub de acessos informou para a empresa ou o padrão do ambiente.
    * null = sem limite (plano sem a informação, equipe da plataforma ou empresa da lista de reserva).
@@ -122,6 +145,67 @@ function createAccountsService({ repository, connectors, cipher, publicBaseUrl, 
   return {
     redirectUri,
     limitFor,
+    brokerFor,
+
+    /** Canais para a tela: canal da conexão DACHBYTE fica disponível mesmo sem app próprio do Hub. */
+    channels() {
+      return connectors.list().map((c) => (brokerFor(c.id) ? { ...c, available: true, connection: "dachbyte" } : { ...c, connection: "own" }));
+    },
+
+    /**
+     * Traz para o Hub as contas que a empresa ativou no Hub pela conexão DACHBYTE (ex.: acabou de
+     * autorizar no Mercado Livre) e lista as que estão conectadas na DACHBYTE mas não no Hub.
+     * @param {any} identity
+     * @returns {Promise<{ added: any[], available: Array<{ channel: string, externalAccountId: string, label: string, connection: string }> }>}
+     */
+    async syncDachbyte(identity) {
+      /** @type {any[]} */
+      const added = [];
+      /** @type {Array<{ channel: string, externalAccountId: string, label: string, connection: string }>} */
+      const available = [];
+      for (const channel of Object.keys(brokers)) {
+        const broker = brokerFor(channel);
+        if (!broker) continue;
+        const remote = await broker.listAccounts(identity.tenantId);
+        const local = new Map((await repository.channelAccounts(identity.tenantId, channel)).map((/** @type {any} */ a) => [String(a.externalAccountId), a]));
+        for (const account of remote) {
+          const id = String(account.meli_user_id);
+          const mine = local.get(id);
+          if (Array.isArray(account.products) && account.products.includes("dach_hub")) {
+            // Desconectada no Hub fica desconectada (a desativação no módulo pode ter falhado antes).
+            if (mine?.status === "disconnected") continue;
+            const wantStatus = account.connection === "ok" ? "connected" : "reconnect_required";
+            if (!mine || mine.connectionSource !== "dachbyte") {
+              const stored = await mirrorBrokered(identity, channel, account);
+              if (stored?.created) added.push(stored);
+            } else if (mine.status !== wantStatus) {
+              await repository.setStatus(Number(mine.id), wantStatus);
+            }
+          } else if (!mine || mine.status === "disconnected") {
+            available.push({ channel, externalAccountId: id, label: account.label || `Conta ${id}`, connection: account.connection });
+          }
+        }
+      }
+      return { added, available };
+    },
+
+    /**
+     * Usa no Hub uma conta já conectada na DACHBYTE (ex.: conta do módulo ML). Não pede nova
+     * autorização ao marketplace; precisa de vaga no plano do Hub.
+     * @param {{ identity: any, channel: string, externalAccountId: string }} input
+     */
+    async importAccount({ identity, channel, externalAccountId }) {
+      const broker = brokerFor(channel);
+      if (!broker) throw fail("Este canal não usa a conexão da DACHBYTE.", 400, "not_dachbyte_channel");
+      const id = String(externalAccountId || "").trim();
+      if (!/^\d{1,20}$/.test(id)) throw fail("Conta inválida.", 400, "invalid_account");
+      if (!(await repository.findActiveByExternal(identity.tenantId, channel, id))) await assertSlot(identity.tenantId, limitFor(identity));
+      const remote = await broker.activate({ tenantId: identity.tenantId, externalAccountId: id, actor: `hub_user:${identity.userId}` });
+      const stored = await mirrorBrokered(identity, channel, remote || { meli_user_id: id, connection: "ok" });
+      if (!stored) throw fail("Esta conta já está conectada a outra empresa no DACH Hub.", 409, "account_owned_by_other_tenant");
+      await repository.audit({ tenantId: identity.tenantId, userId: identity.userId, action: "account_imported", details: { channel, account_id: stored.id, external_account_id: id } });
+      return stored;
+    },
     usage: (/** @type {any} */ identity) => usage(identity.tenantId, limitFor(identity)),
 
     /**
@@ -130,8 +214,14 @@ function createAccountsService({ repository, connectors, cipher, publicBaseUrl, 
      * @param {{ identity: any, channel: string, reconnectAccountId?: number }} input
      */
     async startConnect({ identity, channel, reconnectAccountId }) {
-      const connector = connectorFor(channel, "oauth");
       const reconnecting = reconnectAccountId ? await repository.findTenantAccount(identity.tenantId, reconnectAccountId) : null;
+      const broker = brokerFor(channel);
+      if (broker) {
+        // Conexão única: autoriza no app da DACHBYTE pelo módulo do canal; volta para Contas conectadas.
+        if (!reconnecting) await assertSlot(identity.tenantId, limitFor(identity));
+        return broker.authorize({ tenantId: identity.tenantId, userId: identity.userId, companyName: identity.companyName || null, returnTo: hubPath("/contas"), publicOrigin });
+      }
+      const connector = connectorFor(channel, "oauth");
       if (!reconnecting) await assertSlot(identity.tenantId, limitFor(identity));
       const state = randomToken(32);
       await repository.saveState({ stateHash: sha256(state), tenantId: identity.tenantId, userId: identity.userId, channel, ttlSeconds: STATE_TTL_SECONDS });
@@ -212,6 +302,12 @@ function createAccountsService({ repository, connectors, cipher, publicBaseUrl, 
     /** @param {{ identity: any, accountId: number }} input */
     async disconnect({ identity, accountId }) {
       const account = await repository.findTenantAccount(identity.tenantId, accountId);
+      // Conexão DACHBYTE: tira a conta do Hub no módulo dono (a conexão continua para os outros produtos).
+      if (account?.connectionSource === "dachbyte") {
+        const broker = brokerFor(account.channel);
+        if (!broker) throw fail("Conexão da DACHBYTE indisponível no momento. Tente de novo.", 503, "connections_unavailable");
+        await broker.deactivate({ tenantId: identity.tenantId, externalAccountId: account.externalAccountId });
+      }
       const done = await repository.disconnect(identity.tenantId, accountId);
       if (!done) throw fail("Conta não encontrada nesta empresa.", 404, "account_not_found");
       await repository.audit({ tenantId: identity.tenantId, userId: identity.userId, action: "account_disconnected", details: { account_id: accountId } });
@@ -234,7 +330,7 @@ function createAccountsService({ repository, connectors, cipher, publicBaseUrl, 
      * @param {{ identity: any, channel: string }} input
      */
     async createLink({ identity, channel }) {
-      connectorFor(channel, "oauth");
+      if (!brokerFor(channel)) connectorFor(channel, "oauth");
       const limit = limitFor(identity);
       await assertSlot(identity.tenantId, limit);
       const token = randomToken(32);
@@ -266,11 +362,38 @@ function createAccountsService({ repository, connectors, cipher, publicBaseUrl, 
       const link = await repository.findLink(sha256(String(token || "")));
       const status = linkStatus(link);
       if (status !== "ready") throw fail("Este link não está mais disponível. Peça um novo link.", 410, `link_${status}`);
-      const connector = connectorFor(link.channel, "oauth");
+      const broker = brokerFor(link.channel);
+      const connector = broker ? null : connectorFor(link.channel, "oauth");
       if (!(await repository.claimLink(Number(link.id)))) throw fail("Este link já foi aberto. Peça um novo link.", 410, "link_in_progress");
+      if (broker || !connector) {
+        // Conexão única: o retorno passa pelo módulo do canal e volta para a página pública do link.
+        return /** @type {any} */ (broker).authorize({ tenantId: link.tenantId, userId: link.createdBy, companyName: null, returnTo: hubPath(`/conectar/${String(token)}/concluido`), publicOrigin });
+      }
       const state = randomToken(32);
       await repository.saveState({ stateHash: sha256(state), tenantId: link.tenantId, userId: link.createdBy, channel: link.channel, ttlSeconds: STATE_TTL_SECONDS, linkId: Number(link.id) });
       return connector.authorizeUrl({ state, redirectUri: redirectUri(link.channel) });
+    },
+
+    /**
+     * Link concluído pela conexão DACHBYTE: o módulo já guardou a conta; ativa no Hub, para a empresa do link.
+     * Só vale para link aberto e ainda não usado; a conta precisa estar na DACHBYTE dessa empresa, ativa no Hub.
+     * @param {{ token: string, externalAccountId: string }} input
+     */
+    async finishBrokeredLink({ token, externalAccountId }) {
+      const link = await repository.findLink(sha256(String(token || "")));
+      if (!link || linkStatus(link) !== "in_progress") throw fail("Este link não está mais disponível.", 410, "link_unavailable");
+      const broker = brokerFor(link.channel);
+      if (!broker) throw fail("Este link não está mais disponível.", 410, "link_unavailable");
+      const id = String(externalAccountId || "");
+      const remote = (await broker.listAccounts(link.tenantId)).find((a) => String(a.meli_user_id) === id && Array.isArray(a.products) && a.products.includes("dach_hub"));
+      if (!remote) throw fail("A autorização não foi concluída no marketplace. Peça um novo link.", 400, "authorization_incomplete");
+      const who = { tenantId: link.tenantId, userId: link.createdBy };
+      const limit = link.accountLimit == null ? null : Number(link.accountLimit);
+      if (limit != null && !(await repository.findActiveByExternal(link.tenantId, link.channel, id))) await assertSlot(link.tenantId, limit);
+      const stored = await mirrorBrokered(who, link.channel, remote);
+      if (!stored) throw fail("Esta conta já está conectada a outra empresa no DACH Hub.", 409, "account_owned_by_other_tenant");
+      await repository.completeLink(Number(link.id), Number(stored.id));
+      return { account: stored, identity: who, channel: link.channel };
     },
 
     /** O retorno do marketplace é de um link de autorização? (não consome o state) @param {string} channel @param {unknown} state */
@@ -311,15 +434,63 @@ class TokenManager {
    *           connectors: ReturnType<typeof import("../../connectors/registry").createConnectors>,
    *           cipher: ReturnType<typeof import("../../platform/crypto").createCipher>, skewMs?: number }} deps
    */
-  constructor({ repository, connectors, cipher, skewMs = 5 * 60 * 1000 }) {
+  constructor({ repository, connectors, cipher, skewMs = 5 * 60 * 1000, brokers = {} }) {
     this.repository = repository;
     this.connectors = connectors;
     this.cipher = cipher;
     this.skewMs = skewMs;
+    /** Conexão única da DACHBYTE por canal: quem renova é o módulo do canal. @type {Record<string, any>} */
+    this.brokers = brokers;
+    /** Chave pedida ao módulo, guardada até perto de vencer. @type {Map<number, { accessToken: string, expiresAt: number }>} */
+    this.brokeredCache = new Map();
   }
 
-  /** @param {number} accountId @returns {Promise<{ accessToken: string, externalAccountId: string, channel: string }>} */
-  async getAccessToken(accountId) {
+  /**
+   * @param {number} accountId
+   * @param {{ rejectedAccessToken?: string | null }} [options] chave que o canal recusou (força pedir outra)
+   * @returns {Promise<{ accessToken: string, externalAccountId: string, channel: string }>}
+   */
+  async getAccessToken(accountId, options = {}) {
+    if (Object.keys(this.brokers).length) {
+      const source = await this.repository.connectionSource(accountId);
+      if (source?.connectionSource === "dachbyte") return this.brokeredToken(source, options);
+    }
+    return this.ownToken(accountId);
+  }
+
+  /**
+   * Conta da conexão DACHBYTE: pede a chave ao módulo dono da conexão. O Hub nunca renova.
+   * @param {any} source @param {{ rejectedAccessToken?: string | null }} options
+   */
+  async brokeredToken(source, { rejectedAccessToken = null } = {}) {
+    const id = Number(source.id);
+    if (source.status === "disconnected") throw fail("Conta sem conexão ativa.", 404, "account_not_connected");
+    const broker = this.brokers[source.channel];
+    if (!broker?.configured) throw fail("Conexão da DACHBYTE indisponível no momento.", 503, "connections_unavailable");
+    const cached = this.brokeredCache.get(id);
+    if (cached && cached.accessToken !== rejectedAccessToken && cached.expiresAt - Date.now() > this.skewMs) {
+      return { accessToken: cached.accessToken, externalAccountId: source.externalAccountId, channel: source.channel };
+    }
+    try {
+      const token = await broker.token({ tenantId: source.tenantId, externalAccountId: source.externalAccountId, rejectedAccessToken });
+      // Sem validade informada, guarda por 10 minutos e pergunta de novo.
+      const expiresAt = token.expiresAt ? token.expiresAt.getTime() : Date.now() + this.skewMs + 10 * 60 * 1000;
+      this.brokeredCache.set(id, { accessToken: token.accessToken, expiresAt });
+      if (source.status === "reconnect_required") await this.repository.setStatus(id, "connected");
+      return { accessToken: token.accessToken, externalAccountId: source.externalAccountId, channel: source.channel };
+    } catch (error) {
+      this.brokeredCache.delete(id);
+      const code = String(/** @type {any} */ (error)?.code || "");
+      if (["reconnect_required", "account_not_active_in_product", "account_not_found"].includes(code)) {
+        await this.repository.setStatus(id, "reconnect_required");
+        throw fail("A conexão desta conta expirou. Reconecte a conta.", 409, "reconnect_required");
+      }
+      throw error;
+    }
+  }
+
+  /** Conexão própria do Hub: chave guardada aqui e renovada sob trava. @param {number} accountId */
+  async ownToken(accountId) {
     const reconnect = () => fail("A conexão desta conta expirou. Reconecte a conta.", 409, "reconnect_required");
     // Erros "esperados" voltam como resultado e só são lançados depois do commit,
     // para a marcação de "reconectar" não ser desfeita pelo rollback.

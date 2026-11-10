@@ -137,6 +137,24 @@ function createOrdersService({ repository, stockRepository, connectors, tokens, 
       return { received: events.length, ids };
     },
 
+    /**
+     * Aviso repassado pelo módulo dono da conexão DACHBYTE (rede interna, token entre serviços).
+     * O módulo já conferiu o app; aqui só se aproveita a leitura de tópico, conta e recurso do conector.
+     * @param {{ channel: string, body: Record<string, any> }} input
+     */
+    async receiveRelayed({ channel, body }) {
+      const connector = connectorFor(channel);
+      const { application_id: _ignored, ...rest } = body || {};
+      const { events } = connector.parseWebhook({ headers: {}, rawBody: Buffer.from(JSON.stringify(rest)), url: "", secrets: [] });
+      /** @type {number[]} */
+      const ids = [];
+      for (const event of events) {
+        const saved = await repository.insertWebhook({ channel, ...event });
+        if (saved) ids.push(Number(saved.id));
+      }
+      return { received: events.length, ids };
+    },
+
     /** Processa uma notificação guardada: busca o pedido atualizado no canal e aplica. @param {number} eventId */
     async processWebhook(eventId) {
       const event = await repository.getWebhook(eventId);

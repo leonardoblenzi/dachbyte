@@ -117,16 +117,43 @@ function createAccountsRepository(db) {
      * empresa, nada é alterado e o retorno é null (posse protegida).
      * @param {{ tenantId: string, channel: string, externalAccountId: string, label: string | null, userId: string }} input
      */
-    async upsertAccount({ tenantId, channel, externalAccountId, label, userId }) {
+    async upsertAccount({ tenantId, channel, externalAccountId, label, userId, connectionSource = "own", status = "connected" }) {
+      return db.transaction(async (client) => {
+        const { rows } = await client.query(
+          `insert into hub.channel_accounts (tenant_id, channel, external_account_id, label, connected_by, connection_source, status)
+           values ($1, $2, $3, $4, $5, $6, $7)
+           on conflict (channel, external_account_id) do update set
+             label = coalesce(excluded.label, hub.channel_accounts.label), status = excluded.status,
+             connection_source = excluded.connection_source,
+             connected_by = excluded.connected_by, connected_at = now(), updated_at = now()
+           where hub.channel_accounts.tenant_id = excluded.tenant_id
+           returning id, tenant_id as "tenantId", channel, external_account_id as "externalAccountId", label, status,
+                     connection_source as "connectionSource", (xmax = 0) as "created"`,
+          [tenantId, channel, externalAccountId, label, userId, connectionSource, status]);
+        // Conta da conexão DACHBYTE não guarda chave no Hub (pode ter sobrado de quando era conexão própria).
+        if (rows[0] && connectionSource === "dachbyte") await client.query("delete from hub.channel_tokens where channel_account_id = $1", [rows[0].id]);
+        return rows[0] || null;
+      });
+    },
+
+    /** Origem da conexão da conta (própria do Hub ou DACHBYTE). @param {number} accountId */
+    async connectionSource(accountId) {
       return db.queryOne(
-        `insert into hub.channel_accounts (tenant_id, channel, external_account_id, label, connected_by)
-         values ($1, $2, $3, $4, $5)
-         on conflict (channel, external_account_id) do update set
-           label = coalesce(excluded.label, hub.channel_accounts.label), status = 'connected',
-           connected_by = excluded.connected_by, connected_at = now(), updated_at = now()
-         where hub.channel_accounts.tenant_id = excluded.tenant_id
-         returning id, tenant_id as "tenantId", channel, external_account_id as "externalAccountId", label, status`,
-        [tenantId, channel, externalAccountId, label, userId]);
+        `select id, tenant_id as "tenantId", channel, external_account_id as "externalAccountId", status, connection_source as "connectionSource"
+           from hub.channel_accounts where id = $1`, [accountId]);
+    },
+
+    /** Contas da empresa num canal (inclui desconectadas, para não reimportar o que o seller tirou). @param {string} tenantId @param {string} channel */
+    async channelAccounts(tenantId, channel) {
+      const { rows } = await db.query(
+        `select id, external_account_id as "externalAccountId", status, connection_source as "connectionSource"
+           from hub.channel_accounts where tenant_id = $1 and channel = $2`, [tenantId, channel]);
+      return rows;
+    },
+
+    /** @param {number} accountId @param {"connected" | "reconnect_required"} status */
+    async setStatus(accountId, status) {
+      await db.query("update hub.channel_accounts set status = $2, updated_at = now() where id = $1 and status <> 'disconnected'", [accountId, status]);
     },
 
     /** @param {number} accountId @param {{ accessTokenEnc: string, refreshTokenEnc: string | null, expiresAt: Date | null, scopes: string[] }} tokens @param {any} [client] */
@@ -146,7 +173,7 @@ function createAccountsRepository(db) {
     async listAccounts(tenantId) {
       const { rows } = await db.query(
         `select a.id, a.channel, a.external_account_id as "externalAccountId", a.label, a.nickname, a.status,
-                a.stock_sync_mode as "stockSyncMode", a.connected_at as "connectedAt", a.last_import_at as "lastImportAt",
+                a.connection_source as "connectionSource", a.stock_sync_mode as "stockSyncMode", a.connected_at as "connectedAt", a.last_import_at as "lastImportAt",
                 t.expires_at as "tokenExpiresAt", a.webhooks_subscribed_at as "webhooksAt", a.webhooks_error as "webhooksError",
                 (select count(*)::int from hub.listings l where l.channel_account_id = a.id) as listings,
                 case when r.id is null then null else jsonb_build_object(
@@ -215,7 +242,7 @@ function createAccountsRepository(db) {
     /** @param {string} tenantId @param {number} accountId */
     async findTenantAccount(tenantId, accountId) {
       return db.queryOne(
-        `select id, tenant_id as "tenantId", channel, external_account_id as "externalAccountId", status
+        `select id, tenant_id as "tenantId", channel, external_account_id as "externalAccountId", status, connection_source as "connectionSource"
            from hub.channel_accounts where id = $1 and tenant_id = $2 and status <> 'disconnected'`, [accountId, tenantId]);
     },
 

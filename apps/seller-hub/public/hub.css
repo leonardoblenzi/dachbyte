@@ -9,6 +9,9 @@
 .hub-connect-grid{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
 .hub-connect{ display: grid; gap: 10px; align-content: start; padding: 16px; border: 1px solid var(--seller-border); border-radius: 16px; background: var(--seller-surface-soft); }
 .hub-connect .seller-btn, .hub-connect .seller-badge{ justify-self: start; }
+.hub-import-list{ display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--seller-border); }
+.hub-import-list > small{ color: var(--seller-text-soft); font-size: 12px; }
+.hub-import-row{ display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
 .hub-flash[data-tone="warning"]{ background: var(--seller-warning-soft, #fef3c7); color: var(--seller-warning, #b45309); border-color: color-mix(in srgb, var(--seller-warning, #b45309) 30%, var(--seller-border)); }
 .hub-num{ text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .hub-toolbar{ display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }

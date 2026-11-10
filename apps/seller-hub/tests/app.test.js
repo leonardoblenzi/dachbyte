@@ -28,6 +28,7 @@ async function withServer(options, run) {
   const orders = {
     applyPendingForListing: async (...args) => { calls.push(["pending", ...args]); return { orders: 1, movements: 1 }; },
     receiveWebhook: async ({ channel }) => { if (channel === "magalu") throw Object.assign(new Error("assinatura"), { status: 401, code: "invalid_webhook" }); return { received: 1, ids: [7] }; },
+    receiveRelayed: async ({ channel, body }) => { calls.push(["relayed", channel, body.topic]); return { received: 1, ids: [8] }; },
     listOrders: async () => [],
   };
   const sync = {
@@ -163,5 +164,23 @@ test("configurações: salvar só o limite de estoque baixo não mexe na pausa g
     assert.ok(!calls.some((c) => c[0] === "paused"), "não chamou a pausa");
     await put({ paused: true });
     assert.deepEqual(calls.filter((c) => c[0] !== "threshold").at(-1), ["paused", true]);
+  });
+});
+
+test("avisos repassados pelo módulo ML: só com o token entre serviços, sem sessão", async () => {
+  await withServer({ env: { SELLER_CONNECTIONS_TOKEN: "s3cret" } }, async (base, calls) => {
+    const post = (auth) => fetch(`${base}/internal/notifications/mercadolivre`, {
+      method: "POST", headers: { "content-type": "application/json", ...(auth ? { authorization: auth } : {}) },
+      body: JSON.stringify({ topic: "orders_v2", resource: "/orders/1", user_id: 2 }),
+    });
+    assert.equal((await post()).status, 401);
+    assert.equal((await post("Bearer errado")).status, 401);
+    const ok = await post("Bearer s3cret");
+    assert.equal(ok.status, 200);
+    assert.deepEqual(calls.filter((c) => c[0] === "relayed" || c[0] === "webhook"), [["relayed", "mercadolivre", "orders_v2"], ["webhook", 8]]);
+  });
+  await withServer({}, async (base) => {
+    const res = await fetch(`${base}/internal/notifications/mercadolivre`, { method: "POST", headers: { authorization: "Bearer " }, body: "{}" });
+    assert.equal(res.status, 401, "sem token configurado, nada entra");
   });
 });

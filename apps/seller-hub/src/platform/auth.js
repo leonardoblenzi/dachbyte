@@ -39,6 +39,7 @@ function identityFromPayload(payload, config) {
     companyRole,
     isPlatformAdmin,
     isAdmin: isPlatformAdmin || (companyRole != null && ADMIN_COMPANY_ROLES.has(companyRole)),
+    ...(String(payload.company_name || "").trim() ? { companyName: String(payload.company_name).trim().slice(0, 120) } : {}),
   };
 }
 

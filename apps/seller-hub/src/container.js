@@ -31,6 +31,7 @@ const { createLabelsService } = require("./modules/labels/service");
 const { createAnalyticsRepository } = require("./modules/analytics/repository");
 const { createAnalyticsService } = require("./modules/analytics/service");
 const { createAccessHub } = require("./platform/accessHub");
+const { createDachbyteConnections } = require("./platform/dachbyteConnections");
 
 /** Cifra criada só quando usada: sem chave, conectar conta falha com 503 sem derrubar o app. @param {string} key */
 function lazyCipher(key) {
@@ -43,7 +44,7 @@ function lazyCipher(key) {
 /**
  * Raiz de composição: monta as peças do Hub uma vez, para o site (app.js) e para o worker.
  * Qualquer peça pode ser trocada (testes, prévia local).
- * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, imports?: any, queue?: any, stock?: any, orders?: any, sync?: any, syncQueues?: any, tokens?: any, reconcile?: any, billing?: any, automations?: any, expedition?: any, labels?: any, analytics?: any, accessHub?: any }} [overrides]
+ * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, brokers?: any, imports?: any, queue?: any, stock?: any, orders?: any, sync?: any, syncQueues?: any, tokens?: any, reconcile?: any, billing?: any, automations?: any, expedition?: any, labels?: any, analytics?: any, accessHub?: any }} [overrides]
  */
 function createContainer(overrides = {}) {
   const config = overrides.config || loadConfig();
@@ -52,12 +53,16 @@ function createContainer(overrides = {}) {
   const connectors = overrides.connectors || createConnectors(config.channels);
   const catalog = overrides.catalog || createCatalogService({ repository: createCatalogRepository(db) });
   const accountsRepository = createAccountsRepository(db);
-  const tokens = overrides.tokens || new TokenManager({ repository: accountsRepository, connectors, cipher });
+  // Conexão única da DACHBYTE: canais cujas contas e chaves ficam com o módulo do canal (Mercado Livre -> módulo ML).
+  const brokers = overrides.brokers || Object.fromEntries(Object.entries(config.dachbyteConnections || {})
+    .map(([channel, settings]) => [channel, createDachbyteConnections(settings)])
+    .filter(([, broker]) => /** @type {any} */ (broker).configured));
+  const tokens = overrides.tokens || new TokenManager({ repository: accountsRepository, connectors, cipher, brokers });
   // Hub de acessos: liberação do produto, limite de contas do plano e registro das contas (substituível nos testes).
   const accessHub = overrides.accessHub || createAccessHub(config.accessHub);
   const resources = config.resourceSync === "off" || !accessHub?.syncResource ? null
     : { sync: (/** @type {any} */ input) => accessHub.syncResource(input), unlink: (/** @type {any} */ input) => accessHub.unlinkResource(input) };
-  const accounts = overrides.accounts || createAccountsService({ repository: accountsRepository, connectors, cipher, publicBaseUrl: config.publicBaseUrl, tokens, defaultAccountLimit: config.defaultAccountLimit, resources });
+  const accounts = overrides.accounts || createAccountsService({ repository: accountsRepository, connectors, cipher, publicBaseUrl: config.publicBaseUrl, tokens, defaultAccountLimit: config.defaultAccountLimit, resources, brokers });
   let imports = overrides.imports;
   if (!imports) {
     imports = createImportsService({ repository: createImportsRepository(db), catalog, connectors, tokens });

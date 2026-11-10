@@ -6,6 +6,15 @@ const path = require("node:path");
 const { createAuthMiddleware, requireAdmin, SUITE_COOKIE } = require("./platform/auth");
 const { createContainer } = require("./container");
 const { PAGES, renderPage, renderLinkPage } = require("./web/pages");
+const { timingSafeEqual } = require("node:crypto");
+
+/** Token entre serviços (comparação em tempo constante). @param {unknown} header @param {string} secret */
+function internalAuthorized(header, secret) {
+  const auth = String(header || "");
+  if (!secret || !auth.startsWith("Bearer ")) return false;
+  const supplied = Buffer.from(auth.slice(7), "utf8"), expected = Buffer.from(secret, "utf8");
+  return supplied.length === expected.length && timingSafeEqual(supplied, expected);
+}
 
 /** @param {any} req */
 function identity(req) { return req.hubIdentity; }
@@ -47,6 +56,21 @@ async function createApp(deps = {}) {
     }
   });
 
+  // Avisos repassados pelo módulo dono da conexão DACHBYTE (rede interna; o Caddy não expõe /hub/internal).
+  app.post("/internal/notifications/:channel", express.json({ limit: "64kb" }), async (req, res) => {
+    if (!internalAuthorized(req.headers.authorization, config.internalToken)) return res.status(401).json({ ok: false, error: "unauthorized" });
+    const channel = String(req.params.channel);
+    try {
+      if (!connectors.has(channel)) return res.status(404).json({ ok: false, error: "unknown_channel" });
+      const { received, ids } = await orders.receiveRelayed({ channel, body: req.body || {} });
+      for (const id of ids) await syncQueues.enqueueWebhook(id);
+      res.json({ ok: true, received });
+    } catch (error) {
+      console.error("[seller-hub] aviso repassado", channel, /** @type {any} */ (error)?.message);
+      res.status(503).json({ ok: false, error: "relay_failed" });
+    }
+  });
+
   // Planilha de estoque vem em base64 no corpo: limite maior só nessas rotas.
   const smallJson = express.json({ limit: "1mb" });
   const sheetJson = express.json({ limit: "15mb" });
@@ -74,6 +98,18 @@ async function createApp(deps = {}) {
     } catch (error) {
       const code = String(/** @type {any} */ (error)?.code || "");
       res.status(410).type("html").send(renderLinkPage({ status: code.startsWith("link_") ? code.slice(5) : "invalid", channelLabel: "marketplace", token: "" }));
+    }
+  });
+  // Link concluído pela conexão DACHBYTE: o módulo do canal já guardou a conta e volta para cá.
+  app.get("/conectar/:token/concluido", async (req, res) => {
+    try {
+      const { account, identity: who, channel } = await accounts.finishBrokeredLink({ token: String(req.params.token), externalAccountId: String(req.query.conta || "") });
+      await startFirstImport(who, account);
+      res.type("html").send(renderLinkPage({ status: "connected", channelLabel: channelLabel(channel), token: "" }));
+    } catch (error) {
+      if (Number(/** @type {any} */ (error).status) >= 500) console.error("[seller-hub] link concluído", error);
+      const code = String(/** @type {any} */ (error)?.code || "connect_failed");
+      res.status(400).type("html").send(renderLinkPage({ status: "failed", channelLabel: "marketplace", token: "", message: /** @type {any} */ (error)?.message, code }));
     }
   });
   // Retorno do marketplace vindo de um link: sem sessão. Retorno normal segue para a rota com login, mais abaixo.
@@ -167,7 +203,7 @@ async function createApp(deps = {}) {
   });
   api.get("/channels", (_req, res) => {
     // "available" = app do DACH Hub configurado para aquele canal; "kind" separa marketplaces de lojas virtuais.
-    res.json({ ok: true, channels: connectors.list() });
+    res.json({ ok: true, channels: accounts.channels() });
   });
   api.post("/channels/:channel/connect", requireAdmin, async (req, res, next) => {
     // Lojas virtuais que conectam por formulário (chave de API / URL da loja).
@@ -180,8 +216,24 @@ async function createApp(deps = {}) {
   api.get("/accounts", async (req, res, next) => {
     try {
       const tenantId = identity(req).tenantId;
+      // Conexão DACHBYTE: traz contas recém-autorizadas e lista as que dá para importar. Falha aqui não esconde as contas.
+      /** @type {{ added: any[], available: any[], error?: string }} */
+      let dachbyte = { added: [], available: [] };
+      try { dachbyte = await accounts.syncDachbyte(identity(req)); } catch (error) {
+        console.warn("[seller-hub] conexão DACHBYTE indisponível", /** @type {any} */ (error)?.message);
+        dachbyte = { added: [], available: [], error: String(/** @type {any} */ (error)?.code || "connections_unavailable") };
+      }
+      for (const account of dachbyte.added) await startFirstImport(identity(req), account);
       const [list, usage, links] = await Promise.all([accounts.listAccounts(tenantId), accounts.usage(identity(req)), identity(req).isAdmin ? accounts.listLinks(tenantId) : []]);
-      res.json({ ok: true, accounts: list, usage, links });
+      res.json({ ok: true, accounts: list, usage, links, dachbyte: { available: identity(req).isAdmin ? dachbyte.available : [], error: dachbyte.error || null } });
+    } catch (error) { next(error); }
+  });
+  // Usar no Hub uma conta já conectada na DACHBYTE (ex.: conta do módulo ML), sem autorizar de novo.
+  api.post("/accounts/import", requireAdmin, async (req, res, next) => {
+    try {
+      const account = await accounts.importAccount({ identity: identity(req), channel: String(req.body?.channel || ""), externalAccountId: String(req.body?.externalAccountId || "") });
+      await startFirstImport(identity(req), account);
+      res.json({ ok: true, account });
     } catch (error) { next(error); }
   });
   // Apelido da conta e links de autorização (só o administrador da empresa).
