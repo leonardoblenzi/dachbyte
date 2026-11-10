@@ -928,13 +928,18 @@ router.post(
       // E-mail já cadastrado: entra e adiciona a conta pela seleção de plataforma
       // (lá o teste também vale para quem ainda não tem o ML).
       if (resolution.action === "login_required") return res.status(409).json({ ok: false, error: "trial_email_login_required" });
+      // Receita (CNPJ real e ATIVO) + um teste por CNPJ + cliente não ganha, antes do Mercado Livre.
       const eligibility = await checkMlTrialEligibility({ documentNumber: document.number });
-      if (!eligibility.eligible) return res.status(409).json({ ok: false, error: eligibility.reason });
+      if (!eligibility.eligible) {
+        const status = ["cnpj_not_found", "cnpj_not_active", "invalid_cnpj"].includes(eligibility.reason) ? 400 : 409;
+        return res.status(status).json({ ok: false, error: eligibility.reason });
+      }
 
       const codeVerifier = randomVerifier();
       const session = await createTrialOAuthSession(db, {
         codeVerifier,
-        form: { email: resolution.email, fullName, companyName, documentNumber: document.number },
+        // Empresa gravada com a razão social da Receita (nome oficial para a cobrança).
+        form: { email: resolution.email, fullName, companyName: eligibility.legalName || companyName, documentNumber: document.number },
       });
       const url = new URL(AUTH_BASE);
       url.searchParams.set("response_type", "code");
@@ -947,6 +952,7 @@ router.post(
       return res.json({ ok: true, url: url.toString() });
     } catch (error) {
       const code = String(error?.message || "");
+      if (code === "cnpj_lookup_unavailable") return res.status(503).json({ ok: false, error: code });
       if (code === "trial_eligibility_unavailable" || code === "trial_hub_unavailable") {
         return res.status(503).json({ ok: false, error: "trial_eligibility_unavailable" });
       }
@@ -1199,7 +1205,7 @@ async function completeTrialFromForm(req, res, sessionId) {
     });
   } catch (error) {
     const code = String(error?.message || "");
-    if (["cnpj_not_found", "identity_sync_document_invalid", "identity_sync_cnpj_required", "cnpj_lookup_unavailable"].includes(code)) return fail(code);
+    if (["cnpj_not_found", "cnpj_not_active", "identity_sync_document_invalid", "identity_sync_cnpj_required", "cnpj_lookup_unavailable"].includes(code)) return fail(code);
     console.error("ML trial hub activation failed:", code);
     return fail("trial_activation_pending_retry");
   }

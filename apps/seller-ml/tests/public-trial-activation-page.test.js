@@ -38,7 +38,7 @@ test("teste grátis: o início confere e-mail e CNPJ antes de mandar ao Mercado 
   assert.match(start, /resolution\.action === "login_required"/);
   assert.match(start, /checkMlTrialEligibility\(\{ documentNumber: document\.number \}\)/);
   assert.ok(start.indexOf("checkMlTrialEligibility") < start.indexOf("createTrialOAuthSession"), "confere antes de abrir a autorização");
-  assert.match(start, /form: \{ email: resolution\.email, fullName, companyName, documentNumber: document\.number \}/);
+  assert.match(start, /form: \{ email: resolution\.email, fullName, companyName: eligibility\.legalName \|\| companyName, documentNumber: document\.number \}/);
 });
 
 test("teste grátis: retorno da autorização cria tudo, mede a faixa e manda o e-mail de senha", () => {
@@ -70,4 +70,20 @@ test("the activation page is excluded from the operational shell under the ML ba
   const source = read("public/js/ml-base.js");
   assert.match(source, /ativar-teste/);
   assert.match(source, /"\/ativar-teste"/);
+});
+
+test("teste grátis: CNPJ conferido na Receita (ativo) antes do Mercado Livre e razão social gravada", async () => {
+  const routes = read("routes/meliOAuthRoutes.js");
+  const start = routes.slice(routes.indexOf('"/oauth/trial/start"'), routes.indexOf('"/oauth/trial/email"'));
+  assert.match(start, /\["cnpj_not_found", "cnpj_not_active", "invalid_cnpj"\]\.includes\(eligibility\.reason\) \? 400 : 409/);
+  assert.match(start, /companyName: eligibility\.legalName \|\| companyName/);
+  assert.match(read("public/js/ml-trial-signup.js"), /cnpj_not_active/);
+  const { checkMlTrialEligibility } = require("../services/hubTrialActivation");
+  const reply = (status, body) => async () => ({ ok: status < 400, status, json: async () => body });
+  const opts = (fetchImpl) => ({ baseUrl: "http://hub", token: "t", fetchImpl });
+  assert.deepEqual(await checkMlTrialEligibility({ documentNumber: "11222333000181" }, opts(reply(200, { ok: true, eligible: true, legal_name: "EMPRESA LTDA" }))),
+    { eligible: true, legalName: "EMPRESA LTDA" });
+  assert.deepEqual(await checkMlTrialEligibility({ documentNumber: "11222333000181" }, opts(reply(200, { ok: true, eligible: false, reason: "cnpj_not_active" }))),
+    { eligible: false, reason: "cnpj_not_active" });
+  await assert.rejects(checkMlTrialEligibility({ documentNumber: "11222333000181" }, opts(reply(503, { ok: false, error: "cnpj_lookup_unavailable" }))), /cnpj_lookup_unavailable/);
 });

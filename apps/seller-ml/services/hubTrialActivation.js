@@ -25,8 +25,9 @@ async function postInternal(client, path, body, failureCode) {
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     const code = String(payload?.error || "");
+    if (failureCode === "trial_eligibility_unavailable" && code === "cnpj_lookup_unavailable") throw new Error(code);
     if (failureCode === "trial_hub_identity_sync_failed" &&
-        ["cnpj_not_found", "cnpj_lookup_unavailable", "identity_sync_document_invalid", "identity_sync_cnpj_required"].includes(code)) {
+        ["cnpj_not_found", "cnpj_not_active", "cnpj_lookup_unavailable", "identity_sync_document_invalid", "identity_sync_cnpj_required"].includes(code)) {
       throw new Error(code);
     }
     throw new Error(failureCode);
@@ -97,7 +98,9 @@ async function checkMlTrialEligibility(input, options = {}) {
   const payload = await postInternal(client, "/v1/internal/portal/module-trials/eligibility", {
     module_slug: "ml", document_number: String(input.documentNumber || ""),
   }, "trial_eligibility_unavailable");
-  return payload?.eligible === true ? { eligible: true } : { eligible: false, reason: String(payload?.reason || "trial_not_eligible") };
+  return payload?.eligible === true
+    ? { eligible: true, legalName: String(payload?.legal_name || "").trim() || null }
+    : { eligible: false, reason: String(payload?.reason || "trial_not_eligible") };
 }
 
 /**

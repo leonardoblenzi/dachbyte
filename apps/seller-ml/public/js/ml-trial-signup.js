@@ -13,6 +13,8 @@
     identity_sync_document_invalid: "Confira o CNPJ da empresa.",
     identity_sync_cnpj_required: "Informe o CNPJ da empresa (CPF não é aceito no teste).",
     cnpj_not_found: "Não encontramos este CNPJ na Receita Federal. Confira o número.",
+    cnpj_not_active: "Este CNPJ não está ativo na Receita Federal (baixado, suspenso ou inapto). O teste é só para empresas ativas.",
+    invalid_cnpj: "Confira o CNPJ da empresa.",
     cnpj_lookup_unavailable: "A consulta do CNPJ está indisponível agora. Tente de novo em instantes.",
     trial_email_invalid: "Informe um e-mail válido.",
     trial_activation_fields_required: "Preencha todos os campos.",
