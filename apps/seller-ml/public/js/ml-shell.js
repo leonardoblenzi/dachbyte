@@ -742,7 +742,7 @@
   function formatCreditNumber(value) {
     const numeric = Number(value || 0);
     if (!Number.isFinite(numeric)) return "0";
-    return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(Math.max(0, Math.trunc(numeric)));
+    return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(Math.max(0, numeric));
   }
 
   function readWalletBalance(payload) {
@@ -832,8 +832,55 @@
     }
   }
 
-  window.addEventListener("ml:credits-changed", () => {
+  // O saldo muda quando um job começa (reserva) e quando termina (o Hub devolve o que
+  // não foi usado). Enquanto houver reserva aberta, o contador confere o saldo sozinho.
+  const CREDIT_WATCH_INTERVAL_MS = 15000;
+  const CREDIT_WATCH_GRACE_MS = 2 * 60 * 1000;
+  let creditWatchTimer = null;
+  let creditWatchGraceUntil = 0;
+
+  async function hasOpenCreditReservations() {
+    try {
+      const response = await window.fetch(window.mlUrl("/api/billing/credits/activity?limit=20"), {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+        headers: { accept: "application/json" },
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload) return false;
+      const reservations = Array.isArray(payload.reservations) ? payload.reservations : [];
+      return reservations.some((item) => String(item?.status || "").toLowerCase() === "reserved");
+    } catch {
+      return false;
+    }
+  }
+
+  function scheduleCreditWatch(delay = CREDIT_WATCH_INTERVAL_MS) {
+    if (creditWatchTimer) window.clearTimeout(creditWatchTimer);
+    creditWatchTimer = window.setTimeout(runCreditWatch, delay);
+  }
+
+  async function runCreditWatch() {
+    creditWatchTimer = null;
+    if (document.visibilityState === "hidden") return; // volta ao reabrir a aba
+    await hydrateCreditWallet();
+    const inGrace = Date.now() < creditWatchGraceUntil;
+    if (inGrace || (await hasOpenCreditReservations())) scheduleCreditWatch();
+  }
+
+  function startCreditWatch({ grace = false } = {}) {
+    if (grace) creditWatchGraceUntil = Date.now() + CREDIT_WATCH_GRACE_MS;
+    scheduleCreditWatch(grace ? 3000 : CREDIT_WATCH_INTERVAL_MS);
+  }
+
+  window.addEventListener("ml:credits-changed", (event) => {
     void hydrateCreditWallet();
+    startCreditWatch({ grace: event?.detail?.jobStarted === true });
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") void runCreditWatch();
   });
 
   async function hydrateAccountMenu() {
@@ -1813,6 +1860,7 @@
     applyAdminVisibility();
     hydrateAccountInfo();
     hydrateCreditWallet();
+    startCreditWatch(); // segue sozinho só se houver job com reserva aberta
     initAlertsCenter();
     ensureStatusModal();
     hideRedundantTitles(currentMeta);

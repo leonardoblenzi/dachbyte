@@ -210,3 +210,19 @@ test("paused promotion exposes safe resume metadata", () => {
   assert.equal(job.pending, 644);
   assert.equal(job.resumeUrl, "/api/promocoes/jobs/promo:1623/resume");
 });
+
+test("promoção esperando outra operação da conta aparece na fila, sem 'posição 0'", () => {
+  const job = normalize("promocoes", {
+    id: "promo:2202",
+    lifecycle_status: "queued",
+    state: "na fila: aguardando promotions finalizar nesta conta",
+    queue_reason: "heavy_operation_busy",
+    queue_position: null,
+    processed: 100,
+    total: 839,
+  });
+  assert.equal(job.waiting, true);
+  assert.equal(job.displayState, "na fila - aguardando outra operacao da conta");
+  const positioned = normalize("promocoes", { id: "promo:9", lifecycle_status: "queued", queue_position: 2, total: 10 });
+  assert.equal(positioned.displayState, "na fila - posicao 2");
+});

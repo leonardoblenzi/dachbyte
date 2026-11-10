@@ -198,9 +198,12 @@
       if (queueReason === "cooperative_chunk") {
         displayState = "aguardando proxima fatia";
       } else {
-        displayState = Number.isFinite(queuePosition)
+        const waitingTurn = queueReason === "heavy_operation_busy";
+        displayState = Number.isFinite(queuePosition) && queuePosition > 0
           ? `na fila - posicao ${queuePosition}`
-          : "na fila - aguardando worker";
+          : waitingTurn
+            ? "na fila - aguardando outra operacao da conta"
+            : "na fila - aguardando worker";
       }
     } else if (!completed && !failed && Number.isFinite(processed) && total > 0) {
       displayState = `processando ${processed}/${total} - ${progress}%`;

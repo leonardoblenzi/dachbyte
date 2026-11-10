@@ -93,6 +93,9 @@
         document.removeEventListener("keydown", onKeydown);
         element.remove();
         resolve(result);
+        if (result === true && typeof window !== "undefined" && typeof window.CustomEvent === "function") {
+          window.dispatchEvent(new window.CustomEvent("ml:credits-changed", { detail: { jobStarted: true } }));
+        }
       };
       const onKeydown = (event) => {
         if (event.key === "Escape") close(false);

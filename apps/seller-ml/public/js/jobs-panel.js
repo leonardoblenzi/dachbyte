@@ -637,6 +637,11 @@ function withBase(path) {
     if (!job || nextState == null) return false;
     if (isTerminalCompleted(nextState) || isTerminalFailed(nextState)) return false;
     if (isTerminalCompleted(job.state) || isTerminalFailed(job.state)) return false;
+    // Espera informada pelo servidor (ex.: outra operação pesada da conta rodando):
+    // o job vai para a fila mesmo já tendo processado uma parte. Só a troca de
+    // turno entre fatias (cooperative_chunk) segue como "em andamento".
+    const reason = String(job.queueReason || "").toLowerCase();
+    if (isWaitingState(nextState) && reason && reason !== "cooperative_chunk") return false;
     const currentProgress = Number(job.progress || 0);
     const nextProgress = Number(incomingProgress);
     if (Number.isFinite(nextProgress) && nextProgress < currentProgress) return true;
@@ -1397,7 +1402,9 @@ function withBase(path) {
     // startedAt = primeira vez que entrou em andamento; nao zera ao voltar para a fila
     // (a trava de operacao pesada alterna os jobs por trecho e a ordem nao deve pular).
     runningJobs.forEach((job) => { if (!job.startedAt) job.startedAt = Date.now(); });
-    runningJobs.sort((a, b) => (Number(a.startedAt || 0) - Number(b.startedAt || 0)) || (creationOrder(a) - creationOrder(b)));
+    // O que está executando agora fica em cima; quem só cedeu o turno entre fatias vem depois.
+    const executingFirst = (job) => (isCooperativeChunkWait(job) || isWaitingState(job?.state) ? 1 : 0);
+    runningJobs.sort((a, b) => (executingFirst(a) - executingFirst(b)) || (Number(a.startedAt || 0) - Number(b.startedAt || 0)) || (creationOrder(a) - creationOrder(b)));
     queuedJobs.sort((a, b) => {
       const pa = Number(a?.queuePosition), pb = Number(b?.queuePosition);
       const ha = Number.isFinite(pa) && pa > 0, hb = Number.isFinite(pb) && pb > 0;

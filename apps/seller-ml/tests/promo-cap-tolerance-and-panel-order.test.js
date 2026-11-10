@@ -19,8 +19,17 @@ test("teto do desconto aceita ate 1 ponto a mais (arredondamento do ML)", () => 
 
 test("painel: ativos pela ordem de inicio, fila pela posicao (FIFO) e concluidos mais recentes primeiro", () => {
   const js = fs.readFileSync(path.join(__dirname, "../public/js/jobs-panel.js"), "utf8");
-  assert.match(js, /runningJobs\.sort\(\(a, b\) => \(Number\(a\.startedAt \|\| 0\) - Number\(b\.startedAt \|\| 0\)\)/);
+  // Em andamento: quem está executando em cima; depois pela ordem de início.
+  assert.match(js, /runningJobs\.sort\(\(a, b\) => \(executingFirst\(a\) - executingFirst\(b\)\) \|\| \(Number\(a\.startedAt \|\| 0\) - Number\(b\.startedAt \|\| 0\)\)/);
   assert.match(js, /queuedJobs\.sort\(/);
   assert.match(js, /return creationOrder\(a\) - creationOrder\(b\);/, "fila: mais antigo (proximo a rodar) em cima");
   assert.doesNotMatch(js, /job\.startedAt = null/, "voltar para a fila nao muda a ordem");
+});
+
+test("painel: job que o servidor manda esperar vai para a fila mesmo já tendo processado uma parte", () => {
+  const js = fs.readFileSync(path.join(__dirname, "../public/js/jobs-panel.js"), "utf8");
+  const keep = js.slice(js.indexOf("function shouldKeepCurrentState"), js.indexOf("function monotonicProgress"));
+  assert.match(keep, /isWaitingState\(nextState\) && reason && reason !== "cooperative_chunk"\) return false/);
+  // A troca de turno entre fatias continua em andamento.
+  assert.match(js, /function isCooperativeChunkWait\(job\)/);
 });
