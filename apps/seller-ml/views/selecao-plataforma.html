@@ -1267,6 +1267,10 @@
           throw new Error("Checkout não retornou uma URL.");
         }catch(error){showToast(error.message==="postpaid_billing_document_required"
           ?"CPF/CNPJ da empresa ausente ou inválido. Atualize o cadastro com o suporte antes de contratar."
+          :error.message==="cnpj_not_active"
+          ?"O CNPJ da empresa não está ativo na Receita Federal. Regularize o CNPJ ou fale com o suporte para contratar."
+          :error.message==="cnpj_not_found"
+          ?"Não encontramos o CNPJ da empresa na Receita Federal. Fale com o suporte."
           :error.message||"Não foi possível iniciar a contratação.",true)}
         finally{button.disabled=false;updatePurchaseSummary()}
       }
