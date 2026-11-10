@@ -14,3 +14,17 @@ test("migracao cria as colunas de Order usadas pela sincronizacao e pelos painei
     assert.match(sql, new RegExp(`ADD COLUMN IF NOT EXISTS "${column}"`));
   }
 });
+
+test("migracao cria as colunas de repasse que o painel e a margem leem", () => {
+  const sql = fs.readFileSync(
+    path.join(__dirname, "..", "db", "migrations", "20261110160000_order_income_columns", "migration.sql"),
+    "utf8",
+  );
+  const repo = fs.readFileSync(path.join(__dirname, "..", "src", "repositories", "orderSyncSqlRepository.js"), "utf8");
+  const update = repo.slice(repo.indexOf("async function updateOrderIncomeByOrderSn("));
+  const written = [...update.slice(0, update.indexOf("\n}\n")).matchAll(/"((?:fin|income)[A-Za-z]+)" = \$/g)].map((m) => m[1]);
+  assert.ok(written.length >= 13);
+  for (const column of written.filter((c) => c !== "incomeDetailRaw")) {
+    assert.match(sql, new RegExp(`ADD COLUMN IF NOT EXISTS "${column}"`), column);
+  }
+});
