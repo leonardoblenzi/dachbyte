@@ -1033,11 +1033,35 @@ body.neo .ml-sidebar .ml-nav-icon {
   box-sizing: content-box !important;
 }
 
+/* a secao e flex em coluna com altura fixa: sem isso os blocos encolhiam
+   (a marca ficava com 26px e o fundo deslocado atras do logo) */
+body.neo .ml-sidebar .ml-sidebar__section {
+  gap: 4px !important;
+}
+
+body.neo .ml-sidebar .ml-sidebar__section > * {
+  flex-shrink: 0 !important;
+}
+
+body.neo .ml-sidebar .ml-sidebar__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 0 !important;
+  height: auto !important;
+  margin: 0 0 4px !important;
+  padding: 0 !important;
+}
+
+body.neo .ml-sidebar .ml-sidebar__collapse {
+  width: 34px !important;
+  height: 34px !important;
+}
+
 body.neo .ml-sidebar .ml-sidebar__brand {
   gap: 12px;
   padding: 12px 14px;
   min-height: 0;
-  margin-bottom: 12px;
+  margin: 0 0 8px !important;
 }
 
 body.neo .ml-sidebar .ml-sidebar__brand-mark {
@@ -1081,13 +1105,30 @@ body.neo .ml-sidebar .ml-sidebar__brand .subtitle {
 }
 
 body.neo .ml-sidebar .ml-sidebar__shop-toggle {
-  margin: 0 0 14px;
+  margin: 0 0 10px !important;
   min-height: 42px;
 }
 
 /* grupos */
 body.neo .ml-sidebar .sidebar-category + .sidebar-category {
-  margin-top: 2px !important;
+  margin-top: 0 !important;
+}
+
+body.neo .ml-sidebar .sidebar-category__meta {
+  min-width: 0;
+}
+
+body.neo .ml-sidebar .sidebar-category__meta strong,
+body.neo .ml-sidebar .sidebar-category__meta small,
+body.neo .ml-sidebar .ml-nav-item--sub .ml-nav-item__label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.neo .ml-sidebar .ml-nav-item--sub .ml-nav-item__content {
+  min-width: 0;
 }
 
 body.neo .ml-sidebar .sidebar-category__toggle {
