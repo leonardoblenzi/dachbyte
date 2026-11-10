@@ -56,44 +56,56 @@
     document.body.prepend(skip);
   }
 
-  // Mercado Livre: com o teste grátis ligado no servidor, o botão leva ao formulário do teste.
-  const mlTrialLink = document.querySelector('[data-ml-trial-start]');
-  if (mlTrialLink && experience === 'ml') {
-    fetch('/ml/api/meli/oauth/trial/availability', { credentials: 'same-origin', cache: 'no-store' })
-      .then((response) => response.ok ? response.json() : { available: false })
-      .then((state) => {
-        if (state.available !== true) return;
-        mlTrialLink.textContent = 'Testar grátis por 7 dias';
-        mlTrialLink.setAttribute('href', '/ml/teste-gratis');
-      })
-      .catch(() => {});
-  }
-
-  const shopeeTrialLink = document.querySelector('[data-shopee-trial-start]');
-  if (shopeeTrialLink && experience === 'shopee') {
-    fetch('/shopee/auth/trial/availability', { credentials: 'same-origin', cache: 'no-store' })
-      .then((response) => response.ok ? response.json() : { available: false })
-      .then((state) => {
-        if (state.available !== true) return;
-        shopeeTrialLink.textContent = 'Testar grátis por 7 dias';
-        shopeeTrialLink.addEventListener('click', async (event) => {
-          event.preventDefault();
-          if (shopeeTrialLink.dataset.loading === 'true') return;
-          shopeeTrialLink.dataset.loading = 'true';
-          shopeeTrialLink.textContent = 'Conectando à Shopee…';
-          try {
-            const response = await fetch('/shopee/auth/trial/start', {
-              credentials: 'same-origin', cache: 'no-store',
-            });
-            const payload = response.ok ? await response.json() : null;
-            if (!payload?.ok || !/^https:\/\//.test(payload.auth_url || '')) throw new Error('trial_start_unavailable');
-            window.location.assign(payload.auth_url);
-          } catch (_error) {
-            shopeeTrialLink.textContent = 'Tentar conexão novamente';
-            shopeeTrialLink.dataset.loading = 'false';
-          }
-        });
-      })
-      .catch(() => {});
-  }
+  // Teste grátis de 7 dias, igual em todas as landings e na vitrine da landing geral:
+  // [data-trial-start="<marketplace>"]. Com o teste ligado no servidor, o botão vira
+  // "Testar grátis por 7 dias"; sem teste, o botão do topo continua no contato e os
+  // demais (com hidden) ficam escondidos. Marketplace sem fluxo de teste ainda: sem
+  // entrada aqui, o botão fica como está até o fluxo existir.
+  const TRIAL_FLOWS = {
+    ml: {
+      availability: '/ml/api/meli/oauth/trial/availability',
+      start: () => window.location.assign('/ml/teste-gratis'),
+    },
+    shopee: {
+      availability: '/shopee/auth/trial/availability',
+      start: async (link) => {
+        link.textContent = 'Conectando à Shopee…';
+        const response = await fetch('/shopee/auth/trial/start', { credentials: 'same-origin', cache: 'no-store' });
+        const payload = response.ok ? await response.json() : null;
+        if (!payload?.ok || !/^https:\/\//.test(payload.auth_url || '')) throw new Error('trial_start_unavailable');
+        window.location.assign(payload.auth_url);
+      },
+    },
+  };
+  const trialAvailability = {};
+  const isTrialAvailable = (slug) => {
+    if (!trialAvailability[slug]) {
+      trialAvailability[slug] = fetch(TRIAL_FLOWS[slug].availability, { credentials: 'same-origin', cache: 'no-store' })
+        .then((response) => (response.ok ? response.json() : { available: false }))
+        .then((state) => state.available === true)
+        .catch(() => false);
+    }
+    return trialAvailability[slug];
+  };
+  document.querySelectorAll('[data-trial-start]').forEach((link) => {
+    const slug = link.dataset.trialStart;
+    const flow = TRIAL_FLOWS[slug];
+    if (!flow) return;
+    isTrialAvailable(slug).then((available) => {
+      if (!available) return;
+      link.hidden = false;
+      link.textContent = 'Testar grátis por 7 dias';
+      link.addEventListener('click', async (event) => {
+        event.preventDefault();
+        if (link.dataset.loading === 'true') return;
+        link.dataset.loading = 'true';
+        try {
+          await flow.start(link);
+        } catch (_error) {
+          link.textContent = 'Tentar de novo';
+          link.dataset.loading = 'false';
+        }
+      });
+    });
+  });
 })();

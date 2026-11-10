@@ -34,6 +34,7 @@ button { font: inherit; }
 .seller-brand { display: inline-flex; align-items: baseline; gap: 9px; font-family: var(--font-display); font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
 .seller-brand__dach { color: var(--seller-text); }.seller-brand__byte { color: var(--seller-primary); }.seller-brand__line { color: var(--seller-primary-soft); font: 13px/1 var(--font-mono); letter-spacing: .15em; }
 .seller-login { color: var(--seller-muted); font-size: 16px; font-weight: 700; }
+.seller-button[hidden] { display: none; }
 .seller-button { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 22px; border: 1px solid var(--seller-primary); background: var(--seller-primary); color: #201006; font: 800 16px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; transition: transform .2s, background .2s; }
 .seller-button:hover { transform: translateY(-2px); background: var(--seller-primary-soft); }
 .seller-button--ghost { border-color: var(--seller-line); background: transparent; color: var(--seller-text); }.seller-button--ghost:hover { border-color: var(--seller-primary); background: color-mix(in srgb, var(--seller-primary) 8%, transparent); }

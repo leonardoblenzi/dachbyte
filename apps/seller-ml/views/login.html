@@ -343,6 +343,9 @@
       font-weight:700;
     }
     .login-wait.is-visible{display:block}
+    .trial-cta{margin-top:14px;font-size:13px;color:#4b5567}
+    .trial-cta[hidden],.trial-cta a[hidden]{display:none}
+    .trial-cta a{color:#ff8a3d;font-weight:700;margin-left:6px}
     .legal{
       margin-top:12px;
       color:#7b8596;
@@ -450,6 +453,28 @@
           </form>
 
           <p class="legal">Acesso liberado somente para contas ativas da DACHBYTE Seller.</p>
+          <!-- Teste grátis de 7 dias: aparece só com o teste ligado em cada marketplace. -->
+          <p class="trial-cta" id="trial-cta" hidden>Ainda não tem conta? Teste grátis por 7 dias:
+            <a href="/ml/teste-gratis" data-login-trial="ml" hidden>Mercado Livre</a>
+            <a href="/seller/shopee" data-login-trial="shopee" hidden>Shopee</a>
+          </p>
+          <script>
+            (function () {
+              const cta = document.getElementById("trial-cta");
+              const flows = { ml: "/ml/api/meli/oauth/trial/availability", shopee: "/shopee/auth/trial/availability" };
+              Object.entries(flows).forEach(([slug, url]) => {
+                fetch(url, { credentials: "same-origin", cache: "no-store" })
+                  .then((r) => (r.ok ? r.json() : { available: false }))
+                  .then((state) => {
+                    if (state.available !== true) return;
+                    const link = cta.querySelector('[data-login-trial="' + slug + '"]');
+                    if (link) link.hidden = false;
+                    cta.hidden = false;
+                  })
+                  .catch(() => {});
+              });
+            })();
+          </script>
         </div>
       </section>
     </section>

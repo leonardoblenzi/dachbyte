@@ -53,7 +53,7 @@ test("teste grátis: retorno da autorização cria tudo, mede a faixa e manda o 
 
 test("landing do Mercado Livre leva ao teste quando ele está ligado", () => {
   const landing = fs.readFileSync(path.join(__dirname, "../../gateway/views/seller/landing-mercado-livre.html"), "utf8");
-  assert.match(landing, /data-ml-trial-start/);
+  assert.match(landing, /data-trial-start="ml"/);
   const script = fs.readFileSync(path.join(__dirname, "../../../public/brand/dachbyte/seller/landing.js"), "utf8");
   assert.match(script, /\/ml\/api\/meli\/oauth\/trial\/availability/);
   assert.match(script, /'\/ml\/teste-gratis'/);
@@ -86,4 +86,25 @@ test("teste grátis: CNPJ conferido na Receita (ativo) antes do Mercado Livre e 
   assert.deepEqual(await checkMlTrialEligibility({ documentNumber: "11222333000181" }, opts(reply(200, { ok: true, eligible: false, reason: "cnpj_not_active" }))),
     { eligible: false, reason: "cnpj_not_active" });
   await assert.rejects(checkMlTrialEligibility({ documentNumber: "11222333000181" }, opts(reply(503, { ok: false, error: "cnpj_lookup_unavailable" }))), /cnpj_lookup_unavailable/);
+});
+
+test("botão de teste padronizado: landings dos três marketplaces, vitrine da landing geral e login", () => {
+  const view = (name) => fs.readFileSync(path.join(__dirname, "../../gateway/views/seller", name), "utf8");
+  assert.match(view("landing-mercado-livre.html"), /data-trial-start="ml"/);
+  assert.match(view("landing-shopee.html"), /data-trial-start="shopee"/);
+  assert.match(view("landing-magalu.html"), /data-trial-start="magalu"/, "Magalu já marcado; aparece quando o fluxo existir");
+  const general = view("landing-general.html");
+  for (const slug of ["ml", "shopee", "magalu"]) {
+    assert.match(general, new RegExp(`data-trial-start="${slug}" hidden>Testar grátis por 7 dias`), slug);
+  }
+  const script = fs.readFileSync(path.join(__dirname, "../../../public/brand/dachbyte/seller/landing.js"), "utf8");
+  assert.match(script, /document\.querySelectorAll\('\[data-trial-start\]'\)/);
+  assert.match(script, /\/shopee\/auth\/trial\/start/);
+  assert.doesNotMatch(script, /data-ml-trial-start|data-shopee-trial-start/);
+  const css = fs.readFileSync(path.join(__dirname, "../../../public/brand/dachbyte/seller/landing.css"), "utf8");
+  assert.match(css, /\.seller-button\[hidden\] \{ display: none; \}/);
+  const login = read("views/login.html");
+  assert.match(login, /id="trial-cta" hidden>Ainda não tem conta\? Teste grátis por 7 dias/);
+  assert.match(login, /\/ml\/api\/meli\/oauth\/trial\/availability/);
+  assert.match(login, /\/shopee\/auth\/trial\/availability/);
 });

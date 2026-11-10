@@ -87,7 +87,7 @@ test("Shopee landing only offers public OAuth when the trial flag is enabled", a
   const landing = fs.readFileSync(path.join(__dirname, "../../gateway/views/seller/landing-shopee.html"), "utf8");
   const script = fs.readFileSync(path.join(__dirname, "../../../public/brand/dachbyte/seller/landing.js"), "utf8");
   assert.match(routes, /\/auth\/trial\/availability/);
-  assert.match(landing, /data-shopee-trial-start/);
+  assert.match(landing, /data-trial-start="shopee"/);
   assert.match(script, /\/shopee\/auth\/trial\/start/);
 });
 
