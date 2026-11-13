@@ -490,7 +490,12 @@ services:
     env_file: ["./env/hub-runtime.env"]
     environment:
       NODE_ENV: production
+      # Fixo aqui: com produção, o pagamento simulado (mock) fica desligado no hub.
+      ENVIRONMENT: production
       PORT: "8787"
+    # Endurecimento: sem privilégios extras dentro do container.
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
     networks: [edge, data]
     depends_on:
       postgres: {condition: service_healthy}
@@ -512,6 +517,10 @@ services:
     env_file: ["./env/hub-runtime.env"]
     environment:
       NODE_ENV: production
+      ENVIRONMENT: production
+    # Endurecimento: sem privilégios extras dentro do container.
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
     networks: [data]
     depends_on:
       postgres: {condition: service_healthy}

@@ -293,5 +293,20 @@
 # DACH Hub public endpoint. Caddy is the only public ingress.
 hub.dachbyte.tech {
   encode zstd gzip
-  reverse_proxy hub-web:8787
+  # Nenhum fluxo do hub manda mais que 1 MB (o hub também recusa acima disso).
+  request_body {
+    max_size 2MB
+  }
+  # API interna (módulos -> hub) só para quem está dentro da VPS (containers e o próprio host).
+  # Da internet, essas rotas não existem.
+  @hub_internal_from_outside {
+    path /v1/internal/* /v1/access/*
+    not remote_ip 127.0.0.0/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 ::1/128 fc00::/7 177.7.52.6/32
+  }
+  respond @hub_internal_from_outside 404
+  reverse_proxy hub-web:8787 {
+    # Sem Cloudflare na frente: este cabeçalho seria forjável pelo cliente.
+    header_up -Cf-Connecting-Ip
+    header_up -True-Client-Ip
+  }
 }
