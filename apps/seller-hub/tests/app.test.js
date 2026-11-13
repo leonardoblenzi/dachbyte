@@ -40,7 +40,7 @@ async function withServer(options, run) {
   };
   const syncQueues = { enqueueWebhook: async (id) => { calls.push(["webhook", id]); }, enqueuePush: async () => {} };
   const stock = { setAccountMode: async ({ mode }) => ({ mode }) };
-  const app = await createApp({ config, db: {}, catalog, imports, orders, sync, syncQueues, stock });
+  const app = await createApp({ config, db: {}, catalog, imports, orders, sync, syncQueues, stock, ...(options.deps ? options.deps(calls) : {}) });
   const server = app.listen(0);
   const base = `http://127.0.0.1:${server.address().port}`;
   try { await run(base, calls); } finally { server.close(); }
@@ -110,11 +110,11 @@ test("conectar conta: operador volta com aviso, app sem configuração volta com
   await withServer({}, async (base) => {
     const operator = await get(`${base}/auth/mercadolivre/start`, token({ company_role: "operator" }), "text/html");
     assert.equal(operator.status, 302);
-    assert.equal(operator.headers.get("location"), "/hub/contas?erro=admin_required");
+    assert.equal(operator.headers.get("location"), "/hub/marketplaces/mercado-livre/configuracoes?erro=admin_required", "volta para a aba Contas do canal");
     const admin = await get(`${base}/auth/mercadolivre/start`, token({ company_role: "admin" }), "text/html");
-    assert.equal(admin.headers.get("location"), "/hub/contas?erro=channel_not_configured");
+    assert.equal(admin.headers.get("location"), "/hub/marketplaces/mercado-livre/configuracoes?erro=channel_not_configured");
     const callback = await get(`${base}/auth/magalu/callback?error=access_denied`, token({ company_role: "admin" }), "text/html");
-    assert.equal(callback.headers.get("location"), "/hub/contas?erro=authorization_denied");
+    assert.equal(callback.headers.get("location"), "/hub/marketplaces/magalu/configuracoes?erro=authorization_denied");
   });
 });
 

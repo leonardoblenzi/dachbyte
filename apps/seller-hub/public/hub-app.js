@@ -3,6 +3,10 @@
   "use strict";
 
   const shellApi = /** @type {any} */ (window).DachSellerShell;
+  /** Marketplaces do catálogo de canais (a página entrega a lista): um item de menu por canal. */
+  const marketplaceMenu = (() => {
+    try { return /** @type {Array<{ id: string, label: string, slug: string }>} */ (JSON.parse(/** @type {HTMLElement} */ (document.querySelector("[data-shell-content]")).dataset.marketplaces || "[]")); } catch { return []; }
+  })();
   shellApi.mount({
     product: "hub",
     theme: "violet",
@@ -13,6 +17,10 @@
       { id: "catalog", label: "Catálogo", hint: "Produtos e vínculos", icon: "package", items: [
         { label: "Produtos", path: "/hub/catalogo" },
         { label: "Pendências", path: "/hub/pendencias" },
+      ] },
+      { id: "marketplaces", label: "Marketplaces", hint: "Anúncios, contas e regras", icon: "tag", items: [
+        { label: "Visão geral", path: "/hub/marketplaces" },
+        ...marketplaceMenu.map((m) => ({ label: m.label, path: `/hub/marketplaces/${m.slug}` })),
       ] },
       { id: "stock", label: "Estoque", hint: "Saldos, regras e observação", icon: "stack", items: [
         { label: "Saldos", path: "/hub/estoque" },
@@ -38,7 +46,7 @@
         { label: "Vendas por canal", path: "/hub/analise" },
         { label: "Mais vendidos", path: "/hub/analise/produtos" },
       ] },
-      { id: "account", label: "Conta", hint: "Acesso e integrações", icon: "user", items: [{ label: "Contas conectadas", path: "/hub/contas" }, { label: "Vendas do mês", path: "/hub/cobranca/vendas" }] },
+      { id: "account", label: "Conta", hint: "Plano e cobrança", icon: "user", items: [{ label: "Vendas do mês", path: "/hub/cobranca/vendas" }] },
     ],
     footNote: "Catálogo, estoque, pedidos e preços de todos os canais em um só fluxo.",
     logoutHref: "/hub/sair",
@@ -109,7 +117,7 @@
         <article class="seller-kpi"><span>Sem vínculo</span><strong>${int(o?.unlinked)}</strong><small>${int(o?.with_suggestion)} com sugestão</small></article>
       </section>
       ${Number(o?.accounts) && attention ? attentionCards(attention) : ""}
-      ${Number(o?.accounts) ? "" : empty("Nenhuma conta conectada ainda", "Conecte seus marketplaces e lojas virtuais para importar os anúncios.", '<a class="seller-btn seller-btn--primary" href="/hub/contas">Ver contas</a>')}`;
+      ${Number(o?.accounts) ? "" : empty("Nenhuma conta conectada ainda", "Conecte seus marketplaces e lojas virtuais para importar os anúncios.", '<a class="seller-btn seller-btn--primary" href="/hub/marketplaces">Ver marketplaces</a>')}`;
   }
 
   async function renderItems() {
@@ -178,7 +186,12 @@
   }
 
   async function renderAccounts() {
-    const [channels, { accounts, usage, links, dachbyte }] = await Promise.all([loadChannels(), api("/accounts")]);
+    const [allChannels, { accounts: allAccounts, usage, links: allLinks, dachbyte }] = await Promise.all([loadChannels(), api("/accounts")]);
+    // Dentro de um marketplace (aba Contas), só as contas, os links e o cartão de conexão daquele canal.
+    const onlyChannel = main.dataset.channel || "";
+    const channels = onlyChannel ? allChannels.filter((/** @type {any} */ c) => c.id === onlyChannel) : allChannels;
+    const accounts = onlyChannel ? allAccounts.filter((/** @type {any} */ a) => a.channel === onlyChannel) : allAccounts;
+    const links = onlyChannel ? (allLinks || []).filter((/** @type {any} */ l) => l.channel === onlyChannel) : allLinks;
     accountsUsage = usage;
     dachbyteAvailable = dachbyte?.available || [];
     const byId = Object.fromEntries(channels.map((/** @type {any} */ c) => [c.id, c]));
@@ -195,7 +208,7 @@
       const actions = isAdmin
         ? `${canImport ? `<button class="seller-btn seller-btn--primary" type="button" data-import="${esc(a.id)}" ${importing ? "disabled" : ""}>${importing ? "Importando…" : "Importar agora"}</button> ` : ""}${a.status === "reconnect_required" && byId[a.channel]?.auth === "oauth" ? `<a class="seller-btn seller-btn--primary" href="/hub/auth/${esc(a.channel)}/start?conta=${esc(a.id)}">Reconectar</a> ` : ""}<button class="seller-btn" type="button" data-nickname="${esc(a.id)}" data-current="${esc(a.nickname || "")}">Apelido</button> <button class="seller-btn" type="button" data-disconnect="${esc(a.id)}">Desconectar</button>`
         : "";
-      return `<tr><td><span class="seller-badge">${esc(CHANNEL_LABELS[a.channel] || a.channel)}</span></td><td><strong>${esc(a.nickname || a.label || a.externalAccountId)}</strong><br><small>${esc(a.nickname && a.label ? `${a.label} · ${a.externalAccountId}` : a.externalAccountId)}</small></td>
+      return `<tr>${onlyChannel ? "" : `<td><span class="seller-badge">${esc(CHANNEL_LABELS[a.channel] || a.channel)}</span></td>`}<td><strong>${esc(a.nickname || a.label || a.externalAccountId)}</strong><br><small>${esc(a.nickname && a.label ? `${a.label} · ${a.externalAccountId}` : a.externalAccountId)}</small></td>
         <td><span class="seller-badge" data-tone="${tone}">${esc(label)}</span>${webhooksLine(a)}</td><td>${int(a.listings)}</td><td>${importCell(a.lastImport)}</td><td><div class="hub-actions">${actions}</div></td></tr>`;
     }).join("");
     const full = usage.limit != null && usage.total >= usage.limit;
@@ -205,14 +218,15 @@
       <td>${esc(dateTime(l.createdAt))}</td><td><span class="seller-badge" ${tone ? `data-tone="${tone}"` : ""}>${esc(label)}</span>${l.account ? `<br><small>${esc(l.account)}</small>` : ""}</td>
       <td>${l.status === "ready" || l.status === "in_progress" ? `<button class="seller-btn hub-btn-xs" type="button" data-cancel-link="${esc(l.id)}">Cancelar</button>` : ""}</td></tr>`; }).join("");
     root.innerHTML = `${flash}${brokerWarning}${usageLine}
-      <section class="seller-card"><h2>Contas conectadas</h2><p>Contas em uso no DACH Hub. No Mercado Livre a conexão é única na DACHBYTE: a mesma conta serve ao Hub e ao módulo DACH ML, sem autorizar duas vezes.</p>
-        ${accounts.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr><th>Canal</th><th>Conta</th><th>Situação</th><th>Anúncios</th><th>Importação</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
-          : '<div class="seller-empty"><strong>Nenhuma conta conectada</strong><span>Conecte abaixo seus marketplaces e lojas virtuais.</span></div>'}
+      <section class="seller-card"><h2>${onlyChannel ? "Contas" : "Contas conectadas"}</h2><p>Contas em uso no DACH Hub.${!onlyChannel || onlyChannel === "mercadolivre" ? " No Mercado Livre a conexão é única na DACHBYTE: a mesma conta serve ao Hub e ao módulo DACH ML, sem autorizar duas vezes." : ""}</p>
+        ${accounts.length ? `<div class="seller-table-wrap"><table class="seller-table"><thead><tr>${onlyChannel ? "" : "<th>Canal</th>"}<th>Conta</th><th>Situação</th><th>Anúncios</th><th>Importação</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+          : `<div class="seller-empty"><strong>Nenhuma conta conectada</strong><span>${onlyChannel ? "Conecte abaixo a primeira conta." : "Conecte abaixo seus marketplaces e lojas virtuais."}</span></div>`}
       </section>
-      ${Object.entries(KIND_TITLES).map(([kind, [title, text]]) => {
-        const group = channels.filter((/** @type {any} */ c) => c.kind === kind);
-        return group.length ? `<section class="seller-card"><h2>${esc(title)}</h2><p>${esc(text)}</p><div class="hub-connect-grid">${group.map(connectCard).join("")}</div></section>` : "";
-      }).join("")}
+      ${onlyChannel ? (channels.length ? `<section class="seller-card"><h2>${accounts.length ? "Conectar outra conta" : "Conectar conta"}</h2><p>${esc(KIND_TITLES[channels[0].kind]?.[1] || "")}</p><div class="hub-connect-grid">${channels.map(connectCard).join("")}</div></section>` : "")
+        : Object.entries(KIND_TITLES).map(([kind, [title, text]]) => {
+          const group = channels.filter((/** @type {any} */ c) => c.kind === kind);
+          return group.length ? `<section class="seller-card"><h2>${esc(title)}</h2><p>${esc(text)}</p><div class="hub-connect-grid">${group.map(connectCard).join("")}</div></section>` : "";
+        }).join("")}
       ${isAdmin ? `<section class="seller-card"><h2>Links de autorização</h2>
         <p>Para conectar a conta de outra pessoa (um sócio, um cliente da agência) ou uma segunda conta do mesmo marketplace: gere o link no cartão do marketplace e envie. Ele vale 15 minutos e uma vez só; quem abre não precisa de login na DACHBYTE. Para a sua própria segunda conta, abra o link numa janela anônima.</p>
         <div data-link-result></div>
@@ -269,7 +283,7 @@
     error.textContent = "";
     try {
       await api(`/channels/${channel}/connect`, { method: "POST", body: JSON.stringify(Object.fromEntries(/** @type {any} */ (new FormData(form)))) });
-      history.replaceState(null, "", `/hub/contas?conectado=${encodeURIComponent(channel || "")}`);
+      history.replaceState(null, "", `${location.pathname}?conectado=${encodeURIComponent(channel || "")}`);
       await renderAccounts();
     } catch (err) {
       error.textContent = /** @type {Error} */ (err).message;
@@ -291,7 +305,7 @@
         useDachbyte.disabled = true;
         const channel = useDachbyte.getAttribute("data-use-dachbyte") || "";
         await api("/accounts/import", { method: "POST", body: JSON.stringify({ channel, externalAccountId: useDachbyte.getAttribute("data-account") }) });
-        history.replaceState(null, "", `/hub/contas?conectado=${encodeURIComponent(channel)}`);
+        history.replaceState(null, "", `${location.pathname}?conectado=${encodeURIComponent(channel)}`);
         await renderAccounts();
       } else if (create) {
         create.disabled = true;
@@ -356,7 +370,7 @@
     if (!confirm("Desconectar esta conta do DACH Hub? Os tokens serão apagados e a sincronização para.")) return;
     try {
       await api(`/accounts/${button.getAttribute("data-disconnect")}/disconnect`, { method: "POST" });
-      history.replaceState(null, "", "/hub/contas");
+      history.replaceState(null, "", location.pathname);
       await renderAccounts();
     } catch (error) {
       button.textContent = /** @type {Error} */ (error).message;

@@ -298,8 +298,10 @@
   /* ───────────── O que mudaria (modo observação) ───────────── */
   registry.plan = (kit) => {
     const { api, esc, int, root, isAdmin, empty, CHANNEL_LABELS } = kit;
-    const zeroParam = new URLSearchParams(location.search).get("canal_zerado") === "1";
-    const state = { accountId: "", q: "", onlyChanges: !zeroParam, zeroInChannel: zeroParam, offset: 0 };
+    const urlParams = new URLSearchParams(location.search);
+    const zeroParam = urlParams.get("canal_zerado") === "1";
+    // ?conta=<id>: vem das Regras de um marketplace, já filtrado na conta.
+    const state = { accountId: urlParams.get("conta") || "", q: "", onlyChanges: !zeroParam, zeroInChannel: zeroParam, offset: 0 };
     const SIZE = 100;
     let bound = false;
     /** @type {Map<number, any>} */
@@ -542,5 +544,5 @@
   };
 
   /** Exposto para os testes de navegador e para depuração. */
-  /** @type {any} */ (window).DachHubStock = { describeRule };
+  /** @type {any} */ (window).DachHubStock = { describeRule, ruleFields, ruleFromForm, onRuleModeChange };
 })();

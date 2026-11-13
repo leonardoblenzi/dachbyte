@@ -30,6 +30,8 @@ const { createLabelsRepository } = require("./modules/labels/repository");
 const { createLabelsService } = require("./modules/labels/service");
 const { createAnalyticsRepository } = require("./modules/analytics/repository");
 const { createAnalyticsService } = require("./modules/analytics/service");
+const { createMarketplacesRepository } = require("./modules/marketplaces/repository");
+const { createMarketplacesService } = require("./modules/marketplaces/service");
 const { createAccessHub } = require("./platform/accessHub");
 const { createDachbyteConnections } = require("./platform/dachbyteConnections");
 
@@ -44,7 +46,7 @@ function lazyCipher(key) {
 /**
  * Raiz de composição: monta as peças do Hub uma vez, para o site (app.js) e para o worker.
  * Qualquer peça pode ser trocada (testes, prévia local).
- * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, brokers?: any, imports?: any, queue?: any, stock?: any, orders?: any, sync?: any, syncQueues?: any, tokens?: any, reconcile?: any, billing?: any, automations?: any, expedition?: any, labels?: any, analytics?: any, accessHub?: any }} [overrides]
+ * @param {{ config?: ReturnType<typeof loadConfig>, db?: any, catalog?: any, connectors?: any, accounts?: any, brokers?: any, imports?: any, queue?: any, stock?: any, orders?: any, sync?: any, syncQueues?: any, tokens?: any, reconcile?: any, billing?: any, automations?: any, expedition?: any, labels?: any, analytics?: any, accessHub?: any, marketplaces?: any }} [overrides]
  */
 function createContainer(overrides = {}) {
   const config = overrides.config || loadConfig();
@@ -120,7 +122,11 @@ function createContainer(overrides = {}) {
   });
   labels = overrides.labels || createLabelsService({ repository: createLabelsRepository(db), connectors, tokens });
   const analytics = overrides.analytics || createAnalyticsService({ repository: createAnalyticsRepository(db) });
-  return { config, db, connectors, catalog, accounts, tokens, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition, labels, analytics, accessHub };
+  // Painel por marketplace: anúncios, contas e regras de preço e de estoque de cada canal.
+  const marketplaces = overrides.marketplaces || createMarketplacesService({
+    repository: createMarketplacesRepository(db), stockRepository, channels: () => accounts.channels(),
+  });
+  return { config, db, connectors, catalog, accounts, tokens, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition, labels, analytics, accessHub, marketplaces };
 }
 
 module.exports = { createContainer, lazyCipher };

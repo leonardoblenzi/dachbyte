@@ -1,12 +1,14 @@
 // @ts-check
 "use strict";
 
+const { CHANNEL_DEFINITIONS } = require("../connectors/channels");
+
 /** @param {unknown} value */
 function esc(value) {
   return String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
 }
 
-const ASSET_VERSION = "20261109g";
+const ASSET_VERSION = "20261113a";
 
 /** Páginas do DACH Hub. Cada uma vira um item do menu lateral. */
 const PAGES = {
@@ -34,7 +36,37 @@ const PAGES = {
   "/analise": { title: "Vendas por canal", kicker: "Análise", lead: "Faturamento, pedidos, ticket e cancelamentos de cada canal e conta, comparados ao período anterior.", view: "salesAnalysis" },
   "/analise/produtos": { title: "Mais vendidos", kicker: "Análise", lead: "O mesmo produto somado em todos os canais, com a fatia de cada canal e a curva ABC.", view: "topProducts" },
   "/contas": { title: "Contas conectadas", kicker: "Conta", lead: "Marketplaces e lojas virtuais conectados diretamente ao DACH Hub.", view: "accounts" },
+  "/marketplaces": { title: "Marketplaces", kicker: "Marketplaces", lead: "Cada canal com as suas contas, anúncios e regras de preço e de estoque.", view: "marketplaces" },
 };
+
+/** Endereço de cada marketplace (/hub/marketplaces/<slug>); sem slug próprio, vale o id do canal. */
+const MARKETPLACE_SLUGS = Object.freeze(/** @type {Record<string, string>} */ ({ mercadolivre: "mercado-livre" }));
+/** Artigo do nome do canal ("do Mercado Livre", "da Shopee"). */
+const CHANNEL_ARTICLES = Object.freeze(/** @type {Record<string, string>} */ ({ shopee: "da", amazon: "da" }));
+/** @param {string} channelId */
+const slugFor = (channelId) => MARKETPLACE_SLUGS[channelId] || channelId.replace(/_/g, "-");
+/** @param {string} channelId */
+const articleFor = (channelId) => CHANNEL_ARTICLES[channelId] || "do";
+
+/** Marketplaces do catálogo de canais, na ordem do catálogo (para o menu e as rotas). */
+function marketplaceList(definitions = CHANNEL_DEFINITIONS) {
+  return definitions.filter((d) => d.kind === "marketplace").map((d) => ({ id: d.id, label: d.label, slug: slugFor(d.id), de: articleFor(d.id) }));
+}
+
+/** @param {string} slug @param {readonly import("../connectors/channels").ChannelDefinition[]} [definitions] */
+function marketplaceForSlug(slug, definitions = CHANNEL_DEFINITIONS) {
+  return marketplaceList(definitions).find((m) => m.slug === slug) || null;
+}
+
+/** Abas do painel de cada marketplace. */
+const CHANNEL_SECTIONS = Object.freeze({
+  listings: { suffix: "", tab: "Anúncios", view: "mpListings",
+    lead: (/** @type {string} */ name) => `Anúncios ${name} de todas as contas. Estoque e preço vêm do cadastro do produto e das regras de cada conta.` },
+  accounts: { suffix: "/configuracoes", tab: "Contas", view: "accounts",
+    lead: (/** @type {string} */ name) => `Contas ${name} conectadas ao DACH Hub. Cada conta ocupa uma vaga do plano.` },
+  rules: { suffix: "/configuracoes/regras", tab: "Regras de preço e estoque", view: "mpRules",
+    lead: (/** @type {string} */ name) => `Regra de preço e regra de estoque de cada conta ${name}. Vale para todos os anúncios da conta, menos os que têm regra própria.` },
+});
 
 /**
  * HTML de uma página: o conteúdo fica em <main data-shell-content> e o
@@ -43,7 +75,32 @@ const PAGES = {
  * @param {{ name: string, isAdmin: boolean }} viewer
  */
 function renderPage(path, viewer) {
-  const page = PAGES[path];
+  return renderShell(PAGES[path], viewer);
+}
+
+/**
+ * Página de um marketplace (Anúncios, Contas ou Regras), com as abas do canal.
+ * @param {{ channel: { id: string, label: string, slug: string, de: string }, section: keyof typeof CHANNEL_SECTIONS }} input
+ * @param {{ name: string, isAdmin: boolean }} viewer
+ */
+function renderChannelPage({ channel, section }, viewer) {
+  const current = CHANNEL_SECTIONS[section];
+  const base = `/hub/marketplaces/${channel.slug}`;
+  const tabs = Object.values(CHANNEL_SECTIONS).map((s) =>
+    `<a class="hub-tab" href="${base}${s.suffix}"${s === current ? ' aria-current="page"' : ""}>${esc(s.tab)}</a>`).join("");
+  return renderShell({
+    title: `${channel.label}${section === "listings" ? "" : ` · ${current.tab}`}`, heading: channel.label, kicker: "Marketplaces",
+    lead: current.lead(`${channel.de} ${channel.label}`), view: current.view, channel: channel.id,
+    tabs: `<nav class="hub-tabs" aria-label="Seções ${esc(channel.de)} ${esc(channel.label)}">${tabs}</nav>`,
+  }, viewer);
+}
+
+/**
+ * @param {{ title: string, heading?: string, kicker: string, lead: string, view: string, channel?: string, tabs?: string }} page
+ * @param {{ name: string, isAdmin: boolean }} viewer
+ */
+function renderShell(page, viewer) {
+  const menu = JSON.stringify(marketplaceList().map(({ id, label, slug }) => ({ id, label, slug })));
   return `<!doctype html>
 <html lang="pt-BR" data-seller-theme="violet">
 <head>
@@ -56,10 +113,11 @@ function renderPage(path, viewer) {
   <link rel="stylesheet" href="/hub/assets/hub.css?v=${ASSET_VERSION}">
 </head>
 <body>
-  <main data-shell-content data-view="${esc(page.view)}" data-admin="${viewer.isAdmin ? "1" : "0"}">
+  <main data-shell-content data-view="${esc(page.view)}" data-admin="${viewer.isAdmin ? "1" : "0"}"${page.channel ? ` data-channel="${esc(page.channel)}"` : ""} data-marketplaces="${esc(menu)}">
     <section class="seller-hero">
-      <div><span class="seller-kicker">${esc(page.kicker)}</span><h1>${esc(page.title)}</h1><p>${esc(page.lead)}</p></div>
+      <div><span class="seller-kicker">${esc(page.kicker)}</span><h1>${esc(page.heading || page.title)}</h1><p>${esc(page.lead)}</p></div>
     </section>
+    ${page.tabs || ""}
     <div data-view-root><div class="seller-card"><div class="seller-empty"><strong>Carregando…</strong></div></div></div>
   </main>
   <script src="/hub/ui/seller-shell.js?v=${ASSET_VERSION}"></script>
@@ -68,6 +126,7 @@ function renderPage(path, viewer) {
   <script src="/hub/assets/hub-automations.js?v=${ASSET_VERSION}"></script>
   <script src="/hub/assets/hub-expedition.js?v=${ASSET_VERSION}"></script>
   <script src="/hub/assets/hub-analytics.js?v=${ASSET_VERSION}"></script>
+  <script src="/hub/assets/hub-marketplaces.js?v=${ASSET_VERSION}"></script>
   <script src="/hub/assets/hub-app.js?v=${ASSET_VERSION}"></script>
 </body>
 </html>`;
@@ -127,4 +186,4 @@ function renderLinkPage({ status, channelLabel, token, message, code }) {
 </html>`;
 }
 
-module.exports = { PAGES, renderPage, renderLinkPage, ASSET_VERSION };
+module.exports = { PAGES, CHANNEL_SECTIONS, renderPage, renderChannelPage, renderLinkPage, marketplaceList, marketplaceForSlug, slugFor, ASSET_VERSION };

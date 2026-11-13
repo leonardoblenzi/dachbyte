@@ -5,7 +5,7 @@ const express = require("express");
 const path = require("node:path");
 const { createAuthMiddleware, requireAdmin, SUITE_COOKIE } = require("./platform/auth");
 const { createContainer } = require("./container");
-const { PAGES, renderPage, renderLinkPage } = require("./web/pages");
+const { PAGES, CHANNEL_SECTIONS, renderPage, renderChannelPage, renderLinkPage, marketplaceForSlug, slugFor } = require("./web/pages");
 const { timingSafeEqual } = require("node:crypto");
 
 /** Token entre serviços (comparação em tempo constante). @param {unknown} header @param {string} secret */
@@ -28,7 +28,7 @@ function int(value, fallback) { const n = Number.parseInt(String(value ?? ""), 1
  * @param {Parameters<typeof createContainer>[0]} [deps]
  */
 async function createApp(deps = {}) {
-  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition, labels, analytics, accessHub } = createContainer(deps);
+  const { config, catalog, connectors, accounts, imports, stock, orders, sync, syncQueues, reconcile, billing, automations, expedition, labels, analytics, accessHub, marketplaces } = createContainer(deps);
 
   const app = express();
   app.set("trust proxy", 1);
@@ -129,30 +129,49 @@ async function createApp(deps = {}) {
 
   app.use(createAuthMiddleware(config, { accessHub }));
 
+  /** Onde ficam as contas do canal: marketplace na aba Contas do próprio painel; loja virtual em Contas conectadas. @param {string} channel */
+  const accountsPath = (channel) => (connectors.has(channel) && connectors.definition(channel).kind === "marketplace"
+    ? `/hub/marketplaces/${slugFor(channel)}/configuracoes` : "/hub/contas");
+  // Retorno de conexão de um marketplace por Contas conectadas: segue para a aba Contas do canal.
+  app.get("/contas", (req, res, next) => {
+    const channel = String(req.query.conectado || "");
+    if (!channel || accountsPath(channel) === "/hub/contas") return next();
+    res.redirect(302, `${accountsPath(channel)}?conectado=${encodeURIComponent(channel)}`);
+  });
+
   // Páginas (o shell monta o menu e a barra superior no navegador).
   for (const pagePath of /** @type {(keyof typeof PAGES)[]} */ (Object.keys(PAGES))) {
     app.get(pagePath, (req, res) => {
       res.type("html").send(renderPage(pagePath, identity(req)));
     });
   }
+  // Painel de cada marketplace: Anúncios, Contas e Regras de preço e estoque.
+  for (const section of /** @type {(keyof typeof CHANNEL_SECTIONS)[]} */ (Object.keys(CHANNEL_SECTIONS))) {
+    app.get(`/marketplaces/:slug${CHANNEL_SECTIONS[section].suffix}`, (req, res, next) => {
+      const channel = marketplaceForSlug(String(req.params.slug));
+      if (!channel || !connectors.has(channel.id)) return next();
+      res.type("html").send(renderChannelPage({ channel, section }, identity(req)));
+    });
+  }
 
   // Conectar conta: só o administrador da empresa inicia; o retorno volta para Contas conectadas.
   app.get("/auth/:channel/start", async (req, res) => {
-    if (!identity(req).isAdmin) return res.redirect(302, "/hub/contas?erro=admin_required");
+    const back = accountsPath(String(req.params.channel));
+    if (!identity(req).isAdmin) return res.redirect(302, `${back}?erro=admin_required`);
     try {
       res.redirect(302, await accounts.startConnect({ identity: identity(req), channel: req.params.channel, reconnectAccountId: int(req.query.conta, 0) || undefined }));
     } catch (error) {
-      res.redirect(302, `/hub/contas?erro=${encodeURIComponent(/** @type {any} */ (error).code || "connect_failed")}`);
+      res.redirect(302, `${back}?erro=${encodeURIComponent(/** @type {any} */ (error).code || "connect_failed")}`);
     }
   });
   app.get("/auth/:channel/callback", async (req, res) => {
     try {
       const account = await accounts.finishConnect({ identity: identity(req), channel: req.params.channel, query: req.query });
       await startFirstImport(identity(req), account);
-      res.redirect(302, `/hub/contas?conectado=${encodeURIComponent(req.params.channel)}`);
+      res.redirect(302, `${accountsPath(String(req.params.channel))}?conectado=${encodeURIComponent(req.params.channel)}`);
     } catch (error) {
       if (Number(/** @type {any} */ (error).status) >= 500) console.error("[seller-hub] callback", error);
-      res.redirect(302, `/hub/contas?erro=${encodeURIComponent(/** @type {any} */ (error).code || "connect_failed")}`);
+      res.redirect(302, `${accountsPath(String(req.params.channel))}?erro=${encodeURIComponent(/** @type {any} */ (error).code || "connect_failed")}`);
     }
   });
 
@@ -470,6 +489,21 @@ async function createApp(deps = {}) {
   api.put("/stock/listings/:listingId/sync", requireAdmin, handle(async (req) => ({ listing: await stock.setListingSync({
     identity: who(req), listingId: int(req.params.listingId, 0), enabled: req.body?.enabled === true,
   }) })));
+  // Marketplaces (fase 1): painel por canal com anúncios, contas e regras. Nada é enviado aos canais.
+  api.get("/marketplaces", handle(async (req) => ({ marketplaces: await marketplaces.overview(identity(req).tenantId) })));
+  api.get("/marketplaces/:channel/listings", handle(async (req) => marketplaces.listings(identity(req).tenantId, String(req.params.channel), {
+    accountId: req.query.accountId ? int(req.query.accountId, 0) : null, q: String(req.query.q || ""), status: String(req.query.status || ""),
+    link: String(req.query.link || ""), priceRule: String(req.query.priceRule || ""), limit: int(req.query.limit, 50), offset: int(req.query.offset, 0),
+  })));
+  api.get("/marketplaces/:channel/rules", handle(async (req) => ({ accounts: await marketplaces.rules(identity(req).tenantId, String(req.params.channel)) })));
+  api.put("/marketplaces/accounts/:accountId/price-rule", requireAdmin, handle(async (req) => marketplaces.savePriceRule({
+    identity: who(req), scope: "account", targetId: int(req.params.accountId, 0), rule: req.body?.rule ?? null,
+  })));
+  api.put("/marketplaces/listings/:listingId/price-rule", requireAdmin, handle(async (req) => marketplaces.savePriceRule({
+    identity: who(req), scope: "listing", targetId: int(req.params.listingId, 0), rule: req.body?.rule ?? null,
+  })));
+  // Simulação da regra com preços de exemplo (não grava nada).
+  api.post("/marketplaces/price-preview", handle(async (req) => marketplaces.previewPrice({ rule: req.body?.rule, sample: req.body?.sample || {} })));
   app.use("/api", api);
 
   app.use((req, res) => {

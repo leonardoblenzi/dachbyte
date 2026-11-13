@@ -136,3 +136,38 @@ button.hub-attention__card{ text-align: left; font: inherit; cursor: pointer; }
 .hub-share i{ display: block; height: 100%; }
 .hub-dot{ display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; vertical-align: 1px; }
 .hub-nowrap{ white-space: nowrap; margin-right: 8px; }
+/* Marketplaces: abas do canal, filtros rápidos, cartões e regra de preço com simulação. */
+.hub-tabs{ display: flex; flex-wrap: wrap; gap: 4px; margin: -4px 0 16px; border-bottom: 1px solid var(--seller-border); }
+.hub-tab{ padding: 10px 14px; border-bottom: 2px solid transparent; color: var(--seller-text-soft); font-size: .86rem; font-weight: 700; text-decoration: none; }
+.hub-tab:hover{ color: var(--seller-text); }
+.hub-tab[aria-current="page"]{ color: var(--seller-brand-500); border-bottom-color: var(--seller-brand-500); }
+.hub-tab:focus-visible, .hub-chip:focus-visible{ outline: 2px solid var(--seller-brand-500); outline-offset: 2px; border-radius: 8px; }
+.hub-chips{ display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.hub-chip{ display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 12px; border: 1px solid var(--seller-border); border-radius: 999px; background: var(--seller-surface); color: var(--seller-text); font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; }
+.hub-chip.is-active{ border-color: var(--seller-brand-500); background: color-mix(in srgb, var(--seller-brand-500) 10%, var(--seller-surface)); }
+.hub-note{ margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--seller-border); background: var(--seller-surface-soft); color: var(--seller-text-soft); font-size: .8rem; line-height: 1.5; }
+.hub-link-sm{ font-size: .76rem; font-weight: 700; }
+.hub-mp-grid{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.hub-mp-card{ display: grid; gap: 14px; align-content: start; }
+.hub-mp-card h2{ margin: 0; }
+.hub-mp-card .hub-account-head{ margin: 0; }
+.hub-metrics--3{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.hub-mp-table td{ vertical-align: top; }
+.hub-mp-table td:first-child{ min-width: 260px; }
+.hub-account-name{ font-size: 1rem; }
+.hub-rule-block h3{ margin: 0; font-size: .95rem; }
+.hub-rule-block > p{ margin: 0; }
+.hub-form-grid--3{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.hub-preview{ display: grid; gap: 8px; padding: 12px; border-radius: 12px; border: 1px dashed color-mix(in srgb, var(--seller-brand-500) 40%, var(--seller-border)); background: var(--seller-surface-soft); }
+.hub-preview__inputs{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: end; font-size: .8rem; }
+.hub-preview__inputs > strong{ grid-column: 1 / -1; }
+.hub-preview__result{ margin: 0; font-size: .9rem; }
+@media (max-width: 1100px){ .hub-mp-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); } .hub-mp-filters{ grid-template-columns: repeat(2, minmax(0, 1fr)); } .hub-mp-filters [type="search"]{ grid-column: 1 / -1; } }
+@media (max-width: 760px){ .hub-mp-grid, .hub-form-grid--3, .hub-metrics--3{ grid-template-columns: 1fr; } .hub-preview__inputs{ grid-template-columns: 1fr 1fr; } .hub-tabs{ overflow-x: auto; flex-wrap: nowrap; } .hub-tab{ white-space: nowrap; } }
+.hub-actions.hub-actions--start{ justify-content: flex-start; }
+.hub-rule-block{ align-content: start; }
+.hub-rule-block .hub-form-grid, .hub-rule-block .hub-form-grid--3{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hub-mp-filters{ display: grid; grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(0, 1fr)) auto auto; gap: 8px; align-items: center; margin-bottom: 12px; }
+.hub-mp-filters input, .hub-mp-filters select{ min-width: 0; padding: 9px 11px; border: 1px solid var(--seller-border); border-radius: 10px; background: var(--seller-surface); color: var(--seller-text); font: inherit; font-size: .84rem; }
+.hub-mp-table .hub-btn-xs{ white-space: nowrap; }
+@media (max-width: 760px){ .hub-mp-filters, .hub-rule-block .hub-form-grid, .hub-rule-block .hub-form-grid--3{ grid-template-columns: 1fr; } }
