@@ -1,6 +1,6 @@
 # DACH Hub — Produtos, Marketplaces e Aplicativos
 
-Planejamento das telas aprovadas na prévia de 11/11/2026: cadastro central de produtos, painel por marketplace (anúncios, contas e regras), estoque e prazo controlados no produto, e aplicativos (ERPs). Nada aqui foi codado ainda.
+Planejamento das telas aprovadas na prévia de 11/11/2026: cadastro central de produtos, painel por marketplace (anúncios, contas e regras), estoque e prazo controlados no produto, aplicativos (ERPs) e a escolha do que cada empresa usa do Hub. A fase 1 já foi codada (ver Andamento); o resto ainda não.
 
 ## Princípios
 
@@ -9,6 +9,7 @@ Planejamento das telas aprovadas na prévia de 11/11/2026: cadastro central de p
 3. **Cada canal no formato da sua API.** ML: anúncio MLB + variação, prazo de fabricação. Shopee: item + modelo, dias para envio (prazo longo vira pré-venda). Magalu: SKU do lojista, prazo de despacho.
 4. **Escrever nos canais é sempre em etapas:** primeiro "o que mudaria" (observação), depois envio só para as empresas do piloto (`HUB_WRITE_TENANTS`), com histórico e conferência relendo o anúncio — como o estoque já faz hoje.
 5. **Divisão com o módulo DACH ML:** o Hub cuida do multicanal (cadastro, preço, estoque, conteúdo e vínculo). Promoções, atacado, clonar e demais operações avançadas do ML continuam só no módulo DACH ML, sem atalho por enquanto.
+6. **Cada empresa escolhe o que usa.** O Hub funciona por partes: dá para usar só análise e precificação, só pedidos e expedição, ou tudo. Quem já tem Tray, ERP ou outro hub mantém esse sistema cuidando dos dados que quiser. **Tudo começa desligado** e nada é enviado aos canais sem a empresa ligar (ver "Uso do Hub").
 
 ## O que já existe e será reaproveitado
 
@@ -48,6 +49,12 @@ Planejamento das telas aprovadas na prévia de 11/11/2026: cadastro central de p
 
 **`hub.listing_pushes`** — fila de envio do que não é estoque: `listing_id`, `kind` (`lead_time`, `status`, `price`, `content`), `desired`, `previous`, `observed`, `state` (mesmo ciclo de `stock_pushes`: pendente → enviando → conferido / divergente / falhou).
 
+**`hub.tenant_settings` (colunas novas)** — uso do Hub pela empresa: funções ligadas (`use_analysis`, `use_orders`, `use_stock`, `use_catalog`, todas `false` por padrão) e quem cuida de cada dado (`owner_stock`, `owner_price`, `owner_lead`, `owner_content`: `other` por padrão ou `hub`), com quem alterou e quando.
+
+**`hub.channel_accounts` (colunas novas)** — o que a conta recebe, além do `stock_sync_mode` que já existe: `price_sync_mode`, `lead_sync_mode`, `content_sync_mode` (`off`, `observe`, `active`; padrão `off`).
+
+**Exceções:** `hub.products.sync_enabled` ("Não sincronizar este produto", padrão `true`) e, no anúncio, a pausa por tipo de dado (`hub.listings.sync_paused`, lista com `stock`, `price`, `lead`, `content`), que substitui o `sync_enabled` de hoje (só estoque).
+
 **`hub.app_installations`** e **`hub.app_sync_runs`** — aplicativos ligados (ERP, planilha): `app_key`, `status`, credenciais cifradas (mesma chave dos tokens dos canais), `settings` (o que sincroniza e em que sentido) e o histórico de cada sincronização.
 
 ## Relações
@@ -76,6 +83,39 @@ erDiagram
 
 Em palavras: uma **empresa** tem **produtos**; cada produto tem uma ou mais **variações** (`items`); cada variação pode estar em **vários anúncios**, de vários canais e contas; cada **conta** tem a sua regra de preço e de estoque, e cada **anúncio** pode ter exceção de regra e ajuste de conteúdo.
 
+## Uso do Hub: funções e quem cuida de cada dado (decidido em 13/11/2026)
+
+Tela **Conta › Configurações**, com as abas **Uso do Hub**, **Custos e impostos** (custo com histórico e imposto por conta, do plano de Análise) e **Estoque e envios** (pausa geral, aviso de estoque baixo e divergências, que hoje ficam em Estoque › Regras por conta). Só o administrador da empresa altera; toda mudança vai para o histórico de alterações.
+
+**1. Funções do DACH Hub** (liga/desliga; o menu mostra só as ligadas):
+- **Análise e precificação**: vendas, mais vendidos, margem por canal e conta, taxas por pedido, preço sugerido. Menu Análise.
+- **Pedidos e expedição**: central de pedidos, separação, conferência, etiquetas e coletas. Menus Vendas e Expedição.
+- **Estoque**: saldo central, movimentos e estoque calculado por anúncio. Menu Estoque.
+- **Cadastro de produtos**: produtos, variações, preços, medidas, imagens e descrição no Hub. Menu Produtos.
+- **Marketplaces** (contas e anúncios) e **Aplicativos** ficam sempre disponíveis: é por eles que o Hub lê anúncios, pedidos e taxas.
+- Desligar uma função pede confirmação, devolve os dados dela para "Outro sistema" (os envios param na hora) e esconde as telas. Nada é apagado.
+
+**2. Quem cuida de cada dado** — **Estoque**, **Preço**, **Prazo e pausa**, **Conteúdo** (título, descrição, imagens). Cada um com **Outro sistema** (padrão) ou **DACH Hub**:
+- **Outro sistema:** o Hub só lê, calcula e mostra; nada é enviado. No preço, o Hub mostra margem e preço sugerido na Análise e exporta planilha para aplicar no outro sistema.
+- **DACH Hub:** o Hub envia o dado nas contas que estiverem em **Ativo** para aquele tipo (Marketplaces › canal › Contas, com Desligado, Observação e Ativo por tipo de dado).
+- "DACH Hub" só fica disponível com a função correspondente ligada: Estoque e Prazo e pausa exigem **Estoque**; Preço exige **Análise e precificação**; Conteúdo exige **Cadastro de produtos**. Com a função desligada, a linha diz que o Hub não mexe naquele dado.
+- Passar para "DACH Hub" exige marcar "Desliguei o envio deste dado no outro sistema (plataforma, ERP ou outro hub)": dois sistemas enviando o mesmo dado sobrescrevem um ao outro.
+- **Preço com o cadastro em outro sistema:** a regra precisa partir do **custo** (ou de uma tabela de preços do Hub), nunca do preço lido do próprio canal, que faria o Hub ler e escrever o mesmo valor em ciclo.
+
+**3. Exceções:** produto marcado "Não sincronizar" (Mais opções do produto) e anúncio com sincronização pausada por tipo de dado (Mais ações do anúncio). A tela mostra quantos há de cada.
+
+**O Hub só envia um dado a um anúncio quando:** o dado está com "DACH Hub", a conta está em Ativo para aquele tipo e o produto e o anúncio não estão nas exceções. Fora disso, só observa.
+
+**Cadastro em outro sistema:** com o Cadastro de produtos desligado, os produtos (SKUs ligados aos anúncios) aparecem só para consulta, com preço, estoque, título e imagens marcados "vem do outro sistema / do canal". Continuam editáveis no Hub só os dados internos, que nunca vão para os canais: custo, medidas e composição de kit.
+
+**Padrões e migração:**
+- **Empresa nova:** as quatro funções desligadas e os quatro dados em "Outro sistema". O Painel mostra "Escolha o que você quer usar", com link para Configurações.
+- **Empresas que já usam o Hub:** as funções que já usam continuam ligadas, para nenhuma tela sumir. O estoque passa para "DACH Hub" só onde já houver conta enviando estoque (hoje nenhuma em produção). O resto fica em "Outro sistema".
+
+**Exemplos:**
+- Tray e outro hub, só precificação e análise: liga só Análise e precificação; todos os dados em "Outro sistema"; preço sugerido exportado em planilha. Se depois quiser que o Hub envie o preço, passa o Preço para "DACH Hub" e ativa as contas, com a regra partindo do custo.
+- D'Rossi no começo: liga as funções que quiser (ex.: Análise e Pedidos), todos os dados em "Outro sistema"; passa cada dado para o Hub quando decidir (ex.: estoque de uma conta Magalu em Observação, depois Ativo).
+
 ## Como calcular o que vai para cada anúncio
 
 - **Estoque enviado** = saldo da variação (kit: menor componente) → regra de estoque (anúncio, senão conta) → política de "quando acabar" (da variação, senão do produto, senão `zero`). **Todas as opções são opcionais no cadastro; se o usuário não escolher nenhuma, quando o estoque zerar o Hub envia 0.**
@@ -99,10 +139,10 @@ Em palavras: uma **empresa** tem **produtos**; cada produto tem uma ou mais **va
 | Fase | Entrega | Escreve nos canais? |
 |---|---|---|
 | **1. Marketplaces** | Menu Marketplaces (ML, Shopee, Magalu); anúncios por canal com filtros por conta; Configurações com contas (Usar no Hub / Conectar / limite do plano), regra de estoque (de `stock_rules`) e regra de preço gravada com "o que mudaria". Tabela `price_rules`. | Não |
-| **2. Produtos** | Tabelas de produto, variação, imagem, categoria e características; lista com status colorido, edição rápida, editar completo, mais opções; agrupamento dos SKUs atuais; importação dos anúncios e planilha. | Não |
-| **3. Estoque e prazo** | Política de estoque no produto e na variação; envio de prazo e de pausa além do estoque; aviso de produto inativo com estoque. | Sim, piloto |
-| **4. Preço** | Regras aplicadas; envio de preço com conferência. | Sim, piloto |
-| **5. Conteúdo** | Ajuste no canal; envio de título, descrição e imagens. | Sim, piloto |
+| **2. Produtos** | **Configurações › Uso do Hub** (funções, quem cuida de cada dado, exceções) e menu por função; tabelas de produto, variação, imagem, categoria e características; lista com status colorido, edição rápida, editar completo, mais opções, "Não sincronizar"; modo consulta quando o cadastro fica em outro sistema; agrupamento dos SKUs atuais; importação dos anúncios e planilha. | Não |
+| **3. Estoque e prazo** | Política de estoque no produto e na variação; envio de prazo e de pausa além do estoque, com modo por conta para prazo e pausa; aviso de produto inativo com estoque. | Sim, piloto |
+| **4. Preço** | Regras aplicadas; modo por conta para preço; envio de preço com conferência; preço sugerido e planilha quando o preço fica em "Outro sistema". | Sim, piloto |
+| **5. Conteúdo** | Ajuste no canal; modo por conta para conteúdo; envio de título, descrição e imagens. | Sim, piloto |
 | **6. Publicar no canal** | Relação de categorias e atributos obrigatórios; criar anúncio a partir do produto. | Sim, piloto |
 | **7. Aplicativos** | Catálogo e "Meus aplicativos"; Planilha como aplicativo; primeiro ERP. | Não (lê do ERP) |
 
@@ -144,3 +184,4 @@ Cada fase entra em produção sozinha, com testes e com o roteiro de prévia atu
    - **No banco:** só a referência (`storage_key`), as medidas, o tamanho e a ordem.
 3. **ERPs:** ficam para o futuro. A fase 7 entra só com a tela de Aplicativos e a Planilha; a escolha do primeiro ERP fica para depois.
 4. **Limite de imagem (decidido em 12/11/2026):** igual ao da Tray: JPG, JPEG e PNG, até 5 MB e até 2.500 px. Guardadas no disco da VPS, prontas para ir para o R2 (item 2).
+5. **Uso do Hub (decidido em 13/11/2026):** cada empresa liga só as funções que usa e escolhe, dado a dado, se quem cuida é "Outro sistema" ou o "DACH Hub". Tudo começa desligado e em "Outro sistema". Detalhes na seção "Uso do Hub".
